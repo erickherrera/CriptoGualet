@@ -1,0 +1,3 @@
+C:/Users/erick/source/repos/CriptoGualet/build/CMakeFiles/CriptoGualet.dir
+C:/Users/erick/source/repos/CriptoGualet/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/erick/source/repos/CriptoGualet/build/CMakeFiles/ZERO_CHECK.dir

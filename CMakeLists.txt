@@ -1,31 +1,51 @@
-﻿# CMakeList.txt : CMake project for CriptoGualet, include source and define
-# project specific logic here.
-#
-cmake_minimum_required (VERSION 3.8)
+﻿cmake_minimum_required(VERSION 3.10)
 
-# Enable Hot Reload for MSVC compilers if supported.
-if (POLICY CMP0141)
-  cmake_policy(SET CMP0141 NEW)
-  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
-endif()
+project(CriptoGualet LANGUAGES CXX)
 
-project ("CriptoGualet")
+# ---- Executable ----
+add_executable(CriptoGualet WIN32
+    "CriptoGualet.cpp"
+    "CriptoGualet.h"
+)
 
-# Add source to this project's executable.
-add_executable (CriptoGualet WIN32 "CriptoGualet.cpp" "CriptoGualet.h")
+# C++ standard
+set_property(TARGET CriptoGualet PROPERTY CXX_STANDARD 20)
+set_property(TARGET CriptoGualet PROPERTY CXX_STANDARD_REQUIRED ON)
 
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET CriptoGualet PROPERTY CXX_STANDARD 20)
-endif()
-
-# Add UTF-8 support for MSVC
+# UTF-8 + Unicode on MSVC
 if(MSVC)
-    target_compile_options(CriptoGualet PRIVATE /utf-8)
-    # Also ensure Unicode character set
-    set_property(TARGET CriptoGualet PROPERTY VS_GLOBAL_CharacterSet Unicode)
+  target_compile_options(CriptoGualet PRIVATE /utf-8)
+  set_property(TARGET CriptoGualet PROPERTY VS_GLOBAL_CharacterSet Unicode)
 endif()
 
-# Alternative: Set compile definitions for Unicode
+# Prefer target-level defines (keeps scope tight)
 target_compile_definitions(CriptoGualet PRIVATE UNICODE _UNICODE)
 
-# TODO: Add tests and install targets if needed.
+# Warnings by compiler (commonly accepted baseline)
+if(MSVC)
+  target_compile_options(CriptoGualet PRIVATE /W4 /permissive- /EHsc)
+else()
+  target_compile_options(CriptoGualet PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+# Windows libs
+if(WIN32)
+  target_link_libraries(CriptoGualet PRIVATE comctl32)
+endif()
+
+# (Optional) organize IDE folders
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+# Clang tools integration
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  # Enable clang-tidy
+  find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
+  if(CLANG_TIDY_EXE)
+    set_target_properties(CriptoGualet PROPERTIES
+      CXX_CLANG_TIDY "${CLANG_TIDY_EXE};--config-file=${CMAKE_SOURCE_DIR}/.clang-tidy"
+    )
+  endif()
+endif()
+
+# Export compile commands for clang tools
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
