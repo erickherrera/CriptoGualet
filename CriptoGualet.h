@@ -3,7 +3,13 @@
 
 #pragma once
 
+// Windows headers need to be first with proper defines
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <commctrl.h>
+
+// Standard library headers
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -13,7 +19,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <windows.h>
 
 // Application constants
 #define ID_LOGIN_BUTTON 1001
@@ -44,3 +49,7 @@ extern std::string g_currentUser;
 extern HWND g_mainWindow;
 extern HFONT g_titleFont;
 extern HFONT g_buttonFont;
+
+// Function declarations
+std::string GenerateBitcoinAddress();
+std::string GeneratePrivateKey();

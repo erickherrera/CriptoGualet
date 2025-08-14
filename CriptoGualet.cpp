@@ -3,8 +3,6 @@
 
 #include "CriptoGualet.h"
 
-#include <windows.h>
-#include <commctrl.h>
 #pragma comment(lib, "Comctl32.lib")
 
 #include <array>
@@ -15,7 +13,6 @@
 #include <string>
 #include <vector>
 #include <map>
-
 #include "Auth/Auth.h"   // <-- use the separated auth module
 
 // ------------------------------ Globals ---------------------------------

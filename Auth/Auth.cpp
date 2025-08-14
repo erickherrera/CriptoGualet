@@ -1,18 +1,20 @@
-#include "../Auth/Auth.h"
-
-// Project headers
-#include "../CriptoGualet.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
-
-// Windows/CNG/Crypt32
+// Windows headers need to be first with proper defines
 #define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-
 #include <bcrypt.h>
+#include <wincrypt.h>
+
+// Standard library headers
 #include <cstring>
 #include <map>
 #include <sstream>
 #include <vector>
-#include <wincrypt.h>
+#include <fstream>
+
+// Project headers after Windows headers
+#include "../Auth/Auth.h"
+#include "../CriptoGualet.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
 
 #pragma comment(lib, "Bcrypt.lib")
 #pragma comment(lib, "Crypt32.lib")
