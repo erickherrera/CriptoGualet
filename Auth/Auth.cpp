@@ -14,7 +14,7 @@
 
 // Project headers after Windows headers
 #include "../Auth/Auth.h"
-#include "../CriptoGualet.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
+#include "../src/CriptoGualet.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
 
 #pragma comment(lib, "Bcrypt.lib")
 #pragma comment(lib, "Crypt32.lib")

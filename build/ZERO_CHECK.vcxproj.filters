@@ -1,13 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <CustomBuild Include="C:\Users\erick\source\repos\erickherrera\CriptoGualet\build\CMakeFiles\2330a5de23f9d63036d0de1513c6bd50\generate.stamp.rule">
+    <CustomBuild Include="C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\build\CMakeFiles\2806fe1bbef51614dc7cf334aa7b3f42\generate.stamp.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CMake Rules">
-      <UniqueIdentifier>{82A1CE17-0158-376E-A917-B6D012703C6D}</UniqueIdentifier>
+      <UniqueIdentifier>{C3B6E691-2164-3262-A6CD-E73FC3F8DE30}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

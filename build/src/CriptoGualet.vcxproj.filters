@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\CriptoGualet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\CriptoGualet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{3AF803A5-F891-393A-9F4E-FBBB18435961}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{46814EA0-917A-325E-BBED-4D74F52D76E2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

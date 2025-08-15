@@ -11,8 +11,6 @@
         "CMAKE_CXX_STANDARD_REQUIRED": "ON"
       }
     },
-
-    /* ---------------- Windows (MSVC) ---------------- */
     {
       "name": "win-msvc-x64-debug",
       "displayName": "Windows MSVC x64 Debug",
@@ -37,8 +35,6 @@
       "inherits": "win-msvc-x64-debug",
       "cacheVariables": {}
     },
-
-    /* ---------------- Linux (GCC) ---------------- */
     {
       "name": "linux-gcc-debug",
       "displayName": "Linux GCC Debug",
@@ -62,8 +58,6 @@
       "inherits": "linux-gcc-debug",
       "cacheVariables": {}
     },
-
-    /* ---------------- Linux (Clang) ---------------- */
     {
       "name": "linux-clang-debug",
       "displayName": "Linux Clang Debug",
@@ -86,8 +80,6 @@
       "inherits": "linux-clang-debug",
       "cacheVariables": {}
     }
-
-    /* (Optional) macOS presets can be added similarly with AppleClang */
   ],
   "buildPresets": [
     {
