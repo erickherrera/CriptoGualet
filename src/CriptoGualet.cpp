@@ -1,8 +1,5 @@
 ﻿// CriptoGualet.cpp : Defines the entry point for the application.
 //
-
-#include "../include/CriptoGualet.h"
-
 #pragma comment(lib, "Comctl32.lib")
 
 #include <array>
@@ -16,6 +13,7 @@
 #include "../include/Auth.h"   // <-- use the separated auth module
 #include "../include/LoginUI.h"
 #include "../include/WalletUI.h"
+#include "../include/CriptoGualet.h"
 
 // ------------------------------ Globals ---------------------------------
 AppState g_currentState = AppState::LOGIN_SCREEN;
@@ -210,7 +208,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         GetClientRect(hwnd, &rect);
 
         // Background
-        HBRUSH bgBrush = CreateSolidBrush(RGB(20, 30, 50));
+        HBRUSH bgBrush = CreateSolidBrush(RGB(20, 70, 80));
         FillRect(hdc, &rect, bgBrush);
         DeleteObject(bgBrush);
 
