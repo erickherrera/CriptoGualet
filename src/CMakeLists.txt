@@ -32,7 +32,11 @@ endif()
 if(WIN32 AND BUILD_GUI_WIN32)
   add_executable(CriptoGualet WIN32
     "CriptoGualet.cpp"
+    "LoginUI.cpp"
+    "WalletUI.cpp"
     "../Include/CriptoGualet.h"
+    "../Include/LoginUI.h"
+    "../Include/WalletUI.h"
   )
 
   # Define UNICODE on the GUI target

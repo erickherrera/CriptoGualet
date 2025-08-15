@@ -14,6 +14,8 @@
 #include <vector>
 #include <map>
 #include "../include/Auth.h"   // <-- use the separated auth module
+#include "../include/LoginUI.h"
+#include "../include/WalletUI.h"
 
 // ------------------------------ Globals ---------------------------------
 AppState g_currentState = AppState::LOGIN_SCREEN;
@@ -31,8 +33,6 @@ HWND g_registerButton;
 
 // ----------------------- Forward declarations ---------------------------
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-void CreateLoginUI(HWND hwnd);
-void CreateWalletUI(HWND hwnd);
 void ClearWindow(HWND hwnd);
 std::string GenerateBitcoinAddress();
 std::string GeneratePrivateKey();
@@ -81,7 +81,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = hInstance;
     wc.lpszClassName = CLASS_NAME;
-    wc.hbrBackground = CreateSolidBrush(RGB(20, 30, 50));
+    wc.hbrBackground = CreateSolidBrush(RGB(50, 30, 50));
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
 
     RegisterClassW(&wc);
@@ -242,82 +242,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 }
 
 // ------------------------------ UI helpers ------------------------------
-void CreateLoginUI(HWND hwnd) {
-    RECT rect;
-    GetClientRect(hwnd, &rect);
-
-    int centerX = rect.right / 2;
-    int centerY = rect.bottom / 2;
-
-    // Username label and edit
-    CreateWindowW(L"STATIC", L"Username:", WS_VISIBLE | WS_CHILD,
-        centerX - 150, centerY - 80, 100, 20, hwnd, nullptr, nullptr, nullptr);
-
-    g_usernameEdit = CreateWindowW(
-        L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
-        centerX - 150, centerY - 55, 300, 25, hwnd, (HMENU)ID_USERNAME_EDIT, nullptr, nullptr);
-
-    // Password label and edit
-    CreateWindowW(L"STATIC", L"Password:", WS_VISIBLE | WS_CHILD,
-        centerX - 150, centerY - 20, 100, 20, hwnd, nullptr, nullptr, nullptr);
-
-    g_passwordEdit = CreateWindowW(
-        L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL | ES_PASSWORD,
-        centerX - 150, centerY + 5, 300, 25, hwnd, (HMENU)ID_PASSWORD_EDIT, nullptr, nullptr);
-
-    // Buttons
-    g_loginButton = CreateWindowW(L"BUTTON", L"Login", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX - 100, centerY + 50, 80, 30, hwnd,
-        (HMENU)ID_LOGIN_BUTTON, nullptr, nullptr);
-
-    g_registerButton = CreateWindowW(L"BUTTON", L"Register", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX + 20, centerY + 50, 80, 30, hwnd,
-        (HMENU)ID_REGISTER_BUTTON, nullptr, nullptr);
-
-    // Fonts
-    SendMessage(g_usernameEdit, WM_SETFONT, (WPARAM)g_buttonFont, TRUE);
-    SendMessage(g_passwordEdit, WM_SETFONT, (WPARAM)g_buttonFont, TRUE);
-    SendMessage(g_loginButton, WM_SETFONT, (WPARAM)g_buttonFont, TRUE);
-    SendMessage(g_registerButton, WM_SETFONT, (WPARAM)g_buttonFont, TRUE);
-}
-
-void CreateWalletUI(HWND hwnd) {
-    RECT rect;
-    GetClientRect(hwnd, &rect);
-
-    int centerX = rect.right / 2;
-    int startY = 150;
-
-    // Wallet information
-    if (!g_currentUser.empty() && g_users.find(g_currentUser) != g_users.end()) {
-        const User& user = g_users[g_currentUser];
-        const std::wstring welcomeText = Widen("Welcome back, " + user.username + "!");
-        CreateWindowW(L"STATIC", welcomeText.c_str(), WS_VISIBLE | WS_CHILD | SS_CENTER,
-            centerX - 200, startY, 400, 25, hwnd, nullptr, nullptr, nullptr);
-
-        const std::wstring addressText = Widen("Your Bitcoin Address: " + user.walletAddress);
-        CreateWindowW(L"STATIC", addressText.c_str(), WS_VISIBLE | WS_CHILD | SS_CENTER,
-            centerX - 300, startY + 40, 600, 25, hwnd, nullptr, nullptr, nullptr);
-    }
-
-    // Wallet action buttons
-    CreateWindowW(L"BUTTON", L"View Balance", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX - 150, startY + 100, 120, 40, hwnd,
-        (HMENU)ID_VIEW_BALANCE_BUTTON, nullptr, nullptr);
-
-    CreateWindowW(L"BUTTON", L"Send Bitcoin", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX - 20, startY + 100, 120, 40, hwnd,
-        (HMENU)ID_SEND_BUTTON, nullptr, nullptr);
-
-    CreateWindowW(L"BUTTON", L"Receive Bitcoin", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX + 110, startY + 100, 120, 40, hwnd,
-        (HMENU)ID_RECEIVE_BUTTON, nullptr, nullptr);
-
-    // Logout
-    CreateWindowW(L"BUTTON", L"Logout", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX - 50, startY + 170, 100, 30, hwnd,
-        (HMENU)ID_LOGOUT_BUTTON, nullptr, nullptr);
-}
 
 void ClearWindow(HWND hwnd) {
     HWND child = GetWindow(hwnd, GW_CHILD);
