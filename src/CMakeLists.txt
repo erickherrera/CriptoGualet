@@ -11,12 +11,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ---- Auth library (portable, builds everywhere) ----
 add_library(Auth STATIC
-  "../Auth/Auth.cpp"
-  "../Auth/Auth.h"
+  "./Auth/Auth.cpp"
+  "./Auth/Auth.h"
 )
 target_include_directories(Auth PUBLIC
-  "${CMAKE_CURRENT_SOURCE_DIR}/.."
-  "${CMAKE_CURRENT_SOURCE_DIR}/../Auth"
+  "${CMAKE_CURRENT_SOURCE_DIR}/."
+  "${CMAKE_CURRENT_SOURCE_DIR}/./Auth"
 )
 
 # Reasonable warnings per-compiler with security flags

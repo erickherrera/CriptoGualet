@@ -87,7 +87,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>%(AdditionalOptions) /utf-8 /NXCOMPAT</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -111,10 +111,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;YNAMICBASE;UNICODE;_UNICODE;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -139,7 +139,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>%(AdditionalOptions) /utf-8 /NXCOMPAT</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -164,10 +164,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;YNAMICBASE;UNICODE;_UNICODE;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -192,7 +192,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>%(AdditionalOptions) /utf-8 /NXCOMPAT</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -217,10 +217,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;YNAMICBASE;UNICODE;_UNICODE;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -245,7 +245,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>%(AdditionalOptions) /utf-8 /NXCOMPAT</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -269,10 +269,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;YNAMICBASE;UNICODE;_UNICODE;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\..\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.;C:\Users\erick\source\repos\CriptoGualet\CriptoGualet\src\.\Auth;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>

@@ -110,19 +110,35 @@ namespace Auth
 
 std::string CreatePasswordHash(const std::string& password, unsigned iterations)
 {
+    OutputDebugStringA("CreatePasswordHash: Starting...\n");
+    
     // 16-byte random salt
     std::vector<uint8_t> salt(16);
-    if (!RandBytes(salt.data(), salt.size()))
+    if (!RandBytes(salt.data(), salt.size())) {
+        OutputDebugStringA("CreatePasswordHash: RandBytes failed\n");
         return {};
+    }
+    OutputDebugStringA("CreatePasswordHash: Salt generated\n");
 
     std::vector<uint8_t> dk;
     if (!PBKDF2_HMAC_SHA256(password, salt.data(), salt.size(), iterations, dk, 32))
     {
+        OutputDebugStringA("CreatePasswordHash: PBKDF2 failed\n");
         return {};
     }
+    OutputDebugStringA("CreatePasswordHash: PBKDF2 completed\n");
 
     std::ostringstream fmt;
-    fmt << "pbkdf2-sha256$" << iterations << "$" << B64Encode(salt) << "$" << B64Encode(dk);
+    std::string saltB64 = B64Encode(salt);
+    std::string dkB64 = B64Encode(dk);
+    
+    if (saltB64.empty() || dkB64.empty()) {
+        OutputDebugStringA("CreatePasswordHash: Base64 encoding failed\n");
+        return {};
+    }
+    
+    fmt << "pbkdf2-sha256$" << iterations << "$" << saltB64 << "$" << dkB64;
+    OutputDebugStringA("CreatePasswordHash: Success\n");
     return fmt.str();
 }
 
@@ -160,22 +176,36 @@ bool VerifyPassword(const std::string& password, const std::string& stored)
 
 bool RegisterUser(const std::string& username, const std::string& password)
 {
-    if (username.size() < 3 || password.size() < 6)
+    // Debug: Check input validation
+    if (username.size() < 3 || password.size() < 6) {
+        OutputDebugStringA("RegisterUser: Input validation failed\n");
         return false;
-    if (g_users.find(username) != g_users.end())
+    }
+    
+    // Debug: Check if username already exists
+    if (g_users.find(username) != g_users.end()) {
+        OutputDebugStringA("RegisterUser: Username already exists\n");
         return false;
+    }
 
     User u;
     u.username = username;
+    
+    // Debug: Test password hashing
+    OutputDebugStringA("RegisterUser: Creating password hash...\n");
     u.passwordHash = CreatePasswordHash(password); // salted PBKDF2
-    if (u.passwordHash.empty())
+    if (u.passwordHash.empty()) {
+        OutputDebugStringA("RegisterUser: Password hash creation failed\n");
         return false;
+    }
+    OutputDebugStringA("RegisterUser: Password hash created successfully\n");
 
     // Use your existing demo helpers:
     u.privateKey = GeneratePrivateKey();
     u.walletAddress = GenerateBitcoinAddress();
 
     g_users[username] = std::move(u);
+    OutputDebugStringA("RegisterUser: User registered successfully\n");
     return true;
 }
 
