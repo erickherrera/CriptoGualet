@@ -13,8 +13,8 @@
 #include <fstream>
 
 // Project headers after Windows headers
-#include "../Auth/Auth.h"
-#include "../src/CriptoGualet.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
+#include "../include/Auth.h"
+#include "../include/CriptoGualet.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
 
 #pragma comment(lib, "Bcrypt.lib")
 #pragma comment(lib, "Crypt32.lib")
@@ -83,23 +83,80 @@ inline bool constant_time_eq(const std::vector<uint8_t>& a, const std::vector<ui
     return diff == 0;
 }
 
-// PBKDF2-HMAC-SHA256 using CNG
+// Manual PBKDF2-HMAC-SHA256 implementation for Windows compatibility
+inline bool HMAC_SHA256(const std::vector<uint8_t>& key, const uint8_t* data, size_t data_len, std::vector<uint8_t>& out)
+{
+    out.assign(32, 0);
+    BCRYPT_ALG_HANDLE hAlg = nullptr;
+    BCRYPT_HASH_HANDLE hHash = nullptr;
+    NTSTATUS st = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, nullptr, BCRYPT_ALG_HANDLE_HMAC_FLAG);
+    if (!BCRYPT_SUCCESS(st))
+        return false;
+
+    st = BCryptCreateHash(hAlg, &hHash, nullptr, 0, (PUCHAR)key.data(), (ULONG)key.size(), 0);
+    if (!BCRYPT_SUCCESS(st)) {
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return false;
+    }
+
+    st = BCryptHashData(hHash, (PUCHAR)data, (ULONG)data_len, 0);
+    if (!BCRYPT_SUCCESS(st)) {
+        BCryptDestroyHash(hHash);
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return false;
+    }
+
+    st = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
+    BCryptDestroyHash(hHash);
+    BCryptCloseAlgorithmProvider(hAlg, 0);
+    return BCRYPT_SUCCESS(st);
+}
+
+// PBKDF2-HMAC-SHA256 using manual implementation for compatibility
 inline bool PBKDF2_HMAC_SHA256(
     const std::string& password, const uint8_t* salt, size_t salt_len, uint32_t iterations,
     std::vector<uint8_t>& out_key, size_t dk_len = 32)
 {
     out_key.assign(dk_len, 0);
-    BCRYPT_ALG_HANDLE hAlg = nullptr;
-    NTSTATUS st = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
-    if (!BCRYPT_SUCCESS(st))
-        return false;
-
-    // CNG PBKDF2 via BCryptDeriveKeyPBKDF2 (available on Win 10+)
-    st = BCryptDeriveKeyPBKDF2(
-        hAlg, (PUCHAR)password.data(), (ULONG)password.size(), (PUCHAR)salt, (ULONG)salt_len,
-        iterations, (PUCHAR)out_key.data(), (ULONG)out_key.size(), 0);
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-    return BCRYPT_SUCCESS(st);
+    
+    const size_t hash_len = 32; // SHA256 output length
+    const size_t blocks = (dk_len + hash_len - 1) / hash_len;
+    
+    std::vector<uint8_t> key(password.begin(), password.end());
+    std::vector<uint8_t> block_input(salt_len + 4);
+    std::memcpy(block_input.data(), salt, salt_len);
+    
+    for (size_t i = 0; i < blocks; ++i) {
+        // Block number as big-endian 32-bit integer
+        uint32_t block_num = static_cast<uint32_t>(i + 1);
+        block_input[salt_len] = (block_num >> 24) & 0xFF;
+        block_input[salt_len + 1] = (block_num >> 16) & 0xFF;
+        block_input[salt_len + 2] = (block_num >> 8) & 0xFF;
+        block_input[salt_len + 3] = block_num & 0xFF;
+        
+        std::vector<uint8_t> u, result(hash_len, 0);
+        
+        // First iteration
+        if (!HMAC_SHA256(key, block_input.data(), block_input.size(), u))
+            return false;
+        
+        for (size_t j = 0; j < hash_len; ++j)
+            result[j] = u[j];
+        
+        // Remaining iterations
+        for (uint32_t iter = 1; iter < iterations; ++iter) {
+            if (!HMAC_SHA256(key, u.data(), u.size(), u))
+                return false;
+            for (size_t j = 0; j < hash_len; ++j)
+                result[j] ^= u[j];
+        }
+        
+        // Copy block result to output
+        size_t copy_len = std::min(hash_len, dk_len - i * hash_len);
+        std::memcpy(out_key.data() + i * hash_len, result.data(), copy_len);
+    }
+    
+    return true;
 }
 
 } // namespace
@@ -182,9 +239,18 @@ bool RegisterUser(const std::string& username, const std::string& password)
         return false;
     }
     
+    // Debug: Show current users in map
+    std::string debugMsg = "RegisterUser: Current users in map (" + std::to_string(g_users.size()) + "): ";
+    for (const auto& pair : g_users) {
+        debugMsg += "[" + pair.first + "] ";
+    }
+    debugMsg += "\n";
+    OutputDebugStringA(debugMsg.c_str());
+    
     // Debug: Check if username already exists
     if (g_users.find(username) != g_users.end()) {
-        OutputDebugStringA("RegisterUser: Username already exists\n");
+        std::string msg = "RegisterUser: Username '" + username + "' already exists\n";
+        OutputDebugStringA(msg.c_str());
         return false;
     }
 
@@ -279,26 +345,38 @@ void LoadUserDatabase()
             // Read username
             size_t usernameLen = 0;
             file.read(reinterpret_cast<char*>(&usernameLen), sizeof(usernameLen));
-            user.username.resize(usernameLen);
-            file.read(&user.username[0], static_cast<std::streamsize>(usernameLen));
+            if (usernameLen > 0) {
+                std::vector<char> buffer(usernameLen);
+                file.read(buffer.data(), static_cast<std::streamsize>(usernameLen));
+                user.username.assign(buffer.begin(), buffer.end());
+            }
 
             // Read password hash
             size_t hashLen = 0;
             file.read(reinterpret_cast<char*>(&hashLen), sizeof(hashLen));
-            user.passwordHash.resize(hashLen);
-            file.read(&user.passwordHash[0], static_cast<std::streamsize>(hashLen));
+            if (hashLen > 0) {
+                std::vector<char> buffer(hashLen);
+                file.read(buffer.data(), static_cast<std::streamsize>(hashLen));
+                user.passwordHash.assign(buffer.begin(), buffer.end());
+            }
 
             // Read wallet address
             size_t addrLen = 0;
             file.read(reinterpret_cast<char*>(&addrLen), sizeof(addrLen));
-            user.walletAddress.resize(addrLen);
-            file.read(&user.walletAddress[0], static_cast<std::streamsize>(addrLen));
+            if (addrLen > 0) {
+                std::vector<char> buffer(addrLen);
+                file.read(buffer.data(), static_cast<std::streamsize>(addrLen));
+                user.walletAddress.assign(buffer.begin(), buffer.end());
+            }
 
             // Read private key
             size_t keyLen = 0;
             file.read(reinterpret_cast<char*>(&keyLen), sizeof(keyLen));
-            user.privateKey.resize(keyLen);
-            file.read(&user.privateKey[0], static_cast<std::streamsize>(keyLen));
+            if (keyLen > 0) {
+                std::vector<char> buffer(keyLen);
+                file.read(buffer.data(), static_cast<std::streamsize>(keyLen));
+                user.privateKey.assign(buffer.begin(), buffer.end());
+            }
 
             g_users[user.username] = std::move(user);
         }

@@ -1,7 +1,7 @@
 ﻿// CriptoGualet.cpp : Defines the entry point for the application.
 //
 
-#include "CriptoGualet.h"
+#include "../include/CriptoGualet.h"
 
 #pragma comment(lib, "Comctl32.lib")
 
@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "Auth/Auth.h"   // <-- use the separated auth module
+#include "../include/Auth.h"   // <-- use the separated auth module
 
 // ------------------------------ Globals ---------------------------------
 AppState g_currentState = AppState::LOGIN_SCREEN;

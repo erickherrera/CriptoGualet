@@ -11,8 +11,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ---- Auth library (portable, builds everywhere) ----
 add_library(Auth STATIC
-  "./Auth/Auth.cpp"
-  "./Auth/Auth.h"
+  "./Auth.cpp"
+  "../include/Auth.h"
 )
 target_include_directories(Auth PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/."
@@ -32,7 +32,7 @@ endif()
 if(WIN32 AND BUILD_GUI_WIN32)
   add_executable(CriptoGualet WIN32
     "CriptoGualet.cpp"
-    "CriptoGualet.h"
+    "../Include/CriptoGualet.h"
   )
 
   # Define UNICODE on the GUI target
