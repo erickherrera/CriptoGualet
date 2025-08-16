@@ -19,7 +19,7 @@ void CreateLoginUI(HWND hwnd) {
         centerX - 150, centerY - 80, 100, 20, hwnd, nullptr, nullptr, nullptr);
 
     g_usernameEdit = CreateWindowW(
-        L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL,
+        L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL,
         centerX - 150, centerY - 55, 300, 25, hwnd, (HMENU)ID_USERNAME_EDIT, nullptr, nullptr);
 
     // Password label and edit
@@ -27,7 +27,7 @@ void CreateLoginUI(HWND hwnd) {
         centerX - 150, centerY - 20, 100, 20, hwnd, nullptr, nullptr, nullptr);
 
     g_passwordEdit = CreateWindowW(
-        L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_AUTOHSCROLL | ES_PASSWORD,
+        L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL | ES_PASSWORD,
         centerX - 150, centerY + 5, 300, 25, hwnd, (HMENU)ID_PASSWORD_EDIT, nullptr, nullptr);
 
     // Buttons
@@ -44,4 +44,8 @@ void CreateLoginUI(HWND hwnd) {
     SendMessage(g_passwordEdit, WM_SETFONT, (WPARAM)g_buttonFont, TRUE);
     SendMessage(g_loginButton, WM_SETFONT, (WPARAM)g_buttonFont, TRUE);
     SendMessage(g_registerButton, WM_SETFONT, (WPARAM)g_buttonFont, TRUE);
+
+    // Set tab order
+    SetWindowPos(g_usernameEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    SetWindowPos(g_passwordEdit, g_usernameEdit, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 }
