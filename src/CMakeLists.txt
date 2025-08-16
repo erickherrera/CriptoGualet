@@ -9,6 +9,8 @@ option(BUILD_GUI_WIN32 "Build the Win32 GUI wallet app (Windows only)" ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ---- Windows CryptoAPI (instead of OpenSSL) ----
+
 # ---- Auth library (portable, builds everywhere) ----
 add_library(Auth STATIC
   "./Auth.cpp"
@@ -52,8 +54,11 @@ if(WIN32 AND BUILD_GUI_WIN32)
     target_link_options(CriptoGualet PRIVATE -fPIE -pie)
   endif()
 
-  # Link Windows libs
-  target_link_libraries(CriptoGualet PRIVATE Auth comctl32)
+  # Link Windows libs and CryptoAPI
+  target_link_libraries(CriptoGualet PRIVATE Auth comctl32 crypt32 bcrypt)
+  
+  # Set as startup project for Visual Studio
+  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CriptoGualet)
 
 else()
   message(STATUS "Non-Windows platform detected or BUILD_GUI_WIN32=OFF: Win32 GUI target will not be built.")
