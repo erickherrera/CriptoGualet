@@ -7,13 +7,20 @@
       "name": "x64-Debug",
       "includePath": [
         "${env.INCLUDE}",
-        "${workspaceRoot}\\**"
+        "${workspaceRoot}\\**",
+        "C:\\Qt\\6.9.1\\msvc2022_64\\include",
+        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtCore",
+        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtWidgets",
+        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtGui"
       ],
       "defines": [
         "WIN32",
         "_DEBUG",
         "UNICODE",
-        "_UNICODE"
+        "_UNICODE",
+        "QT_CORE_LIB",
+        "QT_WIDGETS_LIB",
+        "QT_GUI_LIB"
       ],
       "intelliSenseMode": "windows-msvc-x64"
     }

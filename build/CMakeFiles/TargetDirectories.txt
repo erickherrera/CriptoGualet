@@ -2,3 +2,4 @@ C:/Users/erick/source/repos/CriptoGualet/CriptoGualet/build/CMakeFiles/ALL_BUILD
 C:/Users/erick/source/repos/CriptoGualet/CriptoGualet/build/CMakeFiles/ZERO_CHECK.dir
 C:/Users/erick/source/repos/CriptoGualet/CriptoGualet/build/src/CMakeFiles/Auth.dir
 C:/Users/erick/source/repos/CriptoGualet/CriptoGualet/build/src/CMakeFiles/CriptoGualet.dir
+C:/Users/erick/source/repos/CriptoGualet/CriptoGualet/build/src/CMakeFiles/CriptoGualetQt.dir
