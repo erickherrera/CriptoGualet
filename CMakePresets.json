@@ -26,7 +26,7 @@
         "rhs": "Windows"
       },
       "cacheVariables": {
-        "BUILD_GUI_WIN32": "ON"
+        "BUILD_GUI_WIN32": "OFF"
       }
     },
     {

@@ -9,7 +9,7 @@ if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 endif()
 
 # ---- Options ----
-option(BUILD_GUI_WIN32 "Build the Win32 GUI wallet app (Windows only)" ON)
+option(BUILD_GUI_WIN32 "Build the Win32 GUI wallet app (Windows only)" OFF)
 option(BUILD_GUI_QT "Build the Qt GUI wallet app" ON)
 
 # ---- Common C++ standard ----
