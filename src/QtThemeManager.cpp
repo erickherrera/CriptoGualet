@@ -202,7 +202,7 @@ QString QtThemeManager::getLabelStyleSheet() const {
         }
         QLabel[class="title"] {
             font-family: %4;
-            font-size: %5px;
+            font-size: 25px;
             font-weight: 700;
             color: %6;
         }
