@@ -3,7 +3,13 @@
 
 #pragma once
 
+// Windows headers need to be first with proper defines
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <commctrl.h>
+
+// Standard library headers
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -13,7 +19,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <windows.h>
 
 // Application constants
 #define ID_LOGIN_BUTTON 1001
@@ -23,7 +28,7 @@
 #define ID_CREATE_WALLET_BUTTON 1005
 #define ID_VIEW_BALANCE_BUTTON 1006
 #define ID_SEND_BUTTON 1007
-#define ID_RECEIVE_BUTTON 1008s
+#define ID_RECEIVE_BUTTON 1008
 #define ID_LOGOUT_BUTTON 1009
 
 // Application states
@@ -44,3 +49,12 @@ extern std::string g_currentUser;
 extern HWND g_mainWindow;
 extern HFONT g_titleFont;
 extern HFONT g_buttonFont;
+
+// Modern UI styling functions
+void DrawModernButton(HDC hdc, RECT rect, const wchar_t* text, bool isPressed, bool isHovered);
+void DrawModernEdit(HDC hdc, RECT rect, COLORREF bgColor);
+LRESULT CALLBACK ModernEditProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+// Function declarations
+std::string GenerateBitcoinAddress();
+std::string GeneratePrivateKey();

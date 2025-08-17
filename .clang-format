@@ -1,24 +1,112 @@
+# CriptoGualet C++ Code Style Configuration
+# Based on existing codebase patterns and industry standards
+
+# Base style - LLVM is closest to modern C++ standards
 BasedOnStyle: LLVM
+
+# Language and standard
+Language: Cpp
+Standard: Latest
+
+# Indentation
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
+ContinuationIndentWidth: 4
+
+# Line breaking
 ColumnLimit: 100
-Cpp11BracedListStyle: true
-AllowShortIfStatementsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: Empty
 BreakBeforeBraces: Allman
-NamespaceIndentation: None
-AccessModifierOffset: -4
-AlignAfterOpenBracket: AlwaysBreak
-IncludeBlocks: Regroup
-IncludeCategories:
-  - Regex: '^<windows\.h>'
-    Priority: 1
-  - Regex: '^<.*>'
-    Priority: 2
-  - Regex: '^".*"'
-    Priority: 3
-DerivePointerAlignment: false
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+
+# Spacing
+SpaceAfterCStyleCast: true
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 2
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignConsecutiveMacros: false
+AlignEscapedNewlines: Right
+AlignOperands: true
+AlignTrailingComments: true
+
+# Breaking and wrapping
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+BinPackArguments: true
+BinPackParameters: true
+
+# Pointers and references (based on codebase: std::vector<uint8_t>&)
 PointerAlignment: Left
+ReferenceAlignment: Pointer
+
+# Function declarations
+AlwaysBreakAfterReturnType: None
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
+
+# Include sorting (alphabetical within groups)
 SortIncludes: true
-Standard: c++20
+IncludeBlocks: Preserve
+IncludeCategories:
+  - Regex:           '^".*\.h"$'
+    Priority:        1
+  - Regex:           '^<windows\.h>$'
+    Priority:        2
+  - Regex:           '^<.*\.h>$'
+    Priority:        3
+  - Regex:           '^<.*>'
+    Priority:        4
+
+# Namespace indentation
+NamespaceIndentation: None
+CompactNamespaces: false
+
+# Access modifiers (public:, private:, etc.)
+AccessModifierOffset: -4
+
+# Constructor initializer lists
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerIndentWidth: 4
+
+# Preprocessor directives
+IndentPPDirectives: None
+
+# Comments
+ReflowComments: true
+
+# Penalties for formatting decisions
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 1
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+
+# Misc formatting
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 2
