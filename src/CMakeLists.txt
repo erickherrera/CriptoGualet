@@ -95,6 +95,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "../include/QtWalletUI.h"
     "../include/QtThemeManager.h"
     "../include/CriptoGualetQt.h"
+    "../.gitignore"
   )
 
   target_link_libraries(CriptoGualetQt PRIVATE 
