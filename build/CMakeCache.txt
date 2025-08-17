@@ -14,6 +14,9 @@
 # EXTERNAL cache entries
 ########################
 
+//Build the Qt GUI wallet app
+BUILD_GUI_QT:BOOL=ON
+
 //Build the Win32 GUI wallet app (Windows only)
 BUILD_GUI_WIN32:BOOL=ON
 
@@ -164,6 +167,8 @@ CMAKE_STATIC_LINKER_FLAGS_RELEASE:STRING=
 // during RELWITHDEBINFO builds.
 CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO:STRING=
 
+CMAKE_TOOLCHAIN_FILE:STRING=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\vcpkg/scripts/buildsystems/vcpkg.cmake
+
 //If this value is on, makefiles will be generated without the
 // .SILENT directive, and all commands will be echoed to the console
 // during the make.  This is useful for debugging only. With Visual
@@ -178,6 +183,9 @@ CriptoGualet_IS_TOP_LEVEL:STATIC=OFF
 
 //Value Computed by CMake
 CriptoGualet_SOURCE_DIR:STATIC=C:/Users/erick/source/repos/CriptoGualet/CriptoGualet/src
+
+//The directory containing a CMake configuration file for Qt6.
+Qt6_DIR:PATH=Qt6_DIR-NOTFOUND
 
 
 ########################

@@ -21,35 +21,43 @@ void CreateWalletUI(HWND hwnd) {
     GetClientRect(hwnd, &rect);
 
     int centerX = rect.right / 2;
-    int startY = 150;
+    int startY = 180;
 
-    // Wallet information
+    // Wallet information with modern dark styling
     if (!g_currentUser.empty() && g_users.find(g_currentUser) != g_users.end()) {
         const User& user = g_users[g_currentUser];
+        
+        // Welcome message with dark theme
         const std::wstring welcomeText = Widen("Welcome back, " + user.username + "!");
-        CreateWindowW(L"STATIC", welcomeText.c_str(), WS_VISIBLE | WS_CHILD | SS_CENTER,
-            centerX - 200, startY, 400, 25, hwnd, nullptr, nullptr, nullptr);
-
-        const std::wstring addressText = Widen("Your Bitcoin Address: " + user.walletAddress);
-        CreateWindowW(L"STATIC", addressText.c_str(), WS_VISIBLE | WS_CHILD | SS_CENTER,
-            centerX - 300, startY + 40, 600, 25, hwnd, nullptr, nullptr, nullptr);
+        HWND welcomeLabel = CreateWindowW(L"STATIC", welcomeText.c_str(), WS_VISIBLE | WS_CHILD | SS_CENTER,
+            centerX - 250, startY, 500, 30, hwnd, nullptr, nullptr, nullptr);
+        
+        // Bitcoin address display with dark theme
+        const std::wstring addressText = Widen("Address: " + user.walletAddress);
+        HWND addressLabel = CreateWindowW(L"STATIC", addressText.c_str(), WS_VISIBLE | WS_CHILD | SS_CENTER,
+            centerX - 350, startY + 50, 700, 25, hwnd, nullptr, nullptr, nullptr);
+        
+        // Apply font to labels
+        extern HFONT g_buttonFont;
+        SendMessage(welcomeLabel, WM_SETFONT, (WPARAM)g_buttonFont, TRUE);
+        SendMessage(addressLabel, WM_SETFONT, (WPARAM)g_buttonFont, TRUE);
     }
 
-    // Wallet action buttons
-    CreateWindowW(L"BUTTON", L"View Balance", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX - 150, startY + 100, 120, 40, hwnd,
+    // Modern styled action buttons with custom drawing
+    HWND viewBalanceBtn = CreateWindowW(L"BUTTON", L"View Balance", WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
+        centerX - 180, startY + 120, 140, 50, hwnd,
         (HMENU)ID_VIEW_BALANCE_BUTTON, nullptr, nullptr);
 
-    CreateWindowW(L"BUTTON", L"Send Bitcoin", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX - 20, startY + 100, 120, 40, hwnd,
+    HWND sendBtn = CreateWindowW(L"BUTTON", L"Send Bitcoin", WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
+        centerX - 30, startY + 120, 140, 50, hwnd,
         (HMENU)ID_SEND_BUTTON, nullptr, nullptr);
 
-    CreateWindowW(L"BUTTON", L"Receive Bitcoin", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX + 110, startY + 100, 120, 40, hwnd,
+    HWND receiveBtn = CreateWindowW(L"BUTTON", L"Receive Bitcoin", WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
+        centerX + 120, startY + 120, 140, 50, hwnd,
         (HMENU)ID_RECEIVE_BUTTON, nullptr, nullptr);
 
-    // Logout
-    CreateWindowW(L"BUTTON", L"Logout", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        centerX - 50, startY + 170, 100, 30, hwnd,
+    // Logout button with custom styling
+    HWND logoutBtn = CreateWindowW(L"BUTTON", L"Sign Out", WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
+        centerX - 60, startY + 200, 120, 40, hwnd,
         (HMENU)ID_LOGOUT_BUTTON, nullptr, nullptr);
 }

@@ -50,6 +50,11 @@ extern HWND g_mainWindow;
 extern HFONT g_titleFont;
 extern HFONT g_buttonFont;
 
+// Modern UI styling functions
+void DrawModernButton(HDC hdc, RECT rect, const wchar_t* text, bool isPressed, bool isHovered);
+void DrawModernEdit(HDC hdc, RECT rect, COLORREF bgColor);
+LRESULT CALLBACK ModernEditProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
 // Function declarations
 std::string GenerateBitcoinAddress();
 std::string GeneratePrivateKey();

@@ -1,13 +1,32 @@
-﻿cmake_minimum_required(VERSION 3.10)
+﻿cmake_minimum_required(VERSION 3.16)
 
 project(CriptoGualet LANGUAGES CXX)
 
+# Enable vcpkg integration
+if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING "")
+endif()
+
 # ---- Options ----
 option(BUILD_GUI_WIN32 "Build the Win32 GUI wallet app (Windows only)" ON)
+option(BUILD_GUI_QT "Build the Qt GUI wallet app" ON)
 
 # ---- Common C++ standard ----
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ---- Qt6 Setup ----
+if(BUILD_GUI_QT)
+  find_package(Qt6 QUIET COMPONENTS Core Widgets)
+  if(Qt6_FOUND)
+    qt6_standard_project_setup()
+    message(STATUS "Qt6 found - Qt GUI will be built")
+  else()
+    message(WARNING "Qt6 not found - Qt GUI will not be built. Install Qt6 to enable Qt GUI.")
+    set(BUILD_GUI_QT OFF)
+  endif()
+endif()
 
 # ---- Windows CryptoAPI (instead of OpenSSL) ----
 
@@ -62,6 +81,45 @@ if(WIN32 AND BUILD_GUI_WIN32)
 
 else()
   message(STATUS "Non-Windows platform detected or BUILD_GUI_WIN32=OFF: Win32 GUI target will not be built.")
+endif()
+
+# ---- Qt GUI executable ----
+if(BUILD_GUI_QT AND Qt6_FOUND)
+  add_executable(CriptoGualetQt
+    "CriptoGualetQt.cpp"
+    "QtLoginUI.cpp"
+    "QtWalletUI.cpp"
+    "QtThemeManager.cpp"
+    "SharedSymbols.cpp"
+    "../include/QtLoginUI.h"
+    "../include/QtWalletUI.h"
+    "../include/QtThemeManager.h"
+    "../include/CriptoGualetQt.h"
+  )
+
+  target_link_libraries(CriptoGualetQt PRIVATE 
+    Auth 
+    Qt6::Core 
+    Qt6::Widgets
+    comctl32 
+    crypt32 
+    bcrypt
+  )
+
+  # MSVC-specific flags for Qt with security
+  if(MSVC)
+    target_compile_options(CriptoGualetQt PRIVATE /W4 /permissive- /utf-8 /EHsc /GS /Zc:__cplusplus)
+    target_link_options(CriptoGualetQt PRIVATE /DYNAMICBASE /NXCOMPAT)
+  else()
+    target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+    target_link_options(CriptoGualetQt PRIVATE -fPIE -pie)
+  endif()
+
+  # Set as startup project for Visual Studio if Qt GUI is built
+  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CriptoGualetQt)
+  message(STATUS "Qt GUI target will be the startup project")
+elseif(BUILD_GUI_QT AND NOT Qt6_FOUND)
+  message(STATUS "Qt6 not found - install Qt6 from https://qt.io to build the modern Qt GUI")
 endif()
 
 # (Optional) organize IDE folders
