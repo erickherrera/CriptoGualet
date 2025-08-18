@@ -42,38 +42,42 @@ private:
     void createActionButtons();
     void createTransactionHistory();
     void updateStyles();
-    
+
+    // Theme
     QtThemeManager *m_themeManager;
-    
+
+    // Layout roots
     QVBoxLayout *m_mainLayout;
     QScrollArea *m_scrollArea;
     QWidget *m_scrollContent;
     QVBoxLayout *m_contentLayout;
-    
+
     // Welcome section
     QFrame *m_welcomeCard;
     QLabel *m_welcomeLabel;
     QLabel *m_balanceLabel;
-    
+
     // Address section
     QFrame *m_addressCard;
     QLabel *m_addressTitleLabel;
     QLabel *m_addressLabel;
     QPushButton *m_copyAddressButton;
-    
-    // Action buttons
+
+    // Actions section
     QFrame *m_actionsCard;
+    QLabel *m_actionsTitle;          // <-- Added: title label for "Wallet Actions"
     QGridLayout *m_actionsLayout;
     QPushButton *m_viewBalanceButton;
     QPushButton *m_sendButton;
     QPushButton *m_receiveButton;
     QPushButton *m_logoutButton;
-    
+
     // Transaction history
     QFrame *m_historyCard;
     QLabel *m_historyTitleLabel;
     QTextEdit *m_historyText;
-    
+
+    // User data
     QString m_currentUsername;
     QString m_currentAddress;
 };

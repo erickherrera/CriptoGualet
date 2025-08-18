@@ -201,35 +201,33 @@ QString QtThemeManager::getLabelStyleSheet() const {
             background-color: transparent;
         }
         QLabel[class="title"] {
-            font-family: %4;
-            font-size: 25px;
+            font-family: %2;
+            font-size: %4px;
             font-weight: 700;
-            color: %6;
+            color: %1;
         }
         QLabel[class="subtitle"] {
-            font-size: %7px;
-            color: %8;
+            font-family: %2;
+            font-size: %5px;
+            color: %6;
         }
         QLabel[class="address"] {
-            font-family: %9;
-            font-size: %10px;
-            color: %11;
-            background-color: %12;
+            font-family: %7;
+            font-size: %3px;
+            color: %1;
+            background-color: %8;
             padding: 4px 8px;
             border-radius: 4px;
         }
-    )").arg(m_textColor.name())
-       .arg(m_textFont.family())
-       .arg(m_textFont.pointSize())
-       .arg(m_titleFont.family())
-       .arg(m_titleFont.pointSize())
-       .arg(m_accentColor.name())
-       .arg(m_textFont.pointSize() - 1)
-       .arg(m_textColor.darker(130).name())
-       .arg(m_monoFont.family())
-       .arg(m_monoFont.pointSize())
-       .arg(m_accentColor.name())
-       .arg(m_surfaceColor.name());
+    )")
+    .arg(textColor().name())              // %1: text color
+    .arg(textFont().family())             // %2: base font family
+    .arg(textFont().pointSize())          // %3: normal font size
+    .arg(titleFont().pointSize())         // %4: title size
+    .arg(textFont().pointSize() - 2)      // %5: subtitle slightly smaller
+    .arg(textColor().name())              // %6: subtitle color (define this in theme)
+    .arg(monoFont().family())             // %7: monospace font for address
+    .arg(accentColor().name());           // %8: background for address
 }
 
 QString QtThemeManager::getMainWindowStyleSheet() const {
@@ -260,14 +258,14 @@ QString QtThemeManager::getCardStyleSheet() const {
     return QString(R"(
         QFrame {
             background-color: %1;
-            border: 1px solid %2;
+            border: 2px solid %2;
             border-radius: 12px;
             padding: 20px;
         }
         QFrame:hover {
-            border-color: %3;
+            border-color: %2;
         }
-    )").arg(m_surfaceColor.name())
-       .arg(m_secondaryColor.name())
-       .arg(m_accentColor.name());
+    )")
+        .arg(m_surfaceColor.name())
+        .arg(m_accentColor.name());
 }
