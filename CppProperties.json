@@ -8,16 +8,16 @@
       "includePath": [
         "${workspaceRoot}\\**",
         "${workspaceRoot}\\include",
-        "C:\\Qt\\6.9.1\\msvc2022_64\\include",
-        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtCore",
-        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtWidgets",
-        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtGui",
+        "C:\\Qt\\6.9.1\\mingw_64\\include",
+        "C:\\Qt\\6.9.1\\mingw_64\\include\\QtCore",
+        "C:\\Qt\\6.9.1\\mingw_64\\include\\QtWidgets",
+        "C:\\Qt\\6.9.1\\mingw_64\\include\\QtGui",
         "${env.INCLUDE}",
         "${env.UniversalCRTSdkDir}Include\\${env.UCRTVersion}\\ucrt",
         "${env.UniversalCRTSdkDir}Include\\${env.UCRTVersion}\\um",
         "${env.UniversalCRTSdkDir}Include\\${env.UCRTVersion}\\shared"
       ],
-      "compileCommands": "${workspaceRoot}\\out\\build\\win-clang-x64-debug\\compile_commands.json",
+      "compileCommands": "${workspaceRoot}\\build_mingw\\compile_commands.json",
       "defines": [
         "WIN32",
         "_DEBUG",
