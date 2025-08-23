@@ -59,6 +59,30 @@
       "cacheVariables": {}
     },
     {
+      "name": "win-clang-x64-debug",
+      "displayName": "Windows Clang x64 Debug",
+      "inherits": "base",
+      "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-cl.exe",
+        "CMAKE_CXX_COMPILER": "clang-cl.exe",
+        "BUILD_GUI_WIN32": "OFF"
+      }
+    },
+    {
+      "name": "win-clang-x64-release",
+      "displayName": "Windows Clang x64 Release",
+      "inherits": "win-clang-x64-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
       "name": "linux-clang-debug",
       "displayName": "Linux Clang Debug",
       "inherits": "base",
@@ -105,6 +129,14 @@
     {
       "name": "linux-clang-build-release",
       "configurePreset": "linux-clang-release"
+    },
+    {
+      "name": "win-clang-build",
+      "configurePreset": "win-clang-x64-debug"
+    },
+    {
+      "name": "win-clang-build-release",
+      "configurePreset": "win-clang-x64-release"
     }
   ],
   "testPresets": []

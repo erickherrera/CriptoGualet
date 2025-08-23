@@ -2,17 +2,22 @@
   "configurations": [
     {
       "inheritEnvironments": [
-        "msvc_x64"
+        "clang_cl_x64"
       ],
-      "name": "x64-Debug",
+      "name": "x64-Clang",
       "includePath": [
-        "${env.INCLUDE}",
         "${workspaceRoot}\\**",
+        "${workspaceRoot}\\include",
         "C:\\Qt\\6.9.1\\msvc2022_64\\include",
         "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtCore",
         "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtWidgets",
-        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtGui"
+        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtGui",
+        "${env.INCLUDE}",
+        "${env.UniversalCRTSdkDir}Include\\${env.UCRTVersion}\\ucrt",
+        "${env.UniversalCRTSdkDir}Include\\${env.UCRTVersion}\\um",
+        "${env.UniversalCRTSdkDir}Include\\${env.UCRTVersion}\\shared"
       ],
+      "compileCommands": "${workspaceRoot}\\out\\build\\win-clang-x64-debug\\compile_commands.json",
       "defines": [
         "WIN32",
         "_DEBUG",
@@ -20,9 +25,15 @@
         "_UNICODE",
         "QT_CORE_LIB",
         "QT_WIDGETS_LIB",
-        "QT_GUI_LIB"
+        "QT_GUI_LIB",
+        "QT_DLL",
+        "_MSC_VER",
+        "__clang__"
       ],
-      "intelliSenseMode": "windows-msvc-x64"
+      "intelliSenseMode": "windows-clang-x64",
+      "compilerPath": "clang-cl.exe",
+      "cStandard": "c17",
+      "cppStandard": "c++20"
     }
   ]
 }
