@@ -1,0 +1,37 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug CriptoGualet Qt (MSVC)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Debug/CriptoGualetQt.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/Debug",
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+                }
+            ],
+            "console": "integratedTerminal",
+            "preLaunchTask": "CMake: build"
+        },
+        {
+            "name": "Debug CriptoGualet Qt (LLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Debug/CriptoGualetQt.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/build/Debug",
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+                }
+            ],
+            "preLaunchTask": "CMake: build"
+        }
+    ]
+}
