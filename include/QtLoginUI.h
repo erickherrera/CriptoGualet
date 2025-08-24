@@ -10,6 +10,7 @@
 #include <QFrame>
 #include <QSpacerItem>
 #include <QComboBox>
+#include <QTimer>
 
 class QtThemeManager;
 
@@ -28,12 +29,14 @@ private slots:
     void onLoginClicked();
     void onRegisterClicked();
     void onThemeChanged();
+    void clearMessage();
 
 private:
     void setupUI();
     void setupThemeSelector();
     void createLoginCard();
     void updateStyles();
+    void showMessage(const QString &message, bool isError = false);
     
     QtThemeManager *m_themeManager;
     
@@ -44,11 +47,13 @@ private:
     
     QLabel *m_titleLabel;
     QLabel *m_subtitleLabel;
+    QLabel *m_messageLabel;
     QLineEdit *m_usernameEdit;
     QLineEdit *m_passwordEdit;
     QPushButton *m_loginButton;
     QPushButton *m_registerButton;
     QComboBox *m_themeSelector;
+    QTimer *m_messageTimer;
     
     QHBoxLayout *m_buttonLayout;
     QHBoxLayout *m_themeLayout;

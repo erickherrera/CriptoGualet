@@ -22,6 +22,15 @@
 // Use your existing globals (declared in CriptoGualet.cpp)
 extern std::map<std::string, User> g_users;
 
+// Rate limiting data structures
+struct RateLimitEntry {
+    int attemptCount = 0;
+    std::chrono::steady_clock::time_point lastAttempt;
+    std::chrono::steady_clock::time_point lockoutUntil;
+};
+
+static std::map<std::string, RateLimitEntry> g_rateLimits;
+
 // ===== Helpers: RNG, base64, constant-time compare, PBKDF2 =====
 namespace
 {
@@ -231,56 +240,168 @@ bool VerifyPassword(const std::string& password, const std::string& stored)
     return constant_time_eq(test, dk);
 }
 
-bool RegisterUser(const std::string& username, const std::string& password)
+// Rate limiting constants
+const int MAX_LOGIN_ATTEMPTS = 5;
+const std::chrono::minutes LOCKOUT_DURATION{10};
+const std::chrono::minutes RATE_LIMIT_WINDOW{1};
+
+bool IsValidUsername(const std::string& username)
 {
-    // Debug: Check input validation
-    if (username.size() < 3 || password.size() < 6) {
-        OutputDebugStringA("RegisterUser: Input validation failed\n");
-        return false;
+    if (username.size() < 3 || username.size() > 50) return false;
+    
+    for (char c : username) {
+        if (!std::isalnum(c) && c != '_' && c != '-') return false;
+    }
+    return true;
+}
+
+bool IsValidPassword(const std::string& password)
+{
+    if (password.size() < 8 || password.size() > 128) return false;
+    
+    bool hasUpper = false, hasLower = false, hasDigit = false, hasSpecial = false;
+    
+    for (char c : password) {
+        if (std::isupper(c)) hasUpper = true;
+        else if (std::islower(c)) hasLower = true;
+        else if (std::isdigit(c)) hasDigit = true;
+        else if (std::ispunct(c) || c == ' ') hasSpecial = true;
     }
     
-    // Debug: Show current users in map
-    std::string debugMsg = "RegisterUser: Current users in map (" + std::to_string(g_users.size()) + "): ";
-    for (const auto& pair : g_users) {
-        debugMsg += "[" + pair.first + "] ";
-    }
-    debugMsg += "\n";
-    OutputDebugStringA(debugMsg.c_str());
+    return hasUpper && hasLower && hasDigit && hasSpecial;
+}
+
+bool IsRateLimited(const std::string& identifier)
+{
+    auto now = std::chrono::steady_clock::now();
+    auto it = g_rateLimits.find(identifier);
     
-    // Debug: Check if username already exists
+    if (it == g_rateLimits.end()) return false;
+    
+    RateLimitEntry& entry = it->second;
+    
+    // Check if still in lockout period
+    if (entry.lockoutUntil > now) return true;
+    
+    // Reset if rate limit window has expired
+    if (now - entry.lastAttempt > RATE_LIMIT_WINDOW) {
+        entry.attemptCount = 0;
+    }
+    
+    return false;
+}
+
+void ClearRateLimit(const std::string& identifier)
+{
+    g_rateLimits.erase(identifier);
+}
+
+static void RecordFailedAttempt(const std::string& identifier)
+{
+    auto now = std::chrono::steady_clock::now();
+    auto& entry = g_rateLimits[identifier];
+    
+    // Reset counter if rate limit window expired
+    if (now - entry.lastAttempt > RATE_LIMIT_WINDOW) {
+        entry.attemptCount = 0;
+    }
+    
+    entry.attemptCount++;
+    entry.lastAttempt = now;
+    
+    // Set lockout if max attempts exceeded
+    if (entry.attemptCount >= MAX_LOGIN_ATTEMPTS) {
+        entry.lockoutUntil = now + LOCKOUT_DURATION;
+    }
+}
+
+AuthResponse RegisterUser(const std::string& username, const std::string& password)
+{
+    OutputDebugStringA("RegisterUser: Starting registration process\n");
+    
+    // Validate username
+    if (!IsValidUsername(username)) {
+        return {AuthResult::INVALID_USERNAME, 
+                "Username must be 3-50 characters and contain only letters, numbers, underscore, or dash."};
+    }
+    
+    // Validate password strength
+    if (!IsValidPassword(password)) {
+        return {AuthResult::WEAK_PASSWORD,
+                "Password must be 8-128 characters with uppercase, lowercase, digit, and special character."};
+    }
+    
+    // Check if user already exists
     if (g_users.find(username) != g_users.end()) {
         std::string msg = "RegisterUser: Username '" + username + "' already exists\n";
         OutputDebugStringA(msg.c_str());
-        return false;
+        return {AuthResult::USER_ALREADY_EXISTS, 
+                "Username already exists. Please choose a different username."};
     }
 
     User u;
     u.username = username;
     
-    // Debug: Test password hashing
+    // Create secure password hash
     OutputDebugStringA("RegisterUser: Creating password hash...\n");
-    u.passwordHash = CreatePasswordHash(password); // salted PBKDF2
+    u.passwordHash = CreatePasswordHash(password);
     if (u.passwordHash.empty()) {
         OutputDebugStringA("RegisterUser: Password hash creation failed\n");
-        return false;
+        return {AuthResult::SYSTEM_ERROR, 
+                "System error occurred during registration. Please try again."};
     }
     OutputDebugStringA("RegisterUser: Password hash created successfully\n");
 
-    // Use your existing demo helpers:
+    // Generate wallet credentials
     u.privateKey = GeneratePrivateKey();
     u.walletAddress = GenerateBitcoinAddress();
 
     g_users[username] = std::move(u);
     OutputDebugStringA("RegisterUser: User registered successfully\n");
-    return true;
+    
+    SaveUserDatabase(); // Persist immediately
+    
+    return {AuthResult::SUCCESS, "Account created successfully. You can now sign in."};
 }
 
-bool LoginUser(const std::string& username, const std::string& password)
+AuthResponse LoginUser(const std::string& username, const std::string& password)
 {
+    // Check rate limiting first
+    if (IsRateLimited(username)) {
+        return {AuthResult::RATE_LIMITED,
+                "Too many failed attempts. Please wait 10 minutes before trying again."};
+    }
+    
+    // Basic input validation
+    if (username.empty() || password.empty()) {
+        RecordFailedAttempt(username);
+        return {AuthResult::INVALID_CREDENTIALS, "Please enter both username and password."};
+    }
+    
+    // Find user
     auto it = g_users.find(username);
-    if (it == g_users.end())
-        return false;
-    return VerifyPassword(password, it->second.passwordHash);
+    if (it == g_users.end()) {
+        RecordFailedAttempt(username);
+        return {AuthResult::USER_NOT_FOUND, 
+                "User not found. Please create an account before signing in."};
+    }
+    
+    // Verify password
+    if (!VerifyPassword(password, it->second.passwordHash)) {
+        RecordFailedAttempt(username);
+        int remainingAttempts = MAX_LOGIN_ATTEMPTS - (g_rateLimits[username].attemptCount + 1);
+        if (remainingAttempts > 0) {
+            return {AuthResult::INVALID_CREDENTIALS,
+                    "Invalid credentials. " + std::to_string(remainingAttempts) + " attempts remaining."};
+        } else {
+            return {AuthResult::RATE_LIMITED,
+                    "Invalid credentials. Account temporarily locked for 10 minutes."};
+        }
+    }
+    
+    // Success - clear any rate limiting
+    ClearRateLimit(username);
+    return {AuthResult::SUCCESS, "Login successful. Welcome to CriptoGualet!"};
 }
 
 void SaveUserDatabase()

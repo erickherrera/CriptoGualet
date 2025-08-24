@@ -1,5 +1,6 @@
 #include "../include/QtLoginUI.h"
 #include "../include/QtThemeManager.h"
+#include "../include/Auth.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -11,9 +12,20 @@
 #include <QPushButton>
 #include <QSpacerItem>
 #include <QVBoxLayout>
+#include <QTimer>
+#include <QMessageBox>
 
 QtLoginUI::QtLoginUI(QWidget* parent)
     : QWidget(parent), m_themeManager(&QtThemeManager::instance()) {
+    
+    // Initialize message timer
+    m_messageTimer = new QTimer(this);
+    m_messageTimer->setSingleShot(true);
+    connect(m_messageTimer, &QTimer::timeout, this, &QtLoginUI::clearMessage);
+    
+    // Load user database on startup
+    Auth::LoadUserDatabase();
+    
     setupUI();
     applyTheme();
 
@@ -23,11 +35,11 @@ QtLoginUI::QtLoginUI(QWidget* parent)
 void QtLoginUI::setupUI() {
     // Root layout
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(40, 10, 40, 40);
+    m_mainLayout->setContentsMargins(40, 15, 40, 40);
     m_mainLayout->setSpacing(20);
 
     // Top stretch for nice vertical centering
-    m_mainLayout->addItem(new QSpacerItem(20, 5, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    m_mainLayout->addItem(new QSpacerItem(20, 15, QSizePolicy::Minimum, QSizePolicy::Expanding));
 
     // ===== Header (Title + Subtitle) OUTSIDE the card =====
     {
@@ -72,7 +84,7 @@ void QtLoginUI::createLoginCard() {
     m_loginCard->setFixedSize(420, 300);  // more compact now that title/subtitle moved out
 
     m_cardLayout = new QVBoxLayout(m_loginCard);
-    m_cardLayout->setContentsMargins(30, 30, 30, 30);
+    m_cardLayout->setContentsMargins(30, 40, 30, 30);
     m_cardLayout->setSpacing(16);
 
     // Form with NO left-side labels (removes those "weird boxes")
@@ -95,6 +107,14 @@ void QtLoginUI::createLoginCard() {
 
     m_cardLayout->addLayout(m_formLayout);
 
+    // Add message label for feedback
+    m_messageLabel = new QLabel(m_loginCard);
+    m_messageLabel->setAlignment(Qt::AlignCenter);
+    m_messageLabel->setWordWrap(true);
+    m_messageLabel->hide(); // Initially hidden
+    m_messageLabel->setMinimumHeight(20);
+    m_cardLayout->addWidget(m_messageLabel);
+
     // Buttons row
     m_buttonLayout = new QHBoxLayout();
     m_buttonLayout->setSpacing(12);
@@ -110,7 +130,7 @@ void QtLoginUI::createLoginCard() {
     m_buttonLayout->addWidget(m_registerButton);
 
     // Space above buttons for breathing room
-    m_cardLayout->addSpacing(6);
+    m_cardLayout->addSpacing(4);
     m_cardLayout->addLayout(m_buttonLayout);
 
     // Center the card
@@ -162,11 +182,28 @@ void QtLoginUI::onLoginClicked() {
     QString password = m_passwordEdit->text();
 
     if (username.isEmpty() || password.isEmpty()) {
+        showMessage("Please enter both username and password.", true);
         return;
     }
 
-    emit loginRequested(username, password);
-    m_passwordEdit->clear();
+    // Clear any previous messages
+    clearMessage();
+    
+    // Perform authentication
+    Auth::AuthResponse response = Auth::LoginUser(username.toStdString(), password.toStdString());
+    
+    if (response.success()) {
+        showMessage(QString::fromStdString(response.message), false);
+        
+        // Clear password field
+        m_passwordEdit->clear();
+        
+        // Emit success signal for parent to handle
+        emit loginRequested(username, password);
+    } else {
+        showMessage(QString::fromStdString(response.message), true);
+        m_passwordEdit->clear();
+    }
 }
 
 void QtLoginUI::onRegisterClicked() {
@@ -174,16 +211,57 @@ void QtLoginUI::onRegisterClicked() {
     QString password = m_passwordEdit->text();
 
     if (username.isEmpty() || password.isEmpty()) {
+        showMessage("Please enter both username and password.", true);
         return;
     }
 
-    emit registerRequested(username, password);
-    m_passwordEdit->clear();
+    // Clear any previous messages
+    clearMessage();
+    
+    // Attempt registration
+    Auth::AuthResponse response = Auth::RegisterUser(username.toStdString(), password.toStdString());
+    
+    if (response.success()) {
+        showMessage(QString::fromStdString(response.message), false);
+        // Clear both fields after successful registration
+        m_usernameEdit->clear();
+        m_passwordEdit->clear();
+    } else {
+        showMessage(QString::fromStdString(response.message), true);
+        // Only clear password on failure
+        m_passwordEdit->clear();
+    }
 }
 
 void QtLoginUI::onThemeChanged() { applyTheme(); }
 
 void QtLoginUI::applyTheme() { updateStyles(); }
+
+void QtLoginUI::showMessage(const QString &message, bool isError) {
+    m_messageLabel->setText(message);
+    m_messageLabel->show();
+    
+    // Style the message based on type
+    QString messageStyle = isError ? 
+        "QLabel { color: #ff4757; font-weight: bold; padding: 8px; }" :
+        "QLabel { color: #2ed573; font-weight: bold; padding: 8px; }";
+    
+    m_messageLabel->setStyleSheet(messageStyle);
+    
+    // Auto-clear success messages after 5 seconds
+    if (!isError) {
+        m_messageTimer->start(5000);
+    } else {
+        // Error messages stay until user takes action or timer clears them after 10 seconds
+        m_messageTimer->start(10000);
+    }
+}
+
+void QtLoginUI::clearMessage() {
+    m_messageLabel->hide();
+    m_messageLabel->clear();
+    m_messageTimer->stop();
+}
 
 void QtLoginUI::updateStyles() {
     // Base application stylesheet
@@ -196,6 +274,9 @@ void QtLoginUI::updateStyles() {
     QString labelStyle = m_themeManager->getLabelStyleSheet();
     m_titleLabel->setStyleSheet(labelStyle);
     m_subtitleLabel->setStyleSheet(labelStyle);
+    
+    // Message label gets base styling, but showMessage() will override color
+    m_messageLabel->setStyleSheet("QLabel { padding: 8px; }");
 
     // Buttons keep hover styling
     QString buttonStyle = m_themeManager->getButtonStyleSheet();

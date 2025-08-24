@@ -48,13 +48,16 @@ void CriptoGualetQt::setupUI() {
         std::string stdUsername = username.toStdString();
         std::string stdPassword = password.toStdString();
         
-        if (Auth::LoginUser(stdUsername, stdPassword)) {
+        Auth::AuthResponse response = Auth::LoginUser(stdUsername, stdPassword);
+        if (response.success()) {
             g_currentUser = stdUsername;
             m_walletUI->setUserInfo(username, QString::fromStdString(g_users[stdUsername].walletAddress));
             showWalletScreen();
             statusBar()->showMessage("Login successful", 3000);
         } else {
-            QMessageBox::warning(this, "Login Failed", "User not found.");
+            // The UI already shows the error message, so no need for a popup here
+            // Just show a brief status message
+            statusBar()->showMessage("Login failed", 3000);
         }
     });
     
@@ -62,13 +65,15 @@ void CriptoGualetQt::setupUI() {
         std::string stdUsername = username.toStdString();
         std::string stdPassword = password.toStdString();
         
-        if (Auth::RegisterUser(stdUsername, stdPassword)) {
+        Auth::AuthResponse response = Auth::RegisterUser(stdUsername, stdPassword);
+        if (response.success()) {
             QMessageBox::information(this, "Registration Successful", 
                 QString("Account created for %1!\nYour Bitcoin address: %2")
                 .arg(username)
                 .arg(QString::fromStdString(g_users[stdUsername].walletAddress)));
         } else {
-            QMessageBox::warning(this, "Registration Failed", "Username already exists.");
+            // The UI already shows the error message, but we can show additional info in popup if needed
+            statusBar()->showMessage("Registration failed", 3000);
         }
     });
     
