@@ -2,23 +2,23 @@
   "configurations": [
     {
       "inheritEnvironments": [
-        "clang_cl_x64"
+        "msvc_x64_x64"
       ],
-      "name": "x64-Clang",
+      "name": "x64-MSVC",
       "includePath": [
         "${workspaceRoot}\\**",
         "${workspaceRoot}\\include",
         "${workspaceRoot}\\build\\src\\CriptoGualetQt_autogen\\include",
-        "C:\\Program Files\\Qt\\6.9.1\\mingw_64\\include",
-        "C:\\Program Files\\Qt\\6.9.1\\mingw_64\\include\\QtCore",
-        "C:\\Program Files\\Qt\\6.9.1\\mingw_64\\include\\QtWidgets",
-        "C:\\Program Files\\Qt\\6.9.1\\mingw_64\\include\\QtGui",
+        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include",
+        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include\\QtCore",
+        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include\\QtWidgets",
+        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include\\QtGui",
         "${env.INCLUDE}",
         "${env.UniversalCRTSdkDir}Include\\${env.UCRTVersion}\\ucrt",
         "${env.UniversalCRTSdkDir}Include\\${env.UCRTVersion}\\um",
         "${env.UniversalCRTSdkDir}Include\\${env.UCRTVersion}\\shared"
       ],
-      "compileCommands": "",
+      "compileCommands": "${workspaceRoot}\\build\\compile_commands.json",
       "defines": [
         "WIN32",
         "_DEBUG",
@@ -30,12 +30,12 @@
         "QT_DLL",
         "QT_NO_DEBUG",
         "_MSC_VER=1939",
-        "__clang__",
+        "_MSC_VER",
         "_WIN64",
         "_M_X64"
       ],
-      "intelliSenseMode": "windows-clang-x64",
-      "compilerPath": "clang-cl.exe",
+      "intelliSenseMode": "windows-msvc-x64",
+      "compilerPath": "cl.exe",
       "cStandard": "c17",
       "cppStandard": "c++20"
     }

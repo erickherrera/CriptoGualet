@@ -27,7 +27,7 @@ if(BUILD_GUI_QT)
     # Search for Qt6 in common subdirectories
     file(GLOB QT_VERSIONS "C:/Program Files/Qt/6.*")
     foreach(QT_VERSION ${QT_VERSIONS})
-      list(APPEND CMAKE_PREFIX_PATH "${QT_VERSION}/msvc2022_64" "${QT_VERSION}/msvc2019_64" "${QT_VERSION}/mingw_64")
+      list(APPEND CMAKE_PREFIX_PATH "${QT_VERSION}/msvc2022_64" "${QT_VERSION}/msvc2019_64")
     endforeach()
   endif()
   

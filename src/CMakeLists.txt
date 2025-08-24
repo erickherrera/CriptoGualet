@@ -55,8 +55,7 @@ target_include_directories(Auth PUBLIC
 
 # Reasonable warnings per-compiler with security flags
 if(MSVC)
-  target_compile_options(Auth PRIVATE /W4 /permissive- /utf-8 /EHsc /GS /DYNAMICBASE /NXCOMPAT)
-  target_link_options(Auth PRIVATE /DYNAMICBASE /NXCOMPAT)
+  target_compile_options(Auth PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
 else()
   target_compile_options(Auth PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
   target_link_options(Auth PRIVATE -fPIE -pie)
@@ -78,8 +77,7 @@ if(WIN32 AND BUILD_GUI_WIN32)
 
   # MSVC-specific flags for the GUI with security
   if(MSVC)
-    target_compile_options(CriptoGualet PRIVATE /W4 /permissive- /utf-8 /EHsc /GS /DYNAMICBASE /NXCOMPAT)
-    target_link_options(CriptoGualet PRIVATE /DYNAMICBASE /NXCOMPAT)
+    target_compile_options(CriptoGualet PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
     set_property(TARGET CriptoGualet PROPERTY VS_GLOBAL_CharacterSet Unicode)
   else()
     target_compile_options(CriptoGualet PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
@@ -130,7 +128,6 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
   # MSVC-specific flags for Qt with security
   if(MSVC)
     target_compile_options(CriptoGualetQt PRIVATE /W4 /permissive- /utf-8 /EHsc /GS /Zc:__cplusplus)
-    target_link_options(CriptoGualetQt PRIVATE /DYNAMICBASE /NXCOMPAT)
   else()
     target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
     target_link_options(CriptoGualetQt PRIVATE -fPIE -pie)
