@@ -33,6 +33,7 @@ public:
     QColor errorColor() const { return m_errorColor; }
     QColor successColor() const { return m_successColor; }
     QColor warningColor() const { return m_warningColor; }
+    QColor subtitleColor() const { return m_subtitleColor; }
     
     // Font getters
     QFont titleFont() const { return m_titleFont; }
@@ -74,6 +75,8 @@ private:
     QColor m_errorColor;
     QColor m_successColor;
     QColor m_warningColor;
+    QColor m_subtitleColor;
+
     
     // Typography
     QFont m_titleFont;

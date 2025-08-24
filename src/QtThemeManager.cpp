@@ -7,13 +7,11 @@ QtThemeManager& QtThemeManager::instance() {
     return instance;
 }
 
-QtThemeManager::QtThemeManager(QObject *parent) : QObject(parent) {
-    setupCryptoDarkTheme();
-}
+QtThemeManager::QtThemeManager(QObject* parent) : QObject(parent) { setupCryptoDarkTheme(); }
 
 void QtThemeManager::applyTheme(ThemeType theme) {
     m_currentTheme = theme;
-    
+
     switch (theme) {
         case ThemeType::DARK:
             setupDarkTheme();
@@ -28,7 +26,7 @@ void QtThemeManager::applyTheme(ThemeType theme) {
             setupCryptoLightTheme();
             break;
     }
-    
+
     updateApplicationStyle();
     emit themeChanged(theme);
 }
@@ -55,11 +53,14 @@ void QtThemeManager::setupDarkTheme() {
     m_errorColor = QColor(245, 101, 101);
     m_successColor = QColor(72, 187, 120);
     m_warningColor = QColor(237, 137, 54);
-    
+
     m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
     m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
     m_textFont = QFont("Segoe UI", 10);
     m_monoFont = QFont("Consolas", 10);
+
+    // Dynamic, theme-aware subtitle color (slightly dimmer than main text)
+    m_subtitleColor = m_textColor.darker(170);
 }
 
 void QtThemeManager::setupLightTheme() {
@@ -72,11 +73,14 @@ void QtThemeManager::setupLightTheme() {
     m_errorColor = QColor(229, 62, 62);
     m_successColor = QColor(56, 161, 105);
     m_warningColor = QColor(221, 107, 32);
-    
+
     m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
     m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
     m_textFont = QFont("Segoe UI", 10);
     m_monoFont = QFont("Consolas", 10);
+
+    // Dynamic subtitle on light backgrounds: subtle neutral gray
+    m_subtitleColor = QColor(107, 114, 128);  // ~ Tailwind gray-500
 }
 
 void QtThemeManager::setupCryptoDarkTheme() {
@@ -89,16 +93,20 @@ void QtThemeManager::setupCryptoDarkTheme() {
     m_errorColor = QColor(220, 38, 38);
     m_successColor = QColor(34, 197, 94);
     m_warningColor = QColor(251, 146, 60);
-    
+
     m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
     m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
     m_textFont = QFont("Segoe UI", 10);
     m_monoFont = QFont("JetBrains Mono", 10);
+
+    // Dynamic subtitle on dark backgrounds: slightly dimmer
+    m_subtitleColor = m_textColor.darker(170);
 }
 
 void QtThemeManager::setupCryptoLightTheme() {
     m_primaryColor = QColor(255, 255, 255);
-    m_secondaryColor = QColor(249, 250, 251);
+    // Darker gray for INPUT BORDERS to contrast against very light surface/background
+    m_secondaryColor = QColor(229, 231, 235);  // ~ Tailwind gray-200 (darker than surface)
     m_backgroundColor = QColor(255, 255, 255);
     m_surfaceColor = QColor(248, 250, 252);
     m_textColor = QColor(17, 24, 39);
@@ -106,11 +114,14 @@ void QtThemeManager::setupCryptoLightTheme() {
     m_errorColor = QColor(239, 68, 68);
     m_successColor = QColor(34, 197, 94);
     m_warningColor = QColor(245, 158, 11);
-    
+
     m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
     m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
     m_textFont = QFont("Segoe UI", 10);
     m_monoFont = QFont("JetBrains Mono", 10);
+
+    // Dynamic subtitle on light background: subtle neutral gray
+    m_subtitleColor = QColor(107, 114, 128);  // ~ Tailwind gray-500
 }
 
 void QtThemeManager::updateApplicationStyle() {
@@ -145,17 +156,18 @@ QString QtThemeManager::getButtonStyleSheet() const {
             color: %10;
             border-color: %11;
         }
-    )").arg(m_surfaceColor.name())
-       .arg(m_textColor.name())
-       .arg(m_accentColor.name())
-       .arg(m_buttonFont.family())
-       .arg(m_buttonFont.pointSize())
-       .arg(m_accentColor.lighter(120).name())
-       .arg(m_accentColor.lighter(130).name())
-       .arg(m_accentColor.darker(120).name())
-       .arg(m_surfaceColor.darker(150).name())
-       .arg(m_textColor.darker(200).name())
-       .arg(m_accentColor.darker(200).name());
+    )")
+        .arg(m_surfaceColor.name())
+        .arg(m_textColor.name())
+        .arg(m_accentColor.name())
+        .arg(m_buttonFont.family())
+        .arg(m_buttonFont.pointSize())
+        .arg(m_accentColor.lighter(120).name())
+        .arg(m_accentColor.lighter(130).name())
+        .arg(m_accentColor.darker(120).name())
+        .arg(m_surfaceColor.darker(150).name())
+        .arg(m_textColor.darker(200).name())
+        .arg(m_accentColor.darker(200).name());
 }
 
 QString QtThemeManager::getLineEditStyleSheet() const {
@@ -179,20 +191,23 @@ QString QtThemeManager::getLineEditStyleSheet() const {
             color: %10;
             border-color: %11;
         }
-    )").arg(m_surfaceColor.name())
-       .arg(m_textColor.name())
-       .arg(m_secondaryColor.name())
-       .arg(m_textFont.family())
-       .arg(m_textFont.pointSize())
-       .arg(m_accentColor.lighter(150).name())
-       .arg(m_accentColor.name())
-       .arg(m_surfaceColor.lighter(105).name())
-       .arg(m_surfaceColor.darker(120).name())
-       .arg(m_textColor.darker(150).name())
-       .arg(m_secondaryColor.darker(150).name());
+    )")
+        .arg(m_surfaceColor.name())
+        .arg(m_textColor.name())
+        .arg(m_secondaryColor
+                 .name())  // border uses secondary; Crypto Light sets this to a darker gray
+        .arg(m_textFont.family())
+        .arg(m_textFont.pointSize())
+        .arg(m_accentColor.lighter(150).name())
+        .arg(m_accentColor.name())
+        .arg(m_surfaceColor.lighter(105).name())
+        .arg(m_surfaceColor.darker(120).name())
+        .arg(m_textColor.darker(150).name())
+        .arg(m_secondaryColor.darker(150).name());
 }
 
 QString QtThemeManager::getLabelStyleSheet() const {
+    // Bright title (accent), subtle/dynamic subtitle (m_subtitleColor)
     return QString(R"(
         QLabel {
             color: %1;
@@ -202,34 +217,33 @@ QString QtThemeManager::getLabelStyleSheet() const {
         }
         QLabel[class="title"] {
             font-family: %4;
-            font-size: %5px;
+            font-size: 50px;
             font-weight: 700;
-            color: %6;
+            color: %5;
         }
         QLabel[class="subtitle"] {
-            font-size: %7px;
-            color: %8;
+            font-size: 20px;
+            color: %6;
         }
         QLabel[class="address"] {
-            font-family: %9;
-            font-size: %10px;
-            color: %11;
-            background-color: %12;
+            font-family: %7;
+            font-size: %8px;
+            color: %9;
+            background-color: %10;
             padding: 4px 8px;
             border-radius: 4px;
         }
-    )").arg(m_textColor.name())
-       .arg(m_textFont.family())
-       .arg(m_textFont.pointSize())
-       .arg(m_titleFont.family())
-       .arg(m_titleFont.pointSize())
-       .arg(m_accentColor.name())
-       .arg(m_textFont.pointSize() - 1)
-       .arg(m_textColor.darker(130).name())
-       .arg(m_monoFont.family())
-       .arg(m_monoFont.pointSize())
-       .arg(m_accentColor.name())
-       .arg(m_surfaceColor.name());
+    )")
+        .arg(m_textColor.name())
+        .arg(m_textFont.family())
+        .arg(m_textFont.pointSize())
+        .arg(m_titleFont.family())
+        .arg(m_accentColor.name())    // bright title
+        .arg(m_subtitleColor.name())  // dynamic subtitle
+        .arg(m_monoFont.family())
+        .arg(m_monoFont.pointSize())
+        .arg(m_accentColor.name())
+        .arg(m_surfaceColor.name());
 }
 
 QString QtThemeManager::getMainWindowStyleSheet() const {
@@ -248,12 +262,13 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
             border-radius: 12px;
             padding: 16px;
         }
-    )").arg(m_backgroundColor.name())
-       .arg(m_textColor.name())
-       .arg(m_backgroundColor.name())
-       .arg(m_textColor.name())
-       .arg(m_surfaceColor.name())
-       .arg(m_secondaryColor.name());
+    )")
+        .arg(m_backgroundColor.name())
+        .arg(m_textColor.name())
+        .arg(m_backgroundColor.name())
+        .arg(m_textColor.name())
+        .arg(m_surfaceColor.name())
+        .arg(m_secondaryColor.name());
 }
 
 QString QtThemeManager::getCardStyleSheet() const {
@@ -264,10 +279,8 @@ QString QtThemeManager::getCardStyleSheet() const {
             border-radius: 12px;
             padding: 20px;
         }
-        QFrame:hover {
-            border-color: %3;
-        }
-    )").arg(m_surfaceColor.name())
-       .arg(m_secondaryColor.name())
-       .arg(m_accentColor.name());
+    )")
+        .arg(m_surfaceColor.name())
+        .arg(m_secondaryColor.name())
+        .arg(m_accentColor.name());
 }
