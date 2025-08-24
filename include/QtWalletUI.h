@@ -32,14 +32,13 @@ private slots:
     void onViewBalanceClicked();
     void onSendBitcoinClicked();
     void onReceiveBitcoinClicked();
-    void onLogoutClicked();
     void onThemeChanged();
 
 private:
     void setupUI();
-    void createWelcomeSection();
-    void createAddressSection();
-    void createActionButtons();
+    void createTitleSection();
+    void createWalletSection();
+    void createBitcoinWalletActions(QVBoxLayout *parentLayout);
     void createTransactionHistory();
     void updateStyles();
     
@@ -50,24 +49,23 @@ private:
     QWidget *m_scrollContent;
     QVBoxLayout *m_contentLayout;
     
-    // Welcome section
-    QFrame *m_welcomeCard;
+    // Title section (no card, direct on background)
     QLabel *m_welcomeLabel;
-    QLabel *m_balanceLabel;
     
-    // Address section
+    // Wallet section (combined address and balance)
     QFrame *m_addressCard;
     QLabel *m_addressTitleLabel;
-    QLabel *m_addressLabel;
+    QLabel *m_balanceLabel;
+    QLabel *m_addressSectionLabel;  // "Address:" label
+    QLabel *m_addressLabel;         // actual address text
     QPushButton *m_copyAddressButton;
     
-    // Action buttons
-    QFrame *m_actionsCard;
+    // Bitcoin wallet action buttons (integrated in wallet section)
+    QLabel *m_actionsSectionLabel;  // "Actions:" label
     QGridLayout *m_actionsLayout;
     QPushButton *m_viewBalanceButton;
     QPushButton *m_sendButton;
     QPushButton *m_receiveButton;
-    QPushButton *m_logoutButton;
     
     // Transaction history
     QFrame *m_historyCard;

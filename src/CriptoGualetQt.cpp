@@ -29,14 +29,29 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     setupMenuBar();
     setupStatusBar();
     
+    // Apply initial styling
+    applyNavbarStyling();
+    
     connect(m_themeManager, &QtThemeManager::themeChanged, this, &CriptoGualetQt::onThemeChanged);
     
     showLoginScreen();
 }
 
 void CriptoGualetQt::setupUI() {
-    m_stackedWidget = new QStackedWidget(this);
-    setCentralWidget(m_stackedWidget);
+    // Create central widget with main layout
+    m_centralWidget = new QWidget(this);
+    setCentralWidget(m_centralWidget);
+    
+    m_mainLayout = new QVBoxLayout(m_centralWidget);
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);
+    m_mainLayout->setSpacing(0);
+    
+    // Create navbar
+    createNavbar();
+    
+    // Create stacked widget for pages
+    m_stackedWidget = new QStackedWidget(m_centralWidget);
+    m_mainLayout->addWidget(m_stackedWidget);
     
     m_loginUI = new QtLoginUI(this);
     m_walletUI = new QtWalletUI(this);
@@ -77,7 +92,7 @@ void CriptoGualetQt::setupUI() {
         }
     });
     
-    connect(m_walletUI, &QtWalletUI::logoutRequested, this, &CriptoGualetQt::showLoginScreen);
+    // Logout handled by navbar sign out button
     
     connect(m_walletUI, &QtWalletUI::viewBalanceRequested, [this]() {
         QMessageBox::information(this, "Balance", "Balance: 0.00000000 BTC\n(Demo wallet - no real transactions)");
@@ -95,6 +110,39 @@ void CriptoGualetQt::setupUI() {
                 QString("Your Bitcoin address has been copied to clipboard:\n%1").arg(address));
         }
     });
+}
+
+void CriptoGualetQt::createNavbar() {
+    m_navbar = new QFrame(m_centralWidget);
+    m_navbar->setProperty("class", "navbar");
+    m_navbar->setFixedHeight(60);
+    
+    QHBoxLayout *navLayout = new QHBoxLayout(m_navbar);
+    navLayout->setContentsMargins(20, 10, 20, 10);
+    navLayout->setSpacing(10);
+    
+    // App title/logo
+    m_appTitleLabel = new QLabel("CriptoGualet", m_navbar);
+    m_appTitleLabel->setProperty("class", "navbar-title");
+    navLayout->addWidget(m_appTitleLabel);
+    
+    // Spacer to push sign out button to the right
+    navLayout->addStretch();
+    
+    // Sign out button
+    m_signOutButton = new QPushButton("Sign Out", m_navbar);
+    m_signOutButton->setProperty("class", "navbar-button");
+    m_signOutButton->setMaximumWidth(100);
+    navLayout->addWidget(m_signOutButton);
+    
+    // Connect sign out button
+    connect(m_signOutButton, &QPushButton::clicked, this, &CriptoGualetQt::showLoginScreen);
+    
+    // Add navbar to main layout (at the top)
+    m_mainLayout->insertWidget(0, m_navbar);
+    
+    // Initially hidden until user logs in
+    m_navbar->hide();
 }
 
 void CriptoGualetQt::setupMenuBar() {
@@ -138,17 +186,38 @@ void CriptoGualetQt::setupStatusBar() {
 void CriptoGualetQt::showLoginScreen() {
     g_currentUser.clear();
     m_stackedWidget->setCurrentWidget(m_loginUI);
+    updateNavbarVisibility();
     statusBar()->showMessage("Please log in or create an account");
 }
 
 void CriptoGualetQt::showWalletScreen() {
     m_stackedWidget->setCurrentWidget(m_walletUI);
+    updateNavbarVisibility();
     statusBar()->showMessage(QString("Logged in as: %1").arg(QString::fromStdString(g_currentUser)));
+}
+
+void CriptoGualetQt::updateNavbarVisibility() {
+    // Show navbar only when wallet screen is visible
+    if (m_stackedWidget->currentWidget() == m_walletUI) {
+        m_navbar->show();
+    } else {
+        m_navbar->hide();
+    }
 }
 
 void CriptoGualetQt::onThemeChanged() {
     m_loginUI->applyTheme();
     m_walletUI->applyTheme();
+    applyNavbarStyling();
+}
+
+void CriptoGualetQt::applyNavbarStyling() {
+    // Apply main window stylesheet (includes navbar styles)
+    setStyleSheet(m_themeManager->getMainWindowStyleSheet());
+    
+    // Apply fonts to navbar components
+    m_appTitleLabel->setFont(m_themeManager->titleFont());
+    m_signOutButton->setFont(m_themeManager->buttonFont());
 }
 
 int main(int argc, char *argv[]) {

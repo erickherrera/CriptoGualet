@@ -67,7 +67,7 @@ void QtThemeManager::setupLightTheme() {
     m_primaryColor = QColor(255, 255, 255);
     m_secondaryColor = QColor(237, 242, 247);
     m_backgroundColor = QColor(248, 250, 252);
-    m_surfaceColor = QColor(255, 255, 255);
+    m_surfaceColor = QColor(230, 230, 245);
     m_textColor = QColor(45, 55, 72);
     m_accentColor = QColor(66, 153, 225);
     m_errorColor = QColor(229, 62, 62);
@@ -108,7 +108,7 @@ void QtThemeManager::setupCryptoLightTheme() {
     // Darker gray for INPUT BORDERS to contrast against very light surface/background
     m_secondaryColor = QColor(229, 231, 235);  // ~ Tailwind gray-200 (darker than surface)
     m_backgroundColor = QColor(255, 255, 255);
-    m_surfaceColor = QColor(248, 250, 252);
+    m_surfaceColor = QColor(255, 252, 210);
     m_textColor = QColor(17, 24, 39);
     m_accentColor = QColor(245, 158, 11);
     m_errorColor = QColor(239, 68, 68);
@@ -214,6 +214,7 @@ QString QtThemeManager::getLabelStyleSheet() const {
             font-family: %2;
             font-size: %3px;
             background-color: transparent;
+            border: none;
         }
         QLabel[class="title"] {
             font-family: %4;
@@ -230,8 +231,17 @@ QString QtThemeManager::getLabelStyleSheet() const {
             font-size: %8px;
             color: %9;
             background-color: %10;
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        QLabel[class="section-label"] {
+            font-weight: bold;
+            font-size: %11px;
+            color: %12;
+            border: none;
+            background-color: transparent;
+            padding: 0px;
         }
     )")
         .arg(m_textColor.name())
@@ -241,9 +251,11 @@ QString QtThemeManager::getLabelStyleSheet() const {
         .arg(m_accentColor.name())    // bright title
         .arg(m_subtitleColor.name())  // dynamic subtitle
         .arg(m_monoFont.family())
-        .arg(m_monoFont.pointSize())
+        .arg(m_monoFont.pointSize() + 4)  // larger address font
         .arg(m_accentColor.name())
-        .arg(m_surfaceColor.name());
+        .arg(m_surfaceColor.name())
+        .arg(m_textFont.pointSize() + 5)  // section-label font size (larger difference)
+        .arg(m_textColor.name());         // section-label color
 }
 
 QString QtThemeManager::getMainWindowStyleSheet() const {
@@ -262,13 +274,45 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
             border-radius: 12px;
             padding: 16px;
         }
+        QFrame[class="navbar"] {
+            background-color: %7;
+            border-bottom: 2px solid %8;
+            border-radius: 0px;
+        }
+        QLabel[class="navbar-title"] {
+            font-family: %9;
+            font-size: 30px;
+            font-weight: bold;
+            color: %10;
+        }
+        QPushButton[class="navbar-button"] {
+            background-color: %11;
+            color: %12;
+            border: 1px solid %13;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-weight: 500;
+        }
+        QPushButton[class="navbar-button"]:hover {
+            background-color: %14;
+            border-color: %15;
+        }
     )")
-        .arg(m_backgroundColor.name())
-        .arg(m_textColor.name())
-        .arg(m_backgroundColor.name())
-        .arg(m_textColor.name())
-        .arg(m_surfaceColor.name())
-        .arg(m_secondaryColor.name());
+        .arg(m_backgroundColor.name())        // %1 - main background
+        .arg(m_textColor.name())             // %2 - main text color
+        .arg(m_backgroundColor.name())        // %3 - widget background
+        .arg(m_textColor.name())             // %4 - widget text color
+        .arg(m_surfaceColor.name())          // %5 - card background
+        .arg(m_secondaryColor.name())        // %6 - card border
+        .arg(m_backgroundColor.name())            // %7 - navbar background
+        .arg(m_accentColor.name())           // %8 - navbar border
+        .arg(m_titleFont.family())           // %9 - navbar title font
+        .arg(m_accentColor.name())           // %10 - navbar title color
+        .arg(m_surfaceColor.name())               // %11 - navbar button background
+        .arg(m_textColor.name())             // %12 - navbar button text
+        .arg(m_secondaryColor.name())        // %13 - navbar button border
+        .arg(m_surfaceColor.lighter(180).name())  // %14 - navbar button hover background
+        .arg(m_accentColor.name());          // %15 - navbar button hover border
 }
 
 QString QtThemeManager::getCardStyleSheet() const {

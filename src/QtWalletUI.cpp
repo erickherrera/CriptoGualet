@@ -39,9 +39,8 @@ void QtWalletUI::setupUI() {
     m_contentLayout->setContentsMargins(20, 20, 20, 20);
     m_contentLayout->setSpacing(20);
     
-    createWelcomeSection();
-    createAddressSection();
-    createActionButtons();
+    createTitleSection();
+    createWalletSection();
     createTransactionHistory();
     
     m_contentLayout->addItem(new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding));
@@ -50,44 +49,49 @@ void QtWalletUI::setupUI() {
     m_mainLayout->addWidget(m_scrollArea);
 }
 
-void QtWalletUI::createWelcomeSection() {
-    m_welcomeCard = new QFrame(m_scrollContent);
-    m_welcomeCard->setProperty("class", "card");
-    
-    QVBoxLayout *welcomeLayout = new QVBoxLayout(m_welcomeCard);
-    welcomeLayout->setContentsMargins(25, 25, 25, 25);
-    welcomeLayout->setSpacing(15);
-    
-    m_welcomeLabel = new QLabel("Welcome back!", m_welcomeCard);
+void QtWalletUI::createTitleSection() {
+    m_welcomeLabel = new QLabel("Digital Wallets", m_scrollContent);
     m_welcomeLabel->setProperty("class", "title");
     m_welcomeLabel->setAlignment(Qt::AlignCenter);
-    welcomeLayout->addWidget(m_welcomeLabel);
     
-    m_balanceLabel = new QLabel("Balance: 0.00000000 BTC", m_welcomeCard);
-    m_balanceLabel->setProperty("class", "subtitle");
-    m_balanceLabel->setAlignment(Qt::AlignCenter);
-    welcomeLayout->addWidget(m_balanceLabel);
+    // Add some margin for spacing
+    m_welcomeLabel->setContentsMargins(0, 10, 0, 10);
     
-    m_contentLayout->addWidget(m_welcomeCard);
+    m_contentLayout->addWidget(m_welcomeLabel);
 }
 
-void QtWalletUI::createAddressSection() {
+void QtWalletUI::createWalletSection() {
     m_addressCard = new QFrame(m_scrollContent);
     m_addressCard->setProperty("class", "card");
     
-    QVBoxLayout *addressLayout = new QVBoxLayout(m_addressCard);
-    addressLayout->setContentsMargins(25, 25, 25, 25);
-    addressLayout->setSpacing(15);
+    QVBoxLayout *walletLayout = new QVBoxLayout(m_addressCard);
+    walletLayout->setContentsMargins(25, 25, 25, 25);
+    walletLayout->setSpacing(20);
     
-    m_addressTitleLabel = new QLabel("Your Bitcoin Address", m_addressCard);
+    // Bitcoin wallet header - centered
+    m_addressTitleLabel = new QLabel("Bitcoin Wallet", m_addressCard);
     m_addressTitleLabel->setProperty("class", "title");
-    addressLayout->addWidget(m_addressTitleLabel);
+    m_addressTitleLabel->setAlignment(Qt::AlignCenter);
+    walletLayout->addWidget(m_addressTitleLabel);
     
+    // Balance section - centered
+    m_balanceLabel = new QLabel("Balance: 0.00000000 BTC", m_addressCard);
+    m_balanceLabel->setProperty("class", "subtitle");
+    m_balanceLabel->setAlignment(Qt::AlignCenter);
+    walletLayout->addWidget(m_balanceLabel);
+    
+    // Address section - all in one row with margins
     QHBoxLayout *addressRowLayout = new QHBoxLayout();
+    addressRowLayout->setContentsMargins(20, 0, 20, 0);
+    
+    m_addressSectionLabel = new QLabel("Address:", m_addressCard);
+    m_addressSectionLabel->setProperty("class", "section-label");
+    m_addressSectionLabel->setMinimumWidth(70);
+    addressRowLayout->addWidget(m_addressSectionLabel);
     
     m_addressLabel = new QLabel("", m_addressCard);
     m_addressLabel->setProperty("class", "address");
-    m_addressLabel->setWordWrap(true);
+    m_addressLabel->setWordWrap(false);
     m_addressLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     addressRowLayout->addWidget(m_addressLabel, 1);
     
@@ -95,7 +99,10 @@ void QtWalletUI::createAddressSection() {
     m_copyAddressButton->setMaximumWidth(80);
     addressRowLayout->addWidget(m_copyAddressButton);
     
-    addressLayout->addLayout(addressRowLayout);
+    walletLayout->addLayout(addressRowLayout);
+    
+    // Bitcoin wallet actions
+    createBitcoinWalletActions(walletLayout);
     
     connect(m_copyAddressButton, &QPushButton::clicked, [this]() {
         if (!m_currentAddress.isEmpty()) {
@@ -107,46 +114,44 @@ void QtWalletUI::createAddressSection() {
     m_contentLayout->addWidget(m_addressCard);
 }
 
-void QtWalletUI::createActionButtons() {
-    m_actionsCard = new QFrame(m_scrollContent);
-    m_actionsCard->setProperty("class", "card");
+void QtWalletUI::createBitcoinWalletActions(QVBoxLayout *parentLayout) {
+    // Actions section for this wallet with margins
+    QHBoxLayout *actionsLabelLayout = new QHBoxLayout();
+    actionsLabelLayout->setContentsMargins(20, 0, 20, 0);
     
-    QVBoxLayout *actionsMainLayout = new QVBoxLayout(m_actionsCard);
-    actionsMainLayout->setContentsMargins(25, 25, 25, 25);
-    actionsMainLayout->setSpacing(20);
+    m_actionsSectionLabel = new QLabel("Actions:", m_addressCard);
+    m_actionsSectionLabel->setProperty("class", "section-label");
+    actionsLabelLayout->addWidget(m_actionsSectionLabel);
+    actionsLabelLayout->addStretch();
     
-    QLabel *actionsTitle = new QLabel("Wallet Actions", m_actionsCard);
-    actionsTitle->setProperty("class", "title");
-    actionsMainLayout->addWidget(actionsTitle);
+    parentLayout->addLayout(actionsLabelLayout);
     
     m_actionsLayout = new QGridLayout();
-    m_actionsLayout->setSpacing(15);
+    m_actionsLayout->setSpacing(12);
+    m_actionsLayout->setContentsMargins(20, 0, 20, 0);
     
-    m_viewBalanceButton = new QPushButton("View Balance", m_actionsCard);
-    m_viewBalanceButton->setMinimumHeight(60);
+    m_viewBalanceButton = new QPushButton("View Balance", m_addressCard);
+    m_viewBalanceButton->setMinimumHeight(45);
     m_actionsLayout->addWidget(m_viewBalanceButton, 0, 0);
     
-    m_sendButton = new QPushButton("Send Bitcoin", m_actionsCard);
-    m_sendButton->setMinimumHeight(60);
+    m_sendButton = new QPushButton("Send Bitcoin", m_addressCard);
+    m_sendButton->setMinimumHeight(45);
     m_actionsLayout->addWidget(m_sendButton, 0, 1);
     
-    m_receiveButton = new QPushButton("Receive Bitcoin", m_actionsCard);
-    m_receiveButton->setMinimumHeight(60);
+    m_receiveButton = new QPushButton("Receive Bitcoin", m_addressCard);
+    m_receiveButton->setMinimumHeight(45);
     m_actionsLayout->addWidget(m_receiveButton, 1, 0);
     
-    m_logoutButton = new QPushButton("Sign Out", m_actionsCard);
-    m_logoutButton->setMinimumHeight(60);
-    m_actionsLayout->addWidget(m_logoutButton, 1, 1);
+    // Sign Out button moved to navbar - leave space or adjust grid as needed
+    // For now, just keep the 3-button layout with proper spacing
     
-    actionsMainLayout->addLayout(m_actionsLayout);
+    parentLayout->addLayout(m_actionsLayout);
     
     connect(m_viewBalanceButton, &QPushButton::clicked, this, &QtWalletUI::onViewBalanceClicked);
     connect(m_sendButton, &QPushButton::clicked, this, &QtWalletUI::onSendBitcoinClicked);
     connect(m_receiveButton, &QPushButton::clicked, this, &QtWalletUI::onReceiveBitcoinClicked);
-    connect(m_logoutButton, &QPushButton::clicked, this, &QtWalletUI::onLogoutClicked);
-    
-    m_contentLayout->addWidget(m_actionsCard);
 }
+
 
 void QtWalletUI::createTransactionHistory() {
     m_historyCard = new QFrame(m_scrollContent);
@@ -173,7 +178,7 @@ void QtWalletUI::setUserInfo(const QString &username, const QString &address) {
     m_currentUsername = username;
     m_currentAddress = address;
     
-    m_welcomeLabel->setText(QString("Welcome back, %1!").arg(username));
+    // Title remains "Digital Wallets" - no need to change it
     m_addressLabel->setText(address);
 }
 
@@ -189,10 +194,6 @@ void QtWalletUI::onReceiveBitcoinClicked() {
     emit receiveBitcoinRequested();
 }
 
-void QtWalletUI::onLogoutClicked() {
-    emit logoutRequested();
-}
-
 void QtWalletUI::onThemeChanged() {
     applyTheme();
 }
@@ -205,23 +206,31 @@ void QtWalletUI::updateStyles() {
     setStyleSheet(m_themeManager->getMainWindowStyleSheet());
     
     QString cardStyle = m_themeManager->getCardStyleSheet();
-    m_welcomeCard->setStyleSheet(cardStyle);
     m_addressCard->setStyleSheet(cardStyle);
-    m_actionsCard->setStyleSheet(cardStyle);
     m_historyCard->setStyleSheet(cardStyle);
     
+    // Title with shadow effect - using same base style as card labels
     QString labelStyle = m_themeManager->getLabelStyleSheet();
-    m_welcomeLabel->setStyleSheet(labelStyle);
+    QString titleStyle = labelStyle + QString(R"(
+        QLabel {
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            background-color: transparent;
+            padding: 15px 0px;
+        }
+    )");
+    m_welcomeLabel->setStyleSheet(titleStyle);
+    
     m_balanceLabel->setStyleSheet(labelStyle);
     m_addressTitleLabel->setStyleSheet(labelStyle);
-    m_addressLabel->setStyleSheet(labelStyle);
+    m_addressSectionLabel->setStyleSheet(labelStyle);  // "Address:" label
+    m_addressLabel->setStyleSheet(labelStyle);         // actual address
+    m_actionsSectionLabel->setStyleSheet(labelStyle);  // "Actions:" label
     m_historyTitleLabel->setStyleSheet(labelStyle);
     
     QString buttonStyle = m_themeManager->getButtonStyleSheet();
     m_viewBalanceButton->setStyleSheet(buttonStyle);
     m_sendButton->setStyleSheet(buttonStyle);
     m_receiveButton->setStyleSheet(buttonStyle);
-    m_logoutButton->setStyleSheet(buttonStyle);
     m_copyAddressButton->setStyleSheet(buttonStyle);
     
     QString textEditStyle = QString(R"(
@@ -252,6 +261,5 @@ void QtWalletUI::updateStyles() {
     m_viewBalanceButton->setFont(m_themeManager->buttonFont());
     m_sendButton->setFont(m_themeManager->buttonFont());
     m_receiveButton->setFont(m_themeManager->buttonFont());
-    m_logoutButton->setFont(m_themeManager->buttonFont());
     m_copyAddressButton->setFont(m_themeManager->buttonFont());
 }

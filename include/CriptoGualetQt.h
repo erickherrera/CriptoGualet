@@ -5,6 +5,9 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QApplication>
+#include <QFrame>
+#include <QLabel>
+#include <QPushButton>
 #include <memory>
 
 class QtLoginUI;
@@ -27,7 +30,15 @@ private:
     void setupUI();
     void setupMenuBar();
     void setupStatusBar();
+    void createNavbar();
+    void updateNavbarVisibility();
+    void applyNavbarStyling();
     
+    QWidget *m_centralWidget;
+    QVBoxLayout *m_mainLayout;
+    QFrame *m_navbar;
+    QLabel *m_appTitleLabel;
+    QPushButton *m_signOutButton;
     QStackedWidget *m_stackedWidget;
     QtLoginUI *m_loginUI;
     QtWalletUI *m_walletUI;
