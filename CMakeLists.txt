@@ -17,10 +17,25 @@ option(BUILD_GUI_QT "Build the Qt GUI wallet app" ON)
 
 # Find Qt6 if GUI is enabled
 if(BUILD_GUI_QT)
+  # Add Qt6 installation paths on Windows
+  if(WIN32)
+    list(APPEND CMAKE_PREFIX_PATH 
+      "C:/Program Files/Qt"
+      "C:/Qt"
+      "C:/Program Files (x86)/Qt"
+    )
+    # Search for Qt6 in common subdirectories
+    file(GLOB QT_VERSIONS "C:/Program Files/Qt/6.*")
+    foreach(QT_VERSION ${QT_VERSIONS})
+      list(APPEND CMAKE_PREFIX_PATH "${QT_VERSION}/msvc2022_64" "${QT_VERSION}/msvc2019_64")
+    endforeach()
+  endif()
+  
   find_package(Qt6 QUIET COMPONENTS Core Widgets Gui)
   if(Qt6_FOUND)
     qt6_standard_project_setup()
-    message(STATUS "Qt6 found - Qt GUI will be built")
+    message(STATUS "Qt6 found at ${Qt6_DIR}")
+    message(STATUS "Qt GUI will be built")
   else()
     message(WARNING "Qt6 not found - Qt GUI will not be built. Install Qt6 to enable Qt GUI.")
     set(BUILD_GUI_QT OFF)
