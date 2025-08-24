@@ -6,7 +6,7 @@
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\out\\build\\win-msvc-x64-debug",
       "installRoot": "${projectDir}\\out\\install\\win-msvc-x64-debug",
-      "cmakeCommandArgs": "-DCMAKE_PREFIX_PATH=C:/Qt/6.9.1/msvc2022_64",
+      "cmakeCommandArgs": "-DCMAKE_PREFIX_PATH=\"C:/Program Files/Qt/6.9.1/mingw_64\"",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ],
