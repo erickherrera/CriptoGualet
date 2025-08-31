@@ -7,7 +7,7 @@
       "projectTarget": "CriptoGualetQt.exe (src\\CriptoGualetQt.exe)",
       "name": "CriptoGualet Qt Application",
       "env": {
-        "PATH": "C:\\Qt\\6.9.1\\msvc2022_64\\bin;${env.PATH}"
+        "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env.PATH}"
       }
     }
   ]
