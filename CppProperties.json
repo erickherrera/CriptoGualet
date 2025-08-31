@@ -8,10 +8,10 @@
       "includePath": [
         "${env.INCLUDE}",
         "${workspaceRoot}\\**",
-        "C:\\Qt\\6.9.1\\msvc2022_64\\include",
-        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtCore",
-        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtWidgets",
-        "C:\\Qt\\6.9.1\\msvc2022_64\\include\\QtGui"
+        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include",
+        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include\\QtCore",
+        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include\\QtWidgets",
+        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include\\QtGui"
       ],
       "defines": [
         "WIN32",

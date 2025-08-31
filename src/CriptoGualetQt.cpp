@@ -10,6 +10,11 @@
 #include <QStatusBar>
 #include <QMessageBox>
 #include <QClipboard>
+#include <QStackedWidget>
+#include <QMenu>
+#include <QAction>
+#include <map>
+#include <string>
 
 extern std::map<std::string, User> g_users;
 extern std::string g_currentUser;
