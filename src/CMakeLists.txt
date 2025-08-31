@@ -107,6 +107,11 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     bcrypt
   )
 
+  target_include_directories(CriptoGualetQt PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include"
+  )
+
   # MSVC-specific flags for Qt with security
   if(MSVC)
     target_compile_options(CriptoGualetQt PRIVATE /W4 /permissive- /utf-8 /EHsc /GS /Zc:__cplusplus)
