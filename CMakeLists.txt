@@ -106,10 +106,10 @@ if(BUILD_GUI_QT)
           "${QT_VERSION}/msvc2019_64")
       elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         list(APPEND CMAKE_PREFIX_PATH
+          "${QT_VERSION}/msvc2022_64"
+          "${QT_VERSION}/msvc2019_64"
           "${QT_VERSION}/clang_64"
-          "${QT_VERSION}/llvm-mingw_64"
-          "${QT_VERSION}/mingw_64"
-          "${QT_VERSION}/msvc2022_64")
+          "${QT_VERSION}/llvm-mingw_64")
       else()
         list(APPEND CMAKE_PREFIX_PATH
           "${QT_VERSION}/mingw_64"
