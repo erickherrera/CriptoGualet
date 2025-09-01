@@ -15,10 +15,9 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # -------------------------------
-# Prefer Clang *outside* Visual Studio only.
-# When VS is the generator (from your CMakePresets.json), DO NOT override.
+# Compiler detection - try to find a suitable compiler
 # -------------------------------
-if (NOT CMAKE_GENERATOR MATCHES "Visual Studio" AND NOT DEFINED CMAKE_CXX_COMPILER)
+if (NOT DEFINED CMAKE_CXX_COMPILER)
   # Check standard installation locations
   find_program(CLANG_EXECUTABLE NAMES clang
     PATHS "C:/Program Files/LLVM/bin"
@@ -44,18 +43,26 @@ if (NOT CMAKE_GENERATOR MATCHES "Visual Studio" AND NOT DEFINED CMAKE_CXX_COMPIL
   if(CLANGCL_EXECUTABLE AND WIN32)
     set(CMAKE_C_COMPILER ${CLANGCL_EXECUTABLE})
     set(CMAKE_CXX_COMPILER ${CLANGCL_EXECUTABLE})
-    message(STATUS "Using Clang-CL outside Visual Studio: ${CLANGCL_EXECUTABLE}")
+    message(STATUS "Using Clang-CL: ${CLANGCL_EXECUTABLE}")
   elseif(CLANG_EXECUTABLE AND CLANGXX_EXECUTABLE)
     set(CMAKE_C_COMPILER ${CLANG_EXECUTABLE})
     set(CMAKE_CXX_COMPILER ${CLANGXX_EXECUTABLE})
-    message(STATUS "Using Clang outside Visual Studio.")
+    message(STATUS "Using Clang.")
     message(STATUS "Clang C compiler: ${CLANG_EXECUTABLE}")
     message(STATUS "Clang C++ compiler: ${CLANGXX_EXECUTABLE}")
   else()
-    message(STATUS "Clang not found - using system default compiler outside Visual Studio.")
+    # Fall back to system default compiler detection
+    find_program(MSVC_CL NAMES cl.exe)
+    if(MSVC_CL AND WIN32)
+      set(CMAKE_C_COMPILER ${MSVC_CL})
+      set(CMAKE_CXX_COMPILER ${MSVC_CL})
+      message(STATUS "Using MSVC compiler: ${MSVC_CL}")
+    else()
+      message(WARNING "No suitable compiler found. Please ensure a C++ compiler is installed.")
+    endif()
   endif()
 else()
-  message(STATUS "Visual Studio generator detected or compiler preselected; not overriding toolchain.")
+  message(STATUS "Compiler already specified: ${CMAKE_CXX_COMPILER}")
 endif()
 
 # Enable vcpkg integration (matches your presets if VCPKG_ROOT is set)
@@ -64,9 +71,14 @@ if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
       CACHE STRING "")
 endif()
 
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 20)
+# Set C++ standard (Qt 6.9.1 requires C++17)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Add MSVC-specific flags for Qt compatibility
+if(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  add_compile_options(/Zc:__cplusplus)
+endif()
 
 # Cross-platform compiler flags for Clang (only when using Clang)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
