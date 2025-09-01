@@ -35,6 +35,9 @@ private slots:
     void onLogoutClicked();
     void onThemeChanged();
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     void setupUI();
     void createWelcomeSection();
@@ -44,6 +47,7 @@ private:
     void createBitcoinWalletActions(QVBoxLayout *parentLayout);
     void createTransactionHistory();
     void updateStyles();
+    void updateScrollAreaWidth();
 
     // Theme
     QtThemeManager *m_themeManager;
@@ -69,11 +73,10 @@ private:
     // Actions section
     QFrame *m_actionsCard;
     QLabel *m_actionsTitle;          // <-- Added: title label for "Wallet Actions"
-    QGridLayout *m_actionsLayout;
+    QHBoxLayout *m_actionsLayout;
     QPushButton *m_viewBalanceButton;
     QPushButton *m_sendButton;
     QPushButton *m_receiveButton;
-    QPushButton *m_logoutButton;
 
     // Transaction history
     QFrame *m_historyCard;
