@@ -73,7 +73,7 @@ void QtWalletUI::createWelcomeSection() {
     m_contentLayout->addWidget(m_welcomeCard);
 }
 
-void QtWalletUI::createWalletSection() {
+void QtWalletUI::createAddressSection() {
     m_addressCard = new QFrame(m_scrollContent);
     m_addressCard->setProperty("class", "card");
     m_addressCard->setObjectName("addressCard");
@@ -277,4 +277,8 @@ void QtWalletUI::updateStyles() {
     m_sendButton->setFont(m_themeManager->buttonFont());
     m_receiveButton->setFont(m_themeManager->buttonFont());
     m_copyAddressButton->setFont(m_themeManager->buttonFont());
+}
+
+void QtWalletUI::onLogoutClicked() {
+    emit logoutRequested();
 }

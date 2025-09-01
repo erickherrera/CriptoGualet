@@ -271,3 +271,10 @@ void QtLoginUI::updateStyles() {
     m_usernameEdit->setFont(m_themeManager->textFont());
     m_passwordEdit->setFont(m_themeManager->textFont());
 }
+
+void QtLoginUI::clearMessage() {
+    if (m_messageLabel) {
+        m_messageLabel->clear();
+        m_messageLabel->hide();
+    }
+}

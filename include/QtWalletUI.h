@@ -32,11 +32,14 @@ private slots:
     void onViewBalanceClicked();
     void onSendBitcoinClicked();
     void onReceiveBitcoinClicked();
+    void onLogoutClicked();
     void onThemeChanged();
 
 private:
     void setupUI();
-    void createTitleSection();
+    void createWelcomeSection();
+    void createAddressSection();
+    void createActionButtons();
     void createWalletSection();
     void createBitcoinWalletActions(QVBoxLayout *parentLayout);
     void createTransactionHistory();
@@ -59,7 +62,6 @@ private:
     // Address section
     QFrame *m_addressCard;
     QLabel *m_addressTitleLabel;
-    QLabel *m_balanceLabel;
     QLabel *m_addressSectionLabel;  // "Address:" label
     QLabel *m_addressLabel;         // actual address text
     QPushButton *m_copyAddressButton;
