@@ -3,11 +3,22 @@
   "configurations": [
     {
       "type": "default",
-      "project": "CMakeLists.txt",
-      "projectTarget": "CriptoGualetQt.exe (src\\CriptoGualetQt.exe)",
       "name": "CriptoGualet Qt Application",
+      "project": "CMakeLists.txt",
+      "projectTarget": "CriptoGualetQt (exe)",
+      "currentDir": "${workspaceRoot}",
       "env": {
-        "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env.PATH}"
+        "PATH": "${workspaceRoot}\\out\\build\\${presetName}\\bin;${workspaceRoot}\\out\\build\\${presetName}\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+      }
+    },
+    {
+      "type": "default",
+      "name": "CriptoGualet (Win32 GUI)",
+      "project": "CMakeLists.txt",
+      "projectTarget": "CriptoGualet (exe)",
+      "currentDir": "${workspaceRoot}",
+      "env": {
+        "PATH": "${workspaceRoot}\\out\\build\\${presetName}\\bin;${env:PATH}"
       }
     }
   ]
