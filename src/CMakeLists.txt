@@ -125,6 +125,11 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "${CMAKE_CURRENT_SOURCE_DIR}/../include"
   )
 
+  target_include_directories(CriptoGualetQt PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include"
+  )
+
   # MSVC-specific flags for Qt with security
   if(MSVC)
     target_compile_options(CriptoGualetQt PRIVATE /W4 /permissive- /utf-8 /EHsc /GS /Zc:__cplusplus)
@@ -136,43 +141,15 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
   # Set as startup project for Visual Studio if Qt GUI is built
   set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CriptoGualetQt)
   message(STATUS "Qt GUI target will be the startup project")
-  
-  # Copy Qt6 DLLs to build directory for debugging
-  if(WIN32 AND Qt6_FOUND)
-    get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
-    get_filename_component(QT_BINARY_DIR "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
-    
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${QT_BINARY_DIR}/Qt6Core$<$<CONFIG:Debug>:d>.dll"
-        $<TARGET_FILE_DIR:CriptoGualetQt>)
-    
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD  
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${QT_BINARY_DIR}/Qt6Widgets$<$<CONFIG:Debug>:d>.dll"
-        $<TARGET_FILE_DIR:CriptoGualetQt>)
-        
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different  
-        "${QT_BINARY_DIR}/Qt6Gui$<$<CONFIG:Debug>:d>.dll"
-        $<TARGET_FILE_DIR:CriptoGualetQt>)
-    
-    # Create platforms directory and copy platform plugins
-    get_filename_component(QT_PLUGINS_DIR "${QT_BINARY_DIR}/../plugins" ABSOLUTE)
-    
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E make_directory
-        $<TARGET_FILE_DIR:CriptoGualetQt>/platforms)
-        
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${QT_PLUGINS_DIR}/platforms/qwindows$<$<CONFIG:Debug>:d>.dll"
-        $<TARGET_FILE_DIR:CriptoGualetQt>/platforms/)
-        
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${QT_PLUGINS_DIR}/platforms/qminimal$<$<CONFIG:Debug>:d>.dll"
-        $<TARGET_FILE_DIR:CriptoGualetQt>/platforms/)
+
+  # Deploy Qt6 DLLs automatically
+  if(WIN32)
+    find_program(QT_DEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
+    if(QT_DEPLOYQT_EXECUTABLE)
+      add_custom_command(TARGET CriptoGualetQt POST_BUILD
+        COMMAND ${QT_DEPLOYQT_EXECUTABLE} $<TARGET_FILE:CriptoGualetQt>
+        COMMENT "Deploying Qt libraries")
+    endif()
   endif()
 elseif(BUILD_GUI_QT AND NOT Qt6_FOUND)
   message(STATUS "Qt6 not found - install Qt6 from https://qt.io to build the modern Qt GUI")

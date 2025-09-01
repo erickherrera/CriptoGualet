@@ -41,37 +41,44 @@ private:
     void createBitcoinWalletActions(QVBoxLayout *parentLayout);
     void createTransactionHistory();
     void updateStyles();
-    
+
+    // Theme
     QtThemeManager *m_themeManager;
-    
+
+    // Layout roots
     QVBoxLayout *m_mainLayout;
     QScrollArea *m_scrollArea;
     QWidget *m_scrollContent;
     QVBoxLayout *m_contentLayout;
-    
-    // Title section (no card, direct on background)
+
+    // Welcome section
+    QFrame *m_welcomeCard;
     QLabel *m_welcomeLabel;
-    
-    // Wallet section (combined address and balance)
+    QLabel *m_balanceLabel;
+
+    // Address section
     QFrame *m_addressCard;
     QLabel *m_addressTitleLabel;
     QLabel *m_balanceLabel;
     QLabel *m_addressSectionLabel;  // "Address:" label
     QLabel *m_addressLabel;         // actual address text
     QPushButton *m_copyAddressButton;
-    
-    // Bitcoin wallet action buttons (integrated in wallet section)
-    QLabel *m_actionsSectionLabel;  // "Actions:" label
+
+    // Actions section
+    QFrame *m_actionsCard;
+    QLabel *m_actionsTitle;          // <-- Added: title label for "Wallet Actions"
     QGridLayout *m_actionsLayout;
     QPushButton *m_viewBalanceButton;
     QPushButton *m_sendButton;
     QPushButton *m_receiveButton;
-    
+    QPushButton *m_logoutButton;
+
     // Transaction history
     QFrame *m_historyCard;
     QLabel *m_historyTitleLabel;
     QTextEdit *m_historyText;
-    
+
+    // User data
     QString m_currentUsername;
     QString m_currentAddress;
 };

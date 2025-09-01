@@ -217,45 +217,33 @@ QString QtThemeManager::getLabelStyleSheet() const {
             border: none;
         }
         QLabel[class="title"] {
-            font-family: %4;
-            font-size: 50px;
+            font-family: %2;
+            font-size: %4px;
             font-weight: 700;
-            color: %5;
+            color: %1;
         }
         QLabel[class="subtitle"] {
-            font-size: 20px;
+            font-family: %2;
+            font-size: %5px;
             color: %6;
         }
         QLabel[class="address"] {
             font-family: %7;
-            font-size: %8px;
-            color: %9;
-            background-color: %10;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-        QLabel[class="section-label"] {
-            font-weight: bold;
-            font-size: %11px;
-            color: %12;
-            border: none;
-            background-color: transparent;
-            padding: 0px;
+            font-size: %3px;
+            color: %1;
+            background-color: %8;
+            padding: 4px 8px;
+            border-radius: 4px;
         }
     )")
-        .arg(m_textColor.name())
-        .arg(m_textFont.family())
-        .arg(m_textFont.pointSize())
-        .arg(m_titleFont.family())
-        .arg(m_accentColor.name())    // bright title
-        .arg(m_subtitleColor.name())  // dynamic subtitle
-        .arg(m_monoFont.family())
-        .arg(m_monoFont.pointSize() + 4)  // larger address font
-        .arg(m_accentColor.name())
-        .arg(m_surfaceColor.name())
-        .arg(m_textFont.pointSize() + 5)  // section-label font size (larger difference)
-        .arg(m_textColor.name());         // section-label color
+    .arg(textColor().name())              // %1: text color
+    .arg(textFont().family())             // %2: base font family
+    .arg(textFont().pointSize())          // %3: normal font size
+    .arg(titleFont().pointSize())         // %4: title size
+    .arg(textFont().pointSize() - 2)      // %5: subtitle slightly smaller
+    .arg(textColor().name())              // %6: subtitle color (define this in theme)
+    .arg(monoFont().family())             // %7: monospace font for address
+    .arg(accentColor().name());           // %8: background for address
 }
 
 QString QtThemeManager::getMainWindowStyleSheet() const {
@@ -319,12 +307,14 @@ QString QtThemeManager::getCardStyleSheet() const {
     return QString(R"(
         QFrame {
             background-color: %1;
-            border: 1px solid %2;
+            border: 2px solid %2;
             border-radius: 12px;
             padding: 20px;
         }
+        QFrame:hover {
+            border-color: %2;
+        }
     )")
         .arg(m_surfaceColor.name())
-        .arg(m_secondaryColor.name())
         .arg(m_accentColor.name());
 }
