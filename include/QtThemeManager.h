@@ -47,6 +47,9 @@ public:
     QString getLabelStyleSheet() const;
     QString getMainWindowStyleSheet() const;
     QString getCardStyleSheet() const;
+    QString getMessageStyleSheet() const;
+    QString getErrorMessageStyleSheet() const;
+    QString getSuccessMessageStyleSheet() const;
 
 signals:
     void themeChanged(ThemeType newTheme);

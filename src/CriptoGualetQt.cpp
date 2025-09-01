@@ -13,6 +13,7 @@
 #include <QStackedWidget>
 #include <QMenu>
 #include <QAction>
+#include <QDebug>
 #include <map>
 #include <string>
 
@@ -69,32 +70,49 @@ void CriptoGualetQt::setupUI() {
         std::string stdPassword = password.toStdString();
         
         Auth::AuthResponse response = Auth::LoginUser(stdUsername, stdPassword);
+        QString message = QString::fromStdString(response.message);
+        
         if (response.success()) {
             g_currentUser = stdUsername;
             m_walletUI->setUserInfo(username, QString::fromStdString(g_users[stdUsername].walletAddress));
             showWalletScreen();
             statusBar()->showMessage("Login successful", 3000);
         } else {
-            // The UI already shows the error message, so no need for a popup here
-            // Just show a brief status message
             statusBar()->showMessage("Login failed", 3000);
         }
+        
+        // Send result back to login UI for visual feedback
+        m_loginUI->onLoginResult(response.success(), message);
     });
     
     connect(m_loginUI, &QtLoginUI::registerRequested, [this](const QString &username, const QString &password) {
         std::string stdUsername = username.toStdString();
         std::string stdPassword = password.toStdString();
         
+        // Debug output
+        qDebug() << "Registration attempt - Username:" << username << "Password length:" << password.length();
+        
         Auth::AuthResponse response = Auth::RegisterUser(stdUsername, stdPassword);
+        QString message = QString::fromStdString(response.message);
+        
+        // Debug output
+        qDebug() << "Registration response - Success:" << response.success() << "Message:" << message;
+        qDebug() << "Auth result code:" << static_cast<int>(response.result);
+        
         if (response.success()) {
+            statusBar()->showMessage("Registration successful", 3000);
+            // Show additional info in popup for successful registration
             QMessageBox::information(this, "Registration Successful", 
-                QString("Account created for %1!\nYour Bitcoin address: %2")
+                QString("Account created for %1!\nYour Bitcoin address: %2\n\nYou can now sign in with your credentials.")
                 .arg(username)
                 .arg(QString::fromStdString(g_users[stdUsername].walletAddress)));
         } else {
-            // The UI already shows the error message, but we can show additional info in popup if needed
             statusBar()->showMessage("Registration failed", 3000);
+            qDebug() << "Registration failed with message:" << message;
         }
+        
+        // Send result back to login UI for visual feedback
+        m_loginUI->onRegisterResult(response.success(), message);
     });
     
     // Logout handled by navbar sign out button
