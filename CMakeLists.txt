@@ -147,3 +147,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Delegate to src/
 add_subdirectory(src)
+
+# Add debug test executable
+add_executable(debug_test debug_test.cpp src/SharedSymbols.cpp)
+target_link_libraries(debug_test PRIVATE Auth comctl32 crypt32 bcrypt)
+target_include_directories(debug_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
