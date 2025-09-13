@@ -13,16 +13,18 @@ add_library(Auth STATIC
 )
 target_include_directories(Auth PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/."
-  "${CMAKE_CURRENT_SOURCE_DIR}/./Auth"
 )
 
 # Use cross-platform compiler-specific flags with security features
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  # Clang-specific flags for security and warnings
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+  # Clang on non-Windows platforms
   target_compile_options(Auth PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
   target_link_options(Auth PRIVATE -fPIE -pie)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  # Clang-CL on Windows (no stack protector or PIE support)
+  target_compile_options(Auth PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
 elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-  # MSVC or Clang-CL flags
+  # MSVC flags
   target_compile_options(Auth PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
 else()
   # GCC or other compilers
@@ -45,9 +47,11 @@ if(WIN32 AND BUILD_GUI_WIN32)
   target_compile_definitions(CriptoGualet PRIVATE UNICODE _UNICODE)
 
   # Cross-platform compiler flags with security
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
     target_compile_options(CriptoGualet PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
     target_link_options(CriptoGualet PRIVATE -fPIE -pie)
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+    target_compile_options(CriptoGualet PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
   elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_options(CriptoGualet PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
     set_property(TARGET CriptoGualet PROPERTY VS_GLOBAL_CharacterSet Unicode)
@@ -102,9 +106,11 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
   )
 
   # Cross-platform compiler flags with security for Qt target
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
     target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
     target_link_options(CriptoGualetQt PRIVATE -fPIE -pie)
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+    target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
   elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_options(CriptoGualetQt PRIVATE /W4 /permissive- /utf-8 /EHsc /GS /Zc:__cplusplus)
   else()

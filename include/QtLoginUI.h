@@ -12,7 +12,14 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+// Forward declarations
 class QtThemeManager;
+class QDialog;
+class QDialogButtonBox;
+class QCheckBox;
+class QPlainTextEdit;
+class QGridLayout;
+class QMessageBox;
 
 class QtLoginUI : public QWidget {
   Q_OBJECT

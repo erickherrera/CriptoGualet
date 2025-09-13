@@ -21,11 +21,17 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QFileInfo>
 #include <QGridLayout>
 #include <QGuiApplication>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QUrl>
+#include <functional>
+#include <memory>
+#include <optional>
 
 QtLoginUI::QtLoginUI(QWidget *parent)
     : QWidget(parent), m_themeManager(&QtThemeManager::instance()) {
@@ -285,54 +291,177 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     m_usernameEdit->clear();
     m_passwordEdit->clear();
 
-    // Post-registration seed backup modal
+    // Enhanced post-registration seed backup modal
     QDialog dlg(this);
-    dlg.setWindowTitle("Your Seed Phrase");
+    dlg.setWindowTitle("🔐 Your Wallet Seed Phrase");
     dlg.setModal(true);
+    dlg.setMinimumSize(500, 400);
+    dlg.resize(500, 400); // Set initial size to match minimum size
 
-    QGridLayout *grid = new QGridLayout(&dlg);
-    grid->setContentsMargins(16, 16, 16, 16);
-    grid->setHorizontalSpacing(12);
-    grid->setVerticalSpacing(10);
+    QVBoxLayout *mainLayout = new QVBoxLayout(&dlg);
+    mainLayout->setContentsMargins(20, 20, 20, 20);
+    mainLayout->setSpacing(15);
 
-    QLabel *title =
-        new QLabel("<b>Your 12-word seed phrase was generated.</b><br/>"
-                   "It’s stored securely on this device. A one-time backup "
-                   "file was also created so you "
-                   "can write the words on paper.",
-                   &dlg);
+    // Header section
+    QLabel *headerIcon = new QLabel("🎉", &dlg);
+    headerIcon->setAlignment(Qt::AlignCenter);
+
+    QLabel *title = new QLabel("<h2 style='color: #2E7D32; margin: 0;'>Account "
+                               "Created Successfully!</h2>"
+                               "<p style='margin: 8px 0;'>Your secure 12-word "
+                               "seed phrase has been generated.</p>",
+                               &dlg);
+    title->setAlignment(Qt::AlignCenter);
     title->setWordWrap(true);
 
-    QLabel *pathHint = new QLabel("Open the backup folder now and record your "
-                                  "seed:<br/><code>seed_vault/</code>",
-                                  &dlg);
-    pathHint->setWordWrap(true);
+    // Warning section
+    QFrame *warningFrame = new QFrame(&dlg);
+    warningFrame->setFrameStyle(QFrame::Box);
 
-    QPushButton *openFolder = new QPushButton("Open seed_vault folder", &dlg);
-    openFolder->setCursor(Qt::PointingHandCursor);
+    QVBoxLayout *warningLayout = new QVBoxLayout(warningFrame);
+    warningLayout->setContentsMargins(12, 12, 12, 12);
 
-    QCheckBox *confirm =
-        new QCheckBox("I wrote the 12 words down safely.", &dlg);
+    QLabel *warningTitle =
+        new QLabel("⚠️ <b>CRITICAL: Write Down Your Seed Phrase</b>", &dlg);
 
+    QLabel *warningText = new QLabel(
+        "• Your seed phrase is the ONLY way to recover your wallet<br/>"
+        "• Write it down on paper and store it safely<br/>"
+        "• Never share it with anyone or store it digitally<br/>"
+        "• If you lose it, your wallet cannot be recovered",
+        &dlg);
+    warningText->setWordWrap(true);
+
+    warningLayout->addWidget(warningTitle);
+    warningLayout->addWidget(warningText);
+
+    // Backup file section
+    QFrame *backupFrame = new QFrame(&dlg);
+    backupFrame->setFrameStyle(QFrame::Box);
+
+    QVBoxLayout *backupLayout = new QVBoxLayout(backupFrame);
+    backupLayout->setContentsMargins(12, 12, 12, 12);
+
+    QLabel *backupTitle = new QLabel("📁 <b>Your Seed Phrase File</b>", &dlg);
+
+    QLabel *backupText = new QLabel(
+        "A temporary backup file has been created with your seed phrase.<br/>"
+        "<b>Important:</b> This file will be deleted after you confirm backup.",
+        &dlg);
+    backupText->setWordWrap(true);
+
+    QPushButton *openFolder = new QPushButton("📂 Open Backup Folder", &dlg);
+
+    backupLayout->addWidget(backupTitle);
+    backupLayout->addWidget(backupText);
+    backupLayout->addWidget(openFolder);
+
+    // Confirmation section
+    QFrame *confirmFrame = new QFrame(&dlg);
+    confirmFrame->setFrameStyle(QFrame::Box);
+
+    QVBoxLayout *confirmLayout = new QVBoxLayout(confirmFrame);
+    confirmLayout->setContentsMargins(12, 12, 12, 12);
+
+    QCheckBox *confirm1 =
+        new QCheckBox("✍️ I have written down all 12 words on paper", &dlg);
+    QCheckBox *confirm2 = new QCheckBox(
+        "🔒 I understand this is the only way to recover my wallet", &dlg);
+    QCheckBox *confirm3 = new QCheckBox(
+        "🗑️ I will delete the backup file after confirming my backup", &dlg);
+
+    confirmLayout->addWidget(confirm1);
+    confirmLayout->addWidget(confirm2);
+    confirmLayout->addWidget(confirm3);
+
+    // Buttons
     QDialogButtonBox *box = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dlg);
     QPushButton *okBtn = box->button(QDialogButtonBox::Ok);
+    okBtn->setText("🚀 Continue to Wallet");
     okBtn->setEnabled(false);
 
-    connect(confirm, &QCheckBox::toggled, okBtn, &QPushButton::setEnabled);
-    connect(openFolder, &QPushButton::clicked, [&]() {
-      QString seedDir = QDir::current().absoluteFilePath("seed_vault");
-      QDesktopServices::openUrl(QUrl::fromLocalFile(seedDir));
+    QPushButton *cancelBtn = box->button(QDialogButtonBox::Cancel);
+    cancelBtn->setText("❌ Cancel");
+
+    // Enable OK button only when all checkboxes are checked
+    auto updateOkButton = [=]() {
+      bool allChecked = confirm1->isChecked() && confirm2->isChecked() &&
+                        confirm3->isChecked();
+      okBtn->setEnabled(allChecked);
+    };
+
+    connect(confirm1, &QCheckBox::toggled, updateOkButton);
+    connect(confirm2, &QCheckBox::toggled, updateOkButton);
+    connect(confirm3, &QCheckBox::toggled, updateOkButton);
+
+    connect(openFolder, &QPushButton::clicked, [this, username]() {
+      try {
+        // Get the current working directory
+        QString currentDir = QDir::currentPath();
+
+        // Create seed_vault directory if it doesn't exist
+        QString seedDir = currentDir + "/seed_vault";
+        QDir mainDir(seedDir);
+        if (!mainDir.exists()) {
+          mainDir.mkpath(seedDir);
+        }
+
+        // Check for user-specific backup files
+        QString userDir = seedDir + "/" + username;
+        QDir dir(userDir);
+        QString userBackupFile = userDir + "/SEED_BACKUP_12_WORDS.txt";
+        QString fallbackFile = seedDir + "/" + username + "_mnemonic_SHOW_ONCE.txt";
+
+        bool success = false;
+        if (dir.exists() && QFile::exists(userBackupFile)) {
+          // User-specific directory exists and has backup file
+          success = QDesktopServices::openUrl(QUrl::fromLocalFile(userDir));
+          if (!success) {
+            QMessageBox::warning(
+                this, "Error",
+                "Failed to open user-specific backup folder: " + userDir);
+          }
+        } else if (QFile::exists(fallbackFile)) {
+          // Fallback file exists in main directory, select it
+          success = QDesktopServices::openUrl(QUrl::fromLocalFile(seedDir));
+          if (!success) {
+            QMessageBox::warning(this, "Error",
+                                 "Failed to open backup folder: " + seedDir);
+          }
+        } else {
+          // No backup files found - open main directory as last resort
+          success = QDesktopServices::openUrl(QUrl::fromLocalFile(seedDir));
+          if (!success) {
+            QMessageBox::warning(this, "Error",
+                                 "Failed to open backup folder: " + seedDir);
+          }
+          QMessageBox::information(this, "Note",
+            "No backup file found. This may be because:\n"
+            "1. Account creation failed to generate backup\n"
+            "2. Backup file was already deleted\n"
+            "3. File permissions issue\n\n"
+            "If you just created an account, try the 'Reveal Seed' button instead.");
+        }
+      } catch (const std::exception &e) {
+        QMessageBox::critical(
+            this, "Error",
+            QString("Exception while opening folder: %1").arg(e.what()));
+      } catch (...) {
+        QMessageBox::critical(this, "Error",
+                              "Unknown error occurred while opening folder.");
+      }
     });
     connect(box, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
     connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
 
-    int row = 0;
-    grid->addWidget(title, row++, 0, 1, 2);
-    grid->addWidget(pathHint, row++, 0, 1, 2);
-    grid->addWidget(openFolder, row++, 0, 1, 2);
-    grid->addWidget(confirm, row++, 0, 1, 2);
-    grid->addWidget(box, row++, 0, 1, 2);
+    // Add all widgets to main layout
+    mainLayout->addWidget(headerIcon);
+    mainLayout->addWidget(title);
+    mainLayout->addWidget(warningFrame);
+    mainLayout->addWidget(backupFrame);
+    mainLayout->addWidget(confirmFrame);
+    mainLayout->addWidget(box);
 
     dlg.exec();
   } else {

@@ -12,7 +12,9 @@
 #include <QLineEdit>
 #include <QSpacerItem>
 
+// Forward declarations
 class QtThemeManager;
+class QResizeEvent;
 
 class QtWalletUI : public QWidget {
     Q_OBJECT

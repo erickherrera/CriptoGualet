@@ -344,8 +344,10 @@ static bool LoadWordList(std::vector<std::string> &out) {
   std::vector<std::string> possiblePaths = {
     "src/assets/bip39/english.txt",
     "assets/bip39/english.txt",
-    "../src/assets/bip39/english.txt", 
-    "../assets/bip39/english.txt"
+    "../src/assets/bip39/english.txt",
+    "../assets/bip39/english.txt",
+    "../../../../../src/assets/bip39/english.txt",
+    "../../../../../../src/assets/bip39/english.txt"
   };
   
   // Also check environment variable
@@ -573,20 +575,58 @@ static bool WriteOneTimeMnemonicFile(const std::string &username,
                                      std::string &outPathStr) {
   if (!EnsureDir(SEED_VAULT_DIR))
     return false;
-  fs::path p =
-      fs::path(SEED_VAULT_DIR) / (username + "_mnemonic_SHOW_ONCE.txt");
-  std::ofstream f(p, std::ios::binary | std::ios::trunc);
-  if (!f.is_open())
-    return false;
 
-  f << "==== IMPORTANT: YOUR BIP-39 SEED WORDS (SHOW ONCE) ====\n";
-  f << "Write these 12 words on paper and store offline. Anyone with these can "
-       "access your "
-       "wallet.\n\n";
-  f << JoinWords(mnemonic) << "\n";
-  f << "\n(Consider moving this file to encrypted removable media and deleting "
-       "it from this "
-       "machine.)\n";
+  // Try to create a user-specific subdirectory for better organization
+  fs::path userDir = fs::path(SEED_VAULT_DIR) / username;
+  bool userDirExists = EnsureDir(userDir);
+
+  fs::path p;
+  std::ofstream f;
+
+  if (userDirExists) {
+    // Try user-specific directory first
+    p = userDir / "SEED_BACKUP_12_WORDS.txt";
+    f.open(p, std::ios::binary | std::ios::trunc);
+  }
+
+  if (!f.is_open()) {
+    // Fallback: create in main seed_vault directory
+    p = fs::path(SEED_VAULT_DIR) / (username + "_mnemonic_SHOW_ONCE.txt");
+    f.open(p, std::ios::binary | std::ios::trunc);
+    if (!f.is_open())
+      return false;
+  }
+
+  f << "═══════════════════════════════════════════════════════════════\n";
+  f << "🔐 CRYPTOGUALET WALLET SEED PHRASE BACKUP\n";
+  f << "═══════════════════════════════════════════════════════════════\n\n";
+  f << "Account: " << username << "\n";
+  f << "Created: " << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count() << "\n\n";
+  f << "⚠️  CRITICAL SECURITY NOTICE:\n";
+  f << "• These 12 words are the ONLY way to recover your wallet\n";
+  f << "• Write them down on paper and store in a secure location\n";
+  f << "• NEVER share these words with anyone\n";
+  f << "• NEVER store them digitally (email, cloud, etc.)\n";
+  f << "• DELETE this file after writing down the words\n\n";
+  f << "🔑 YOUR 12-WORD SEED PHRASE:\n";
+  f << "────────────────────────────────────────────────────────────────\n";
+  
+  // Format words nicely with numbers
+  for (size_t i = 0; i < mnemonic.size(); ++i) {
+    f << std::setw(2) << (i + 1) << ". " << mnemonic[i];
+    if ((i + 1) % 4 == 0) f << "\n";
+    else f << "    ";
+  }
+  if (mnemonic.size() % 4 != 0) f << "\n";
+  
+  f << "────────────────────────────────────────────────────────────────\n\n";
+  f << "📝 BACKUP CHECKLIST:\n";
+  f << "☐ I have written down all 12 words on paper\n";
+  f << "☐ I have verified the spelling of each word\n";
+  f << "☐ I have stored the paper backup in a secure location\n";
+  f << "☐ I will delete this digital file now\n\n";
+  f << "🗑️  IMPORTANT: Delete this file after backup!\n";
+  f << "Right-click → Delete or use Shift+Delete for secure deletion\n";
   f.close();
   outPathStr = p.string();
   return true;
@@ -594,10 +634,48 @@ static bool WriteOneTimeMnemonicFile(const std::string &username,
 
 static std::optional<std::string>
 TryLoadOneTimeMnemonicFile(const std::string &username) {
-  const fs::path p =
-      fs::path(SEED_VAULT_DIR) / (username + "_mnemonic_SHOW_ONCE.txt");
-  std::ifstream f(p, std::ios::binary);
-  if (!f.is_open())
+  // Try multiple possible locations and formats
+  std::vector<fs::path> possiblePaths = {
+    // New format: user-specific directory
+    fs::path(SEED_VAULT_DIR) / username / "SEED_BACKUP_12_WORDS.txt",
+    // Old format: main directory
+    fs::path(SEED_VAULT_DIR) / (username + "_mnemonic_SHOW_ONCE.txt")
+  };
+
+  // Also search for files with timestamps (pattern: username_timestamp_mnemonic_SHOW_ONCE.txt)
+  std::error_code ec;
+  if (fs::exists(SEED_VAULT_DIR, ec) && fs::is_directory(SEED_VAULT_DIR, ec)) {
+    for (const auto& entry : fs::directory_iterator(SEED_VAULT_DIR, ec)) {
+      if (entry.is_regular_file(ec)) {
+        const std::string filename = entry.path().filename().string();
+        // Check if file matches pattern: username_*_mnemonic_SHOW_ONCE.txt
+        std::string prefix = username + "_";
+        std::string suffix = "_mnemonic_SHOW_ONCE.txt";
+        if (filename.substr(0, prefix.size()) == prefix &&
+            filename.size() >= suffix.size() &&
+            filename.substr(filename.size() - suffix.size()) == suffix) {
+          possiblePaths.push_back(entry.path());
+        }
+      }
+    }
+  }
+
+  std::ifstream f;
+  fs::path p;
+  bool fileFound = false;
+
+  for (const auto& path : possiblePaths) {
+    if (fs::exists(path)) {
+      f.open(path, std::ios::binary);
+      if (f.is_open()) {
+        p = path;
+        fileFound = true;
+        break;
+      }
+    }
+  }
+
+  if (!fileFound)
     return std::nullopt;
 
   std::stringstream ss;
@@ -605,17 +683,67 @@ TryLoadOneTimeMnemonicFile(const std::string &username) {
   std::string all = ss.str();
   f.close();
 
-  // Extract the last non-empty line as the words (simple heuristic)
+  // Look for the seed phrase section between the marker lines
   std::istringstream iss(all);
-  std::string line, last;
+  std::string line;
+  bool inSeedSection = false;
+  std::vector<std::string> words;
+  
   while (std::getline(iss, line)) {
     line = trim(line);
-    if (!line.empty() && line.find("====") == std::string::npos)
-      last = line;
+    
+    // New format: look for numbered words
+    if (line.find("🔑 YOUR 12-WORD SEED PHRASE:") != std::string::npos) {
+      inSeedSection = true;
+      continue;
+    }
+    
+    if (inSeedSection) {
+      if (line.find("────") != std::string::npos && !words.empty()) {
+        // End of seed section
+        break;
+      }
+      
+      // Parse numbered lines like "1. word    2. word    3. word    4. word"
+      if (!line.empty() && line[0] >= '1' && line[0] <= '9') {
+        std::istringstream lineStream(line);
+        std::string token;
+        while (lineStream >> token) {
+          // Skip numbers and dots
+          if (token.find('.') == std::string::npos && !token.empty()) {
+            words.push_back(token);
+          }
+        }
+      }
+    } else {
+      // Fallback for old format: extract the last non-empty line as the words
+      if (!line.empty() && line.find("====") == std::string::npos && 
+          line.find("Write these") == std::string::npos &&
+          line.find("Consider moving") == std::string::npos) {
+        // This might be the mnemonic line in old format
+        std::istringstream testStream(line);
+        std::vector<std::string> testWords;
+        std::string word;
+        while (testStream >> word) {
+          testWords.push_back(word);
+        }
+        if (testWords.size() >= 12 && testWords.size() <= 24) {
+          return line;
+        }
+      }
+    }
   }
-  if (last.empty())
-    return std::nullopt;
-  return last;
+  
+  if (words.size() >= 12) {
+    std::ostringstream result;
+    for (size_t i = 0; i < words.size(); ++i) {
+      if (i > 0) result << " ";
+      result << words[i];
+    }
+    return result.str();
+  }
+  
+  return std::nullopt;
 }
 
 } // namespace

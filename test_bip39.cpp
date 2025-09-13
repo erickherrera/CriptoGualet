@@ -137,8 +137,10 @@ namespace Internal {
         std::vector<std::string> possiblePaths = {
             "src/assets/bip39/english.txt",
             "assets/bip39/english.txt",
-            "../src/assets/bip39/english.txt", 
-            "../assets/bip39/english.txt"
+            "../src/assets/bip39/english.txt",
+            "../assets/bip39/english.txt",
+            "../../../../../src/assets/bip39/english.txt",
+            "../../../../../../src/assets/bip39/english.txt"
         };
         
         for (const auto& path : possiblePaths) {
