@@ -1,15 +1,15 @@
 {
   "configurations": [
     {
-      "name": "win-msvc-x64-debug",
+      "name": "win-clang-x64-debug",
       "generator": "Visual Studio 17 2022",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\build",
-      "installRoot": "${projectDir}\\out\\install\\win-msvc-x64-debug",
-      "cmakeCommandArgs": "-DCMAKE_PREFIX_PATH=C:/Program Files/Qt/6.9.1/msvc2022_64",
+      "buildRoot": "${projectDir}\\out\\build\\win-clang-x64-debug",
+      "installRoot": "${projectDir}\\out\\install\\win-clang-x64-debug",
+      "cmakeCommandArgs": "",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
-      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "inheritEnvironments": [ "clang_cl_x64" ],
       "variables": [
         {
           "name": "BUILD_GUI_QT",
@@ -24,6 +24,16 @@
         {
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
+          "type": "STRING"
+        },
+        {
+          "name": "CMAKE_BUILD_TYPE",
+          "value": "Debug",
+          "type": "STRING"
+        },
+        {
+          "name": "CMAKE_CXX_FLAGS_DEBUG",
+          "value": "-g -O0 -gcodeview",
           "type": "STRING"
         }
       ]

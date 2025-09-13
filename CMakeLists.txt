@@ -148,6 +148,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Delegate to src/
 add_subdirectory(src)
 
+# Set startup project for Visual Studio (must be after add_subdirectory)
+if(BUILD_GUI_QT AND Qt6_FOUND)
+  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CriptoGualetQt)
+endif()
+
 # Add debug test executable
 add_executable(debug_test debug_test.cpp src/SharedSymbols.cpp)
 target_link_libraries(debug_test PRIVATE Auth comctl32 crypt32 bcrypt)

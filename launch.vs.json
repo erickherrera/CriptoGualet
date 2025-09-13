@@ -2,25 +2,16 @@
   "version": "0.2.1",
   "configurations": [
     {
-      "type": "default",
-      "name": "CriptoGualet Qt Application",
+      "type": "cppvsdbg",
+      "name": "CriptoGualet Qt Application (Debug)",
       "project": "CMakeLists.txt",
       "projectTarget": "CriptoGualetQt (exe)",
       "currentDir": "${workspaceRoot}",
       "args": [],
+      "stopOnEntry": false,
+      "console": "internalConsole",
       "env": {
-        "PATH": "${workspaceRoot}\\out\\build\\${presetName}\\bin;${workspaceRoot}\\out\\build\\${presetName}\\vcpkg_installed\\x64-windows\\debug\\bin;${env:VCToolsRedistDir}\\x64;${env:WindowsSdkDir}\\Bin\\${env:WindowsSDKVersion}\\x64;${env:PATH}"
-      }
-    },
-    {
-      "type": "default",
-      "name": "CriptoGualet (Win32 GUI)",
-      "project": "CMakeLists.txt",
-      "projectTarget": "CriptoGualet (exe)",
-      "currentDir": "${workspaceRoot}",
-      "args": [],
-      "env": {
-        "PATH": "${workspaceRoot}\\out\\build\\${presetName}\\bin;${env:VCToolsRedistDir}\\x64;${env:WindowsSdkDir}\\Bin\\${env:WindowsSDKVersion}\\x64;${env:PATH}"
+        "PATH": "${workspaceRoot}\\out\\build\\win-clang-x64-debug\\bin\\Debug;${env:PATH}"
       }
     }
   ]
