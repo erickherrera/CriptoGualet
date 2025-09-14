@@ -67,7 +67,7 @@ std::vector<uint8_t> B64Decode(const std::string &s) {
 
 // === Hash Functions ===
 bool SHA256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out) {
-  out.fill(0);
+  out.fill(uint8_t(0));
   BCRYPT_ALG_HANDLE hAlg = nullptr;
   BCRYPT_HASH_HANDLE hHash = nullptr;
   DWORD hashLen = 0, objLen = 0;
@@ -397,7 +397,7 @@ bool BIP39_SeedFromMnemonic(const std::vector<std::string> &mnemonic,
     return false;
   }
   std::memcpy(outSeed.data(), dk.data(), 64);
-  std::fill(dk.begin(), dk.end(), 0);
+  std::fill(dk.begin(), dk.end(), uint8_t(0));
   return true;
 }
 

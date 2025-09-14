@@ -82,9 +82,12 @@ static bool LoadWordList(std::vector<std::string> &out) {
   };
   
   // Also check environment variable
+#pragma warning(push)
+#pragma warning(disable: 4996) // Suppress getenv warning - this is safe usage
   if (const char *env = std::getenv("BIP39_WORDLIST")) {
     possiblePaths.insert(possiblePaths.begin(), env);
   }
+#pragma warning(pop)
   
   for (const auto& path : possiblePaths) {
     std::ifstream f(path, std::ios::binary);
@@ -107,16 +110,6 @@ static bool LoadWordList(std::vector<std::string> &out) {
 }
 
 
-static std::string JoinWords(const std::vector<std::string> &words) {
-  std::ostringstream oss;
-  for (size_t i = 0; i < words.size(); ++i) {
-    if (i)
-      oss << ' ';
-    oss << words[i];
-  }
-  return oss.str();
-}
-
 // Parse "word word ...", normalize spaces to single space, lowercase
 static std::vector<std::string> SplitWordsNormalized(const std::string &text) {
   std::vector<std::string> out;
@@ -125,7 +118,7 @@ static std::vector<std::string> SplitWordsNormalized(const std::string &text) {
   for (char ch : text) {
     if (std::isspace((unsigned char)ch)) {
       if (!cur.empty()) {
-        std::transform(cur.begin(), cur.end(), cur.begin(), ::tolower);
+        std::transform(cur.begin(), cur.end(), cur.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         out.push_back(cur);
         cur.clear();
       }
@@ -134,7 +127,7 @@ static std::vector<std::string> SplitWordsNormalized(const std::string &text) {
     }
   }
   if (!cur.empty()) {
-    std::transform(cur.begin(), cur.end(), cur.begin(), ::tolower);
+    std::transform(cur.begin(), cur.end(), cur.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     out.push_back(cur);
   }
   return out;
@@ -163,7 +156,7 @@ static bool StoreUserSeedDPAPI(const std::string &username,
   file.write(reinterpret_cast<const char *>(ciphertext.data()),
              static_cast<std::streamsize>(ciphertext.size()));
   file.close();
-  std::fill(plaintext.begin(), plaintext.end(), 0);
+  std::fill(plaintext.begin(), plaintext.end(), uint8_t(0));
   return true;
 }
 
@@ -186,7 +179,7 @@ static bool RetrieveUserSeedDPAPI(const std::string &username,
   if (plaintext.size() != 64)
     return false;
   std::memcpy(outSeed.data(), plaintext.data(), 64);
-  std::fill(plaintext.begin(), plaintext.end(), 0);
+  std::fill(plaintext.begin(), plaintext.end(), uint8_t(0));
   return true;
 }
 
@@ -419,7 +412,7 @@ AuthResponse RevealSeed(const std::string &username,
   }
 
   // wipe
-  seed.fill(0);
+  seed.fill(uint8_t(0));
   return {AuthResult::SUCCESS, "Seed revealed."};
 }
 
@@ -468,11 +461,11 @@ AuthResponse RestoreFromSeed(const std::string &username,
 
   // Store with DPAPI
   if (!StoreUserSeedDPAPI(username, seed)) {
-    seed.fill(0);
+    seed.fill(uint8_t(0));
     return {AuthResult::SYSTEM_ERROR,
             "Failed to store seed securely on this device."};
   }
-  seed.fill(0);
+  seed.fill(uint8_t(0));
 
   // (Optional) Recreate "show-once" file so user can re-record words
   std::string backupPath;
@@ -674,7 +667,7 @@ static bool GenerateAndActivateSeedForUser(const std::string &username,
       logFile->flush();
     }
     // ensure best-effort wipe
-    seed.fill(0);
+    seed.fill(uint8_t(0));
     return false;
   }
 
@@ -688,8 +681,8 @@ static bool GenerateAndActivateSeedForUser(const std::string &username,
   }
 
   // Best-effort wipe sensitive temporaries
-  std::fill(entropy.begin(), entropy.end(), 0);
-  seed.fill(0);
+  std::fill(entropy.begin(), entropy.end(), uint8_t(0));
+  seed.fill(uint8_t(0));
   return true;
 }
 
