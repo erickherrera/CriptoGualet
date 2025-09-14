@@ -210,18 +210,10 @@ static bool WriteOneTimeMnemonicFile(const std::string &username,
       return false;
   }
 
-  f << "═══════════════════════════════════════════════════════════════\n";
-  f << "🔐 CRYPTOGUALET WALLET SEED PHRASE BACKUP\n";
-  f << "═══════════════════════════════════════════════════════════════\n\n";
+  f << "CRYPTOGUALET WALLET SEED PHRASE BACKUP\n";
   f << "Account: " << username << "\n";
-  f << "Created: " << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count() << "\n\n";
-  f << "⚠️  CRITICAL SECURITY NOTICE:\n";
-  f << "• These 12 words are the ONLY way to recover your wallet\n";
-  f << "• Write them down on paper and store in a secure location\n";
-  f << "• NEVER share these words with anyone\n";
-  f << "• NEVER store them digitally (email, cloud, etc.)\n";
-  f << "• DELETE this file after writing down the words\n\n";
-  f << "🔑 YOUR 12-WORD SEED PHRASE:\n";
+  f << "IMPORTANT: Write these 12 words on paper and store safely.\n\n";
+  f << "YOUR 12-WORD SEED PHRASE:\n";
   f << "────────────────────────────────────────────────────────────────\n";
   
   // Format words nicely with numbers
@@ -233,13 +225,10 @@ static bool WriteOneTimeMnemonicFile(const std::string &username,
   if (mnemonic.size() % 4 != 0) f << "\n";
   
   f << "────────────────────────────────────────────────────────────────\n\n";
-  f << "📝 BACKUP CHECKLIST:\n";
-  f << "☐ I have written down all 12 words on paper\n";
-  f << "☐ I have verified the spelling of each word\n";
-  f << "☐ I have stored the paper backup in a secure location\n";
-  f << "☐ I will delete this digital file now\n\n";
-  f << "🗑️  IMPORTANT: Delete this file after backup!\n";
-  f << "Right-click → Delete or use Shift+Delete for secure deletion\n";
+  f << "NEXT STEPS:\n";
+  f << "1. Store the paper backup securely\n";
+  f << "2. Delete this file\n\n";
+  f << "WARNING: Delete this file after creating your backup.\n";
   f.close();
   outPathStr = p.string();
   return true;
@@ -306,7 +295,7 @@ TryLoadOneTimeMnemonicFile(const std::string &username) {
     line = trim(line);
     
     // New format: look for numbered words
-    if (line.find("🔑 YOUR 12-WORD SEED PHRASE:") != std::string::npos) {
+    if (line.find("YOUR 12-WORD SEED PHRASE:") != std::string::npos) {
       inSeedSection = true;
       continue;
     }
@@ -815,9 +804,7 @@ AuthResponse RegisterUser(const std::string &username,
 
   if (seedOk) {
     std::string msg = "Account created successfully!\n"
-                      "A new seed phrase was generated. "
-                      "Open the one-time backup file in 'seed_vault' and "
-                      "record your 12 words safely.";
+                      "Check the backup file in 'seed_vault' to record your seed phrase.";
     return {AuthResult::SUCCESS, msg};
   } else {
     return {AuthResult::SUCCESS,

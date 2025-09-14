@@ -169,8 +169,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
             Auth::AuthResponse response = Auth::RegisterUser(username, password);
             if (response.success()) {
-                const std::wstring wMessage = Widen("Account created successfully!\nYour Bitcoin address: " + 
-                    g_users[username].walletAddress + "\n\nYou can now log in.");
+                const std::wstring wMessage = Widen("Account created successfully!\n\nYou can now log in.");
                 MessageBoxW(hwnd, wMessage.c_str(), L"Registration Successful", MB_OK | MB_ICONINFORMATION);
                 SetWindowTextW(g_usernameEdit, L"");
                 SetWindowTextW(g_passwordEdit, L"");

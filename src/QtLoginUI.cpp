@@ -293,7 +293,7 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
 
     // Enhanced post-registration seed backup modal
     QDialog dlg(this);
-    dlg.setWindowTitle("🔐 Your Wallet Seed Phrase");
+    dlg.setWindowTitle("Wallet Seed Phrase Backup");
     dlg.setModal(true);
     dlg.setMinimumSize(500, 400);
     dlg.resize(500, 400); // Set initial size to match minimum size
@@ -303,13 +303,8 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     mainLayout->setSpacing(15);
 
     // Header section
-    QLabel *headerIcon = new QLabel("🎉", &dlg);
-    headerIcon->setAlignment(Qt::AlignCenter);
-
-    QLabel *title = new QLabel("<h2 style='color: #2E7D32; margin: 0;'>Account "
-                               "Created Successfully!</h2>"
-                               "<p style='margin: 8px 0;'>Your secure 12-word "
-                               "seed phrase has been generated.</p>",
+    QLabel *title = new QLabel("<h2 style='color: #2E7D32; margin: 0;'>Account Created Successfully</h2>"
+                               "<p style='margin: 8px 0;'>Your 12-word seed phrase has been generated.</p>",
                                &dlg);
     title->setAlignment(Qt::AlignCenter);
     title->setWordWrap(true);
@@ -322,13 +317,12 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     warningLayout->setContentsMargins(12, 12, 12, 12);
 
     QLabel *warningTitle =
-        new QLabel("⚠️ <b>CRITICAL: Write Down Your Seed Phrase</b>", &dlg);
+        new QLabel("<b>IMPORTANT: Backup Your Seed Phrase</b>", &dlg);
 
     QLabel *warningText = new QLabel(
-        "• Your seed phrase is the ONLY way to recover your wallet<br/>"
-        "• Write it down on paper and store it safely<br/>"
-        "• Never share it with anyone or store it digitally<br/>"
-        "• If you lose it, your wallet cannot be recovered",
+        "• Write down these 12 words on paper and store securely<br/>"
+        "• This is the only way to recover your wallet<br/>"
+        "• Never share or store digitally",
         &dlg);
     warningText->setWordWrap(true);
 
@@ -350,7 +344,7 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
         &dlg);
     backupText->setWordWrap(true);
 
-    QPushButton *openFolder = new QPushButton("📂 Open Backup Folder", &dlg);
+    QPushButton *openFolder = new QPushButton("Open Backup Folder", &dlg);
 
     backupLayout->addWidget(backupTitle);
     backupLayout->addWidget(backupText);
@@ -364,11 +358,11 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     confirmLayout->setContentsMargins(12, 12, 12, 12);
 
     QCheckBox *confirm1 =
-        new QCheckBox("✍️ I have written down all 12 words on paper", &dlg);
+        new QCheckBox("I have written down all 12 words on paper", &dlg);
     QCheckBox *confirm2 = new QCheckBox(
-        "🔒 I understand this is the only way to recover my wallet", &dlg);
+        "I understand this is the only way to recover my wallet", &dlg);
     QCheckBox *confirm3 = new QCheckBox(
-        "🗑️ I will delete the backup file after confirming my backup", &dlg);
+        "I will delete the backup file after confirming my backup", &dlg);
 
     confirmLayout->addWidget(confirm1);
     confirmLayout->addWidget(confirm2);
@@ -377,12 +371,13 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     // Buttons
     QDialogButtonBox *box = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dlg);
+    box->setCenterButtons(true);
     QPushButton *okBtn = box->button(QDialogButtonBox::Ok);
-    okBtn->setText("🚀 Continue to Wallet");
+    okBtn->setText("Continue to Wallet");
     okBtn->setEnabled(false);
 
     QPushButton *cancelBtn = box->button(QDialogButtonBox::Cancel);
-    cancelBtn->setText("❌ Cancel");
+    cancelBtn->setText("Cancel");
 
     // Enable OK button only when all checkboxes are checked
     auto updateOkButton = [=]() {
@@ -456,7 +451,6 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
 
     // Add all widgets to main layout
-    mainLayout->addWidget(headerIcon);
     mainLayout->addWidget(title);
     mainLayout->addWidget(warningFrame);
     mainLayout->addWidget(backupFrame);

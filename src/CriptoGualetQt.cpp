@@ -110,11 +110,8 @@ void CriptoGualetQt::setupUI() {
               // Show additional info in popup for successful registration
               QMessageBox::information(
                   this, "Registration Successful",
-                  QString("Account created for %1!\nYour Bitcoin address: "
-                          "%2\n\nYou can now sign in with your credentials.")
-                      .arg(username)
-                      .arg(QString::fromStdString(
-                          g_users[stdUsername].walletAddress)));
+                  QString("Account created for %1!\n\nYou can now sign in with your credentials.")
+                      .arg(username));
             } else {
               statusBar()->showMessage("Registration failed", 3000);
               qDebug() << "Registration failed with message:" << message;
