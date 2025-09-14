@@ -1,9 +1,13 @@
 {
   "permissions": {
     "allow": [
+      "Bash(dir:*)",
+      "Bash(rm:*)",
       "Bash(cmake:*)",
-      "Bash(rm:*)"
+      "Bash(.CriptoGualetQt.exe)",
+      "Bash(./CriptoGualetQt.exe)"
     ],
-    "deny": []
+    "deny": [],
+    "ask": []
   }
 }
