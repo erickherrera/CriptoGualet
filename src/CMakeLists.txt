@@ -6,6 +6,32 @@
 
 # ---- Windows CryptoAPI (instead of OpenSSL) ----
 
+# ---- Crypto library (cryptographic functions) ----
+add_library(Crypto STATIC
+  "./Crypto.cpp"
+  "../include/Crypto.h"
+)
+target_include_directories(Crypto PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/."
+)
+
+# Use cross-platform compiler-specific flags with security features
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+  # Clang on non-Windows platforms
+  target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
+  target_link_options(Crypto PRIVATE -fPIE -pie)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  # Clang-CL on Windows (no stack protector or PIE support)
+  target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  # MSVC flags
+  target_compile_options(Crypto PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
+else()
+  # GCC or other compilers
+  target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+  target_link_options(Crypto PRIVATE -fPIE -pie)
+endif()
+
 # ---- Auth library (portable, builds everywhere) ----
 add_library(Auth STATIC
   "./Auth.cpp"
@@ -14,6 +40,7 @@ add_library(Auth STATIC
 target_include_directories(Auth PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/."
 )
+target_link_libraries(Auth PRIVATE Crypto)
 
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
