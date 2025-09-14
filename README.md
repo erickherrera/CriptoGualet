@@ -8,7 +8,7 @@ CriptoGualet is a **cross-platform cryptocurrency wallet** designed for secure a
 * **Secure Transactions**: Utilizes industry-standard cryptographic libraries for secure and reliable transactions.
 * **Cross-Platform Support**: Built with CMake to ensure compatibility across various operating systems, including Windows, macOS, and Linux.
 * **Modern UI**: A clean, intuitive, and user-friendly interface powered by the Qt Framework.
-* **Multiple Cryptocurrency Support**: (If applicable, list the cryptocurrencies supported, e.g., Bitcoin, Ethereum, Litecoin, etc.)
+* **Multiple Cryptocurrency Support**: Bitcoin, Ethereum, Litecoin, etc.
 
 ---
 
