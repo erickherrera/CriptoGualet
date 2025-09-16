@@ -3,6 +3,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 // Forward declarations from your project:
 struct User;
@@ -37,6 +38,11 @@ bool VerifyPassword(const std::string &password, const std::string &stored);
 // High-level user flows with detailed error messages:
 AuthResponse RegisterUser(const std::string &username,
                           const std::string &password);
+
+// Extended registration that also returns the mnemonic for secure display
+AuthResponse RegisterUserWithMnemonic(const std::string &username,
+                                      const std::string &password,
+                                      std::vector<std::string> &outMnemonic);
 
 // Returns detailed result of login attempt with rate limiting
 AuthResponse LoginUser(const std::string &username,

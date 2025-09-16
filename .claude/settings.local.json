@@ -5,7 +5,8 @@
       "Bash(rm:*)",
       "Bash(cmake:*)",
       "Bash(.CriptoGualetQt.exe)",
-      "Bash(./CriptoGualetQt.exe)"
+      "Bash(./CriptoGualetQt.exe)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

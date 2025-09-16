@@ -2,6 +2,7 @@
 #include "../include/Auth.h"
 #include "../include/CriptoGualet.h"
 #include "../include/QtLoginUI.h"
+#include "../include/QtSeedDisplayDialog.h"
 #include "../include/QtThemeManager.h"
 #include "../include/QtWalletUI.h"
 
@@ -95,8 +96,9 @@ void CriptoGualetQt::setupUI() {
             qDebug() << "Registration attempt - Username:" << username
                      << "Password length:" << password.length();
 
+            std::vector<std::string> mnemonic;
             Auth::AuthResponse response =
-                Auth::RegisterUser(stdUsername, stdPassword);
+                Auth::RegisterUserWithMnemonic(stdUsername, stdPassword, mnemonic);
             QString message = QString::fromStdString(response.message);
 
             // Debug output
@@ -105,20 +107,39 @@ void CriptoGualetQt::setupUI() {
             qDebug() << "Auth result code:"
                      << static_cast<int>(response.result);
 
-            if (response.success()) {
+            if (response.success() && !mnemonic.empty()) {
+              // Show secure seed phrase display dialog
+              QtSeedDisplayDialog seedDialog(mnemonic, this);
+              int result = seedDialog.exec();
+
+              if (result == QDialog::Accepted && seedDialog.userConfirmedBackup()) {
+                statusBar()->showMessage("Registration and backup completed", 3000);
+                QMessageBox::information(
+                    this, "Registration Successful",
+                    QString("Account created for %1!\n\nYour seed phrase has been securely backed up.\nYou can now sign in with your credentials.")
+                        .arg(username));
+                m_loginUI->onRegisterResult(true, "Account created and seed phrase backed up successfully!");
+              } else {
+                // User cancelled or didn't confirm backup
+                statusBar()->showMessage("Registration completed - backup required", 5000);
+                QMessageBox::warning(this, "Backup Required",
+                  "Your account has been created successfully, but you must backup your seed phrase!\n\n"
+                  "⚠️ WARNING: Without a backup of your seed phrase, you may lose access to your wallet permanently.\n\n"
+                  "Please use the 'Reveal Seed' button after signing in to backup your seed phrase.");
+                m_loginUI->onRegisterResult(true, "Account created - please backup your seed phrase using 'Reveal Seed'");
+              }
+            } else if (response.success()) {
               statusBar()->showMessage("Registration successful", 3000);
-              // Show additional info in popup for successful registration
               QMessageBox::information(
                   this, "Registration Successful",
-                  QString("Account created for %1!\n\nYou can now sign in with your credentials.")
+                  QString("Account created for %1!\n\nNote: Seed phrase generation had issues. Please use 'Reveal Seed' after signing in.")
                       .arg(username));
+              m_loginUI->onRegisterResult(response.success(), message);
             } else {
               statusBar()->showMessage("Registration failed", 3000);
               qDebug() << "Registration failed with message:" << message;
+              m_loginUI->onRegisterResult(response.success(), message);
             }
-
-            // Send result back to login UI for visual feedback
-            m_loginUI->onRegisterResult(response.success(), message);
           });
 
   // Logout handled by navbar sign out button

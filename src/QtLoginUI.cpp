@@ -457,7 +457,10 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     mainLayout->addWidget(confirmFrame);
     mainLayout->addWidget(box);
 
-    dlg.exec();
+    // Clear input fields regardless of dialog result
+    m_usernameEdit->clear();
+    m_passwordEdit->clear();
+    clearMessage();
   } else {
     m_passwordEdit->clear();
   }

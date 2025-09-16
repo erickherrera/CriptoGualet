@@ -88,6 +88,16 @@ moc_*.h
 qrc_*.cpp
 ui_*.h
 
+# vcpkg dependencies (can be regenerated)
+vcpkg/
+vcpkg_installed/
+
+# Local IDE settings
+.claude/settings.local.json
+
+# Temporary test files
+test_*.cpp
+
 # Other generated files
 ut
 nul

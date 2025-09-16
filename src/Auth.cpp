@@ -183,170 +183,11 @@ static bool RetrieveUserSeedDPAPI(const std::string &username,
   return true;
 }
 
-static bool WriteOneTimeMnemonicFile(const std::string &username,
-                                     const std::vector<std::string> &mnemonic,
-                                     std::string &outPathStr) {
-  if (!EnsureDir(SEED_VAULT_DIR))
-    return false;
+// REMOVED: WriteOneTimeMnemonicFile - No longer creating insecure plain text files
+// Seed phrases are now displayed securely via QtSeedDisplayDialog with user confirmation
 
-  // Try to create a user-specific subdirectory for better organization
-  fs::path userDir = fs::path(SEED_VAULT_DIR) / username;
-  bool userDirExists = EnsureDir(userDir);
-
-  fs::path p;
-  std::ofstream f;
-
-  if (userDirExists) {
-    // Try user-specific directory first
-    p = userDir / "SEED_BACKUP_12_WORDS.txt";
-    f.open(p, std::ios::binary | std::ios::trunc);
-  }
-
-  if (!f.is_open()) {
-    // Fallback: create in main seed_vault directory
-    p = fs::path(SEED_VAULT_DIR) / (username + "_mnemonic_SHOW_ONCE.txt");
-    f.open(p, std::ios::binary | std::ios::trunc);
-    if (!f.is_open())
-      return false;
-  }
-
-  f << "CRYPTOGUALET WALLET SEED PHRASE BACKUP\n";
-  f << "Account: " << username << "\n";
-  f << "IMPORTANT: Write these 12 words on paper and store safely.\n\n";
-  f << "YOUR 12-WORD SEED PHRASE:\n";
-  f << "────────────────────────────────────────────────────────────────\n";
-  
-  // Format words nicely with numbers
-  for (size_t i = 0; i < mnemonic.size(); ++i) {
-    f << std::setw(2) << (i + 1) << ". " << mnemonic[i];
-    if ((i + 1) % 4 == 0) f << "\n";
-    else f << "    ";
-  }
-  if (mnemonic.size() % 4 != 0) f << "\n";
-  
-  f << "────────────────────────────────────────────────────────────────\n\n";
-  f << "NEXT STEPS:\n";
-  f << "1. Store the paper backup securely\n";
-  f << "2. Delete this file\n\n";
-  f << "WARNING: Delete this file after creating your backup.\n";
-  f.close();
-  outPathStr = p.string();
-  return true;
-}
-
-static std::optional<std::string>
-TryLoadOneTimeMnemonicFile(const std::string &username) {
-  // Try multiple possible locations and formats
-  std::vector<fs::path> possiblePaths = {
-    // New format: user-specific directory
-    fs::path(SEED_VAULT_DIR) / username / "SEED_BACKUP_12_WORDS.txt",
-    // Old format: main directory
-    fs::path(SEED_VAULT_DIR) / (username + "_mnemonic_SHOW_ONCE.txt")
-  };
-
-  // Also search for files with timestamps (pattern: username_timestamp_mnemonic_SHOW_ONCE.txt)
-  std::error_code ec;
-  if (fs::exists(SEED_VAULT_DIR, ec) && fs::is_directory(SEED_VAULT_DIR, ec)) {
-    for (const auto& entry : fs::directory_iterator(SEED_VAULT_DIR, ec)) {
-      if (entry.is_regular_file(ec)) {
-        const std::string filename = entry.path().filename().string();
-        // Check if file matches pattern: username_*_mnemonic_SHOW_ONCE.txt
-        std::string prefix = username + "_";
-        std::string suffix = "_mnemonic_SHOW_ONCE.txt";
-        if (filename.substr(0, prefix.size()) == prefix &&
-            filename.size() >= suffix.size() &&
-            filename.substr(filename.size() - suffix.size()) == suffix) {
-          possiblePaths.push_back(entry.path());
-        }
-      }
-    }
-  }
-
-  std::ifstream f;
-  fs::path p;
-  bool fileFound = false;
-
-  for (const auto& path : possiblePaths) {
-    if (fs::exists(path)) {
-      f.open(path, std::ios::binary);
-      if (f.is_open()) {
-        p = path;
-        fileFound = true;
-        break;
-      }
-    }
-  }
-
-  if (!fileFound)
-    return std::nullopt;
-
-  std::stringstream ss;
-  ss << f.rdbuf();
-  std::string all = ss.str();
-  f.close();
-
-  // Look for the seed phrase section between the marker lines
-  std::istringstream iss(all);
-  std::string line;
-  bool inSeedSection = false;
-  std::vector<std::string> words;
-  
-  while (std::getline(iss, line)) {
-    line = trim(line);
-    
-    // New format: look for numbered words
-    if (line.find("YOUR 12-WORD SEED PHRASE:") != std::string::npos) {
-      inSeedSection = true;
-      continue;
-    }
-    
-    if (inSeedSection) {
-      if (line.find("────") != std::string::npos && !words.empty()) {
-        // End of seed section
-        break;
-      }
-      
-      // Parse numbered lines like "1. word    2. word    3. word    4. word"
-      if (!line.empty() && line[0] >= '1' && line[0] <= '9') {
-        std::istringstream lineStream(line);
-        std::string token;
-        while (lineStream >> token) {
-          // Skip numbers and dots
-          if (token.find('.') == std::string::npos && !token.empty()) {
-            words.push_back(token);
-          }
-        }
-      }
-    } else {
-      // Fallback for old format: extract the last non-empty line as the words
-      if (!line.empty() && line.find("====") == std::string::npos && 
-          line.find("Write these") == std::string::npos &&
-          line.find("Consider moving") == std::string::npos) {
-        // This might be the mnemonic line in old format
-        std::istringstream testStream(line);
-        std::vector<std::string> testWords;
-        std::string word;
-        while (testStream >> word) {
-          testWords.push_back(word);
-        }
-        if (testWords.size() >= 12 && testWords.size() <= 24) {
-          return line;
-        }
-      }
-    }
-  }
-  
-  if (words.size() >= 12) {
-    std::ostringstream result;
-    for (size_t i = 0; i < words.size(); ++i) {
-      if (i > 0) result << " ";
-      result << words[i];
-    }
-    return result.str();
-  }
-  
-  return std::nullopt;
-}
+// REMOVED: TryLoadOneTimeMnemonicFile - No longer reading from insecure plain text files
+// Seed phrases are now handled securely in memory only during the registration/display process
 
 } // namespace
 
@@ -393,12 +234,9 @@ AuthResponse RevealSeed(const std::string &username,
     oss << std::hex << std::setw(2) << std::setfill('0') << (int)b;
   outSeedHex = oss.str();
 
-  // Try to read mnemonic from the one-time file (if still present)
-  if (auto maybeWords = TryLoadOneTimeMnemonicFile(username)) {
-    outMnemonic = *maybeWords;
-  } else {
-    outMnemonic = std::nullopt;
-  }
+  // Mnemonic is no longer stored in files for security
+  // It's only available during initial generation/display
+  outMnemonic = std::nullopt;
 
   // wipe
   seed.fill(uint8_t(0));
@@ -456,9 +294,8 @@ AuthResponse RestoreFromSeed(const std::string &username,
   }
   seed.fill(uint8_t(0));
 
-  // (Optional) Recreate "show-once" file so user can re-record words
-  std::string backupPath;
-  WriteOneTimeMnemonicFile(username, words, backupPath);
+  // Note: No longer creating insecure backup files
+  // Users should use the secure QR display during registration
 
   return {AuthResult::SUCCESS, "Seed restored and stored securely."};
 }
@@ -607,7 +444,7 @@ static void RecordFailedAttempt(const std::string &identifier) {
 
 // === NEW: generate + store seed (called during registration) ===
 static bool GenerateAndActivateSeedForUser(const std::string &username,
-                                           std::string &oneTimeFilePath,
+                                           std::vector<std::string> &outMnemonic,
                                            std::ofstream *logFile) {
   // 1) Load wordlist
   std::vector<std::string> wordlist;
@@ -660,14 +497,8 @@ static bool GenerateAndActivateSeedForUser(const std::string &username,
     return false;
   }
 
-  // 6) One-time plaintext backup (so the user can write it down now).
-  if (!WriteOneTimeMnemonicFile(username, mnemonic, oneTimeFilePath)) {
-    if (logFile && logFile->is_open()) {
-      *logFile << "Seed: Could not write backup file (SHOW_ONCE)\n";
-      logFile->flush();
-    }
-    // not fatal; seed is still securely stored
-  }
+  // 6) Return mnemonic for secure display in Qt dialog
+  outMnemonic = mnemonic;
 
   // Best-effort wipe sensitive temporaries
   std::fill(entropy.begin(), entropy.end(), uint8_t(0));
@@ -774,8 +605,8 @@ AuthResponse RegisterUser(const std::string &username,
   }
 
   // === NEW: BIP-39 seed activation ===
-  std::string backupPath;
-  bool seedOk = GenerateAndActivateSeedForUser(username, backupPath, &logFile);
+  std::vector<std::string> generatedMnemonic;
+  bool seedOk = GenerateAndActivateSeedForUser(username, generatedMnemonic, &logFile);
 
   // Add user to memory
   g_users[username] = std::move(u);
@@ -786,8 +617,7 @@ AuthResponse RegisterUser(const std::string &username,
     if (logFile.is_open()) {
       logFile << "Result: SUCCESS - User registered and saved\n";
       if (seedOk) {
-        logFile << "Seed: generated + DPAPI stored. Backup: " << backupPath
-                << "\n";
+        logFile << "Seed: generated + DPAPI stored. Mnemonic ready for secure display\n";
       } else {
         logFile << "Seed: FAILED (see earlier log lines)\n";
       }
@@ -804,11 +634,150 @@ AuthResponse RegisterUser(const std::string &username,
 
   if (seedOk) {
     std::string msg = "Account created successfully!\n"
-                      "Check the backup file in 'seed_vault' to record your seed phrase.";
+                      "Please backup your seed phrase securely.";
     return {AuthResult::SUCCESS, msg};
   } else {
     return {AuthResult::SUCCESS,
             "Account created. (Warning: seed phrase generation failed � try "
+            "again or check logs.)"};
+  }
+}
+
+AuthResponse RegisterUserWithMnemonic(const std::string &username,
+                                      const std::string &password,
+                                      std::vector<std::string> &outMnemonic) {
+  std::ofstream logFile("registration_debug.log", std::ios::app);
+  if (logFile.is_open()) {
+    logFile << "\n=== Extended Registration Attempt ===\n";
+    logFile << "Username: '" << username << "'\n";
+    logFile << "Password length: " << password.length() << "\n";
+    logFile.flush();
+  }
+
+  // Basic input validation
+  if (username.empty() || password.empty()) {
+    return {AuthResult::INVALID_CREDENTIALS,
+            "Username and password cannot be empty."};
+  }
+
+  // Validate username
+  if (!IsValidUsername(username)) {
+    if (logFile.is_open()) {
+      logFile << "Result: Username validation failed\n";
+      logFile.flush();
+    }
+    return {AuthResult::INVALID_USERNAME,
+            "Username must be 3-50 characters and contain only letters, "
+            "numbers, underscore, "
+            "or dash."};
+  }
+
+  // Validate password with simplified requirements
+  if (password.size() < 6) {
+    if (logFile.is_open()) {
+      logFile << "Result: Password too short\n";
+      logFile.flush();
+    }
+    return {AuthResult::WEAK_PASSWORD,
+            "Password must be at least 6 characters long."};
+  }
+
+  if (!IsValidPassword(password)) {
+    if (logFile.is_open()) {
+      logFile
+          << "Result: Password validation failed (missing letter or digit)\n";
+      logFile.flush();
+    }
+    return {AuthResult::WEAK_PASSWORD,
+            "Password must contain at least one letter and one number."};
+  }
+
+  // Check if user already exists
+  if (g_users.find(username) != g_users.end()) {
+    if (logFile.is_open()) {
+      logFile << "Result: Username already exists\n";
+      logFile.flush();
+    }
+    return {AuthResult::USER_ALREADY_EXISTS,
+            "Username already exists. Please choose a different username."};
+  }
+
+  // Create user object
+  User u;
+  u.username = username;
+
+  // Create password hash
+  if (logFile.is_open()) {
+    logFile << "Creating password hash...\n";
+    logFile.flush();
+  }
+
+  u.passwordHash = CreatePasswordHash(password);
+  if (u.passwordHash.empty()) {
+    if (logFile.is_open()) {
+      logFile << "Result: Password hash creation failed\n";
+      logFile.flush();
+    }
+    return {AuthResult::SYSTEM_ERROR,
+            "Failed to create secure password. Please try again."};
+  }
+
+  // Generate wallet credentials with fallback
+  try {
+    u.privateKey = GeneratePrivateKey();
+    u.walletAddress = GenerateBitcoinAddress();
+
+    if (u.privateKey.empty() || u.walletAddress.empty()) {
+      throw std::runtime_error("Generated empty credentials");
+    }
+  } catch (const std::exception &e) {
+    if (logFile.is_open()) {
+      logFile << "Crypto generation failed: " << e.what() << "\n";
+      logFile.flush();
+    }
+    // Use fallback approach
+    u.privateKey = "demo_key_" + username;
+    u.walletAddress =
+        "1Demo" + std::to_string(std::hash<std::string>{}(username) % 100000) +
+        "Address";
+  }
+
+  // === NEW: BIP-39 seed activation ===
+  std::vector<std::string> generatedMnemonic;
+  bool seedOk = GenerateAndActivateSeedForUser(username, generatedMnemonic, &logFile);
+
+  // Add user to memory
+  g_users[username] = std::move(u);
+
+  // Save to database (non-blocking)
+  try {
+    SaveUserDatabase();
+    if (logFile.is_open()) {
+      logFile << "Result: SUCCESS - User registered and saved\n";
+      if (seedOk) {
+        logFile << "Seed: generated + DPAPI stored. Mnemonic ready for secure display\n";
+      } else {
+        logFile << "Seed: FAILED (see earlier log lines)\n";
+      }
+      logFile.flush();
+    }
+  } catch (...) {
+    if (logFile.is_open()) {
+      logFile << "Result: SUCCESS - User registered (database save failed but "
+                 "user exists in "
+                 "memory)\n";
+      logFile.flush();
+    }
+  }
+
+  if (seedOk && !generatedMnemonic.empty()) {
+    outMnemonic = generatedMnemonic;
+    std::string msg = "Account created successfully!\n"
+                      "Please backup your seed phrase securely.";
+    return {AuthResult::SUCCESS, msg};
+  } else {
+    return {AuthResult::SUCCESS,
+            "Account created. (Warning: seed phrase generation failed – try "
             "again or check logs.)"};
   }
 }

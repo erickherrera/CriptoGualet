@@ -32,6 +32,25 @@ else()
   target_link_options(Crypto PRIVATE -fPIE -pie)
 endif()
 
+# ---- QR Code library ----
+add_library(QRGenerator STATIC
+  "./QRGenerator.cpp"
+  "../include/QRGenerator.h"
+)
+target_include_directories(QRGenerator PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/."
+)
+
+# Link libqrencode if available
+if(LIBQRENCODE_FOUND)
+  target_include_directories(QRGenerator PRIVATE ${QRENCODE_INCLUDE_DIR})
+  target_link_libraries(QRGenerator PRIVATE ${QRENCODE_LIBRARIES})
+  target_compile_definitions(QRGenerator PRIVATE QRENCODE_AVAILABLE)
+  message(STATUS "QRGenerator will be built with libqrencode support")
+else()
+  message(STATUS "QRGenerator will be built with fallback pattern only")
+endif()
+
 # ---- Auth library (portable, builds everywhere) ----
 add_library(Auth STATIC
   "./Auth.cpp"
@@ -110,20 +129,23 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "QtLoginUI.cpp"
     "QtWalletUI.cpp"
     "QtThemeManager.cpp"
+    "QtSeedDisplayDialog.cpp"
     "SharedSymbols.cpp"
     "../include/QtLoginUI.h"
     "../include/QtWalletUI.h"
     "../include/QtThemeManager.h"
+    "../include/QtSeedDisplayDialog.h"
     "../include/CriptoGualetQt.h"
   )
 
-  target_link_libraries(CriptoGualetQt PRIVATE 
-    Auth 
-    Qt6::Core 
+  target_link_libraries(CriptoGualetQt PRIVATE
+    Auth
+    QRGenerator
+    Qt6::Core
     Qt6::Widgets
     Qt6::Gui
-    comctl32 
-    crypt32 
+    comctl32
+    crypt32
     bcrypt
   )
   
@@ -157,6 +179,28 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       add_custom_command(TARGET CriptoGualetQt POST_BUILD
         COMMAND ${QT_DEPLOYQT_EXECUTABLE} $<TARGET_FILE:CriptoGualetQt>
         COMMENT "Deploying Qt libraries")
+    endif()
+
+    # Copy qrencode DLL if available (use debug versions for debug builds)
+    if(LIBQRENCODE_FOUND)
+      add_custom_command(TARGET CriptoGualetQt POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-windows/debug/bin/qrencoded.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-windows/bin/qrencode.dll>"
+        "$<TARGET_FILE_DIR:CriptoGualetQt>"
+        COMMENT "Copying qrencode DLL to output directory")
+
+      # Also copy dependencies that qrencode.dll needs (debug versions for debug builds)
+      add_custom_command(TARGET CriptoGualetQt POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-windows/debug/bin/libpng16d.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-windows/bin/libpng16.dll>"
+        "$<TARGET_FILE_DIR:CriptoGualetQt>"
+        COMMENT "Copying libpng16 DLL to output directory")
+
+      add_custom_command(TARGET CriptoGualetQt POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-windows/debug/bin/zlibd1.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-windows/bin/zlib1.dll>"
+        "$<TARGET_FILE_DIR:CriptoGualetQt>"
+        COMMENT "Copying zlib DLL to output directory")
     endif()
   endif()
 elseif(BUILD_GUI_QT AND NOT Qt6_FOUND)

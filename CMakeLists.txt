@@ -145,6 +145,81 @@ if(BUILD_GUI_QT)
   endif()
 endif()
 
+# Add cmake modules directory
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+# Find QR code library - try vcpkg first, then custom finder
+find_package(PkgConfig QUIET)
+if(PKG_CONFIG_FOUND)
+    pkg_check_modules(LIBQRENCODE QUIET libqrencode)
+endif()
+
+if(NOT LIBQRENCODE_FOUND)
+    find_package(LibQREncode QUIET)
+    if(LibQREncode_FOUND)
+        set(LIBQRENCODE_FOUND TRUE)
+        set(QRENCODE_INCLUDE_DIR ${LIBQRENCODE_INCLUDE_DIRS})
+        set(QRENCODE_LIBRARIES ${LIBQRENCODE_LIBRARIES})
+    endif()
+endif()
+
+# Fallback to manual search
+if(NOT LIBQRENCODE_FOUND)
+    # Check vcpkg installed directory first
+    find_path(QRENCODE_INCLUDE_DIR NAMES qrencode.h
+        PATHS
+            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/include
+        NO_DEFAULT_PATH
+    )
+
+    find_library(QRENCODE_LIBRARY_RELEASE NAMES qrencode
+        PATHS
+            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/lib
+            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib
+        NO_DEFAULT_PATH
+    )
+
+    find_library(QRENCODE_LIBRARY_DEBUG NAMES qrencoded
+        PATHS
+            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/lib
+            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/debug/lib
+        NO_DEFAULT_PATH
+    )
+
+    # If not found in vcpkg, try system paths
+    if(NOT QRENCODE_INCLUDE_DIR)
+        find_path(QRENCODE_INCLUDE_DIR NAMES qrencode.h)
+    endif()
+
+    if(NOT QRENCODE_LIBRARY_RELEASE)
+        find_library(QRENCODE_LIBRARY_RELEASE qrencode)
+    endif()
+
+    if(NOT QRENCODE_LIBRARY_DEBUG)
+        find_library(QRENCODE_LIBRARY_DEBUG qrencoded)
+    endif()
+
+    if(QRENCODE_LIBRARY_DEBUG)
+        set(QRENCODE_LIBRARIES optimized ${QRENCODE_LIBRARY_RELEASE} debug ${QRENCODE_LIBRARY_DEBUG})
+    else()
+        set(QRENCODE_LIBRARIES ${QRENCODE_LIBRARY_RELEASE})
+    endif()
+
+    if(QRENCODE_INCLUDE_DIR AND QRENCODE_LIBRARIES)
+        set(LIBQRENCODE_FOUND TRUE)
+        message(STATUS "libqrencode found (manual detection)")
+        message(STATUS "  Include: ${QRENCODE_INCLUDE_DIR}")
+        message(STATUS "  Library: ${QRENCODE_LIBRARIES}")
+    endif()
+endif()
+
+if(LIBQRENCODE_FOUND)
+    message(STATUS "libqrencode found - QR code functionality enabled")
+else()
+    message(WARNING "libqrencode not found - QR code functionality will use fallback")
+endif()
+
 # Export compile commands for IntelliSense
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -165,3 +240,29 @@ target_include_directories(debug_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAK
 add_executable(test_bip39 test_bip39.cpp src/SharedSymbols.cpp)
 target_link_libraries(test_bip39 PRIVATE Auth comctl32 crypt32 bcrypt)
 target_include_directories(test_bip39 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Add secure seed test executable
+add_executable(test_secure_seed test_secure_seed.cpp src/SharedSymbols.cpp)
+target_link_libraries(test_secure_seed PRIVATE Auth QRGenerator comctl32 crypt32 bcrypt)
+target_include_directories(test_secure_seed PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Copy qrencode DLLs for test executables on Windows
+if(WIN32 AND LIBQRENCODE_FOUND)
+  add_custom_command(TARGET test_secure_seed POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/qrencoded.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/qrencode.dll>"
+    "$<TARGET_FILE_DIR:test_secure_seed>"
+    COMMENT "Copying qrencode DLL for test_secure_seed")
+
+  add_custom_command(TARGET test_secure_seed POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/libpng16d.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libpng16.dll>"
+    "$<TARGET_FILE_DIR:test_secure_seed>"
+    COMMENT "Copying libpng16 DLL for test_secure_seed")
+
+  add_custom_command(TARGET test_secure_seed POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/zlibd1.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/zlib1.dll>"
+    "$<TARGET_FILE_DIR:test_secure_seed>"
+    COMMENT "Copying zlib DLL for test_secure_seed")
+endif()
