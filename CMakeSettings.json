@@ -4,9 +4,9 @@
       "name": "win-msvc-x64-debug",
       "generator": "Visual Studio 17 2022",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\build",
+      "buildRoot": "${projectDir}\\out\\build\\win-msvc-x64-debug",
       "installRoot": "${projectDir}\\out\\install\\win-msvc-x64-debug",
-      "cmakeCommandArgs": "-DCMAKE_PREFIX_PATH=C:/Program Files/Qt/6.9.1/msvc2022_64",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ],
@@ -23,8 +23,46 @@
         },
         {
           "name": "CMAKE_CXX_STANDARD",
-          "value": "20",
+          "value": "17",
           "type": "STRING"
+        },
+        {
+          "name": "CMAKE_CXX_STANDARD_REQUIRED",
+          "value": "ON",
+          "type": "BOOL"
+        }
+      ]
+    },
+    {
+      "name": "win-msvc-x64-release",
+      "generator": "Visual Studio 17 2022",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\win-msvc-x64-release",
+      "installRoot": "${projectDir}\\out\\install\\win-msvc-x64-release",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "BUILD_GUI_QT",
+          "value": "ON",
+          "type": "BOOL"
+        },
+        {
+          "name": "BUILD_GUI_WIN32",
+          "value": "OFF",
+          "type": "BOOL"
+        },
+        {
+          "name": "CMAKE_CXX_STANDARD",
+          "value": "17",
+          "type": "STRING"
+        },
+        {
+          "name": "CMAKE_CXX_STANDARD_REQUIRED",
+          "value": "ON",
+          "type": "BOOL"
         }
       ]
     }

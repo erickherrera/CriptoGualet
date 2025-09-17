@@ -2,136 +2,141 @@
 #include <QApplication>
 #include <QStyleFactory>
 
-QtThemeManager& QtThemeManager::instance() {
-    static QtThemeManager instance;
-    return instance;
+QtThemeManager &QtThemeManager::instance() {
+  static QtThemeManager instance;
+  return instance;
 }
 
-QtThemeManager::QtThemeManager(QObject* parent) : QObject(parent) { setupCryptoDarkTheme(); }
+QtThemeManager::QtThemeManager(QObject *parent) : QObject(parent) {
+  setupCryptoDarkTheme();
+}
 
 void QtThemeManager::applyTheme(ThemeType theme) {
-    m_currentTheme = theme;
+  m_currentTheme = theme;
 
-    switch (theme) {
-        case ThemeType::DARK:
-            setupDarkTheme();
-            break;
-        case ThemeType::LIGHT:
-            setupLightTheme();
-            break;
-        case ThemeType::CRYPTO_DARK:
-            setupCryptoDarkTheme();
-            break;
-        case ThemeType::CRYPTO_LIGHT:
-            setupCryptoLightTheme();
-            break;
-    }
+  switch (theme) {
+  case ThemeType::DARK:
+    setupDarkTheme();
+    break;
+  case ThemeType::LIGHT:
+    setupLightTheme();
+    break;
+  case ThemeType::CRYPTO_DARK:
+    setupCryptoDarkTheme();
+    break;
+  case ThemeType::CRYPTO_LIGHT:
+    setupCryptoLightTheme();
+    break;
+  }
 
-    updateApplicationStyle();
-    emit themeChanged(theme);
+  updateApplicationStyle();
+  emit themeChanged(theme);
 }
 
-void QtThemeManager::applyTheme(const QString& themeName) {
-    if (themeName == "dark") {
-        applyTheme(ThemeType::DARK);
-    } else if (themeName == "light") {
-        applyTheme(ThemeType::LIGHT);
-    } else if (themeName == "crypto-dark") {
-        applyTheme(ThemeType::CRYPTO_DARK);
-    } else if (themeName == "crypto-light") {
-        applyTheme(ThemeType::CRYPTO_LIGHT);
-    }
+void QtThemeManager::applyTheme(const QString &themeName) {
+  if (themeName == "dark") {
+    applyTheme(ThemeType::DARK);
+  } else if (themeName == "light") {
+    applyTheme(ThemeType::LIGHT);
+  } else if (themeName == "crypto-dark") {
+    applyTheme(ThemeType::CRYPTO_DARK);
+  } else if (themeName == "crypto-light") {
+    applyTheme(ThemeType::CRYPTO_LIGHT);
+  }
 }
 
 void QtThemeManager::setupDarkTheme() {
-    m_primaryColor = QColor(45, 55, 72);
-    m_secondaryColor = QColor(68, 80, 102);
-    m_backgroundColor = QColor(26, 32, 44);
-    m_surfaceColor = QColor(45, 55, 72);
-    m_textColor = QColor(248, 250, 252);
-    m_accentColor = QColor(66, 153, 225);
-    m_errorColor = QColor(245, 101, 101);
-    m_successColor = QColor(72, 187, 120);
-    m_warningColor = QColor(237, 137, 54);
+  m_primaryColor = QColor(45, 55, 72);
+  m_secondaryColor = QColor(68, 80, 102);
+  m_backgroundColor = QColor(26, 32, 44);
+  m_surfaceColor = QColor(45, 55, 72);
+  m_textColor = QColor(248, 250, 252);
+  m_accentColor = QColor(66, 153, 225);
+  m_errorColor = QColor(245, 101, 101);
+  m_successColor = QColor(72, 187, 120);
+  m_warningColor = QColor(237, 137, 54);
 
-    m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
-    m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
-    m_textFont = QFont("Segoe UI", 10);
-    m_monoFont = QFont("Consolas", 10);
+  m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
+  m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
+  m_textFont = QFont("Segoe UI", 10);
+  m_monoFont = QFont("Consolas", 10);
 
-    // Dynamic, theme-aware subtitle color (slightly dimmer than main text)
-    m_subtitleColor = m_textColor.darker(170);
+  // Dynamic, theme-aware subtitle color (slightly dimmer than main text)
+  m_subtitleColor = m_textColor.darker(170);
 }
 
 void QtThemeManager::setupLightTheme() {
-    m_primaryColor = QColor(255, 255, 255);
-    m_secondaryColor = QColor(237, 242, 247);
-    m_backgroundColor = QColor(248, 250, 252);
-    m_surfaceColor = QColor(230, 230, 245);
-    m_textColor = QColor(45, 55, 72);
-    m_accentColor = QColor(66, 153, 225);
-    m_errorColor = QColor(229, 62, 62);
-    m_successColor = QColor(56, 161, 105);
-    m_warningColor = QColor(221, 107, 32);
+  m_primaryColor = QColor(255, 255, 255);
+  m_secondaryColor = QColor(237, 242, 247);
+  m_backgroundColor = QColor(248, 250, 252);
+  m_surfaceColor = QColor(230, 230, 245);
+  m_textColor = QColor(25, 25, 25);
+  m_accentColor = QColor(66, 153, 225);
+  m_errorColor = QColor(229, 62, 62);
+  m_successColor = QColor(56, 161, 105);
+  m_warningColor = QColor(221, 107, 32);
 
-    m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
-    m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
-    m_textFont = QFont("Segoe UI", 10);
-    m_monoFont = QFont("Consolas", 10);
+  m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
+  m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
+  m_textFont = QFont("Segoe UI", 10);
+  m_monoFont = QFont("Consolas", 10);
 
-    // Dynamic subtitle on light backgrounds: subtle neutral gray
-    m_subtitleColor = QColor(107, 114, 128);  // ~ Tailwind gray-500
+  // Dynamic subtitle on light backgrounds: subtle neutral gray
+  m_subtitleColor = QColor(107, 114, 128); // ~ Tailwind gray-500
 }
 
 void QtThemeManager::setupCryptoDarkTheme() {
-    m_primaryColor = QColor(18, 18, 18);
-    m_secondaryColor = QColor(30, 30, 30);
-    m_backgroundColor = QColor(13, 13, 13);
-    m_surfaceColor = QColor(25, 25, 25);
-    m_textColor = QColor(255, 255, 255);
-    m_accentColor = QColor(255, 165, 0);
-    m_errorColor = QColor(220, 38, 38);
-    m_successColor = QColor(34, 197, 94);
-    m_warningColor = QColor(251, 146, 60);
+  m_primaryColor = QColor(18, 18, 18);
+  m_secondaryColor = QColor(30, 30, 30);
+  m_backgroundColor = QColor(13, 13, 13);
+  m_surfaceColor = QColor(25, 25, 25);
+  m_textColor = QColor(255, 255, 255);
+  m_accentColor = QColor(255, 165, 0);
+  m_errorColor = QColor(220, 38, 38);
+  m_successColor = QColor(34, 197, 94);
+  m_warningColor = QColor(251, 146, 60);
 
-    m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
-    m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
-    m_textFont = QFont("Segoe UI", 10);
-    m_monoFont = QFont("JetBrains Mono", 10);
+  m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
+  m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
+  m_textFont = QFont("Segoe UI", 10);
+  m_monoFont = QFont("JetBrains Mono", 10);
 
-    // Dynamic subtitle on dark backgrounds: slightly dimmer
-    m_subtitleColor = m_textColor.darker(170);
+  // Dynamic subtitle on dark backgrounds: slightly dimmer
+  m_subtitleColor = m_textColor.darker(170);
 }
 
 void QtThemeManager::setupCryptoLightTheme() {
-    m_primaryColor = QColor(255, 255, 255);
-    // Darker gray for INPUT BORDERS to contrast against very light surface/background
-    m_secondaryColor = QColor(229, 231, 235);  // ~ Tailwind gray-200 (darker than surface)
-    m_backgroundColor = QColor(255, 255, 255);
-    m_surfaceColor = QColor(255, 252, 210);
-    m_textColor = QColor(17, 24, 39);
-    m_accentColor = QColor(245, 158, 11);
-    m_errorColor = QColor(239, 68, 68);
-    m_successColor = QColor(34, 197, 94);
-    m_warningColor = QColor(245, 158, 11);
+  m_primaryColor = QColor(255, 255, 255);
+  // Darker gray for INPUT BORDERS to contrast against very light
+  // surface/background
+  m_secondaryColor =
+      QColor(229, 231, 235); // ~ Tailwind gray-200 (darker than surface)
+  m_backgroundColor = QColor(255, 255, 255);
+  m_surfaceColor = QColor(255, 252, 210);
+  m_textColor = QColor(17, 24, 39);
+  m_accentColor = QColor(245, 158, 11);
+  m_errorColor = QColor(239, 68, 68);
+  m_successColor = QColor(34, 197, 94);
+  m_warningColor = QColor(245, 158, 11);
 
-    m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
-    m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
-    m_textFont = QFont("Segoe UI", 10);
-    m_monoFont = QFont("JetBrains Mono", 10);
+  m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
+  m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
+  m_textFont = QFont("Segoe UI", 10);
+  m_monoFont = QFont("JetBrains Mono", 10);
 
-    // Dynamic subtitle on light background: subtle neutral gray
-    m_subtitleColor = QColor(107, 114, 128);  // ~ Tailwind gray-500
+  // Dynamic subtitle on light background: subtle neutral gray
+  m_subtitleColor = QColor(107, 114, 128); // ~ Tailwind gray-500
 }
 
 void QtThemeManager::updateApplicationStyle() {
-    if (QApplication* app = qobject_cast<QApplication*>(QCoreApplication::instance())) {
-        app->setStyleSheet(getMainWindowStyleSheet());
-    }
+  if (QApplication *app =
+          qobject_cast<QApplication *>(QCoreApplication::instance())) {
+    app->setStyleSheet(getMainWindowStyleSheet());
+  }
 }
 
 QString QtThemeManager::getButtonStyleSheet() const {
-    return QString(R"(
+  return QString(R"(
         QPushButton {
             background-color: %1;
             color: %2;
@@ -157,21 +162,21 @@ QString QtThemeManager::getButtonStyleSheet() const {
             border-color: %11;
         }
     )")
-        .arg(m_surfaceColor.name())
-        .arg(m_textColor.name())
-        .arg(m_accentColor.name())
-        .arg(m_buttonFont.family())
-        .arg(m_buttonFont.pointSize())
-        .arg(m_accentColor.lighter(120).name())
-        .arg(m_accentColor.lighter(130).name())
-        .arg(m_accentColor.darker(120).name())
-        .arg(m_surfaceColor.darker(150).name())
-        .arg(m_textColor.darker(200).name())
-        .arg(m_accentColor.darker(200).name());
+      .arg(m_surfaceColor.name())
+      .arg(m_textColor.name())
+      .arg(m_accentColor.name())
+      .arg(m_buttonFont.family())
+      .arg(m_buttonFont.pointSize())
+      .arg(m_accentColor.lighter(120).name())
+      .arg(m_accentColor.lighter(130).name())
+      .arg(m_accentColor.darker(120).name())
+      .arg(m_surfaceColor.darker(150).name())
+      .arg(m_textColor.darker(200).name())
+      .arg(m_accentColor.darker(200).name());
 }
 
 QString QtThemeManager::getLineEditStyleSheet() const {
-    return QString(R"(
+  return QString(R"(
         QLineEdit {
             background-color: %1;
             color: %2;
@@ -192,23 +197,23 @@ QString QtThemeManager::getLineEditStyleSheet() const {
             border-color: %11;
         }
     )")
-        .arg(m_surfaceColor.name())
-        .arg(m_textColor.name())
-        .arg(m_secondaryColor
-                 .name())  // border uses secondary; Crypto Light sets this to a darker gray
-        .arg(m_textFont.family())
-        .arg(m_textFont.pointSize())
-        .arg(m_accentColor.lighter(150).name())
-        .arg(m_accentColor.name())
-        .arg(m_surfaceColor.lighter(105).name())
-        .arg(m_surfaceColor.darker(120).name())
-        .arg(m_textColor.darker(150).name())
-        .arg(m_secondaryColor.darker(150).name());
+      .arg(m_surfaceColor.name())
+      .arg(m_textColor.name())
+      .arg(m_secondaryColor.name()) // border uses secondary; Crypto Light sets
+                                    // this to a darker gray
+      .arg(m_textFont.family())
+      .arg(m_textFont.pointSize())
+      .arg(m_accentColor.lighter(150).name())
+      .arg(m_accentColor.name())
+      .arg(m_surfaceColor.lighter(105).name())
+      .arg(m_surfaceColor.darker(120).name())
+      .arg(m_textColor.darker(150).name())
+      .arg(m_secondaryColor.darker(150).name());
 }
 
 QString QtThemeManager::getLabelStyleSheet() const {
-    // Bright title (accent), subtle/dynamic subtitle (m_subtitleColor)
-    return QString(R"(
+  // Bright title (accent), subtle/dynamic subtitle (m_subtitleColor)
+  return QString(R"(
         QLabel {
             color: %1;
             font-family: %2;
@@ -236,18 +241,18 @@ QString QtThemeManager::getLabelStyleSheet() const {
             border-radius: 4px;
         }
     )")
-    .arg(textColor().name())              // %1: text color
-    .arg(textFont().family())             // %2: base font family
-    .arg(textFont().pointSize())          // %3: normal font size
-    .arg(titleFont().pointSize())         // %4: title size
-    .arg(textFont().pointSize() - 2)      // %5: subtitle slightly smaller
-    .arg(textColor().name())              // %6: subtitle color (define this in theme)
-    .arg(monoFont().family())             // %7: monospace font for address
-    .arg(accentColor().name());           // %8: background for address
+      .arg(textColor().name())         // %1: text color
+      .arg(textFont().family())        // %2: base font family
+      .arg(textFont().pointSize())     // %3: normal font size
+      .arg(titleFont().pointSize())    // %4: title size
+      .arg(textFont().pointSize() - 2) // %5: subtitle slightly smaller
+      .arg(textColor().name())    // %6: subtitle color (define this in theme)
+      .arg(monoFont().family())   // %7: monospace font for address
+      .arg(accentColor().name()); // %8: background for address
 }
 
 QString QtThemeManager::getMainWindowStyleSheet() const {
-    return QString(R"(
+  return QString(R"(
         QMainWindow {
             background-color: %1;
             color: %2;
@@ -286,25 +291,26 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
             border-color: %15;
         }
     )")
-        .arg(m_backgroundColor.name())        // %1 - main background
-        .arg(m_textColor.name())             // %2 - main text color
-        .arg(m_backgroundColor.name())        // %3 - widget background
-        .arg(m_textColor.name())             // %4 - widget text color
-        .arg(m_surfaceColor.name())          // %5 - card background
-        .arg(m_secondaryColor.name())        // %6 - card border
-        .arg(m_backgroundColor.name())            // %7 - navbar background
-        .arg(m_accentColor.name())           // %8 - navbar border
-        .arg(m_titleFont.family())           // %9 - navbar title font
-        .arg(m_accentColor.name())           // %10 - navbar title color
-        .arg(m_surfaceColor.name())               // %11 - navbar button background
-        .arg(m_textColor.name())             // %12 - navbar button text
-        .arg(m_secondaryColor.name())        // %13 - navbar button border
-        .arg(m_surfaceColor.lighter(180).name())  // %14 - navbar button hover background
-        .arg(m_accentColor.name());          // %15 - navbar button hover border
+      .arg(m_backgroundColor.name()) // %1 - main background
+      .arg(m_textColor.name())       // %2 - main text color
+      .arg(m_backgroundColor.name()) // %3 - widget background
+      .arg(m_textColor.name())       // %4 - widget text color
+      .arg(m_surfaceColor.name())    // %5 - card background
+      .arg(m_secondaryColor.name())  // %6 - card border
+      .arg(m_backgroundColor.name()) // %7 - navbar background
+      .arg(m_accentColor.name())     // %8 - navbar border
+      .arg(m_titleFont.family())     // %9 - navbar title font
+      .arg(m_accentColor.name())     // %10 - navbar title color
+      .arg(m_surfaceColor.name())    // %11 - navbar button background
+      .arg(m_textColor.name())       // %12 - navbar button text
+      .arg(m_secondaryColor.name())  // %13 - navbar button border
+      .arg(m_surfaceColor.lighter(180)
+               .name())           // %14 - navbar button hover background
+      .arg(m_accentColor.name()); // %15 - navbar button hover border
 }
 
 QString QtThemeManager::getCardStyleSheet() const {
-    return QString(R"(
+  return QString(R"(
         QFrame {
             background-color: %1;
             border: 2px solid %2;
@@ -315,6 +321,39 @@ QString QtThemeManager::getCardStyleSheet() const {
             border-color: %2;
         }
     )")
-        .arg(m_surfaceColor.name())
-        .arg(m_accentColor.name());
+      .arg(m_surfaceColor.name())
+      .arg(m_accentColor.name());
+}
+
+QString QtThemeManager::getMessageStyleSheet() const {
+  return QString(R"(
+        QLabel {
+            padding: 8px;
+            border-radius: 6px;
+            font-weight: 500;
+            border: none;
+            color: %1;
+        }
+    )")
+      .arg(m_textColor.name());
+}
+
+QString QtThemeManager::getErrorMessageStyleSheet() const {
+  return getMessageStyleSheet() + QString(R"(
+        QLabel {
+            color: #ffffff;
+            background-color: %1;
+        }
+    )")
+                                      .arg(m_errorColor.name());
+}
+
+QString QtThemeManager::getSuccessMessageStyleSheet() const {
+  return getMessageStyleSheet() + QString(R"(
+        QLabel {
+            color: #ffffff;
+            background-color: %1;
+        }
+    )")
+                                      .arg(m_successColor.name());
 }

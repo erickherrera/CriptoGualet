@@ -2,12 +2,16 @@
   "version": "0.2.1",
   "configurations": [
     {
-      "type": "default",
+      "type": "cppvsdbg",
+      "name": "CriptoGualet Qt Application (Debug)",
       "project": "CMakeLists.txt",
-      "projectTarget": "CriptoGualetQt.exe (src\\CriptoGualetQt.exe)",
-      "name": "CriptoGualet Qt Application",
+      "projectTarget": "CriptoGualetQt (exe)",
+      "currentDir": "${workspaceRoot}",
+      "args": [],
+      "stopOnEntry": false,
+      "console": "internalConsole",
       "env": {
-        "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env.PATH}"
+        "PATH": "${workspaceRoot}\\out\\build\\win-clang-x64-debug\\bin\\Debug;${env:PATH}"
       }
     }
   ]

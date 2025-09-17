@@ -149,7 +149,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             const std::string username = GetEditTextUTF8(g_usernameEdit);
             const std::string password = GetEditTextUTF8(g_passwordEdit);
 
-            if (Auth::LoginUser(username, password)) {
+            Auth::AuthResponse response = Auth::LoginUser(username, password);
+            if (response.success()) {
                 g_currentUser = username;
                 g_currentState = AppState::MAIN_WALLET;
                 ClearWindow(hwnd);
@@ -157,7 +158,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 InvalidateRect(hwnd, nullptr, TRUE);
             }
             else {
-                MessageBoxW(hwnd, L"Invalid credentials!", L"Login Failed", MB_OK | MB_ICONERROR);
+                const std::wstring wMessage = Widen(response.message);
+                MessageBoxW(hwnd, wMessage.c_str(), L"Login Failed", MB_OK | MB_ICONERROR);
             }
         } break;
 
@@ -165,26 +167,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             const std::string username = GetEditTextUTF8(g_usernameEdit);
             const std::string password = GetEditTextUTF8(g_passwordEdit);
 
-            // Enhanced input validation
-            if (username.empty() || password.empty()) {
-                MessageBoxW(hwnd, L"Username and password cannot be empty!", 
-                    L"Registration Failed", MB_OK | MB_ICONERROR);
-            }
-            else if (username.length() < 3 || password.length() < 6) {
-                MessageBoxW(hwnd,
-                    L"Username must be at least 3 characters and password at least 6 characters!",
-                    L"Registration Failed", MB_OK | MB_ICONERROR);
-            }
-            else if (Auth::RegisterUser(username, password)) {
-                Auth::SaveUserDatabase(); // Save after registration
-                MessageBoxW(hwnd, L"Account created successfully! You can now log in.",
-                    L"Registration Successful", MB_OK | MB_ICONINFORMATION);
+            Auth::AuthResponse response = Auth::RegisterUser(username, password);
+            if (response.success()) {
+                const std::wstring wMessage = Widen("Account created successfully!\n\nYou can now log in.");
+                MessageBoxW(hwnd, wMessage.c_str(), L"Registration Successful", MB_OK | MB_ICONINFORMATION);
                 SetWindowTextW(g_usernameEdit, L"");
                 SetWindowTextW(g_passwordEdit, L"");
             }
             else {
-                MessageBoxW(hwnd, L"Username already exists!", L"Registration Failed",
-                    MB_OK | MB_ICONERROR);
+                const std::wstring wMessage = Widen(response.message);
+                MessageBoxW(hwnd, wMessage.c_str(), L"Registration Failed", MB_OK | MB_ICONERROR);
             }
         } break;
 
