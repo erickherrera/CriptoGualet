@@ -14,6 +14,7 @@
 #include <QPixmap>
 #include <string>
 #include <vector>
+#include "QRGenerator.h"
 
 class QtSeedDisplayDialog : public QDialog {
     Q_OBJECT
@@ -35,6 +36,12 @@ private:
     void setupQRDisplay();
     void generateQRCode();
     void createWordGrid();
+
+    // QR code generation helper methods
+    QImage createQRImage(const QR::QRData& qrData);
+    QImage scaleAndPadQRImage(const QImage& qrImage, int originalWidth);
+    void displayQRError(const QString& message);
+    void displayQRWarning();
 
     std::vector<std::string> m_seedWords;
     bool m_userConfirmed = false;
