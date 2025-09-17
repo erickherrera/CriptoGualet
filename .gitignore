@@ -95,9 +95,6 @@ vcpkg_installed/
 # Local IDE settings
 .claude/settings.local.json
 
-# Temporary test files
-test_*.cpp
-
 # Other generated files
 ut
 nul

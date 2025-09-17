@@ -232,17 +232,17 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
 endif()
 
 # Add debug test executable
-add_executable(debug_test debug_test.cpp src/SharedSymbols.cpp)
+add_executable(debug_test "src/Tests/test_basic_auth.cpp" src/SharedSymbols.cpp)
 target_link_libraries(debug_test PRIVATE Auth comctl32 crypt32 bcrypt)
 target_include_directories(debug_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Add BIP39 test executable
-add_executable(test_bip39 test_bip39.cpp src/SharedSymbols.cpp)
+add_executable(test_bip39 "src/Tests/test_bip39.cpp" src/SharedSymbols.cpp)
 target_link_libraries(test_bip39 PRIVATE Auth comctl32 crypt32 bcrypt)
 target_include_directories(test_bip39 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Add secure seed test executable
-add_executable(test_secure_seed test_secure_seed.cpp src/SharedSymbols.cpp)
+add_executable(test_secure_seed "src/Tests/test_secure_seed.cpp" src/SharedSymbols.cpp)
 target_link_libraries(test_secure_seed PRIVATE Auth QRGenerator comctl32 crypt32 bcrypt)
 target_include_directories(test_secure_seed PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
