@@ -4,9 +4,11 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QDateTime>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -19,7 +21,9 @@
 #include <QVBoxLayout>
 
 QtWalletUI::QtWalletUI(QWidget *parent)
-    : QWidget(parent), m_themeManager(&QtThemeManager::instance()) {
+    : QWidget(parent), m_themeManager(&QtThemeManager::instance()),
+      m_currentMockUser(nullptr), m_mockMode(false) {
+  initializeMockUsers();
   setupUI();
   applyTheme();
 
@@ -83,7 +87,7 @@ void QtWalletUI::createWelcomeSection() {
   welcomeLayout->addWidget(m_welcomeLabel);
 
   m_balanceLabel = new QLabel("Balance: 0.00000000 BTC", m_welcomeCard);
-  m_balanceLabel->setProperty("class", "subtitle");
+  m_balanceLabel->setProperty("class", "wallet-balance");
   m_balanceLabel->setAlignment(Qt::AlignCenter);
   welcomeLayout->addWidget(m_balanceLabel);
 
@@ -204,9 +208,68 @@ void QtWalletUI::setUserInfo(const QString &username, const QString &address) {
   m_addressLabel->setText(address);
 }
 
-void QtWalletUI::onViewBalanceClicked() { emit viewBalanceRequested(); }
+void QtWalletUI::onViewBalanceClicked() {
+  // Mock balance data for testing
+  double mockBalance = 0.15234567;
+  QString balanceText =
+      QString("Balance: %1 BTC").arg(QString::number(mockBalance, 'f', 8));
+  m_balanceLabel->setText(balanceText);
 
-void QtWalletUI::onSendBitcoinClicked() { emit sendBitcoinRequested(); }
+  QMessageBox::information(this, "Balance Updated",
+                           QString("Your current balance is %1 BTC\n\nThis is "
+                                   "mock data for testing purposes.")
+                               .arg(QString::number(mockBalance, 'f', 8)));
+
+  emit viewBalanceRequested();
+}
+
+void QtWalletUI::onSendBitcoinClicked() {
+  // Mock send bitcoin dialog for testing
+  bool ok;
+  QString recipient = QInputDialog::getText(
+      this, "Send Bitcoin", "Enter recipient address:", QLineEdit::Normal, "",
+      &ok);
+
+  if (ok && !recipient.isEmpty()) {
+    QString amount = QInputDialog::getText(
+        this, "Send Bitcoin", "Enter amount (BTC):", QLineEdit::Normal, "0.001",
+        &ok);
+
+    if (ok && !amount.isEmpty()) {
+      QMessageBox::StandardButton reply = QMessageBox::question(
+          this, "Confirm Transaction",
+          QString("Send %1 BTC to:\n%2\n\nThis is a mock transaction for "
+                  "testing. No actual Bitcoin will be sent.\n\nConfirm?")
+              .arg(amount, recipient),
+          QMessageBox::Yes | QMessageBox::No);
+
+      if (reply == QMessageBox::Yes) {
+        // Update transaction history with mock data
+        QString currentHistory = m_historyText->toPlainText();
+        if (currentHistory.contains("No transactions yet.")) {
+          currentHistory = "";
+        }
+
+        QString newTransaction =
+            QString("SENT: %1 BTC to %2\nTime: %3\nStatus: Pending (Mock)\n\n")
+                .arg(amount)
+                .arg(recipient.left(20) + "...")
+                .arg(QDateTime::currentDateTime().toString(
+                    "yyyy-MM-dd hh:mm:ss"));
+
+        m_historyText->setText(newTransaction + currentHistory);
+
+        QMessageBox::information(
+            this, "Transaction Sent",
+            QString("Mock transaction of %1 BTC sent "
+                    "successfully!\n\nTransaction added to history.")
+                .arg(amount));
+      }
+    }
+  }
+
+  emit sendBitcoinRequested();
+}
 
 void QtWalletUI::onReceiveBitcoinClicked() { emit receiveBitcoinRequested(); }
 
@@ -306,7 +369,8 @@ void QtWalletUI::updateScrollAreaWidth() {
     // aspect ratio > 2.4:1)
     if (windowWidth > 2560 ||
         (static_cast<double>(windowWidth) / this->height()) > 2.4) {
-      int targetWidth = static_cast<int>(windowWidth * 0.50);
+      int targetWidth = static_cast<int>(
+          windowWidth * 0.575); // Increased from 0.50 to 0.575 (15% larger)
       m_scrollArea->setFixedWidth(targetWidth);
     } else {
       // For normal screens, allow full width with some padding
@@ -314,4 +378,81 @@ void QtWalletUI::updateScrollAreaWidth() {
       m_scrollArea->setMinimumWidth(0);
     }
   }
+}
+
+void QtWalletUI::initializeMockUsers() {
+  m_mockUsers.clear();
+
+  MockUserData alice;
+  alice.username = "alice";
+  alice.password = "password123";
+  alice.primaryAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+  alice.addresses << alice.primaryAddress
+                  << "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
+  alice.balance = 0.15234567;
+
+  MockTransaction tx1;
+  tx1.type = "RECEIVED";
+  tx1.address = "1HB5XMLmzFVj8ALj6mfBsbifRoD4miY36v";
+  tx1.amount = 0.05;
+  tx1.timestamp = "2024-01-15 10:30:00";
+  tx1.status = "Confirmed";
+  tx1.txId = "abc123def456";
+  alice.transactions << tx1;
+
+  m_mockUsers["alice"] = alice;
+
+  MockUserData bob;
+  bob.username = "bob";
+  bob.password = "securepass";
+  bob.primaryAddress = "1BoBMSEYstWetqTFn5Au4m4GFg7xJaNVN3";
+  bob.addresses << bob.primaryAddress;
+  bob.balance = 0.28456789;
+  m_mockUsers["bob"] = bob;
+}
+
+bool QtWalletUI::authenticateMockUser(const QString &username,
+                                      const QString &password) {
+  if (m_mockUsers.contains(username)) {
+    const MockUserData &user = m_mockUsers[username];
+    if (user.password == password) {
+      setMockUser(username);
+      return true;
+    }
+  }
+  return false;
+}
+
+void QtWalletUI::setMockUser(const QString &username) {
+  if (m_mockUsers.contains(username)) {
+    m_currentMockUser = &m_mockUsers[username];
+    m_mockMode = true;
+    setUserInfo(username, m_currentMockUser->primaryAddress);
+    m_balanceLabel->setText(
+        QString("Balance: %1 BTC")
+            .arg(QString::number(m_currentMockUser->balance, 'f', 8)));
+    updateMockTransactionHistory();
+  }
+}
+
+void QtWalletUI::updateMockTransactionHistory() {
+  if (!m_currentMockUser || m_currentMockUser->transactions.isEmpty()) {
+    m_historyText->setText("No transactions yet.\n\nThis is a demo wallet.");
+    return;
+  }
+
+  QString historyText;
+  for (const MockTransaction &tx : m_currentMockUser->transactions) {
+    historyText +=
+        QString("%1: %2 BTC %3 %4\nTime: %5\nStatus: %6\nTx ID: %7\n\n")
+            .arg(tx.type)
+            .arg(QString::number(tx.amount, 'f', 8))
+            .arg(tx.type == "SENT" ? "to" : "from")
+            .arg(tx.address.left(20) + "...")
+            .arg(tx.timestamp)
+            .arg(tx.status)
+            .arg(tx.txId);
+  }
+
+  m_historyText->setText(historyText);
 }

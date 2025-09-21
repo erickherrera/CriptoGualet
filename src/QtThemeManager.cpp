@@ -232,6 +232,11 @@ QString QtThemeManager::getLabelStyleSheet() const {
             font-size: %5px;
             color: %6;
         }
+        QLabel[class="wallet-balance"] {
+            font-family: %2;
+            font-size: %9px;
+            color: %6;
+        }
         QLabel[class="address"] {
             font-family: %7;
             font-size: %3px;
@@ -246,9 +251,10 @@ QString QtThemeManager::getLabelStyleSheet() const {
       .arg(textFont().pointSize())     // %3: normal font size
       .arg(titleFont().pointSize())    // %4: title size
       .arg(textFont().pointSize() - 2) // %5: subtitle slightly smaller
-      .arg(textColor().name())    // %6: subtitle color (define this in theme)
-      .arg(monoFont().family())   // %7: monospace font for address
-      .arg(accentColor().name()); // %8: background for address
+      .arg(textColor().name())   // %6: subtitle color (define this in theme)
+      .arg(monoFont().family())  // %7: monospace font for address
+      .arg(accentColor().name()) // %8: background for address
+      .arg(textFont().pointSize() + 4); // %5: subtitle slightly smaller
 }
 
 QString QtThemeManager::getMainWindowStyleSheet() const {

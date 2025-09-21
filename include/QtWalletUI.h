@@ -11,10 +11,31 @@
 #include <QTextEdit>
 #include <QLineEdit>
 #include <QSpacerItem>
+#include <QMap>
+#include <QStringList>
 
 // Forward declarations
 class QtThemeManager;
 class QResizeEvent;
+
+// Mock user data structure
+struct MockTransaction {
+    QString type;          // "SENT", "RECEIVED", "WAITING"
+    QString address;       // recipient/sender address
+    double amount;         // BTC amount
+    QString timestamp;     // transaction time
+    QString status;        // "Confirmed", "Pending", "Waiting for payment"
+    QString txId;          // transaction ID (mock)
+};
+
+struct MockUserData {
+    QString username;
+    QString password;
+    QString primaryAddress;
+    QStringList addresses;         // multiple addresses for the user
+    double balance;               // total balance in BTC
+    QList<MockTransaction> transactions;
+};
 
 class QtWalletUI : public QWidget {
     Q_OBJECT
@@ -23,6 +44,12 @@ public:
     explicit QtWalletUI(QWidget *parent = nullptr);
     void setUserInfo(const QString &username, const QString &address);
     void applyTheme();
+
+    // Mock user system
+    bool authenticateMockUser(const QString &username, const QString &password);
+    void setMockUser(const QString &username);
+    bool isMockMode() const { return m_mockMode; }
+    MockUserData* getCurrentMockUser() { return m_currentMockUser; }
 
 signals:
     void viewBalanceRequested();
@@ -88,4 +115,11 @@ private:
     // User data
     QString m_currentUsername;
     QString m_currentAddress;
+
+    // Mock user system
+    void initializeMockUsers();
+    void updateMockTransactionHistory();
+    QMap<QString, MockUserData> m_mockUsers;
+    MockUserData* m_currentMockUser;
+    bool m_mockMode;
 };
