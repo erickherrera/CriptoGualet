@@ -2,9 +2,9 @@
   "configurations": [
     {
       "inheritEnvironments": [
-        "msvc_x64_x64"
+        "clang_cl"
       ],
-      "name": "x64-MSVC",
+      "name": "x64-Clang",
       "includePath": [
         "${workspaceRoot}\\**",
         "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include",
@@ -23,13 +23,11 @@
         "QT_GUI_LIB",
         "QT_DLL",
         "QT_NO_DEBUG",
-        "_MSC_VER=1939",
-        "_MSC_VER",
         "_WIN64",
-        "_M_X64"
+        "__clang__"
       ],
-      "intelliSenseMode": "windows-msvc-x64",
-      "compilerPath": "cl.exe",
+      "intelliSenseMode": "windows-clang-x64",
+      "compilerPath": "clang.exe",
       "cStandard": "c17",
       "cppStandard": "c++20"
     }
