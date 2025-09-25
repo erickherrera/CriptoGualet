@@ -143,3 +143,9 @@ CriptoGualet/
 - Automatic Qt DLL deployment on Windows
 - Cross-platform security flags enabled
 - Export compile commands for IntelliSense support
+
+## MCP Integration
+- GitHub MCP server configured for enhanced context and repository operations
+- Environment variable `GITHUB_PAT` stores GitHub Personal Access Token securely
+- MCP configuration file `.mcp.json` excluded from version control for security
+- Enables direct GitHub API access for issues, PRs, and repository management through Claude Code
