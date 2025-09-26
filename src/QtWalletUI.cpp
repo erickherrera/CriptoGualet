@@ -70,6 +70,13 @@ void QtWalletUI::setupUI() {
       new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
   m_mainLayout->addLayout(centeringLayout);
+
+  // Initialize responsive layout after UI setup
+  QTimer::singleShot(0, this, [this]() {
+    updateResponsiveLayout();
+    adjustButtonLayout();
+    updateCardSizes();
+  });
 }
 
 void QtWalletUI::createWelcomeSection() {
@@ -359,23 +366,36 @@ void QtWalletUI::onLogoutClicked() { emit logoutRequested(); }
 void QtWalletUI::resizeEvent(QResizeEvent *event) {
   QWidget::resizeEvent(event);
   updateScrollAreaWidth();
+  updateResponsiveLayout();
+  adjustButtonLayout();
+  updateCardSizes();
 }
 
 void QtWalletUI::updateScrollAreaWidth() {
   if (m_scrollArea) {
     int windowWidth = this->width();
+    int windowHeight = this->height();
+    double aspectRatio = static_cast<double>(windowWidth) / windowHeight;
 
-    // Only apply width limit for ultra-wide screens (wider than 2560px or
-    // aspect ratio > 2.4:1)
-    if (windowWidth > 2560 ||
-        (static_cast<double>(windowWidth) / this->height()) > 2.4) {
-      int targetWidth = static_cast<int>(
-          windowWidth * 0.575); // Increased from 0.50 to 0.575 (15% larger)
+    // Enhanced responsive width calculation
+    if (windowWidth > 2560 || aspectRatio > 2.4) {
+      // Ultra-wide screens
+      int targetWidth = static_cast<int>(windowWidth * 0.575);
       m_scrollArea->setFixedWidth(targetWidth);
+    } else if (windowWidth > 1920) {
+      // Large screens
+      int targetWidth = static_cast<int>(windowWidth * 0.65);
+      m_scrollArea->setMaximumWidth(targetWidth);
+      m_scrollArea->setMinimumWidth(800);
+    } else if (windowWidth > 1200) {
+      // Medium screens
+      int targetWidth = static_cast<int>(windowWidth * 0.75);
+      m_scrollArea->setMaximumWidth(targetWidth);
+      m_scrollArea->setMinimumWidth(600);
     } else {
-      // For normal screens, allow full width with some padding
+      // Small screens - use most of the width
       m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
-      m_scrollArea->setMinimumWidth(0);
+      m_scrollArea->setMinimumWidth(320);
     }
   }
 }
@@ -455,4 +475,93 @@ void QtWalletUI::updateMockTransactionHistory() {
   }
 
   m_historyText->setText(historyText);
+}
+
+void QtWalletUI::updateResponsiveLayout() {
+  if (!m_mainLayout) return;
+
+  int windowWidth = this->width();
+
+  // Adjust main layout margins based on screen size
+  if (windowWidth < 600) {
+    // Mobile/small screens - reduced margins
+    m_mainLayout->setContentsMargins(10, 10, 10, 10);
+    m_contentLayout->setContentsMargins(10, 10, 10, 10);
+  } else if (windowWidth < 1200) {
+    // Tablet/medium screens - standard margins
+    m_mainLayout->setContentsMargins(15, 15, 15, 15);
+    m_contentLayout->setContentsMargins(15, 15, 15, 15);
+  } else {
+    // Desktop/large screens - larger margins
+    m_mainLayout->setContentsMargins(20, 20, 20, 20);
+    m_contentLayout->setContentsMargins(20, 20, 20, 20);
+  }
+
+  // Adjust spacing between elements
+  int spacing = windowWidth < 600 ? 15 : (windowWidth < 1200 ? 18 : 20);
+  m_mainLayout->setSpacing(spacing);
+  m_contentLayout->setSpacing(spacing);
+}
+
+void QtWalletUI::adjustButtonLayout() {
+  if (!m_actionsLayout) return;
+
+  int windowWidth = this->width();
+
+  // Switch between horizontal and vertical button layout based on width
+  if (windowWidth < 600) {
+    // Small screens - stack buttons vertically
+    m_actionsLayout->setDirection(QBoxLayout::TopToBottom);
+    m_viewBalanceButton->setMinimumHeight(50);
+    m_sendButton->setMinimumHeight(50);
+    m_receiveButton->setMinimumHeight(50);
+  } else {
+    // Larger screens - horizontal button layout
+    m_actionsLayout->setDirection(QBoxLayout::LeftToRight);
+    m_viewBalanceButton->setMinimumHeight(60);
+    m_sendButton->setMinimumHeight(60);
+    m_receiveButton->setMinimumHeight(60);
+  }
+
+  // Adjust button spacing
+  int buttonSpacing = windowWidth < 600 ? 10 : 15;
+  m_actionsLayout->setSpacing(buttonSpacing);
+}
+
+void QtWalletUI::updateCardSizes() {
+  if (!m_welcomeCard || !m_addressCard || !m_actionsCard || !m_historyCard) return;
+
+  int windowWidth = this->width();
+
+  // Calculate responsive card margins and padding
+  int cardMargin, cardPadding;
+  if (windowWidth < 600) {
+    cardMargin = 15;
+    cardPadding = 15;
+  } else if (windowWidth < 1200) {
+    cardMargin = 20;
+    cardPadding = 20;
+  } else {
+    cardMargin = 25;
+    cardPadding = 25;
+  }
+
+  // Update card layouts
+  auto updateCardLayout = [cardMargin, cardPadding](QFrame *card) {
+    if (card && card->layout()) {
+      card->layout()->setContentsMargins(cardPadding, cardPadding, cardPadding, cardPadding);
+      if (auto *vbox = qobject_cast<QVBoxLayout*>(card->layout())) {
+        vbox->setSpacing(cardMargin - 5); // Slightly less spacing than padding
+      }
+    }
+  };
+
+  updateCardLayout(m_welcomeCard);
+  updateCardLayout(m_addressCard);
+  updateCardLayout(m_actionsCard);
+  updateCardLayout(m_historyCard);
+
+  // Adjust transaction history height based on available space
+  int historyHeight = windowWidth < 600 ? 150 : (windowWidth < 1200 ? 175 : 200);
+  m_historyText->setMaximumHeight(historyHeight);
 }

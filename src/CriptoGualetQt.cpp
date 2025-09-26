@@ -72,39 +72,40 @@ void CriptoGualetQt::setupUI() {
   m_stackedWidget->addWidget(m_loginUI);
   m_stackedWidget->addWidget(m_walletUI);
 
-  connect(m_loginUI, &QtLoginUI::loginRequested,
-          [this](const QString &username, const QString &password) {
-            std::string stdUsername = username.toStdString();
-            std::string stdPassword = password.toStdString();
+  connect(
+      m_loginUI, &QtLoginUI::loginRequested,
+      [this](const QString &username, const QString &password) {
+        std::string stdUsername = username.toStdString();
+        std::string stdPassword = password.toStdString();
 
-            // Check for mock user first
-            if (m_walletUI->authenticateMockUser(username, password)) {
-              g_currentUser = stdUsername;
-              showWalletScreen();
-              statusBar()->showMessage("Mock login successful (testuser)", 3000);
-              m_loginUI->onLoginResult(true, "Mock login successful - testuser authenticated");
-              return;
-            }
+        // Check for mock user first
+        if (m_walletUI->authenticateMockUser(username, password)) {
+          g_currentUser = stdUsername;
+          showWalletScreen();
+          statusBar()->showMessage("Mock login successful (testuser)", 3000);
+          m_loginUI->onLoginResult(
+              true, "Mock login successful - testuser authenticated");
+          return;
+        }
 
-            // Normal user authentication
-            Auth::AuthResponse response =
-                Auth::LoginUser(stdUsername, stdPassword);
-            QString message = QString::fromStdString(response.message);
+        // Normal user authentication
+        Auth::AuthResponse response = Auth::LoginUser(stdUsername, stdPassword);
+        QString message = QString::fromStdString(response.message);
 
-            if (response.success()) {
-              g_currentUser = stdUsername;
-              m_walletUI->setUserInfo(
-                  username,
-                  QString::fromStdString(g_users[stdUsername].walletAddress));
-              showWalletScreen();
-              statusBar()->showMessage("Login successful", 3000);
-            } else {
-              statusBar()->showMessage("Login failed", 3000);
-            }
+        if (response.success()) {
+          g_currentUser = stdUsername;
+          m_walletUI->setUserInfo(
+              username,
+              QString::fromStdString(g_users[stdUsername].walletAddress));
+          showWalletScreen();
+          statusBar()->showMessage("Login successful", 3000);
+        } else {
+          statusBar()->showMessage("Login failed", 3000);
+        }
 
-            // Send result back to login UI for visual feedback
-            m_loginUI->onLoginResult(response.success(), message);
-          });
+        // Send result back to login UI for visual feedback
+        m_loginUI->onLoginResult(response.success(), message);
+      });
 
   connect(
       m_loginUI, &QtLoginUI::registerRequested,
@@ -176,40 +177,44 @@ void CriptoGualetQt::setupUI() {
   // Logout handled by navbar sign out button
 
   connect(m_walletUI, &QtWalletUI::viewBalanceRequested, [this]() {
-    if (!m_wallet || g_currentUser.empty() || g_users.find(g_currentUser) == g_users.end()) {
-      QMessageBox::warning(this, "Error", "Wallet not initialized or user not logged in");
+    if (!m_wallet || g_currentUser.empty() ||
+        g_users.find(g_currentUser) == g_users.end()) {
+      QMessageBox::warning(this, "Error",
+                           "Wallet not initialized or user not logged in");
       return;
     }
 
-    const User& user = g_users[g_currentUser];
+    const User &user = g_users[g_currentUser];
 
     // Get balance information
     WalletAPI::ReceiveInfo info = m_wallet->GetAddressInfo(user.walletAddress);
 
     // Convert satoshis to BTC for display
     double balanceBTC = m_wallet->ConvertSatoshisToBTC(info.confirmed_balance);
-    double unconfirmedBTC = m_wallet->ConvertSatoshisToBTC(info.unconfirmed_balance);
+    double unconfirmedBTC =
+        m_wallet->ConvertSatoshisToBTC(info.unconfirmed_balance);
 
-    QString balanceText = QString(
-      "Confirmed Balance: %1 BTC\n"
-      "Unconfirmed Balance: %2 BTC\n"
-      "Total Transactions: %3\n"
-      "Address: %4"
-    ).arg(balanceBTC, 0, 'f', 8)
-     .arg(unconfirmedBTC, 0, 'f', 8)
-     .arg(info.transaction_count)
-     .arg(QString::fromStdString(info.address));
+    QString balanceText = QString("Confirmed Balance: %1 BTC\n"
+                                  "Unconfirmed Balance: %2 BTC\n"
+                                  "Total Transactions: %3\n"
+                                  "Address: %4")
+                              .arg(balanceBTC, 0, 'f', 8)
+                              .arg(unconfirmedBTC, 0, 'f', 8)
+                              .arg(info.transaction_count)
+                              .arg(QString::fromStdString(info.address));
 
     QMessageBox::information(this, "Wallet Balance", balanceText);
   });
 
   connect(m_walletUI, &QtWalletUI::sendBitcoinRequested, [this]() {
-    if (!m_wallet || g_currentUser.empty() || g_users.find(g_currentUser) == g_users.end()) {
-      QMessageBox::warning(this, "Error", "Wallet not initialized or user not logged in");
+    if (!m_wallet || g_currentUser.empty() ||
+        g_users.find(g_currentUser) == g_users.end()) {
+      QMessageBox::warning(this, "Error",
+                           "Wallet not initialized or user not logged in");
       return;
     }
 
-    const User& user = g_users[g_currentUser];
+    const User &user = g_users[g_currentUser];
 
     // For demo purposes, show what would happen
     uint64_t currentBalance = m_wallet->GetBalance(user.walletAddress);
@@ -217,49 +222,53 @@ void CriptoGualetQt::setupUI() {
     uint64_t estimatedFee = m_wallet->EstimateTransactionFee();
     double feeBTC = m_wallet->ConvertSatoshisToBTC(estimatedFee);
 
-    QString demoText = QString(
-      "Current Balance: %1 BTC\n"
-      "Estimated Fee: %2 BTC\n"
-      "Available to Send: %3 BTC\n\n"
-      "Note: This is a demo. Real sending requires:\n"
-      "- Private key signing\n"
-      "- Transaction broadcasting\n"
-      "- Proper input validation"
-    ).arg(balanceBTC, 0, 'f', 8)
-     .arg(feeBTC, 0, 'f', 8)
-     .arg(balanceBTC - feeBTC, 0, 'f', 8);
+    QString demoText = QString("Current Balance: %1 BTC\n"
+                               "Estimated Fee: %2 BTC\n"
+                               "Available to Send: %3 BTC\n\n"
+                               "Note: This is a demo. Real sending requires:\n"
+                               "- Private key signing\n"
+                               "- Transaction broadcasting\n"
+                               "- Proper input validation")
+                           .arg(balanceBTC, 0, 'f', 8)
+                           .arg(feeBTC, 0, 'f', 8)
+                           .arg(balanceBTC - feeBTC, 0, 'f', 8);
 
     QMessageBox::information(this, "Send Bitcoin (Demo)", demoText);
   });
 
   connect(m_walletUI, &QtWalletUI::receiveBitcoinRequested, [this]() {
-    if (!m_wallet || g_currentUser.empty() || g_users.find(g_currentUser) == g_users.end()) {
-      QMessageBox::warning(this, "Error", "Wallet not initialized or user not logged in");
+    if (!m_wallet || g_currentUser.empty() ||
+        g_users.find(g_currentUser) == g_users.end()) {
+      QMessageBox::warning(this, "Error",
+                           "Wallet not initialized or user not logged in");
       return;
     }
 
-    const User& user = g_users[g_currentUser];
+    const User &user = g_users[g_currentUser];
 
     // Get address info and recent transactions
     WalletAPI::ReceiveInfo info = m_wallet->GetAddressInfo(user.walletAddress);
 
-    QString receiveText = QString(
-      "Your Bitcoin Address:\n%1\n\n"
-      "Share this address to receive Bitcoin payments.\n\n"
-      "Recent Transactions:\n"
-    ).arg(QString::fromStdString(info.address));
+    QString receiveText =
+        QString("Your Bitcoin Address:\n%1\n\n"
+                "Share this address to receive Bitcoin payments.\n\n"
+                "Recent Transactions:\n")
+            .arg(QString::fromStdString(info.address));
 
     if (info.recent_transactions.empty()) {
       receiveText += "No recent transactions found.";
     } else {
       int count = 0;
-      for (const auto& txHash : info.recent_transactions) {
-        if (count >= 3) break; // Show only first 3 for brevity
-        receiveText += QString("- %1...\n").arg(QString::fromStdString(txHash.substr(0, 16)));
+      for (const auto &txHash : info.recent_transactions) {
+        if (count >= 3)
+          break; // Show only first 3 for brevity
+        receiveText += QString("- %1...\n")
+                           .arg(QString::fromStdString(txHash.substr(0, 16)));
         count++;
       }
       if (info.recent_transactions.size() > 3) {
-        receiveText += QString("... and %1 more").arg(info.recent_transactions.size() - 3);
+        receiveText +=
+            QString("... and %1 more").arg(info.recent_transactions.size() - 3);
       }
     }
 
@@ -391,7 +400,7 @@ int main(int argc, char *argv[]) {
 
   qDebug() << "Showing window...";
   // Force window to appear in center of screen and be visible
-  window.move(100, 100);  // Move to a safe position
+  window.move(100, 100); // Move to a safe position
   window.show();
   window.raise();
   window.activateWindow();

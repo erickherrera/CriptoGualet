@@ -13,6 +13,7 @@
 #include <QPushButton>
 #include <QSpacerItem>
 #include <QTimer>
+#include <QResizeEvent>
 #include <QVBoxLayout>
 
 #include <QCheckBox>
@@ -110,14 +111,7 @@ void QtLoginUI::createLoginCard() {
   m_usernameEdit->setPlaceholderText("Username");
   m_usernameEdit->setMinimumHeight(44);
 
-  QWidget *passwordContainer = new QWidget(m_loginCard);
-  passwordContainer->setStyleSheet(
-      "QWidget { background-color: transparent; }");
-  QHBoxLayout *passwordLayout = new QHBoxLayout(passwordContainer);
-  passwordLayout->setContentsMargins(0, 0, 0, 0);
-  passwordLayout->setSpacing(0);
-
-  m_passwordEdit = new QLineEdit(passwordContainer);
+  m_passwordEdit = new QLineEdit(m_loginCard);
   m_passwordEdit->setPlaceholderText(
       "Password (6+ chars with letters and numbers)");
   m_passwordEdit->setEchoMode(QLineEdit::Password);
@@ -127,16 +121,25 @@ void QtLoginUI::createLoginCard() {
       "letter\n• At least one "
       "number");
 
-  m_passwordToggleButton = new QPushButton("Show", passwordContainer);
-  m_passwordToggleButton->setMinimumSize(50, 44);
-  m_passwordToggleButton->setMaximumSize(50, 44);
+  // Create password toggle button and position it inside the password field
+  m_passwordToggleButton = new QPushButton("Show", m_passwordEdit);
+  m_passwordToggleButton->setMinimumSize(50, 30);
+  m_passwordToggleButton->setMaximumSize(50, 30);
   m_passwordToggleButton->setCursor(Qt::PointingHandCursor);
+  m_passwordToggleButton->setFlat(true);
 
-  passwordLayout->addWidget(m_passwordEdit);
-  passwordLayout->addWidget(m_passwordToggleButton);
+  // Position the button inside the password field on the right side
+  connect(m_passwordEdit, &QLineEdit::textChanged, this, [this]() {
+    const int buttonWidth = m_passwordToggleButton->width();
+    const int padding = 8;
+    m_passwordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
+    const int x = m_passwordEdit->width() - buttonWidth - padding;
+    const int y = (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
+    m_passwordToggleButton->move(x, y);
+  });
 
   m_cardLayout->addWidget(m_usernameEdit);
-  m_cardLayout->addWidget(passwordContainer);
+  m_cardLayout->addWidget(m_passwordEdit);
 
   // Message label
   m_messageLabel = new QLabel(m_loginCard);
@@ -776,7 +779,6 @@ void QtLoginUI::updateStyles() {
             padding: 0 10px;
             font-size: 14px;
         }
-        QLineEdit:focus { border: 1.5px solid palette(highlight); }
     )";
   m_usernameEdit->setStyleSheet(lineEditStyle);
   m_passwordEdit->setStyleSheet(lineEditStyle);
@@ -807,6 +809,18 @@ void QtLoginUI::updateStyles() {
   m_passwordToggleButton->setStyleSheet(
       toggleButtonStyle.arg(m_themeManager->textColor().name())
           .arg(m_themeManager->accentColor().name()));
+
+  // Position the toggle button inside the password field
+  QTimer::singleShot(0, this, [this]() {
+    if (m_passwordEdit && m_passwordToggleButton) {
+      const int buttonWidth = m_passwordToggleButton->width();
+      const int padding = 8;
+      m_passwordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
+      const int x = m_passwordEdit->width() - buttonWidth - padding;
+      const int y = (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
+      m_passwordToggleButton->move(x, y);
+    }
+  });
 
   QFont titleF = m_themeManager->titleFont();
   titleF.setPointSizeF(titleF.pointSizeF() + 6);

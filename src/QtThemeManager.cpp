@@ -63,6 +63,9 @@ void QtThemeManager::setupDarkTheme() {
 
   // Dynamic, theme-aware subtitle color (slightly dimmer than main text)
   m_subtitleColor = m_textColor.darker(170);
+
+  // Focus border color - use success color for focus indication
+  m_focusBorderColor = m_successColor;
 }
 
 void QtThemeManager::setupLightTheme() {
@@ -83,6 +86,9 @@ void QtThemeManager::setupLightTheme() {
 
   // Dynamic subtitle on light backgrounds: subtle neutral gray
   m_subtitleColor = QColor(107, 114, 128); // ~ Tailwind gray-500
+
+  // Focus border color - use success color for focus indication
+  m_focusBorderColor = m_successColor;
 }
 
 void QtThemeManager::setupCryptoDarkTheme() {
@@ -91,10 +97,10 @@ void QtThemeManager::setupCryptoDarkTheme() {
   m_backgroundColor = QColor(13, 13, 13);
   m_surfaceColor = QColor(25, 25, 25);
   m_textColor = QColor(255, 255, 255);
-  m_accentColor = QColor(255, 165, 0);
+  m_accentColor = QColor(80, 20, 60);   // Deep wine/purple burgundy
   m_errorColor = QColor(220, 38, 38);
   m_successColor = QColor(34, 197, 94);
-  m_warningColor = QColor(251, 146, 60);
+  m_warningColor = QColor(150, 90, 45); // Warmer brown-orange
 
   m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
@@ -103,21 +109,22 @@ void QtThemeManager::setupCryptoDarkTheme() {
 
   // Dynamic subtitle on dark backgrounds: slightly dimmer
   m_subtitleColor = m_textColor.darker(170);
+
+  // Focus border color - use success color for focus indication
+  m_focusBorderColor = m_successColor;
 }
 
 void QtThemeManager::setupCryptoLightTheme() {
-  m_primaryColor = QColor(255, 255, 255);
-  // Darker gray for INPUT BORDERS to contrast against very light
-  // surface/background
-  m_secondaryColor =
-      QColor(229, 231, 235); // ~ Tailwind gray-200 (darker than surface)
-  m_backgroundColor = QColor(255, 255, 255);
-  m_surfaceColor = QColor(255, 252, 210);
-  m_textColor = QColor(17, 24, 39);
-  m_accentColor = QColor(245, 158, 11);
-  m_errorColor = QColor(239, 68, 68);
-  m_successColor = QColor(34, 197, 94);
-  m_warningColor = QColor(245, 158, 11);
+  // Light version of CryptoDark theme with burgundy accents
+  m_primaryColor = QColor(248, 250, 252);     // Very light gray/white
+  m_secondaryColor = QColor(203, 213, 225);   // Light gray for borders
+  m_backgroundColor = QColor(255, 255, 255);  // Pure white background
+  m_surfaceColor = QColor(248, 250, 252);     // Light gray surface (cards)
+  m_textColor = QColor(15, 23, 42);           // Dark text for contrast
+  m_accentColor = QColor(120, 40, 80);        // Wine/purple burgundy (lighter)
+  m_errorColor = QColor(239, 68, 68);         // Red for errors
+  m_successColor = QColor(34, 197, 94);       // Green for success
+  m_warningColor = QColor(150, 90, 45);       // Warmer brown-orange
 
   m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
@@ -126,6 +133,9 @@ void QtThemeManager::setupCryptoLightTheme() {
 
   // Dynamic subtitle on light background: subtle neutral gray
   m_subtitleColor = QColor(107, 114, 128); // ~ Tailwind gray-500
+
+  // Focus border color - use success color for focus indication
+  m_focusBorderColor = m_successColor;
 }
 
 void QtThemeManager::updateApplicationStyle() {
@@ -147,10 +157,12 @@ QString QtThemeManager::getButtonStyleSheet() const {
             font-size: %5px;
             font-weight: 600;
             min-height: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         QPushButton:hover {
             background-color: %6;
             border-color: %7;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
         QPushButton:pressed {
             background-color: %8;
@@ -186,10 +198,12 @@ QString QtThemeManager::getLineEditStyleSheet() const {
             font-family: %4;
             font-size: %5px;
             selection-background-color: %6;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         QLineEdit:focus {
             border-color: %7;
-            background-color: %8;
+            background-color: %1;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         QLineEdit:disabled {
             background-color: %9;
@@ -208,7 +222,8 @@ QString QtThemeManager::getLineEditStyleSheet() const {
       .arg(m_surfaceColor.lighter(105).name())
       .arg(m_surfaceColor.darker(120).name())
       .arg(m_textColor.darker(150).name())
-      .arg(m_secondaryColor.darker(150).name());
+      .arg(m_secondaryColor.darker(150).name())
+      .arg(m_focusBorderColor.name());
 }
 
 QString QtThemeManager::getLabelStyleSheet() const {
@@ -225,7 +240,7 @@ QString QtThemeManager::getLabelStyleSheet() const {
             font-family: %2;
             font-size: %4px;
             font-weight: 700;
-            color: %1;
+            color: #ffffff;
         }
         QLabel[class="subtitle"] {
             font-family: %2;
@@ -272,11 +287,13 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
             border: 1px solid %6;
             border-radius: 12px;
             padding: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         QFrame[class="navbar"] {
             background-color: %7;
             border-bottom: 2px solid %8;
             border-radius: 0px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         }
         QLabel[class="navbar-title"] {
             font-family: %9;
@@ -322,9 +339,11 @@ QString QtThemeManager::getCardStyleSheet() const {
             border: 2px solid %2;
             border-radius: 12px;
             padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         QFrame:hover {
             border-color: %2;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
         }
     )")
       .arg(m_surfaceColor.name())
