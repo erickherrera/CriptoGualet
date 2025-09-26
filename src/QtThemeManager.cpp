@@ -115,16 +115,16 @@ void QtThemeManager::setupCryptoDarkTheme() {
 }
 
 void QtThemeManager::setupCryptoLightTheme() {
-  // Light version of CryptoDark theme with burgundy accents
+  // Light version of CryptoDark theme with improved contrast
   m_primaryColor = QColor(248, 250, 252);     // Very light gray/white
-  m_secondaryColor = QColor(203, 213, 225);   // Light gray for borders
+  m_secondaryColor = QColor(148, 163, 184);   // Medium gray for better contrast
   m_backgroundColor = QColor(255, 255, 255);  // Pure white background
-  m_surfaceColor = QColor(248, 250, 252);     // Light gray surface (cards)
+  m_surfaceColor = QColor(241, 245, 249);     // Slightly darker surface for contrast
   m_textColor = QColor(15, 23, 42);           // Dark text for contrast
   m_accentColor = QColor(120, 40, 80);        // Wine/purple burgundy (lighter)
   m_errorColor = QColor(239, 68, 68);         // Red for errors
   m_successColor = QColor(34, 197, 94);       // Green for success
-  m_warningColor = QColor(150, 90, 45);       // Warmer brown-orange
+  m_warningColor = QColor(245, 158, 11);      // Amber for warnings
 
   m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
@@ -134,8 +134,8 @@ void QtThemeManager::setupCryptoLightTheme() {
   // Dynamic subtitle on light background: subtle neutral gray
   m_subtitleColor = QColor(107, 114, 128); // ~ Tailwind gray-500
 
-  // Focus border color - use success color for focus indication
-  m_focusBorderColor = m_successColor;
+  // Focus border color - use accent color for focus indication
+  m_focusBorderColor = m_accentColor;
 }
 
 void QtThemeManager::updateApplicationStyle() {
@@ -240,7 +240,7 @@ QString QtThemeManager::getLabelStyleSheet() const {
             font-family: %2;
             font-size: %4px;
             font-weight: 700;
-            color: #ffffff;
+            color: %1;
         }
         QLabel[class="subtitle"] {
             font-family: %2;
@@ -250,7 +250,7 @@ QString QtThemeManager::getLabelStyleSheet() const {
         QLabel[class="wallet-balance"] {
             font-family: %2;
             font-size: %9px;
-            color: %6;
+            color: %1;
         }
         QLabel[class="address"] {
             font-family: %7;
@@ -266,10 +266,10 @@ QString QtThemeManager::getLabelStyleSheet() const {
       .arg(textFont().pointSize())     // %3: normal font size
       .arg(titleFont().pointSize())    // %4: title size
       .arg(textFont().pointSize() - 2) // %5: subtitle slightly smaller
-      .arg(textColor().name())   // %6: subtitle color (define this in theme)
-      .arg(monoFont().family())  // %7: monospace font for address
-      .arg(accentColor().name()) // %8: background for address
-      .arg(textFont().pointSize() + 4); // %5: subtitle slightly smaller
+      .arg(m_subtitleColor.name())     // %6: subtitle color
+      .arg(monoFont().family())        // %7: monospace font for address
+      .arg(accentColor().name())       // %8: background for address
+      .arg(textFont().pointSize() + 4); // %9: balance font size
 }
 
 QString QtThemeManager::getMainWindowStyleSheet() const {

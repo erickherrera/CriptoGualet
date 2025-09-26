@@ -393,9 +393,10 @@ void QtWalletUI::updateScrollAreaWidth() {
       m_scrollArea->setMaximumWidth(targetWidth);
       m_scrollArea->setMinimumWidth(600);
     } else {
-      // Small screens - use most of the width
+      // Small screens - use 100% of the width
       m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
-      m_scrollArea->setMinimumWidth(320);
+      m_scrollArea->setMinimumWidth(windowWidth);
+      m_scrollArea->setFixedWidth(windowWidth);
     }
   }
 }
@@ -484,9 +485,9 @@ void QtWalletUI::updateResponsiveLayout() {
 
   // Adjust main layout margins based on screen size
   if (windowWidth < 600) {
-    // Mobile/small screens - reduced margins
-    m_mainLayout->setContentsMargins(10, 10, 10, 10);
-    m_contentLayout->setContentsMargins(10, 10, 10, 10);
+    // Mobile/small screens - minimal margins for 100% usage
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);
+    m_contentLayout->setContentsMargins(5, 5, 5, 5);
   } else if (windowWidth < 1200) {
     // Tablet/medium screens - standard margins
     m_mainLayout->setContentsMargins(15, 15, 15, 15);
@@ -532,12 +533,13 @@ void QtWalletUI::updateCardSizes() {
   if (!m_welcomeCard || !m_addressCard || !m_actionsCard || !m_historyCard) return;
 
   int windowWidth = this->width();
+  int windowHeight = this->height();
 
   // Calculate responsive card margins and padding
   int cardMargin, cardPadding;
   if (windowWidth < 600) {
-    cardMargin = 15;
-    cardPadding = 15;
+    cardMargin = 10;
+    cardPadding = 10;
   } else if (windowWidth < 1200) {
     cardMargin = 20;
     cardPadding = 20;
@@ -562,6 +564,12 @@ void QtWalletUI::updateCardSizes() {
   updateCardLayout(m_historyCard);
 
   // Adjust transaction history height based on available space
-  int historyHeight = windowWidth < 600 ? 150 : (windowWidth < 1200 ? 175 : 200);
+  int historyHeight;
+  if (windowWidth < 600) {
+    // For small screens, use more of the available height
+    historyHeight = qMax(150, static_cast<int>(windowHeight * 0.25));
+  } else {
+    historyHeight = windowWidth < 1200 ? 175 : 200;
+  }
   m_historyText->setMaximumHeight(historyHeight);
 }
