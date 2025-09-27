@@ -78,6 +78,53 @@ else()
   message(STATUS "QRGenerator will be built with fallback pattern only")
 endif()
 
+# ---- Database library (encrypted SQLCipher-based storage) ----
+add_library(Database STATIC
+  "./Database/DatabaseManager.cpp"
+  "../include/Database/DatabaseManager.h"
+)
+target_include_directories(Database PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/."
+)
+
+# Link SQLCipher if available
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+  pkg_check_modules(SQLCIPHER QUIET sqlcipher)
+endif()
+
+if(SQLCIPHER_FOUND)
+  target_include_directories(Database PRIVATE ${SQLCIPHER_INCLUDE_DIRS})
+  target_link_libraries(Database PRIVATE ${SQLCIPHER_LIBRARIES})
+  target_compile_definitions(Database PRIVATE SQLCIPHER_AVAILABLE)
+  message(STATUS "Database library will be built with SQLCipher support")
+else()
+  # Try to find sqlcipher through vcpkg
+  find_path(SQLCIPHER_INCLUDE_DIR sqlcipher/sqlite3.h)
+  find_library(SQLCIPHER_LIBRARY NAMES sqlcipher)
+
+  if(SQLCIPHER_INCLUDE_DIR AND SQLCIPHER_LIBRARY)
+    target_include_directories(Database PRIVATE ${SQLCIPHER_INCLUDE_DIR})
+    target_link_libraries(Database PRIVATE ${SQLCIPHER_LIBRARY})
+    target_compile_definitions(Database PRIVATE SQLCIPHER_AVAILABLE)
+    message(STATUS "Database library found SQLCipher via vcpkg: ${SQLCIPHER_LIBRARY}")
+  else()
+    # Fallback to regular SQLite3
+    find_path(SQLITE3_INCLUDE_DIR sqlite3.h)
+    find_library(SQLITE3_LIBRARY NAMES sqlite3)
+
+    if(SQLITE3_INCLUDE_DIR AND SQLITE3_LIBRARY)
+      target_include_directories(Database PRIVATE ${SQLITE3_INCLUDE_DIR})
+      target_link_libraries(Database PRIVATE ${SQLITE3_LIBRARY})
+      message(STATUS "Database library found SQLite3 (fallback): ${SQLITE3_LIBRARY}")
+      message(WARNING "Using SQLite3 without encryption - install SQLCipher for production use")
+    else()
+      message(WARNING "Neither SQLCipher nor SQLite3 found - Database library will not be functional")
+      message(STATUS "Run 'vcpkg install sqlcipher sqlite3' to install database dependencies")
+    endif()
+  endif()
+endif()
+
 # ---- Auth library (portable, builds everywhere) ----
 add_library(Auth STATIC
   "./Auth.cpp"
@@ -86,7 +133,7 @@ add_library(Auth STATIC
 target_include_directories(Auth PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/."
 )
-target_link_libraries(Auth PRIVATE Crypto)
+target_link_libraries(Auth PRIVATE Crypto Database)
 
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
@@ -126,6 +173,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
 
   set(QT_LINK_LIBRARIES
     Auth
+    Database
     QRGenerator
     Qt6::Core
     Qt6::Widgets
@@ -201,10 +249,34 @@ elseif(BUILD_GUI_QT AND NOT Qt6_FOUND)
   message(STATUS "Qt6 not found - install Qt6 from https://qt.io to build the modern Qt GUI")
 endif()
 
+# ---- Database Test Executable ----
+add_executable(test_database
+  "./Tests/test_database.cpp"
+)
+target_link_libraries(test_database PRIVATE Database)
+target_include_directories(test_database PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../include"
+)
+
+# Cross-platform compiler flags with security for test executable
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+  target_compile_options(test_database PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
+  target_link_options(test_database PRIVATE -fPIE -pie)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  target_compile_options(test_database PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  target_compile_options(test_database PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
+else()
+  target_compile_options(test_database PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+  target_link_options(test_database PRIVATE -fPIE -pie)
+endif()
+
 # Ensure Qt GUI is built
 if(NOT (BUILD_GUI_QT AND Qt6_FOUND))
   message(WARNING "Qt GUI not built! Install Qt6 to build the application.")
-  message(STATUS "Available targets: Auth, Crypto, QRGenerator (static libraries)")
+  message(STATUS "Available targets: Auth, Crypto, QRGenerator, Database (static libraries)")
+  message(STATUS "Database test target: test_database")
 endif()
 
 # IDE folder organization is handled by root CMakeLists.txt

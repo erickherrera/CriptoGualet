@@ -28,7 +28,9 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
       m_walletUI(nullptr), m_themeManager(&QtThemeManager::instance()) {
   setWindowTitle("CriptoGualet - Secure Bitcoin Wallet");
   setMinimumSize(800, 600);
-  resize(1000, 700);
+
+  // Set window to full screen
+  setWindowState(Qt::WindowFullScreen);
 
   // Ensure window is visible and properly positioned
   setWindowFlags(Qt::Window);
@@ -399,22 +401,9 @@ int main(int argc, char *argv[]) {
   CriptoGualetQt window;
 
   qDebug() << "Showing window...";
-  // Force window to appear in center of screen and be visible
-  window.move(100, 100); // Move to a safe position
   window.show();
   window.raise();
   window.activateWindow();
-  window.setWindowState(Qt::WindowActive);
-
-  // Force the window to be on top temporarily
-  window.setWindowFlags(window.windowFlags() | Qt::WindowStaysOnTopHint);
-  window.show();
-
-  // Remove the always-on-top flag after a moment
-  QTimer::singleShot(1000, [&window]() {
-    window.setWindowFlags(window.windowFlags() & ~Qt::WindowStaysOnTopHint);
-    window.show();
-  });
 
   qDebug() << "Window should be visible now. Starting event loop...";
   return app.exec();

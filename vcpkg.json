@@ -5,6 +5,8 @@
   "dependencies": [
     "libqrencode",
     "cpr",
-    "nlohmann-json"
+    "nlohmann-json",
+    "sqlcipher",
+    "sqlite3"
   ]
 }
