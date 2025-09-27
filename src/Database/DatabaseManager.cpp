@@ -113,8 +113,8 @@ DatabaseResult DatabaseManager::executeQuery(const std::string& sql,
                                             std::function<void(sqlite3*)> callback) {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    if (!m_initialized || !m_db) {
-        return DatabaseResult(false, "Database not initialized", SQLITE_MISUSE);
+    if (!m_db) {
+        return DatabaseResult(false, "Database not opened", SQLITE_MISUSE);
     }
 
     char* errorMsg = nullptr;
@@ -144,8 +144,8 @@ DatabaseResult DatabaseManager::executeQuery(const std::string& sql,
                                             std::function<void(sqlite3*)> callback) {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    if (!m_initialized || !m_db) {
-        return DatabaseResult(false, "Database not initialized", SQLITE_MISUSE);
+    if (!m_db) {
+        return DatabaseResult(false, "Database not opened", SQLITE_MISUSE);
     }
 
     sqlite3_stmt* stmt = nullptr;
@@ -276,7 +276,7 @@ DatabaseResult DatabaseManager::rollbackTransaction() {
 int DatabaseManager::getSchemaVersion() {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    if (!m_initialized || !m_db) {
+    if (!m_db) {
         return -1;
     }
 
@@ -302,8 +302,8 @@ int DatabaseManager::getSchemaVersion() {
 DatabaseResult DatabaseManager::setSchemaVersion(int version) {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    if (!m_initialized || !m_db) {
-        return DatabaseResult(false, "Database not initialized", SQLITE_MISUSE);
+    if (!m_db) {
+        return DatabaseResult(false, "Database not opened", SQLITE_MISUSE);
     }
 
     std::string sql = "INSERT OR REPLACE INTO " + std::string(SCHEMA_VERSION_TABLE) +

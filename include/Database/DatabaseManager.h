@@ -152,7 +152,7 @@ public:
     sqlite3* getHandle();
 
 private:
-    DatabaseManager() = default;
+    DatabaseManager() : m_db(nullptr), m_initialized(false), m_inTransaction(false) {}
     ~DatabaseManager();
 
     // Prevent copying
