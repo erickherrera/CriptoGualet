@@ -289,6 +289,29 @@ else()
   target_link_options(test_database PRIVATE -fPIE -pie)
 endif()
 
+# ---- Security Enhancements Test Executable ----
+add_executable(test_security_enhancements
+  "./Tests/test_security_enhancements.cpp"
+)
+target_link_libraries(test_security_enhancements PRIVATE Crypto)
+target_include_directories(test_security_enhancements PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../include"
+)
+
+# Cross-platform compiler flags with security for security test executable
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+  target_compile_options(test_security_enhancements PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
+  target_link_options(test_security_enhancements PRIVATE -fPIE -pie)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  target_compile_options(test_security_enhancements PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  target_compile_options(test_security_enhancements PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
+else()
+  target_compile_options(test_security_enhancements PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+  target_link_options(test_security_enhancements PRIVATE -fPIE -pie)
+endif()
+
 # Ensure Qt GUI is built
 if(NOT (BUILD_GUI_QT AND Qt6_FOUND))
   message(WARNING "Qt GUI not built! Install Qt6 to build the application.")
