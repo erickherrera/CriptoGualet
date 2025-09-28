@@ -5,6 +5,8 @@
 #include <vector>
 #include <mutex>
 #include <functional>
+#include <chrono>
+#include <cstdint>
 
 // Forward declaration to avoid including SQLCipher headers in the header
 struct sqlite3;
@@ -151,8 +153,23 @@ public:
      */
     sqlite3* getHandle();
 
+    /**
+     * @brief Change the database encryption key
+     * @param newKey New encryption key (must be at least 32 characters)
+     * @return DatabaseResult indicating success or failure
+     */
+    DatabaseResult changeEncryptionKey(const std::string& newKey);
+
+    /**
+     * @brief Get audit log entries
+     * @param maxEntries Maximum number of entries to return (0 for all)
+     * @return Vector of audit log entries
+     */
+    std::vector<std::string> getAuditLog(size_t maxEntries = 0) const;
+
 private:
-    DatabaseManager() : m_db(nullptr), m_initialized(false), m_inTransaction(false) {}
+    DatabaseManager() : m_db(nullptr), m_initialized(false),
+                       m_inTransaction(false), m_connectionAttempts(0) {}
     ~DatabaseManager();
 
     // Prevent copying
@@ -177,13 +194,52 @@ private:
      */
     DatabaseResult setupPragmas();
 
+    /**
+     * @brief Check if SQL contains dangerous patterns
+     * @param sql SQL string to check
+     * @return true if dangerous patterns are found
+     */
+    bool containsDangerousSQL(const std::string& sql);
+
+    /**
+     * @brief Check database connection health
+     * @return DatabaseResult indicating connection status
+     */
+    DatabaseResult checkConnectionHealth();
+
+    /**
+     * @brief Verify backup database integrity
+     * @param backupDb Backup database handle
+     * @return DatabaseResult indicating integrity status
+     */
+    DatabaseResult verifyBackupIntegrity(sqlite3* backupDb);
+
+    /**
+     * @brief Log database operations for audit trail
+     * @param operation Operation type
+     * @param details Operation details
+     * @param error Error message if any
+     */
+    void logDatabaseOperation(const std::string& operation,
+                             const std::string& details,
+                             const std::string& error);
+
 private:
     sqlite3* m_db;
     std::string m_dbPath;
-    std::string m_encryptionKey;
+    std::string m_encryptionKey;                       // Encryption key (will be securely cleared)
+    std::vector<uint8_t> m_keyDerivationSalt;          // Salt for key derivation
     bool m_initialized;
     mutable std::recursive_mutex m_mutex;
     bool m_inTransaction;
+
+    // Connection health monitoring
+    int m_connectionAttempts;
+    std::chrono::steady_clock::time_point m_lastConnectionTime;
+
+    // Audit logging
+    mutable std::recursive_mutex m_auditMutex;
+    std::vector<std::string> m_auditLog;
 
     // Constants
     static constexpr int CURRENT_SCHEMA_VERSION = 1;

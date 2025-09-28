@@ -11,9 +11,9 @@
 #include <QLineEdit>
 #include <QPalette>
 #include <QPushButton>
+#include <QResizeEvent>
 #include <QSpacerItem>
 #include <QTimer>
-#include <QResizeEvent>
 #include <QVBoxLayout>
 
 #include <QCheckBox>
@@ -134,7 +134,8 @@ void QtLoginUI::createLoginCard() {
     const int padding = 8;
     m_passwordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
     const int x = m_passwordEdit->width() - buttonWidth - padding;
-    const int y = (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
+    const int y =
+        (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
     m_passwordToggleButton->move(x, y);
   });
 
@@ -306,8 +307,10 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     mainLayout->setSpacing(15);
 
     // Header section
-    QLabel *title = new QLabel("<h2 style='color: #2E7D32; margin: 0;'>Account Created Successfully</h2>"
-                               "<p style='margin: 8px 0;'>Your 12-word seed phrase has been generated.</p>",
+    QLabel *title = new QLabel("<h2 style='color: #2E7D32; margin: 0;'>Account "
+                               "Created Successfully</h2>"
+                               "<p style='margin: 8px 0;'>Your 12-word seed "
+                               "phrase has been generated.</p>",
                                &dlg);
     title->setAlignment(Qt::AlignCenter);
     title->setWordWrap(true);
@@ -409,7 +412,8 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
         QString userDir = seedDir + "/" + username;
         QDir dir(userDir);
         QString userBackupFile = userDir + "/SEED_BACKUP_12_WORDS.txt";
-        QString fallbackFile = seedDir + "/" + username + "_mnemonic_SHOW_ONCE.txt";
+        QString fallbackFile =
+            seedDir + "/" + username + "_mnemonic_SHOW_ONCE.txt";
 
         bool success = false;
         if (dir.exists() && QFile::exists(userBackupFile)) {
@@ -434,12 +438,14 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
             QMessageBox::warning(this, "Error",
                                  "Failed to open backup folder: " + seedDir);
           }
-          QMessageBox::information(this, "Note",
-            "No backup file found. This may be because:\n"
-            "1. Account creation failed to generate backup\n"
-            "2. Backup file was already deleted\n"
-            "3. File permissions issue\n\n"
-            "If you just created an account, try the 'Reveal Seed' button instead.");
+          QMessageBox::information(
+              this, "Note",
+              "No backup file found. This may be because:\n"
+              "1. Account creation failed to generate backup\n"
+              "2. Backup file was already deleted\n"
+              "3. File permissions issue\n\n"
+              "If you just created an account, try the 'Reveal Seed' button "
+              "instead.");
         }
       } catch (const std::exception &e) {
         QMessageBox::critical(
@@ -817,7 +823,8 @@ void QtLoginUI::updateStyles() {
       const int padding = 8;
       m_passwordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
       const int x = m_passwordEdit->width() - buttonWidth - padding;
-      const int y = (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
+      const int y =
+          (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
       m_passwordToggleButton->move(x, y);
     }
   });

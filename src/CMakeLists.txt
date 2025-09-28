@@ -87,6 +87,11 @@ target_include_directories(Database PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/."
 )
 
+# Link Windows bcrypt library for cryptographic functions
+if(WIN32)
+  target_link_libraries(Database PRIVATE bcrypt)
+endif()
+
 # Try to find SQLCipher using CMake package first
 find_package(sqlcipher QUIET)
 if(sqlcipher_FOUND)
@@ -262,80 +267,26 @@ target_include_directories(test_database PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/../include"
 )
 
-# ---- SQLCipher Direct Test Executable ----
-add_executable(test_sqlcipher_debug
-  "./Tests/test_sqlcipher_debug.cpp"
-)
-
-# ---- Database Debug Test Executable ----
-add_executable(test_db_debug
-  "./Tests/test_db_debug.cpp"
-)
-target_link_libraries(test_db_debug PRIVATE Database)
-
-# ---- Step-by-step Database Test ----
-add_executable(test_db_step_by_step
-  "./Tests/test_db_step_by_step.cpp"
-)
-# Link SQLCipher directly
-if(sqlcipher_FOUND)
-  target_link_libraries(test_db_step_by_step PRIVATE sqlcipher::sqlcipher)
-else()
-  if(SQLCIPHER_INCLUDE_DIR AND SQLCIPHER_LIBRARY)
-    target_include_directories(test_db_step_by_step PRIVATE ${SQLCIPHER_INCLUDE_DIR})
-    target_link_libraries(test_db_step_by_step PRIVATE ${SQLCIPHER_LIBRARY})
-    find_package(OpenSSL QUIET)
-    if(OpenSSL_FOUND)
-      target_link_libraries(test_db_step_by_step PRIVATE OpenSSL::Crypto OpenSSL::SSL)
-    endif()
-  endif()
-endif()
-target_include_directories(test_sqlcipher_debug PRIVATE
-  "${CMAKE_CURRENT_SOURCE_DIR}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../include"
-)
-target_include_directories(test_db_debug PRIVATE
-  "${CMAKE_CURRENT_SOURCE_DIR}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../include"
-)
-target_include_directories(test_db_step_by_step PRIVATE
-  "${CMAKE_CURRENT_SOURCE_DIR}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../include"
-)
-
-# Link SQLCipher libraries directly for debugging
-if(sqlcipher_FOUND)
-  target_link_libraries(test_sqlcipher_debug PRIVATE sqlcipher::sqlcipher)
-  target_compile_definitions(test_sqlcipher_debug PRIVATE SQLCIPHER_AVAILABLE)
-else()
-  if(SQLCIPHER_INCLUDE_DIR AND SQLCIPHER_LIBRARY)
-    target_include_directories(test_sqlcipher_debug PRIVATE ${SQLCIPHER_INCLUDE_DIR})
-    target_link_libraries(test_sqlcipher_debug PRIVATE ${SQLCIPHER_LIBRARY})
-    find_package(OpenSSL QUIET)
-    if(OpenSSL_FOUND)
-      target_link_libraries(test_sqlcipher_debug PRIVATE OpenSSL::Crypto OpenSSL::SSL)
-    endif()
-    target_compile_definitions(test_sqlcipher_debug PRIVATE SQLCIPHER_AVAILABLE)
-  endif()
+# Copy SQLCipher DLL for test execution
+if(WIN32 AND sqlcipher_FOUND)
+  add_custom_command(TARGET test_database POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
+    "$<TARGET_FILE_DIR:test_database>"
+    COMMENT "Copying SQLCipher DLL for test execution")
 endif()
 
-# Cross-platform compiler flags with security for test executables
+# Cross-platform compiler flags with security for test executable
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
   target_compile_options(test_database PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
   target_link_options(test_database PRIVATE -fPIE -pie)
-  target_compile_options(test_sqlcipher_debug PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
-  target_link_options(test_sqlcipher_debug PRIVATE -fPIE -pie)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
   target_compile_options(test_database PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
-  target_compile_options(test_sqlcipher_debug PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
 elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   target_compile_options(test_database PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
-  target_compile_options(test_sqlcipher_debug PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
 else()
   target_compile_options(test_database PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
   target_link_options(test_database PRIVATE -fPIE -pie)
-  target_compile_options(test_sqlcipher_debug PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
-  target_link_options(test_sqlcipher_debug PRIVATE -fPIE -pie)
 endif()
 
 # Ensure Qt GUI is built

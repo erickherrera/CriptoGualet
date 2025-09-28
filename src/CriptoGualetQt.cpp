@@ -29,8 +29,8 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   setWindowTitle("CriptoGualet - Secure Bitcoin Wallet");
   setMinimumSize(800, 600);
 
-  // Set window to full screen
-  setWindowState(Qt::WindowFullScreen);
+  // Set window to windowed fullscreen (maximized)
+  setWindowState(Qt::WindowMaximized);
 
   // Ensure window is visible and properly positioned
   setWindowFlags(Qt::Window);
