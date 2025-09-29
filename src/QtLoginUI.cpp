@@ -111,6 +111,11 @@ void QtLoginUI::createLoginCard() {
   m_usernameEdit->setPlaceholderText("Username");
   m_usernameEdit->setMinimumHeight(44);
 
+  m_emailEdit = new QLineEdit(m_loginCard);
+  m_emailEdit->setPlaceholderText("Email Address");
+  m_emailEdit->setMinimumHeight(44);
+  m_emailEdit->hide(); // Initially hidden for login mode
+
   m_passwordEdit = new QLineEdit(m_loginCard);
   m_passwordEdit->setPlaceholderText(
       "Password (6+ chars with letters and numbers)");
@@ -140,6 +145,7 @@ void QtLoginUI::createLoginCard() {
   });
 
   m_cardLayout->addWidget(m_usernameEdit);
+  m_cardLayout->addWidget(m_emailEdit);
   m_cardLayout->addWidget(m_passwordEdit);
 
   // Message label
@@ -164,6 +170,7 @@ void QtLoginUI::createLoginCard() {
   m_registerButton = new QPushButton("Create Account", m_loginCard);
   m_registerButton->setMinimumHeight(44);
   m_registerButton->setMinimumWidth(140);
+  m_registerButton->setCheckable(true); // Make it toggleable for mode switching
 
   m_buttonLayout->addWidget(m_loginButton);
   m_buttonLayout->addWidget(m_registerButton);
@@ -195,12 +202,19 @@ void QtLoginUI::createLoginCard() {
   // Signals
   connect(m_loginButton, &QPushButton::clicked, this,
           &QtLoginUI::onLoginClicked);
-  connect(m_registerButton, &QPushButton::clicked, this,
-          &QtLoginUI::onRegisterClicked);
+  connect(m_registerButton, &QPushButton::toggled, this,
+          &QtLoginUI::onRegisterModeToggled);
   connect(m_usernameEdit, &QLineEdit::returnPressed, this,
           &QtLoginUI::onLoginClicked);
-  connect(m_passwordEdit, &QLineEdit::returnPressed, this,
-          &QtLoginUI::onLoginClicked);
+  connect(m_emailEdit, &QLineEdit::returnPressed, this,
+          &QtLoginUI::onRegisterClicked);
+  connect(m_passwordEdit, &QLineEdit::returnPressed, this, [this]() {
+    if (m_emailEdit->isVisible()) {
+      onRegisterClicked();
+    } else {
+      onLoginClicked();
+    }
+  });
   connect(m_passwordToggleButton, &QPushButton::clicked, this,
           &QtLoginUI::onPasswordVisibilityToggled);
 
@@ -260,16 +274,21 @@ void QtLoginUI::onLoginClicked() {
 
 void QtLoginUI::onRegisterClicked() {
   const QString username = m_usernameEdit->text().trimmed();
+  const QString email = m_emailEdit->text().trimmed();
   const QString password = m_passwordEdit->text();
 
   clearMessage();
 
-  if (username.isEmpty() || password.isEmpty()) {
-    showMessage("Please enter both username and password", true);
+  if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
+    showMessage("Please enter username, email, and password", true);
     return;
   }
   if (username.length() < 3) {
     showMessage("Username must be at least 3 characters long", true);
+    return;
+  }
+  if (!email.contains("@") || !email.contains(".")) {
+    showMessage("Please enter a valid email address", true);
     return;
   }
   if (password.length() < 6) {
@@ -279,7 +298,31 @@ void QtLoginUI::onRegisterClicked() {
 
   showMessage("Creating account... generating your seed phrase securely.",
               false);
-  emit registerRequested(username, password);
+  emit registerRequested(username, email, password);
+}
+
+void QtLoginUI::onRegisterModeToggled(bool registerMode) {
+  if (registerMode) {
+    m_emailEdit->show();
+    m_registerButton->setText("Register");
+    m_loginButton->setText("Back to Login");
+    clearMessage();
+  } else {
+    m_emailEdit->hide();
+    m_registerButton->setText("Create Account");
+    m_loginButton->setText("Sign In");
+    clearMessage();
+  }
+
+  // Reconnect login button based on mode
+  disconnect(m_loginButton, &QPushButton::clicked, nullptr, nullptr);
+  if (registerMode) {
+    connect(m_loginButton, &QPushButton::clicked, this, [this]() {
+      m_registerButton->setChecked(false);
+    });
+  } else {
+    connect(m_loginButton, &QPushButton::clicked, this, &QtLoginUI::onLoginClicked);
+  }
 }
 
 void QtLoginUI::onLoginResult(bool success, const QString &message) {
@@ -293,6 +336,7 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
   if (success) {
     const QString username = m_usernameEdit->text().trimmed();
     m_usernameEdit->clear();
+    m_emailEdit->clear();
     m_passwordEdit->clear();
 
     // Enhanced post-registration seed backup modal
@@ -468,9 +512,11 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
 
     // Clear input fields regardless of dialog result
     m_usernameEdit->clear();
+    m_emailEdit->clear();
     m_passwordEdit->clear();
     clearMessage();
   } else {
+    m_emailEdit->clear();
     m_passwordEdit->clear();
   }
 }
@@ -787,6 +833,7 @@ void QtLoginUI::updateStyles() {
         }
     )";
   m_usernameEdit->setStyleSheet(lineEditStyle);
+  m_emailEdit->setStyleSheet(lineEditStyle);
   m_passwordEdit->setStyleSheet(lineEditStyle);
 
   QString buttonStyle = m_themeManager->getButtonStyleSheet();
@@ -840,6 +887,7 @@ void QtLoginUI::updateStyles() {
   m_revealSeedButton->setFont(m_themeManager->buttonFont());
   m_restoreSeedButton->setFont(m_themeManager->buttonFont());
   m_usernameEdit->setFont(m_themeManager->textFont());
+  m_emailEdit->setFont(m_themeManager->textFont());
   m_passwordEdit->setFont(m_themeManager->textFont());
 }
 

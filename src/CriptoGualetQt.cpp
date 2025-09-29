@@ -111,17 +111,19 @@ void CriptoGualetQt::setupUI() {
 
   connect(
       m_loginUI, &QtLoginUI::registerRequested,
-      [this](const QString &username, const QString &password) {
+      [this](const QString &username, const QString &email, const QString &password) {
         std::string stdUsername = username.toStdString();
+        std::string stdEmail = email.toStdString();
         std::string stdPassword = password.toStdString();
 
         // Debug output
         qDebug() << "Registration attempt - Username:" << username
+                 << "Email:" << email
                  << "Password length:" << password.length();
 
         std::vector<std::string> mnemonic;
         Auth::AuthResponse response =
-            Auth::RegisterUserWithMnemonic(stdUsername, stdPassword, mnemonic);
+            Auth::RegisterUserWithMnemonic(stdUsername, stdEmail, stdPassword, mnemonic);
         QString message = QString::fromStdString(response.message);
 
         // Debug output

@@ -133,6 +133,64 @@ else()
   endif()
 endif()
 
+# ---- Repository library (Data Access Layer) ----
+add_library(Repository STATIC
+  "./Repository/UserRepository.cpp"
+  "./Repository/WalletRepository.cpp"
+  "./Repository/TransactionRepository.cpp"
+  "./Repository/Logger.cpp"
+  "../include/Repository/UserRepository.h"
+  "../include/Repository/WalletRepository.h"
+  "../include/Repository/TransactionRepository.h"
+  "../include/Repository/Logger.h"
+  "../include/Repository/RepositoryTypes.h"
+)
+target_include_directories(Repository PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/."
+)
+target_link_libraries(Repository PRIVATE Crypto Database)
+
+# Repository needs SQLite headers since it uses sqlite3_stmt directly
+# Inherit SQLite configuration from Database target
+if(sqlcipher_FOUND)
+  target_link_libraries(Repository PRIVATE sqlcipher::sqlcipher)
+  target_compile_definitions(Repository PRIVATE SQLCIPHER_AVAILABLE)
+else()
+  if(SQLCIPHER_INCLUDE_DIR AND SQLCIPHER_LIBRARY)
+    target_include_directories(Repository PRIVATE ${SQLCIPHER_INCLUDE_DIR})
+    target_link_libraries(Repository PRIVATE ${SQLCIPHER_LIBRARY})
+
+    find_package(OpenSSL QUIET)
+    if(OpenSSL_FOUND)
+      target_link_libraries(Repository PRIVATE OpenSSL::Crypto OpenSSL::SSL)
+    endif()
+
+    target_compile_definitions(Repository PRIVATE SQLCIPHER_AVAILABLE)
+  else()
+    if(SQLITE3_INCLUDE_DIR AND SQLITE3_LIBRARY)
+      target_include_directories(Repository PRIVATE ${SQLITE3_INCLUDE_DIR})
+      target_link_libraries(Repository PRIVATE ${SQLITE3_LIBRARY})
+    endif()
+  endif()
+endif()
+
+# Use cross-platform compiler-specific flags with security features
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+  # Clang on non-Windows platforms
+  target_compile_options(Repository PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
+  target_link_options(Repository PRIVATE -fPIE -pie)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  # Clang-CL on Windows (no stack protector or PIE support)
+  target_compile_options(Repository PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  # MSVC flags
+  target_compile_options(Repository PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
+else()
+  # GCC or other compilers
+  target_compile_options(Repository PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+  target_link_options(Repository PRIVATE -fPIE -pie)
+endif()
+
 # ---- Auth library (portable, builds everywhere) ----
 add_library(Auth STATIC
   "./Auth.cpp"
@@ -141,7 +199,7 @@ add_library(Auth STATIC
 target_include_directories(Auth PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/."
 )
-target_link_libraries(Auth PRIVATE Crypto Database)
+target_link_libraries(Auth PRIVATE Repository)
 
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
@@ -181,6 +239,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
 
   set(QT_LINK_LIBRARIES
     Auth
+    Repository
     Database
     QRGenerator
     Qt6::Core
@@ -310,6 +369,29 @@ elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 else()
   target_compile_options(test_security_enhancements PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
   target_link_options(test_security_enhancements PRIVATE -fPIE -pie)
+endif()
+
+# ---- Repository Test Executable ----
+add_executable(test_repository
+  "./Tests/test_repository.cpp"
+)
+target_link_libraries(test_repository PRIVATE Repository)
+target_include_directories(test_repository PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../include"
+)
+
+# Cross-platform compiler flags with security for repository test executable
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+  target_compile_options(test_repository PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
+  target_link_options(test_repository PRIVATE -fPIE -pie)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  target_compile_options(test_repository PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  target_compile_options(test_repository PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
+else()
+  target_compile_options(test_repository PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+  target_link_options(test_repository PRIVATE -fPIE -pie)
 endif()
 
 # Ensure Qt GUI is built
