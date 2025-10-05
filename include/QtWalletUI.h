@@ -95,6 +95,7 @@ private:
   // Header section (replaces welcome card)
   QWidget *m_headerSection;
   QLabel *m_headerTitle;
+  QLabel *m_balanceTitle;
   QLabel *m_balanceLabel;
   QPushButton *m_toggleBalanceButton;
   bool m_balanceVisible;

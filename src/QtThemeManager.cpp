@@ -247,6 +247,12 @@ QString QtThemeManager::getLabelStyleSheet() const {
             font-size: %5px;
             color: %6;
         }
+        QLabel[class="balance-title"] {
+            font-family: %2;
+            font-size: 14px;
+            font-weight: 500;
+            color: %1;
+        }
         QLabel[class="wallet-balance"] {
             font-family: %2;
             font-size: %9px;

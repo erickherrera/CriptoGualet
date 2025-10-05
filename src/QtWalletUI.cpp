@@ -97,25 +97,49 @@ void QtWalletUI::createHeaderSection() {
   headerLayout->addWidget(m_headerTitle);
 
   // Balance section with hide button
-  QHBoxLayout *balanceLayout = new QHBoxLayout();
-  balanceLayout->setSpacing(15);
-  balanceLayout->addStretch();
+  // Vertical layout for title above amount
+  QVBoxLayout *balanceVerticalLayout = new QVBoxLayout();
+  balanceVerticalLayout->setSpacing(5);
 
+  m_balanceTitle = new QLabel("Total Balance:", m_headerSection);
+  m_balanceTitle->setProperty("class", "balance-title");
+  m_balanceTitle->setAlignment(Qt::AlignCenter);
+  balanceVerticalLayout->addWidget(m_balanceTitle);
+
+  // Horizontal layout for amount and toggle button
+  QHBoxLayout *balanceRowLayout = new QHBoxLayout();
+  balanceRowLayout->setSpacing(0);
+
+  // Left spacer to offset the icon width (centers the text)
+  balanceRowLayout->addSpacing(20); // Half of icon width (32/2 + spacing)
+
+  // Left stretch
+  balanceRowLayout->addStretch();
+
+  // Balance amount
   m_balanceLabel = new QLabel("$0.00 USD", m_headerSection);
   m_balanceLabel->setProperty("class", "balance-amount");
   m_balanceLabel->setAlignment(Qt::AlignCenter);
-  balanceLayout->addWidget(m_balanceLabel);
+  balanceRowLayout->addWidget(m_balanceLabel);
 
+  // Small spacing between amount and icon
+  balanceRowLayout->addSpacing(8);
+
+  // Toggle button
   m_toggleBalanceButton = new QPushButton(m_headerSection);
   m_toggleBalanceButton->setIconSize(QSize(20, 20));
   m_toggleBalanceButton->setMaximumWidth(32);
   m_toggleBalanceButton->setMaximumHeight(32);
   m_toggleBalanceButton->setProperty("class", "toggle-balance");
   m_toggleBalanceButton->setToolTip("Hide/Show Balance");
-  balanceLayout->addWidget(m_toggleBalanceButton);
+  balanceRowLayout->addWidget(m_toggleBalanceButton);
 
-  balanceLayout->addStretch();
-  headerLayout->addLayout(balanceLayout);
+  // Right stretch
+  balanceRowLayout->addStretch();
+
+  balanceVerticalLayout->addLayout(balanceRowLayout);
+
+  headerLayout->addLayout(balanceVerticalLayout);
 
   connect(m_toggleBalanceButton, &QPushButton::clicked, this,
           &QtWalletUI::onToggleBalanceClicked);
@@ -246,11 +270,12 @@ void QtWalletUI::onViewBalanceClicked() {
     m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
   }
 
-  QMessageBox::information(this, "Balance Updated",
-                           QString("Your current balance:\n%1 BTC\n$%L2 USD\n\nThis is "
-                                   "mock data for testing purposes.")
-                               .arg(QString::number(mockBalance, 'f', 8))
-                               .arg(usdBalance, 0, 'f', 2));
+  QMessageBox::information(
+      this, "Balance Updated",
+      QString("Your current balance:\n%1 BTC\n$%L2 USD\n\nThis is "
+              "mock data for testing purposes.")
+          .arg(QString::number(mockBalance, 'f', 8))
+          .arg(usdBalance, 0, 'f', 2));
 
   emit viewBalanceRequested();
 }
@@ -309,7 +334,8 @@ void QtWalletUI::onThemeChanged() { applyTheme(); }
 
 void QtWalletUI::applyTheme() { updateStyles(); }
 
-QIcon QtWalletUI::createColoredIcon(const QString &svgPath, const QColor &color) {
+QIcon QtWalletUI::createColoredIcon(const QString &svgPath,
+                                    const QColor &color) {
   QSvgRenderer renderer(svgPath);
   QPixmap pixmap(24, 24);
   pixmap.fill(Qt::transparent);
@@ -366,28 +392,44 @@ void QtWalletUI::updateStyles() {
             padding: 0px;
             margin: 0px;
         }
-    )").arg(text);
+    )")
+                                 .arg(text);
 
-  QString balanceStyle = QString(R"(
+  QString balanceTitleStyle = QString(R"(
         QLabel {
             color: %1;
-            font-size: 36px;
-            font-weight: 600;
+            font-size: 21px;
+            font-weight: 700;
+            background-color: transparent;
+            padding: 5px 10px;
+            margin: 0px;
+        }
+    )")
+                                  .arg(text);
+
+  QString balanceAmountStyle = QString(R"(
+        QLabel {
+            color: %1;
+            font-size: 21px;
+            font-weight: 400;
             background-color: transparent;
             padding: 5px 15px;
             margin: 0px;
         }
-    )").arg(text);
+    )")
+                                   .arg(text);
 
   // Toggle button uses theme colors
   // For dark themes, icon color should be accent color
   // For light themes, icon color should be text color
-  bool isDarkTheme = (m_themeManager->getCurrentTheme() == ThemeType::DARK ||
-                      m_themeManager->getCurrentTheme() == ThemeType::CRYPTO_DARK);
+  bool isDarkTheme =
+      (m_themeManager->getCurrentTheme() == ThemeType::DARK ||
+       m_themeManager->getCurrentTheme() == ThemeType::CRYPTO_DARK);
 
   QString iconColor = isDarkTheme ? accent : text;
 
-  QString toggleButtonStyle = QString(R"(
+  QString toggleButtonStyle =
+      QString(R"(
         QPushButton {
             background-color: transparent;
             color: %1;
@@ -405,23 +447,28 @@ void QtWalletUI::updateStyles() {
         QPushButton:pressed {
             background-color: %3;
         }
-    )").arg(iconColor)
-       .arg(m_themeManager->surfaceColor().lighter(120).name())
-       .arg(m_themeManager->accentColor().lighter(160).name());
+    )")
+          .arg(iconColor)
+          .arg(m_themeManager->surfaceColor().lighter(120).name())
+          .arg(m_themeManager->accentColor().lighter(160).name());
 
   m_headerTitle->setStyleSheet(headerTitleStyle);
-  m_balanceLabel->setStyleSheet(balanceStyle);
+  m_balanceTitle->setStyleSheet(balanceTitleStyle);
+  m_balanceLabel->setStyleSheet(balanceAmountStyle);
   m_toggleBalanceButton->setStyleSheet(toggleButtonStyle);
 
   // Set the icon color based on theme
-  QColor iconColorValue = isDarkTheme ? m_themeManager->accentColor() : m_themeManager->textColor();
-  QIcon eyeOpenIcon = createColoredIcon(":/icons/icons/eye-open.svg", iconColorValue);
+  QColor iconColorValue =
+      isDarkTheme ? m_themeManager->accentColor() : m_themeManager->textColor();
+  QIcon eyeOpenIcon =
+      createColoredIcon(":/icons/icons/eye-open.svg", iconColorValue);
 
   // Update the icon if balance is visible
   if (m_balanceVisible) {
     m_toggleBalanceButton->setIcon(eyeOpenIcon);
   } else {
-    QIcon eyeClosedIcon = createColoredIcon(":/icons/icons/eye-closed.svg", iconColorValue);
+    QIcon eyeClosedIcon =
+        createColoredIcon(":/icons/icons/eye-closed.svg", iconColorValue);
     m_toggleBalanceButton->setIcon(eyeClosedIcon);
   }
 
@@ -461,10 +508,15 @@ void QtWalletUI::updateStyles() {
   headerFont.setBold(true);
   m_headerTitle->setFont(headerFont);
 
-  QFont balanceFont = m_themeManager->titleFont();
-  balanceFont.setPointSize(36);
-  balanceFont.setBold(true);
-  m_balanceLabel->setFont(balanceFont);
+  QFont balanceTitleFont = m_themeManager->titleFont();
+  balanceTitleFont.setPointSize(21);
+  balanceTitleFont.setBold(true);
+  m_balanceTitle->setFont(balanceTitleFont);
+
+  QFont balanceAmountFont = m_themeManager->textFont();
+  balanceAmountFont.setPointSize(21);
+  balanceAmountFont.setBold(false);
+  m_balanceLabel->setFont(balanceAmountFont);
 
   m_addressTitleLabel->setFont(m_themeManager->titleFont());
   m_addressLabel->setFont(m_themeManager->monoFont());
@@ -484,13 +536,16 @@ void QtWalletUI::onToggleBalanceClicked() {
   m_balanceVisible = !m_balanceVisible;
 
   // Determine icon color based on theme
-  bool isDarkTheme = (m_themeManager->getCurrentTheme() == ThemeType::DARK ||
-                      m_themeManager->getCurrentTheme() == ThemeType::CRYPTO_DARK);
-  QColor iconColor = isDarkTheme ? m_themeManager->accentColor() : m_themeManager->textColor();
+  bool isDarkTheme =
+      (m_themeManager->getCurrentTheme() == ThemeType::DARK ||
+       m_themeManager->getCurrentTheme() == ThemeType::CRYPTO_DARK);
+  QColor iconColor =
+      isDarkTheme ? m_themeManager->accentColor() : m_themeManager->textColor();
 
   if (m_balanceVisible) {
     // Show balance - open eye icon
-    m_toggleBalanceButton->setIcon(createColoredIcon(":/icons/icons/eye-open.svg", iconColor));
+    m_toggleBalanceButton->setIcon(
+        createColoredIcon(":/icons/icons/eye-open.svg", iconColor));
     // Restore the actual balance value
     if (m_currentMockUser) {
       double btcPrice = 43000.0; // Mock BTC price
@@ -501,7 +556,8 @@ void QtWalletUI::onToggleBalanceClicked() {
     }
   } else {
     // Hide balance - closed/crossed eye icon
-    m_toggleBalanceButton->setIcon(createColoredIcon(":/icons/icons/eye-closed.svg", iconColor));
+    m_toggleBalanceButton->setIcon(
+        createColoredIcon(":/icons/icons/eye-closed.svg", iconColor));
     m_balanceLabel->setText("••••••");
   }
 }
@@ -625,7 +681,8 @@ void QtWalletUI::updateMockTransactionHistory() {
 }
 
 void QtWalletUI::updateResponsiveLayout() {
-  if (!m_mainLayout) return;
+  if (!m_mainLayout)
+    return;
 
   int windowWidth = this->width();
 
@@ -651,7 +708,8 @@ void QtWalletUI::updateResponsiveLayout() {
 }
 
 void QtWalletUI::adjustButtonLayout() {
-  if (!m_actionsLayout) return;
+  if (!m_actionsLayout)
+    return;
 
   int windowWidth = this->width();
 
@@ -676,7 +734,8 @@ void QtWalletUI::adjustButtonLayout() {
 }
 
 void QtWalletUI::updateCardSizes() {
-  if (!m_addressCard || !m_actionsCard || !m_historyCard) return;
+  if (!m_addressCard || !m_actionsCard || !m_historyCard)
+    return;
 
   int windowWidth = this->width();
   int windowHeight = this->height();
@@ -697,8 +756,9 @@ void QtWalletUI::updateCardSizes() {
   // Update card layouts
   auto updateCardLayout = [cardMargin, cardPadding](QFrame *card) {
     if (card && card->layout()) {
-      card->layout()->setContentsMargins(cardPadding, cardPadding, cardPadding, cardPadding);
-      if (auto *vbox = qobject_cast<QVBoxLayout*>(card->layout())) {
+      card->layout()->setContentsMargins(cardPadding, cardPadding, cardPadding,
+                                         cardPadding);
+      if (auto *vbox = qobject_cast<QVBoxLayout *>(card->layout())) {
         vbox->setSpacing(cardMargin - 5); // Slightly less spacing than padding
       }
     }
