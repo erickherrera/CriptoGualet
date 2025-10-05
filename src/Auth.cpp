@@ -567,6 +567,7 @@ AuthResponse RegisterUser(const std::string &username,
   // Create user object
   User u;
   u.username = username;
+  u.email = "";
 
   // Create password hash
   if (logFile.is_open()) {
@@ -643,21 +644,115 @@ AuthResponse RegisterUser(const std::string &username,
   }
 }
 
+// Overloaded RegisterUser function with email support
+AuthResponse RegisterUser(const std::string &username,
+                          const std::string &email,
+                          const std::string &password) {
+  std::ofstream logFile("registration_debug.log", std::ios::app);
+  if (logFile.is_open()) {
+    logFile << "\n=== Registration Attempt (with email) ===\n";
+    logFile << "Username: '" << username << "'\n";
+    logFile << "Email: '" << email << "'\n";
+    logFile << "Password length: " << password.length() << "\n";
+    logFile.flush();
+  }
+
+  // Basic input validation
+  if (username.empty() || email.empty() || password.empty()) {
+    return {AuthResult::INVALID_CREDENTIALS,
+            "Username, email, and password cannot be empty."};
+  }
+
+  // Validate username
+  if (!IsValidUsername(username)) {
+    if (logFile.is_open()) {
+      logFile << "Result: Username validation failed\n";
+      logFile.flush();
+    }
+    return {AuthResult::INVALID_CREDENTIALS,
+            "Invalid username. Must be 3-20 characters, letters, numbers, and "
+            "underscores only."};
+  }
+
+  // Validate password with simplified requirements
+  if (password.size() < 6) {
+    if (logFile.is_open()) {
+      logFile << "Result: Password too short\n";
+      logFile.flush();
+    }
+    return {AuthResult::WEAK_PASSWORD,
+            "Password must be at least 6 characters long."};
+  }
+
+  if (!IsValidPassword(password)) {
+    if (logFile.is_open()) {
+      logFile << "Result: Password validation failed (missing letter or digit)\n";
+      logFile.flush();
+    }
+    return {AuthResult::WEAK_PASSWORD,
+            "Password must contain at least one letter and one number."};
+  }
+
+  // Check if user already exists
+  if (g_users.find(username) != g_users.end()) {
+    if (logFile.is_open()) {
+      logFile << "Result: Username already exists\n";
+      logFile.flush();
+    }
+    return {AuthResult::USER_ALREADY_EXISTS,
+            "Username already exists. Please choose a different username."};
+  }
+
+  // Create user object
+  User u;
+  u.username = username;
+  u.email = email;
+
+  // Create password hash
+  if (logFile.is_open()) {
+    logFile << "Creating password hash...\n";
+    logFile.flush();
+  }
+
+  u.passwordHash = CreatePasswordHash(password);
+  if (u.passwordHash.empty()) {
+    if (logFile.is_open()) {
+      logFile << "Result: Failed to create password hash\n";
+      logFile.flush();
+    }
+    return {AuthResult::SYSTEM_ERROR,
+            "Registration failed: unable to create secure password hash."};
+  }
+
+  // Store user
+  g_users[username] = u;
+
+  if (logFile.is_open()) {
+    logFile << "Result: Registration successful\n";
+    logFile << "Total users now: " << g_users.size() << "\n";
+    logFile.flush();
+  }
+
+  return {AuthResult::SUCCESS, "Account created successfully."};
+}
+
 AuthResponse RegisterUserWithMnemonic(const std::string &username,
+                                      const std::string &email,
                                       const std::string &password,
                                       std::vector<std::string> &outMnemonic) {
   std::ofstream logFile("registration_debug.log", std::ios::app);
   if (logFile.is_open()) {
     logFile << "\n=== Extended Registration Attempt ===\n";
     logFile << "Username: '" << username << "'\n";
+    logFile << "Email: '" << email << "'\n";
     logFile << "Password length: " << password.length() << "\n";
     logFile.flush();
   }
 
   // Basic input validation
-  if (username.empty() || password.empty()) {
+  if (username.empty() || email.empty() || password.empty()) {
     return {AuthResult::INVALID_CREDENTIALS,
-            "Username and password cannot be empty."};
+            "Username, email, and password cannot be empty."};
   }
 
   // Validate username
@@ -705,6 +800,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
   // Create user object
   User u;
   u.username = username;
+  u.email = "";
 
   // Create password hash
   if (logFile.is_open()) {

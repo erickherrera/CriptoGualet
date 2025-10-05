@@ -30,7 +30,7 @@ public:
 
 signals:
   void loginRequested(const QString &username, const QString &password);
-  void registerRequested(const QString &username, const QString &password);
+  void registerRequested(const QString &username, const QString &email, const QString &password);
 
 public slots:
   void onLoginResult(bool success, const QString &message);
@@ -39,6 +39,7 @@ public slots:
 private slots:
   void onLoginClicked();
   void onRegisterClicked();
+  void onRegisterModeToggled(bool registerMode);
   void onThemeChanged();
   void clearMessage();
   void onPasswordVisibilityToggled();
@@ -63,6 +64,7 @@ private:
   QLabel *m_subtitleLabel;
   QLabel *m_messageLabel;
   QLineEdit *m_usernameEdit;
+  QLineEdit *m_emailEdit;
   QLineEdit *m_passwordEdit;
   QPushButton *m_passwordToggleButton;
   QPushButton *m_loginButton;

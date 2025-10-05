@@ -134,7 +134,7 @@ if(BUILD_GUI_QT)
     endforeach()
   endif()
 
-  find_package(Qt6 QUIET COMPONENTS Core Widgets Gui)
+  find_package(Qt6 QUIET COMPONENTS Core Widgets Gui Svg)
   if(Qt6_FOUND)
     qt6_standard_project_setup()
     message(STATUS "Qt6 found at ${Qt6_DIR}")
@@ -223,6 +223,26 @@ endif()
 # Export compile commands for IntelliSense
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Check for BlockCypher dependencies
+# Add vcpkg installed directory to prefix path if it exists
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed")
+  if(WIN32)
+    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows")
+  else()
+    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-linux")
+  endif()
+endif()
+
+find_package(cpr CONFIG QUIET)
+find_package(nlohmann_json CONFIG QUIET)
+if(cpr_FOUND AND nlohmann_json_FOUND)
+  set(BLOCKCYPHER_AVAILABLE TRUE)
+  message(STATUS "BlockCypher API dependencies found")
+else()
+  set(BLOCKCYPHER_AVAILABLE FALSE)
+  message(STATUS "BlockCypher API dependencies not found - run 'vcpkg install' to install cpr and nlohmann-json")
+endif()
+
 # Delegate to src/
 add_subdirectory(src)
 
@@ -245,6 +265,44 @@ target_include_directories(test_bip39 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAK
 add_executable(test_secure_seed "src/Tests/test_secure_seed.cpp" src/SharedSymbols.cpp)
 target_link_libraries(test_secure_seed PRIVATE Auth QRGenerator comctl32 crypt32 bcrypt)
 target_include_directories(test_secure_seed PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Add BlockCypher API test executable (if dependencies available)
+if(BLOCKCYPHER_AVAILABLE)
+  add_executable(test_blockcypher_api "src/Tests/test_blockcypher_api.cpp" src/SharedSymbols.cpp)
+  target_link_libraries(test_blockcypher_api PRIVATE WalletAPI BlockCypher comctl32 crypt32 bcrypt)
+  target_include_directories(test_blockcypher_api PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+  # Copy CPR and curl DLLs for test executable on Windows
+  if(WIN32)
+    add_custom_command(TARGET test_blockcypher_api POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/cpr.dll"
+      "$<TARGET_FILE_DIR:test_blockcypher_api>"
+      COMMENT "Copying CPR DLL for test_blockcypher_api")
+
+    add_custom_command(TARGET test_blockcypher_api POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/libcurl-d.dll"
+      "$<TARGET_FILE_DIR:test_blockcypher_api>"
+      COMMENT "Copying libcurl DLL for test_blockcypher_api")
+
+    add_custom_command(TARGET test_blockcypher_api POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/charset-1.dll"
+      "$<TARGET_FILE_DIR:test_blockcypher_api>"
+      COMMENT "Copying charset DLL for test_blockcypher_api")
+
+    add_custom_command(TARGET test_blockcypher_api POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/iconv-2.dll"
+      "$<TARGET_FILE_DIR:test_blockcypher_api>"
+      COMMENT "Copying iconv DLL for test_blockcypher_api")
+  endif()
+
+  message(STATUS "BlockCypher API test will be built")
+else()
+  message(STATUS "BlockCypher API test will not be built - dependencies not found")
+endif()
 
 # Copy qrencode DLLs for test executables on Windows
 if(WIN32 AND LIBQRENCODE_FOUND)

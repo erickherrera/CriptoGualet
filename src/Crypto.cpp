@@ -412,4 +412,434 @@ bool ConstantTimeEquals(const std::vector<uint8_t> &a,
   return diff == 0;
 }
 
+// === Memory Security Functions ===
+void SecureZeroMemory(void *ptr, size_t size) {
+  if (!ptr || size == 0)
+    return;
+
+  // Use volatile to prevent compiler optimization from removing the zeroing
+  volatile uint8_t* vptr = static_cast<volatile uint8_t*>(ptr);
+  for (size_t i = 0; i < size; ++i) {
+    vptr[i] = 0;
+  }
+
+  // Add memory barrier to ensure completion
+#ifdef _WIN32
+  MemoryBarrier();
+#else
+  __sync_synchronize();
+#endif
+}
+
+void SecureWipeVector(std::vector<uint8_t> &vec) {
+  if (!vec.empty()) {
+    SecureZeroMemory(vec.data(), vec.size());
+    vec.clear();
+    vec.shrink_to_fit();
+  }
+}
+
+void SecureWipeString(std::string &str) {
+  if (!str.empty()) {
+    SecureZeroMemory(&str[0], str.size());
+    str.clear();
+    str.shrink_to_fit();
+  }
+}
+
+// === Secure Key Derivation ===
+bool DeriveWalletKey(const std::string &password, const std::vector<uint8_t> &salt,
+                     std::vector<uint8_t> &derived_key, size_t key_length) {
+  if (password.empty() || salt.size() < 16 || key_length < 32) {
+    return false;
+  }
+
+  const uint32_t iterations = 600000; // Strong iteration count
+  return PBKDF2_HMAC_SHA512(password, salt.data(), salt.size(),
+                           iterations, derived_key, key_length);
+}
+
+bool DeriveDBEncryptionKey(const std::string &password, const std::vector<uint8_t> &salt,
+                          std::vector<uint8_t> &db_key) {
+  return DeriveWalletKey(password, salt, db_key, 32); // 256-bit key for database
+}
+
+// === AES-GCM Encryption/Decryption ===
+bool AES_GCM_Encrypt(const std::vector<uint8_t> &key, const std::vector<uint8_t> &plaintext,
+                     const std::vector<uint8_t> &aad, std::vector<uint8_t> &ciphertext,
+                     std::vector<uint8_t> &iv, std::vector<uint8_t> &tag) {
+  if (key.size() != 32) // AES-256 key required
+    return false;
+
+  BCRYPT_ALG_HANDLE hAlg = nullptr;
+  BCRYPT_KEY_HANDLE hKey = nullptr;
+
+  // Generate random IV
+  iv.resize(12); // 96-bit IV for GCM
+  if (!RandBytes(iv.data(), iv.size()))
+    return false;
+
+  NTSTATUS st = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_AES_ALGORITHM, nullptr, 0);
+  if (!BCRYPT_SUCCESS(st))
+    return false;
+
+  // Set chaining mode to GCM
+  st = BCryptSetProperty(hAlg, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_GCM,
+                        sizeof(BCRYPT_CHAIN_MODE_GCM), 0);
+  if (!BCRYPT_SUCCESS(st)) {
+    BCryptCloseAlgorithmProvider(hAlg, 0);
+    return false;
+  }
+
+  st = BCryptGenerateSymmetricKey(hAlg, &hKey, nullptr, 0, (PUCHAR)key.data(),
+                                 (ULONG)key.size(), 0);
+  if (!BCRYPT_SUCCESS(st)) {
+    BCryptCloseAlgorithmProvider(hAlg, 0);
+    return false;
+  }
+
+  // Setup auth info for GCM
+  BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo;
+  BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
+  authInfo.pbNonce = iv.data();
+  authInfo.cbNonce = (ULONG)iv.size();
+  authInfo.pbAuthData = const_cast<PUCHAR>(aad.data());
+  authInfo.cbAuthData = (ULONG)aad.size();
+
+  tag.resize(16); // 128-bit tag
+  authInfo.pbTag = tag.data();
+  authInfo.cbTag = (ULONG)tag.size();
+
+  ULONG result_len = 0;
+  ciphertext.resize(plaintext.size());
+
+  st = BCryptEncrypt(hKey, (PUCHAR)plaintext.data(), (ULONG)plaintext.size(),
+                    &authInfo, nullptr, 0, ciphertext.data(), (ULONG)ciphertext.size(),
+                    &result_len, 0);
+
+  BCryptDestroyKey(hKey);
+  BCryptCloseAlgorithmProvider(hAlg, 0);
+
+  if (!BCRYPT_SUCCESS(st)) {
+    SecureWipeVector(ciphertext);
+    SecureWipeVector(iv);
+    SecureWipeVector(tag);
+    return false;
+  }
+
+  ciphertext.resize(result_len);
+  return true;
+}
+
+bool AES_GCM_Decrypt(const std::vector<uint8_t> &key, const std::vector<uint8_t> &ciphertext,
+                     const std::vector<uint8_t> &aad, const std::vector<uint8_t> &iv,
+                     const std::vector<uint8_t> &tag, std::vector<uint8_t> &plaintext) {
+  if (key.size() != 32 || iv.size() != 12 || tag.size() != 16)
+    return false;
+
+  BCRYPT_ALG_HANDLE hAlg = nullptr;
+  BCRYPT_KEY_HANDLE hKey = nullptr;
+
+  NTSTATUS st = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_AES_ALGORITHM, nullptr, 0);
+  if (!BCRYPT_SUCCESS(st))
+    return false;
+
+  st = BCryptSetProperty(hAlg, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_GCM,
+                        sizeof(BCRYPT_CHAIN_MODE_GCM), 0);
+  if (!BCRYPT_SUCCESS(st)) {
+    BCryptCloseAlgorithmProvider(hAlg, 0);
+    return false;
+  }
+
+  st = BCryptGenerateSymmetricKey(hAlg, &hKey, nullptr, 0, (PUCHAR)key.data(),
+                                 (ULONG)key.size(), 0);
+  if (!BCRYPT_SUCCESS(st)) {
+    BCryptCloseAlgorithmProvider(hAlg, 0);
+    return false;
+  }
+
+  BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo;
+  BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
+  authInfo.pbNonce = const_cast<PUCHAR>(iv.data());
+  authInfo.cbNonce = (ULONG)iv.size();
+  authInfo.pbAuthData = const_cast<PUCHAR>(aad.data());
+  authInfo.cbAuthData = (ULONG)aad.size();
+  authInfo.pbTag = const_cast<PUCHAR>(tag.data());
+  authInfo.cbTag = (ULONG)tag.size();
+
+  ULONG result_len = 0;
+  plaintext.resize(ciphertext.size());
+
+  st = BCryptDecrypt(hKey, (PUCHAR)ciphertext.data(), (ULONG)ciphertext.size(),
+                    &authInfo, nullptr, 0, plaintext.data(), (ULONG)plaintext.size(),
+                    &result_len, 0);
+
+  BCryptDestroyKey(hKey);
+  BCryptCloseAlgorithmProvider(hAlg, 0);
+
+  if (!BCRYPT_SUCCESS(st)) {
+    SecureWipeVector(plaintext);
+    return false;
+  }
+
+  plaintext.resize(result_len);
+  return true;
+}
+
+// === Database Encryption Functions ===
+bool EncryptDBData(const std::vector<uint8_t> &key, const std::vector<uint8_t> &data,
+                   std::vector<uint8_t> &encrypted_blob) {
+  if (key.size() != 32 || data.empty())
+    return false;
+
+  std::vector<uint8_t> ciphertext, iv, tag;
+  std::vector<uint8_t> aad; // No additional authenticated data for DB encryption
+
+  if (!AES_GCM_Encrypt(key, data, aad, ciphertext, iv, tag))
+    return false;
+
+  // Format: [IV(12)] + [TAG(16)] + [CIPHERTEXT]
+  encrypted_blob.clear();
+  encrypted_blob.reserve(iv.size() + tag.size() + ciphertext.size());
+  encrypted_blob.insert(encrypted_blob.end(), iv.begin(), iv.end());
+  encrypted_blob.insert(encrypted_blob.end(), tag.begin(), tag.end());
+  encrypted_blob.insert(encrypted_blob.end(), ciphertext.begin(), ciphertext.end());
+
+  // Clean up sensitive data
+  SecureWipeVector(ciphertext);
+  SecureWipeVector(iv);
+  SecureWipeVector(tag);
+
+  return true;
+}
+
+bool DecryptDBData(const std::vector<uint8_t> &key, const std::vector<uint8_t> &encrypted_blob,
+                   std::vector<uint8_t> &data) {
+  if (key.size() != 32 || encrypted_blob.size() < 28) // min: 12(IV) + 16(TAG)
+    return false;
+
+  // Extract components: [IV(12)] + [TAG(16)] + [CIPHERTEXT]
+  std::vector<uint8_t> iv(encrypted_blob.begin(), encrypted_blob.begin() + 12);
+  std::vector<uint8_t> tag(encrypted_blob.begin() + 12, encrypted_blob.begin() + 28);
+  std::vector<uint8_t> ciphertext(encrypted_blob.begin() + 28, encrypted_blob.end());
+  std::vector<uint8_t> aad; // No additional authenticated data
+
+  bool success = AES_GCM_Decrypt(key, ciphertext, aad, iv, tag, data);
+
+  // Clean up
+  SecureWipeVector(iv);
+  SecureWipeVector(tag);
+  SecureWipeVector(ciphertext);
+
+  return success;
+}
+
+// === Encrypted Seed Storage ===
+
+bool EncryptSeedPhrase(const std::string &password, const std::vector<std::string> &mnemonic,
+                       EncryptedSeed &encrypted_seed) {
+  if (password.empty() || mnemonic.empty())
+    return false;
+
+  // Generate random salt
+  encrypted_seed.salt.resize(32);
+  if (!RandBytes(encrypted_seed.salt.data(), encrypted_seed.salt.size()))
+    return false;
+
+  // Derive encryption key
+  std::vector<uint8_t> encryption_key;
+  if (!DeriveWalletKey(password, encrypted_seed.salt, encryption_key, 32))
+    return false;
+
+  // Serialize mnemonic
+  std::ostringstream oss;
+  for (size_t i = 0; i < mnemonic.size(); ++i) {
+    if (i > 0) oss << " ";
+    oss << mnemonic[i];
+  }
+  std::string mnemonic_str = oss.str();
+  std::vector<uint8_t> mnemonic_data(mnemonic_str.begin(), mnemonic_str.end());
+
+  // Encrypt the mnemonic
+  if (!EncryptDBData(encryption_key, mnemonic_data, encrypted_seed.encrypted_data)) {
+    SecureWipeVector(encryption_key);
+    SecureWipeString(mnemonic_str);
+    SecureWipeVector(mnemonic_data);
+    return false;
+  }
+
+  // Create verification hash (password + salt)
+  std::vector<uint8_t> password_data(password.begin(), password.end());
+  std::vector<uint8_t> combined_data;
+  combined_data.insert(combined_data.end(), password_data.begin(), password_data.end());
+  combined_data.insert(combined_data.end(), encrypted_seed.salt.begin(), encrypted_seed.salt.end());
+
+  std::array<uint8_t, 32> hash_result;
+  if (!SHA256(combined_data.data(), combined_data.size(), hash_result)) {
+    SecureWipeVector(encryption_key);
+    SecureWipeString(mnemonic_str);
+    SecureWipeVector(mnemonic_data);
+    SecureWipeVector(password_data);
+    SecureWipeVector(combined_data);
+    return false;
+  }
+
+  encrypted_seed.verification_hash.assign(hash_result.begin(), hash_result.end());
+
+  // Clean up
+  SecureWipeVector(encryption_key);
+  SecureWipeString(mnemonic_str);
+  SecureWipeVector(mnemonic_data);
+  SecureWipeVector(password_data);
+  SecureWipeVector(combined_data);
+
+  return true;
+}
+
+bool DecryptSeedPhrase(const std::string &password, const EncryptedSeed &encrypted_seed,
+                       std::vector<std::string> &mnemonic) {
+  if (password.empty() || encrypted_seed.salt.empty() || encrypted_seed.encrypted_data.empty())
+    return false;
+
+  // Verify password using stored hash
+  std::vector<uint8_t> password_data(password.begin(), password.end());
+  std::vector<uint8_t> combined_data;
+  combined_data.insert(combined_data.end(), password_data.begin(), password_data.end());
+  combined_data.insert(combined_data.end(), encrypted_seed.salt.begin(), encrypted_seed.salt.end());
+
+  std::array<uint8_t, 32> computed_hash;
+  if (!SHA256(combined_data.data(), combined_data.size(), computed_hash)) {
+    SecureWipeVector(password_data);
+    SecureWipeVector(combined_data);
+    return false;
+  }
+
+  std::vector<uint8_t> computed_hash_vec(computed_hash.begin(), computed_hash.end());
+  if (!ConstantTimeEquals(computed_hash_vec, encrypted_seed.verification_hash)) {
+    SecureWipeVector(password_data);
+    SecureWipeVector(combined_data);
+    SecureWipeVector(computed_hash_vec);
+    return false; // Wrong password
+  }
+
+  // Derive decryption key
+  std::vector<uint8_t> decryption_key;
+  if (!DeriveWalletKey(password, encrypted_seed.salt, decryption_key, 32)) {
+    SecureWipeVector(password_data);
+    SecureWipeVector(combined_data);
+    SecureWipeVector(computed_hash_vec);
+    return false;
+  }
+
+  // Decrypt the mnemonic
+  std::vector<uint8_t> decrypted_data;
+  if (!DecryptDBData(decryption_key, encrypted_seed.encrypted_data, decrypted_data)) {
+    SecureWipeVector(password_data);
+    SecureWipeVector(combined_data);
+    SecureWipeVector(computed_hash_vec);
+    SecureWipeVector(decryption_key);
+    return false;
+  }
+
+  // Parse mnemonic string
+  std::string mnemonic_str(decrypted_data.begin(), decrypted_data.end());
+  std::istringstream iss(mnemonic_str);
+  std::string word;
+  mnemonic.clear();
+  while (iss >> word) {
+    mnemonic.push_back(word);
+  }
+
+  // Clean up
+  SecureWipeVector(password_data);
+  SecureWipeVector(combined_data);
+  SecureWipeVector(computed_hash_vec);
+  SecureWipeVector(decryption_key);
+  SecureWipeVector(decrypted_data);
+  SecureWipeString(mnemonic_str);
+
+  return !mnemonic.empty();
+}
+
+// === Secure Random Salt Generation ===
+bool GenerateSecureSalt(std::vector<uint8_t> &salt, size_t size) {
+  if (size < 16)
+    size = 32; // Default to 256-bit salt
+
+  salt.resize(size);
+  return RandBytes(salt.data(), salt.size());
+}
+
+// === Database Key Management ===
+
+bool CreateDatabaseKey(const std::string &password, DatabaseKeyInfo &key_info,
+                       std::vector<uint8_t> &database_key) {
+  if (password.empty())
+    return false;
+
+  // Generate secure salt
+  if (!GenerateSecureSalt(key_info.salt, 32))
+    return false;
+
+  key_info.iteration_count = 600000; // Strong iteration count
+
+  // Derive database key
+  if (!PBKDF2_HMAC_SHA512(password, key_info.salt.data(), key_info.salt.size(),
+                         key_info.iteration_count, database_key, 32))
+    return false;
+
+  // Create verification hash
+  std::vector<uint8_t> verification_data;
+  verification_data.insert(verification_data.end(), database_key.begin(), database_key.end());
+  verification_data.insert(verification_data.end(), key_info.salt.begin(), key_info.salt.end());
+
+  std::array<uint8_t, 32> hash_result;
+  if (!SHA256(verification_data.data(), verification_data.size(), hash_result)) {
+    SecureWipeVector(database_key);
+    SecureWipeVector(verification_data);
+    return false;
+  }
+
+  key_info.key_verification_hash.assign(hash_result.begin(), hash_result.end());
+  SecureWipeVector(verification_data);
+
+  return true;
+}
+
+bool VerifyDatabaseKey(const std::string &password, const DatabaseKeyInfo &key_info,
+                       std::vector<uint8_t> &database_key) {
+  if (password.empty() || key_info.salt.empty())
+    return false;
+
+  // Derive key
+  if (!PBKDF2_HMAC_SHA512(password, key_info.salt.data(), key_info.salt.size(),
+                         key_info.iteration_count, database_key, 32))
+    return false;
+
+  // Verify key
+  std::vector<uint8_t> verification_data;
+  verification_data.insert(verification_data.end(), database_key.begin(), database_key.end());
+  verification_data.insert(verification_data.end(), key_info.salt.begin(), key_info.salt.end());
+
+  std::array<uint8_t, 32> computed_hash;
+  if (!SHA256(verification_data.data(), verification_data.size(), computed_hash)) {
+    SecureWipeVector(database_key);
+    SecureWipeVector(verification_data);
+    return false;
+  }
+
+  std::vector<uint8_t> computed_hash_vec(computed_hash.begin(), computed_hash.end());
+  bool valid = ConstantTimeEquals(computed_hash_vec, key_info.key_verification_hash);
+
+  SecureWipeVector(verification_data);
+  SecureWipeVector(computed_hash_vec);
+
+  if (!valid) {
+    SecureWipeVector(database_key);
+    return false;
+  }
+
+  return true;
+}
+
 } // namespace Crypto

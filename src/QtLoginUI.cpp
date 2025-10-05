@@ -11,6 +11,7 @@
 #include <QLineEdit>
 #include <QPalette>
 #include <QPushButton>
+#include <QResizeEvent>
 #include <QSpacerItem>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -110,14 +111,12 @@ void QtLoginUI::createLoginCard() {
   m_usernameEdit->setPlaceholderText("Username");
   m_usernameEdit->setMinimumHeight(44);
 
-  QWidget *passwordContainer = new QWidget(m_loginCard);
-  passwordContainer->setStyleSheet(
-      "QWidget { background-color: transparent; }");
-  QHBoxLayout *passwordLayout = new QHBoxLayout(passwordContainer);
-  passwordLayout->setContentsMargins(0, 0, 0, 0);
-  passwordLayout->setSpacing(0);
+  m_emailEdit = new QLineEdit(m_loginCard);
+  m_emailEdit->setPlaceholderText("Email Address");
+  m_emailEdit->setMinimumHeight(44);
+  m_emailEdit->hide(); // Initially hidden for login mode
 
-  m_passwordEdit = new QLineEdit(passwordContainer);
+  m_passwordEdit = new QLineEdit(m_loginCard);
   m_passwordEdit->setPlaceholderText(
       "Password (6+ chars with letters and numbers)");
   m_passwordEdit->setEchoMode(QLineEdit::Password);
@@ -127,16 +126,27 @@ void QtLoginUI::createLoginCard() {
       "letter\n• At least one "
       "number");
 
-  m_passwordToggleButton = new QPushButton("Show", passwordContainer);
-  m_passwordToggleButton->setMinimumSize(50, 44);
-  m_passwordToggleButton->setMaximumSize(50, 44);
+  // Create password toggle button and position it inside the password field
+  m_passwordToggleButton = new QPushButton("Show", m_passwordEdit);
+  m_passwordToggleButton->setMinimumSize(50, 30);
+  m_passwordToggleButton->setMaximumSize(50, 30);
   m_passwordToggleButton->setCursor(Qt::PointingHandCursor);
+  m_passwordToggleButton->setFlat(true);
 
-  passwordLayout->addWidget(m_passwordEdit);
-  passwordLayout->addWidget(m_passwordToggleButton);
+  // Position the button inside the password field on the right side
+  connect(m_passwordEdit, &QLineEdit::textChanged, this, [this]() {
+    const int buttonWidth = m_passwordToggleButton->width();
+    const int padding = 8;
+    m_passwordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
+    const int x = m_passwordEdit->width() - buttonWidth - padding;
+    const int y =
+        (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
+    m_passwordToggleButton->move(x, y);
+  });
 
   m_cardLayout->addWidget(m_usernameEdit);
-  m_cardLayout->addWidget(passwordContainer);
+  m_cardLayout->addWidget(m_emailEdit);
+  m_cardLayout->addWidget(m_passwordEdit);
 
   // Message label
   m_messageLabel = new QLabel(m_loginCard);
@@ -160,6 +170,7 @@ void QtLoginUI::createLoginCard() {
   m_registerButton = new QPushButton("Create Account", m_loginCard);
   m_registerButton->setMinimumHeight(44);
   m_registerButton->setMinimumWidth(140);
+  m_registerButton->setCheckable(true); // Make it toggleable for mode switching
 
   m_buttonLayout->addWidget(m_loginButton);
   m_buttonLayout->addWidget(m_registerButton);
@@ -191,12 +202,19 @@ void QtLoginUI::createLoginCard() {
   // Signals
   connect(m_loginButton, &QPushButton::clicked, this,
           &QtLoginUI::onLoginClicked);
-  connect(m_registerButton, &QPushButton::clicked, this,
-          &QtLoginUI::onRegisterClicked);
+  connect(m_registerButton, &QPushButton::toggled, this,
+          &QtLoginUI::onRegisterModeToggled);
   connect(m_usernameEdit, &QLineEdit::returnPressed, this,
           &QtLoginUI::onLoginClicked);
-  connect(m_passwordEdit, &QLineEdit::returnPressed, this,
-          &QtLoginUI::onLoginClicked);
+  connect(m_emailEdit, &QLineEdit::returnPressed, this,
+          &QtLoginUI::onRegisterClicked);
+  connect(m_passwordEdit, &QLineEdit::returnPressed, this, [this]() {
+    if (m_emailEdit->isVisible()) {
+      onRegisterClicked();
+    } else {
+      onLoginClicked();
+    }
+  });
   connect(m_passwordToggleButton, &QPushButton::clicked, this,
           &QtLoginUI::onPasswordVisibilityToggled);
 
@@ -256,16 +274,21 @@ void QtLoginUI::onLoginClicked() {
 
 void QtLoginUI::onRegisterClicked() {
   const QString username = m_usernameEdit->text().trimmed();
+  const QString email = m_emailEdit->text().trimmed();
   const QString password = m_passwordEdit->text();
 
   clearMessage();
 
-  if (username.isEmpty() || password.isEmpty()) {
-    showMessage("Please enter both username and password", true);
+  if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
+    showMessage("Please enter username, email, and password", true);
     return;
   }
   if (username.length() < 3) {
     showMessage("Username must be at least 3 characters long", true);
+    return;
+  }
+  if (!email.contains("@") || !email.contains(".")) {
+    showMessage("Please enter a valid email address", true);
     return;
   }
   if (password.length() < 6) {
@@ -275,7 +298,31 @@ void QtLoginUI::onRegisterClicked() {
 
   showMessage("Creating account... generating your seed phrase securely.",
               false);
-  emit registerRequested(username, password);
+  emit registerRequested(username, email, password);
+}
+
+void QtLoginUI::onRegisterModeToggled(bool registerMode) {
+  if (registerMode) {
+    m_emailEdit->show();
+    m_registerButton->setText("Register");
+    m_loginButton->setText("Back to Login");
+    clearMessage();
+  } else {
+    m_emailEdit->hide();
+    m_registerButton->setText("Create Account");
+    m_loginButton->setText("Sign In");
+    clearMessage();
+  }
+
+  // Reconnect login button based on mode
+  disconnect(m_loginButton, &QPushButton::clicked, nullptr, nullptr);
+  if (registerMode) {
+    connect(m_loginButton, &QPushButton::clicked, this, [this]() {
+      m_registerButton->setChecked(false);
+    });
+  } else {
+    connect(m_loginButton, &QPushButton::clicked, this, &QtLoginUI::onLoginClicked);
+  }
 }
 
 void QtLoginUI::onLoginResult(bool success, const QString &message) {
@@ -289,6 +336,7 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
   if (success) {
     const QString username = m_usernameEdit->text().trimmed();
     m_usernameEdit->clear();
+    m_emailEdit->clear();
     m_passwordEdit->clear();
 
     // Enhanced post-registration seed backup modal
@@ -303,8 +351,10 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     mainLayout->setSpacing(15);
 
     // Header section
-    QLabel *title = new QLabel("<h2 style='color: #2E7D32; margin: 0;'>Account Created Successfully</h2>"
-                               "<p style='margin: 8px 0;'>Your 12-word seed phrase has been generated.</p>",
+    QLabel *title = new QLabel("<h2 style='color: #2E7D32; margin: 0;'>Account "
+                               "Created Successfully</h2>"
+                               "<p style='margin: 8px 0;'>Your 12-word seed "
+                               "phrase has been generated.</p>",
                                &dlg);
     title->setAlignment(Qt::AlignCenter);
     title->setWordWrap(true);
@@ -406,7 +456,8 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
         QString userDir = seedDir + "/" + username;
         QDir dir(userDir);
         QString userBackupFile = userDir + "/SEED_BACKUP_12_WORDS.txt";
-        QString fallbackFile = seedDir + "/" + username + "_mnemonic_SHOW_ONCE.txt";
+        QString fallbackFile =
+            seedDir + "/" + username + "_mnemonic_SHOW_ONCE.txt";
 
         bool success = false;
         if (dir.exists() && QFile::exists(userBackupFile)) {
@@ -431,12 +482,14 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
             QMessageBox::warning(this, "Error",
                                  "Failed to open backup folder: " + seedDir);
           }
-          QMessageBox::information(this, "Note",
-            "No backup file found. This may be because:\n"
-            "1. Account creation failed to generate backup\n"
-            "2. Backup file was already deleted\n"
-            "3. File permissions issue\n\n"
-            "If you just created an account, try the 'Reveal Seed' button instead.");
+          QMessageBox::information(
+              this, "Note",
+              "No backup file found. This may be because:\n"
+              "1. Account creation failed to generate backup\n"
+              "2. Backup file was already deleted\n"
+              "3. File permissions issue\n\n"
+              "If you just created an account, try the 'Reveal Seed' button "
+              "instead.");
         }
       } catch (const std::exception &e) {
         QMessageBox::critical(
@@ -459,9 +512,11 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
 
     // Clear input fields regardless of dialog result
     m_usernameEdit->clear();
+    m_emailEdit->clear();
     m_passwordEdit->clear();
     clearMessage();
   } else {
+    m_emailEdit->clear();
     m_passwordEdit->clear();
   }
 }
@@ -776,9 +831,9 @@ void QtLoginUI::updateStyles() {
             padding: 0 10px;
             font-size: 14px;
         }
-        QLineEdit:focus { border: 1.5px solid palette(highlight); }
     )";
   m_usernameEdit->setStyleSheet(lineEditStyle);
+  m_emailEdit->setStyleSheet(lineEditStyle);
   m_passwordEdit->setStyleSheet(lineEditStyle);
 
   QString buttonStyle = m_themeManager->getButtonStyleSheet();
@@ -808,6 +863,19 @@ void QtLoginUI::updateStyles() {
       toggleButtonStyle.arg(m_themeManager->textColor().name())
           .arg(m_themeManager->accentColor().name()));
 
+  // Position the toggle button inside the password field
+  QTimer::singleShot(0, this, [this]() {
+    if (m_passwordEdit && m_passwordToggleButton) {
+      const int buttonWidth = m_passwordToggleButton->width();
+      const int padding = 8;
+      m_passwordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
+      const int x = m_passwordEdit->width() - buttonWidth - padding;
+      const int y =
+          (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
+      m_passwordToggleButton->move(x, y);
+    }
+  });
+
   QFont titleF = m_themeManager->titleFont();
   titleF.setPointSizeF(titleF.pointSizeF() + 6);
   m_titleLabel->setFont(titleF);
@@ -819,6 +887,7 @@ void QtLoginUI::updateStyles() {
   m_revealSeedButton->setFont(m_themeManager->buttonFont());
   m_restoreSeedButton->setFont(m_themeManager->buttonFont());
   m_usernameEdit->setFont(m_themeManager->textFont());
+  m_emailEdit->setFont(m_themeManager->textFont());
   m_passwordEdit->setFont(m_themeManager->textFont());
 }
 

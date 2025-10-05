@@ -95,6 +95,9 @@ vcpkg_installed/
 # Local IDE settings
 .claude/settings.local.json
 
+# MCP configuration with secrets
+.mcp.json
+
 # Other generated files
 ut
 nul

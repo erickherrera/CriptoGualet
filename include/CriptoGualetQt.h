@@ -9,6 +9,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <memory>
+#include "WalletAPI.h"
 
 class QtLoginUI;
 class QtWalletUI;
@@ -43,4 +44,5 @@ private:
     QtLoginUI *m_loginUI;
     QtWalletUI *m_walletUI;
     QtThemeManager *m_themeManager;
+    std::unique_ptr<WalletAPI::SimpleWallet> m_wallet;
 };
