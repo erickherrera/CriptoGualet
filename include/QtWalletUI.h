@@ -76,7 +76,6 @@ private:
   void createActionButtons();
   void createWalletSection();
   void createBitcoinWalletActions(QVBoxLayout *parentLayout);
-  void createTransactionHistory();
   void updateStyles();
   void updateScrollAreaWidth();
   void updateResponsiveLayout();
@@ -98,27 +97,9 @@ private:
   QLabel *m_balanceTitle;
   QLabel *m_balanceLabel;
   QPushButton *m_toggleBalanceButton;
-  bool m_balanceVisible;
 
-  // Address section
-  QFrame *m_addressCard;
-  QLabel *m_addressTitleLabel;
-  QLabel *m_addressSectionLabel; // "Address:" label
-  QLabel *m_addressLabel;        // actual address text
-  QPushButton *m_copyAddressButton;
-
-  // Actions section
-  QFrame *m_actionsCard;
-  QLabel *m_actionsTitle; // <-- Added: title label for "Wallet Actions"
-  QHBoxLayout *m_actionsLayout;
-  QPushButton *m_viewBalanceButton;
-  QPushButton *m_sendButton;
-  QPushButton *m_receiveButton;
-
-  // Transaction history
-  QFrame *m_historyCard;
-  QLabel *m_historyTitleLabel;
-  QTextEdit *m_historyText;
+  // Reusable wallet cards
+  class QtExpandableWalletCard *m_bitcoinWalletCard;
 
   // User data
   QString m_currentUsername;
@@ -129,5 +110,8 @@ private:
   void updateMockTransactionHistory();
   QMap<QString, MockUserData> m_mockUsers;
   MockUserData *m_currentMockUser;
+
+  // Flags
+  bool m_balanceVisible;
   bool m_mockMode;
 };

@@ -1,10 +1,12 @@
 // QtWalletUI.cpp
 #include "../include/QtWalletUI.h"
+#include "../include/QtExpandableWalletCard.h"
 #include "../include/QtThemeManager.h"
 
 #include <QApplication>
 #include <QClipboard>
 #include <QDateTime>
+#include <QEvent>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -26,7 +28,7 @@
 
 QtWalletUI::QtWalletUI(QWidget *parent)
     : QWidget(parent), m_themeManager(&QtThemeManager::instance()),
-      m_currentMockUser(nullptr), m_mockMode(false), m_balanceVisible(true) {
+      m_currentMockUser(nullptr), m_balanceVisible(true), m_mockMode(false) {
   initializeMockUsers();
   setupUI();
   applyTheme();
@@ -57,9 +59,7 @@ void QtWalletUI::setupUI() {
   m_contentLayout->setSpacing(20);
 
   createHeaderSection();
-  createAddressSection();
   createActionButtons();
-  createTransactionHistory();
 
   m_contentLayout->addItem(
       new QSpacerItem(20, 40, QSizePolicy::Minimum, QSizePolicy::Expanding));
@@ -147,117 +147,29 @@ void QtWalletUI::createHeaderSection() {
   m_contentLayout->addWidget(m_headerSection);
 }
 
-void QtWalletUI::createAddressSection() {
-  m_addressCard = new QFrame(m_scrollContent);
-  m_addressCard->setProperty("class", "card");
-  m_addressCard->setObjectName("addressCard");
-
-  QVBoxLayout *addressLayout = new QVBoxLayout(m_addressCard);
-  addressLayout->setContentsMargins(25, 25, 25, 25);
-  addressLayout->setSpacing(15);
-
-  m_addressTitleLabel = new QLabel("Your Bitcoin Address", m_addressCard);
-  m_addressTitleLabel->setProperty("class", "title");
-  addressLayout->addWidget(m_addressTitleLabel);
-
-  QHBoxLayout *addressRowLayout = new QHBoxLayout();
-
-  m_addressLabel = new QLabel("", m_addressCard);
-  m_addressLabel->setProperty("class", "address");
-  m_addressLabel->setWordWrap(false);
-  m_addressLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-  addressRowLayout->addWidget(m_addressLabel, 1);
-
-  m_copyAddressButton = new QPushButton("Copy", m_addressCard);
-  m_copyAddressButton->setMaximumWidth(80);
-  addressRowLayout->addWidget(m_copyAddressButton);
-
-  addressLayout->addLayout(addressRowLayout);
-
-  connect(m_copyAddressButton, &QPushButton::clicked, [this]() {
-    if (!m_currentAddress.isEmpty()) {
-      QApplication::clipboard()->setText(m_currentAddress);
-      QMessageBox::information(this, "Copied", "Address copied to clipboard!");
-    }
-  });
-
-  m_contentLayout->addWidget(m_addressCard);
-}
 
 void QtWalletUI::createActionButtons() {
-  m_actionsCard = new QFrame(m_scrollContent);
-  m_actionsCard->setProperty("class", "card");
-  m_actionsCard->setObjectName("actionsCard");
+  // Create Bitcoin wallet card using the reusable component
+  m_bitcoinWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+  m_bitcoinWalletCard->setCryptocurrency("Bitcoin", "BTC", "₿");
+  m_bitcoinWalletCard->setBalance("0.00000000 BTC");
+  m_bitcoinWalletCard->setTransactionHistory(
+      "No transactions yet.<br><br>This is a demo wallet. In a real "
+      "implementation, transaction history would be displayed here.");
 
-  QVBoxLayout *actionsMainLayout = new QVBoxLayout(m_actionsCard);
-  actionsMainLayout->setContentsMargins(25, 25, 25, 25);
-  actionsMainLayout->setSpacing(20);
-
-  // Title styled the same as other sections
-  m_actionsTitle = new QLabel("Wallet Actions", m_actionsCard);
-  m_actionsTitle->setProperty("class", "title");
-  actionsMainLayout->addWidget(m_actionsTitle);
-
-  m_actionsLayout = new QHBoxLayout();
-  m_actionsLayout->setSpacing(15);
-
-  m_viewBalanceButton = new QPushButton("View Balance", m_actionsCard);
-  m_viewBalanceButton->setMinimumHeight(60);
-  m_viewBalanceButton->setSizePolicy(QSizePolicy::Expanding,
-                                     QSizePolicy::Fixed);
-  m_actionsLayout->addWidget(m_viewBalanceButton);
-
-  m_sendButton = new QPushButton("Send Bitcoin", m_actionsCard);
-  m_sendButton->setMinimumHeight(60);
-  m_sendButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-  m_actionsLayout->addWidget(m_sendButton);
-
-  m_receiveButton = new QPushButton("Receive Bitcoin", m_actionsCard);
-  m_receiveButton->setMinimumHeight(60);
-  m_receiveButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-  m_actionsLayout->addWidget(m_receiveButton);
-
-  actionsMainLayout->addLayout(m_actionsLayout);
-
-  connect(m_viewBalanceButton, &QPushButton::clicked, this,
-          &QtWalletUI::onViewBalanceClicked);
-  connect(m_sendButton, &QPushButton::clicked, this,
+  // Connect signals
+  connect(m_bitcoinWalletCard, &QtExpandableWalletCard::sendRequested, this,
           &QtWalletUI::onSendBitcoinClicked);
-  connect(m_receiveButton, &QPushButton::clicked, this,
+  connect(m_bitcoinWalletCard, &QtExpandableWalletCard::receiveRequested, this,
           &QtWalletUI::onReceiveBitcoinClicked);
 
-  m_contentLayout->addWidget(m_actionsCard);
+  m_contentLayout->addWidget(m_bitcoinWalletCard);
 }
 
-void QtWalletUI::createTransactionHistory() {
-  m_historyCard = new QFrame(m_scrollContent);
-  m_historyCard->setProperty("class", "card");
-  m_historyCard->setObjectName("historyCard");
-
-  QVBoxLayout *historyLayout = new QVBoxLayout(m_historyCard);
-  historyLayout->setContentsMargins(25, 25, 25, 25);
-  historyLayout->setSpacing(15);
-
-  m_historyTitleLabel = new QLabel("Transaction History", m_historyCard);
-  m_historyTitleLabel->setProperty("class", "title");
-  historyLayout->addWidget(m_historyTitleLabel);
-
-  m_historyText = new QTextEdit(m_historyCard);
-  m_historyText->setReadOnly(true);
-  m_historyText->setMaximumHeight(200);
-  m_historyText->setText(
-      "No transactions yet.\n\nThis is a demo wallet. In a real "
-      "implementation, transaction history would be displayed here.");
-  historyLayout->addWidget(m_historyText);
-
-  m_contentLayout->addWidget(m_historyCard);
-}
 
 void QtWalletUI::setUserInfo(const QString &username, const QString &address) {
   m_currentUsername = username;
   m_currentAddress = address;
-
-  m_addressLabel->setText(address);
 }
 
 void QtWalletUI::onViewBalanceClicked() {
@@ -301,25 +213,10 @@ void QtWalletUI::onSendBitcoinClicked() {
           QMessageBox::Yes | QMessageBox::No);
 
       if (reply == QMessageBox::Yes) {
-        // Update transaction history with mock data
-        QString currentHistory = m_historyText->toPlainText();
-        if (currentHistory.contains("No transactions yet.")) {
-          currentHistory = "";
-        }
-
-        QString newTransaction =
-            QString("SENT: %1 BTC to %2\nTime: %3\nStatus: Pending (Mock)\n\n")
-                .arg(amount)
-                .arg(recipient.left(20) + "...")
-                .arg(QDateTime::currentDateTime().toString(
-                    "yyyy-MM-dd hh:mm:ss"));
-
-        m_historyText->setText(newTransaction + currentHistory);
-
         QMessageBox::information(
             this, "Transaction Sent",
             QString("Mock transaction of %1 BTC sent "
-                    "successfully!\n\nTransaction added to history.")
+                    "successfully!\n\nIn a real implementation, this would be added to the transaction history.")
                 .arg(amount));
       }
     }
@@ -330,7 +227,12 @@ void QtWalletUI::onSendBitcoinClicked() {
 
 void QtWalletUI::onReceiveBitcoinClicked() { emit receiveBitcoinRequested(); }
 
-void QtWalletUI::onThemeChanged() { applyTheme(); }
+void QtWalletUI::onThemeChanged() {
+  applyTheme();
+  if (m_bitcoinWalletCard) {
+    m_bitcoinWalletCard->applyTheme();
+  }
+}
 
 void QtWalletUI::applyTheme() { updateStyles(); }
 
@@ -362,24 +264,7 @@ void QtWalletUI::updateStyles() {
   setStyleSheet(m_themeManager->getMainWindowStyleSheet());
 
   const QString accent = m_themeManager->accentColor().name();
-  const QString surface = m_themeManager->surfaceColor().name();
   const QString text = m_themeManager->textColor().name();
-
-  auto cardCss = [&](const QString &objName) {
-    return QString(R"(
-            QFrame#%1 {
-                background-color: %2;
-                border: 2px solid %3;
-                border-radius: 12px;
-                padding: 20px;
-            }
-        )")
-        .arg(objName, surface, accent);
-  };
-
-  m_addressCard->setStyleSheet(cardCss("addressCard"));
-  m_actionsCard->setStyleSheet(cardCss("actionsCard"));
-  m_historyCard->setStyleSheet(cardCss("historyCard"));
 
   // Header section styling
   QString headerTitleStyle = QString(R"(
@@ -472,36 +357,6 @@ void QtWalletUI::updateStyles() {
     m_toggleBalanceButton->setIcon(eyeClosedIcon);
   }
 
-  QString labelStyle = m_themeManager->getLabelStyleSheet();
-  m_addressTitleLabel->setStyleSheet(labelStyle);
-  m_addressLabel->setStyleSheet(labelStyle);
-  m_actionsTitle->setStyleSheet(labelStyle);
-  m_historyTitleLabel->setStyleSheet(labelStyle);
-
-  QString buttonStyle = m_themeManager->getButtonStyleSheet();
-  m_viewBalanceButton->setStyleSheet(buttonStyle);
-  m_sendButton->setStyleSheet(buttonStyle);
-  m_receiveButton->setStyleSheet(buttonStyle);
-  m_copyAddressButton->setStyleSheet(buttonStyle);
-
-  QString textEditStyle = QString(R"(
-        QTextEdit {
-            background-color: %1;
-            color: %2;
-            border: none;
-            border-radius: 6px;
-            padding: 8px;
-            font-family: %3;
-            font-size: %4px;
-        }
-    )")
-                              .arg(surface)
-                              .arg(m_themeManager->textColor().name())
-                              .arg(m_themeManager->textFont().family())
-                              .arg(m_themeManager->textFont().pointSize());
-
-  m_historyText->setStyleSheet(textEditStyle);
-
   // Set fonts for header section
   QFont headerFont = m_themeManager->titleFont();
   headerFont.setPointSize(42);
@@ -517,17 +372,6 @@ void QtWalletUI::updateStyles() {
   balanceAmountFont.setPointSize(21);
   balanceAmountFont.setBold(false);
   m_balanceLabel->setFont(balanceAmountFont);
-
-  m_addressTitleLabel->setFont(m_themeManager->titleFont());
-  m_addressLabel->setFont(m_themeManager->monoFont());
-  m_actionsTitle->setFont(m_themeManager->titleFont());
-  m_historyTitleLabel->setFont(m_themeManager->titleFont());
-  m_historyText->setFont(m_themeManager->textFont());
-
-  m_viewBalanceButton->setFont(m_themeManager->buttonFont());
-  m_sendButton->setFont(m_themeManager->buttonFont());
-  m_receiveButton->setFont(m_themeManager->buttonFont());
-  m_copyAddressButton->setFont(m_themeManager->buttonFont());
 }
 
 void QtWalletUI::onLogoutClicked() { emit logoutRequested(); }
@@ -649,25 +493,33 @@ void QtWalletUI::setMockUser(const QString &username) {
     m_mockMode = true;
     setUserInfo(username, m_currentMockUser->primaryAddress);
 
-    // Convert BTC balance to USD
+    // Convert BTC balance to USD for header
     double btcPrice = 43000.0; // Mock BTC price
     double usdBalance = m_currentMockUser->balance * btcPrice;
     m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
+
+    // Update Bitcoin wallet card balance
+    if (m_bitcoinWalletCard) {
+      m_bitcoinWalletCard->setBalance(QString("%1 BTC").arg(m_currentMockUser->balance, 0, 'f', 8));
+    }
 
     updateMockTransactionHistory();
   }
 }
 
 void QtWalletUI::updateMockTransactionHistory() {
+  if (!m_bitcoinWalletCard)
+    return;
+
   if (!m_currentMockUser || m_currentMockUser->transactions.isEmpty()) {
-    m_historyText->setText("No transactions yet.\n\nThis is a demo wallet.");
+    m_bitcoinWalletCard->setTransactionHistory("No transactions yet.<br><br>This is a demo wallet.");
     return;
   }
 
-  QString historyText;
+  QString historyHtml;
   for (const MockTransaction &tx : m_currentMockUser->transactions) {
-    historyText +=
-        QString("%1: %2 BTC %3 %4\nTime: %5\nStatus: %6\nTx ID: %7\n\n")
+    historyHtml +=
+        QString("<b>%1:</b> %2 BTC %3 %4<br>Time: %5<br>Status: %6<br>Tx ID: %7<br><br>")
             .arg(tx.type)
             .arg(QString::number(tx.amount, 'f', 8))
             .arg(tx.type == "SENT" ? "to" : "from")
@@ -677,7 +529,7 @@ void QtWalletUI::updateMockTransactionHistory() {
             .arg(tx.txId);
   }
 
-  m_historyText->setText(historyText);
+  m_bitcoinWalletCard->setTransactionHistory(historyHtml);
 }
 
 void QtWalletUI::updateResponsiveLayout() {
@@ -708,73 +560,9 @@ void QtWalletUI::updateResponsiveLayout() {
 }
 
 void QtWalletUI::adjustButtonLayout() {
-  if (!m_actionsLayout)
-    return;
-
-  int windowWidth = this->width();
-
-  // Switch between horizontal and vertical button layout based on width
-  if (windowWidth < 600) {
-    // Small screens - stack buttons vertically
-    m_actionsLayout->setDirection(QBoxLayout::TopToBottom);
-    m_viewBalanceButton->setMinimumHeight(50);
-    m_sendButton->setMinimumHeight(50);
-    m_receiveButton->setMinimumHeight(50);
-  } else {
-    // Larger screens - horizontal button layout
-    m_actionsLayout->setDirection(QBoxLayout::LeftToRight);
-    m_viewBalanceButton->setMinimumHeight(60);
-    m_sendButton->setMinimumHeight(60);
-    m_receiveButton->setMinimumHeight(60);
-  }
-
-  // Adjust button spacing
-  int buttonSpacing = windowWidth < 600 ? 10 : 15;
-  m_actionsLayout->setSpacing(buttonSpacing);
+  // Responsive layout handled by the reusable wallet card component
 }
 
 void QtWalletUI::updateCardSizes() {
-  if (!m_addressCard || !m_actionsCard || !m_historyCard)
-    return;
-
-  int windowWidth = this->width();
-  int windowHeight = this->height();
-
-  // Calculate responsive card margins and padding
-  int cardMargin, cardPadding;
-  if (windowWidth < 600) {
-    cardMargin = 10;
-    cardPadding = 10;
-  } else if (windowWidth < 1200) {
-    cardMargin = 20;
-    cardPadding = 20;
-  } else {
-    cardMargin = 25;
-    cardPadding = 25;
-  }
-
-  // Update card layouts
-  auto updateCardLayout = [cardMargin, cardPadding](QFrame *card) {
-    if (card && card->layout()) {
-      card->layout()->setContentsMargins(cardPadding, cardPadding, cardPadding,
-                                         cardPadding);
-      if (auto *vbox = qobject_cast<QVBoxLayout *>(card->layout())) {
-        vbox->setSpacing(cardMargin - 5); // Slightly less spacing than padding
-      }
-    }
-  };
-
-  updateCardLayout(m_addressCard);
-  updateCardLayout(m_actionsCard);
-  updateCardLayout(m_historyCard);
-
-  // Adjust transaction history height based on available space
-  int historyHeight;
-  if (windowWidth < 600) {
-    // For small screens, use more of the available height
-    historyHeight = qMax(150, static_cast<int>(windowHeight * 0.25));
-  } else {
-    historyHeight = windowWidth < 1200 ? 175 : 200;
-  }
-  m_historyText->setMaximumHeight(historyHeight);
+  // Card sizing handled by the reusable wallet card component
 }

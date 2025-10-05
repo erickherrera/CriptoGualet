@@ -230,11 +230,13 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "QtWalletUI.cpp"
     "QtThemeManager.cpp"
     "QtSeedDisplayDialog.cpp"
+    "QtExpandableWalletCard.cpp"
     "SharedSymbols.cpp"
     "../include/QtLoginUI.h"
     "../include/QtWalletUI.h"
     "../include/QtThemeManager.h"
     "../include/QtSeedDisplayDialog.h"
+    "../include/QtExpandableWalletCard.h"
     "../include/CriptoGualetQt.h"
     "../resources/resources.qrc"
   )
