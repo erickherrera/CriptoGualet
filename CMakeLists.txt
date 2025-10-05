@@ -243,84 +243,22 @@ else()
   message(STATUS "BlockCypher API dependencies not found - run 'vcpkg install' to install cpr and nlohmann-json")
 endif()
 
-# Delegate to src/
-add_subdirectory(src)
+# Add backend components
+add_subdirectory(backend/utils)
+add_subdirectory(backend/blockchain)
+add_subdirectory(backend/database)
+add_subdirectory(backend/repository)
+add_subdirectory(backend/core)
+
+# Add frontend components
+add_subdirectory(frontend/qt)
+
+# Add test suite
+add_subdirectory(Tests)
 
 # Set startup project for Visual Studio (must be after add_subdirectory)
 if(BUILD_GUI_QT AND Qt6_FOUND)
   set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CriptoGualetQt)
 endif()
 
-# Add debug test executable
-add_executable(debug_test "src/Tests/test_basic_auth.cpp" src/SharedSymbols.cpp)
-target_link_libraries(debug_test PRIVATE Auth comctl32 crypt32 bcrypt)
-target_include_directories(debug_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-# Add BIP39 test executable
-add_executable(test_bip39 "src/Tests/test_bip39.cpp" src/SharedSymbols.cpp)
-target_link_libraries(test_bip39 PRIVATE Auth comctl32 crypt32 bcrypt)
-target_include_directories(test_bip39 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-# Add secure seed test executable
-add_executable(test_secure_seed "src/Tests/test_secure_seed.cpp" src/SharedSymbols.cpp)
-target_link_libraries(test_secure_seed PRIVATE Auth QRGenerator comctl32 crypt32 bcrypt)
-target_include_directories(test_secure_seed PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-# Add BlockCypher API test executable (if dependencies available)
-if(BLOCKCYPHER_AVAILABLE)
-  add_executable(test_blockcypher_api "src/Tests/test_blockcypher_api.cpp" src/SharedSymbols.cpp)
-  target_link_libraries(test_blockcypher_api PRIVATE WalletAPI BlockCypher comctl32 crypt32 bcrypt)
-  target_include_directories(test_blockcypher_api PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-  # Copy CPR and curl DLLs for test executable on Windows
-  if(WIN32)
-    add_custom_command(TARGET test_blockcypher_api POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/cpr.dll"
-      "$<TARGET_FILE_DIR:test_blockcypher_api>"
-      COMMENT "Copying CPR DLL for test_blockcypher_api")
-
-    add_custom_command(TARGET test_blockcypher_api POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/libcurl-d.dll"
-      "$<TARGET_FILE_DIR:test_blockcypher_api>"
-      COMMENT "Copying libcurl DLL for test_blockcypher_api")
-
-    add_custom_command(TARGET test_blockcypher_api POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/charset-1.dll"
-      "$<TARGET_FILE_DIR:test_blockcypher_api>"
-      COMMENT "Copying charset DLL for test_blockcypher_api")
-
-    add_custom_command(TARGET test_blockcypher_api POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/iconv-2.dll"
-      "$<TARGET_FILE_DIR:test_blockcypher_api>"
-      COMMENT "Copying iconv DLL for test_blockcypher_api")
-  endif()
-
-  message(STATUS "BlockCypher API test will be built")
-else()
-  message(STATUS "BlockCypher API test will not be built - dependencies not found")
-endif()
-
-# Copy qrencode DLLs for test executables on Windows
-if(WIN32 AND LIBQRENCODE_FOUND)
-  add_custom_command(TARGET test_secure_seed POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/qrencoded.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/qrencode.dll>"
-    "$<TARGET_FILE_DIR:test_secure_seed>"
-    COMMENT "Copying qrencode DLL for test_secure_seed")
-
-  add_custom_command(TARGET test_secure_seed POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/libpng16d.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libpng16.dll>"
-    "$<TARGET_FILE_DIR:test_secure_seed>"
-    COMMENT "Copying libpng16 DLL for test_secure_seed")
-
-  add_custom_command(TARGET test_secure_seed POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/zlibd1.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/zlib1.dll>"
-    "$<TARGET_FILE_DIR:test_secure_seed>"
-    COMMENT "Copying zlib DLL for test_secure_seed")
-endif()
+# Test executables are now defined in Tests/CMakeLists.txt
