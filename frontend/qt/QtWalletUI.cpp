@@ -292,26 +292,24 @@ void QtWalletUI::updateStyles() {
     )")
                                   .arg(text);
 
+  // Better contrast for balance amount
+  bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
+  QString balanceTextColor = isDarkTheme ? m_themeManager->textColor().lighter(115).name() : text;
+
   QString balanceAmountStyle = QString(R"(
         QLabel {
             color: %1;
             font-size: 21px;
-            font-weight: 400;
+            font-weight: 600;
             background-color: transparent;
             padding: 5px 15px;
             margin: 0px;
         }
     )")
-                                   .arg(text);
+                                   .arg(balanceTextColor);
 
-  // Toggle button uses theme colors
-  // For dark themes, icon color should be accent color
-  // For light themes, icon color should be text color
-  bool isDarkTheme =
-      (m_themeManager->getCurrentTheme() == ThemeType::DARK ||
-       m_themeManager->getCurrentTheme() == ThemeType::CRYPTO_DARK);
-
-  QString iconColor = isDarkTheme ? accent : text;
+  // Toggle button uses theme colors with better contrast
+  QString iconColor = isDarkTheme ? m_themeManager->accentColor().lighter(110).name() : text;
 
   QString toggleButtonStyle =
       QString(R"(
@@ -342,9 +340,10 @@ void QtWalletUI::updateStyles() {
   m_balanceLabel->setStyleSheet(balanceAmountStyle);
   m_toggleBalanceButton->setStyleSheet(toggleButtonStyle);
 
-  // Set the icon color based on theme
-  QColor iconColorValue =
-      isDarkTheme ? m_themeManager->accentColor() : m_themeManager->textColor();
+  // Set the icon color based on theme with better contrast
+  QColor iconColorValue = isDarkTheme
+      ? m_themeManager->accentColor().lighter(110)
+      : m_themeManager->textColor();
   QIcon eyeOpenIcon =
       createColoredIcon(":/icons/icons/eye-open.svg", iconColorValue);
 
@@ -379,12 +378,11 @@ void QtWalletUI::onLogoutClicked() { emit logoutRequested(); }
 void QtWalletUI::onToggleBalanceClicked() {
   m_balanceVisible = !m_balanceVisible;
 
-  // Determine icon color based on theme
-  bool isDarkTheme =
-      (m_themeManager->getCurrentTheme() == ThemeType::DARK ||
-       m_themeManager->getCurrentTheme() == ThemeType::CRYPTO_DARK);
-  QColor iconColor =
-      isDarkTheme ? m_themeManager->accentColor() : m_themeManager->textColor();
+  // Determine icon color based on theme with better contrast
+  bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
+  QColor iconColor = isDarkTheme
+      ? m_themeManager->accentColor().lighter(110)
+      : m_themeManager->textColor();
 
   if (m_balanceVisible) {
     // Show balance - open eye icon
