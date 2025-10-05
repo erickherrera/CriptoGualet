@@ -63,14 +63,16 @@ private slots:
   void onReceiveBitcoinClicked();
   void onLogoutClicked();
   void onThemeChanged();
+  void onToggleBalanceClicked();
 
 protected:
   void resizeEvent(QResizeEvent *event) override;
 
 private:
   void setupUI();
-  void createWelcomeSection();
+  void createHeaderSection();
   void createAddressSection();
+  QIcon createColoredIcon(const QString &svgPath, const QColor &color);
   void createActionButtons();
   void createWalletSection();
   void createBitcoinWalletActions(QVBoxLayout *parentLayout);
@@ -90,10 +92,12 @@ private:
   QWidget *m_scrollContent;
   QVBoxLayout *m_contentLayout;
 
-  // Welcome section
-  QFrame *m_welcomeCard;
-  QLabel *m_welcomeLabel;
+  // Header section (replaces welcome card)
+  QWidget *m_headerSection;
+  QLabel *m_headerTitle;
   QLabel *m_balanceLabel;
+  QPushButton *m_toggleBalanceButton;
+  bool m_balanceVisible;
 
   // Address section
   QFrame *m_addressCard;

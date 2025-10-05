@@ -222,7 +222,8 @@ endif()
 # ---- Qt GUI executable ----
 if(BUILD_GUI_QT AND Qt6_FOUND)
   set(CMAKE_AUTOMOC ON)
-  
+  set(CMAKE_AUTORCC ON)
+
   add_executable(CriptoGualetQt WIN32
     "CriptoGualetQt.cpp"
     "QtLoginUI.cpp"
@@ -235,6 +236,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "../include/QtThemeManager.h"
     "../include/QtSeedDisplayDialog.h"
     "../include/CriptoGualetQt.h"
+    "../resources/resources.qrc"
   )
 
   set(QT_LINK_LIBRARIES
@@ -245,6 +247,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     Qt6::Core
     Qt6::Widgets
     Qt6::Gui
+    Qt6::Svg
     comctl32
     crypt32
     bcrypt

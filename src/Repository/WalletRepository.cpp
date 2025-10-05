@@ -406,8 +406,8 @@ Result<bool> WalletRepository::storeEncryptedSeed(int userId, const std::string&
     // Store in database
     const std::string sql = R"(
         INSERT OR REPLACE INTO encrypted_seeds
-        (user_id, encrypted_seed, encryption_salt, key_derivation_iterations, created_at, backup_confirmed)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
+        (user_id, encrypted_seed, encryption_salt, verification_hash, key_derivation_iterations, created_at, backup_confirmed)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
     )";
 
     sqlite3_stmt* stmt = nullptr;
@@ -421,7 +421,9 @@ Result<bool> WalletRepository::storeEncryptedSeed(int userId, const std::string&
                      static_cast<int>(encryptedSeed.encrypted_data.size()), SQLITE_STATIC);
     sqlite3_bind_blob(stmt, 3, encryptedSeed.salt.data(),
                      static_cast<int>(encryptedSeed.salt.size()), SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 4, 600000); // PBKDF2 iterations
+    sqlite3_bind_blob(stmt, 4, encryptedSeed.verification_hash.data(),
+                     static_cast<int>(encryptedSeed.verification_hash.size()), SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 5, 600000); // PBKDF2 iterations
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -439,7 +441,7 @@ Result<std::vector<std::string>> WalletRepository::retrieveDecryptedSeed(int use
 
     // Retrieve encrypted seed from database
     const std::string sql = R"(
-        SELECT encrypted_seed, encryption_salt
+        SELECT encrypted_seed, encryption_salt, verification_hash
         FROM encrypted_seeds
         WHERE user_id = ?
     )";
@@ -477,6 +479,13 @@ Result<std::vector<std::string>> WalletRepository::retrieveDecryptedSeed(int use
     if (saltData && saltSize > 0) {
         encryptedSeed.salt.assign(static_cast<const uint8_t*>(saltData),
                                  static_cast<const uint8_t*>(saltData) + saltSize);
+    }
+
+    const void* hashData = sqlite3_column_blob(stmt, 2);
+    int hashSize = sqlite3_column_bytes(stmt, 2);
+    if (hashData && hashSize > 0) {
+        encryptedSeed.verification_hash.assign(static_cast<const uint8_t*>(hashData),
+                                              static_cast<const uint8_t*>(hashData) + hashSize);
     }
 
     sqlite3_finalize(stmt);

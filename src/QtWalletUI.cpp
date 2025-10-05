@@ -8,21 +8,25 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPainter>
+#include <QPixmap>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QSpacerItem>
+#include <QSvgRenderer>
 #include <QTextEdit>
 #include <QTimer>
 #include <QVBoxLayout>
 
 QtWalletUI::QtWalletUI(QWidget *parent)
     : QWidget(parent), m_themeManager(&QtThemeManager::instance()),
-      m_currentMockUser(nullptr), m_mockMode(false) {
+      m_currentMockUser(nullptr), m_mockMode(false), m_balanceVisible(true) {
   initializeMockUsers();
   setupUI();
   applyTheme();
@@ -52,7 +56,7 @@ void QtWalletUI::setupUI() {
   m_contentLayout->setContentsMargins(20, 20, 20, 20);
   m_contentLayout->setSpacing(20);
 
-  createWelcomeSection();
+  createHeaderSection();
   createAddressSection();
   createActionButtons();
   createTransactionHistory();
@@ -79,26 +83,44 @@ void QtWalletUI::setupUI() {
   });
 }
 
-void QtWalletUI::createWelcomeSection() {
-  m_welcomeCard = new QFrame(m_scrollContent);
-  m_welcomeCard->setProperty("class", "card");
-  m_welcomeCard->setObjectName("welcomeCard");
+void QtWalletUI::createHeaderSection() {
+  m_headerSection = new QWidget(m_scrollContent);
 
-  QVBoxLayout *welcomeLayout = new QVBoxLayout(m_welcomeCard);
-  welcomeLayout->setContentsMargins(25, 25, 25, 25);
-  welcomeLayout->setSpacing(15);
+  QVBoxLayout *headerLayout = new QVBoxLayout(m_headerSection);
+  headerLayout->setContentsMargins(0, 20, 0, 30);
+  headerLayout->setSpacing(15);
 
-  m_welcomeLabel = new QLabel("Welcome back!", m_welcomeCard);
-  m_welcomeLabel->setProperty("class", "title");
-  m_welcomeLabel->setAlignment(Qt::AlignCenter);
-  welcomeLayout->addWidget(m_welcomeLabel);
+  // Digital Wallets title
+  m_headerTitle = new QLabel("Digital Wallets", m_headerSection);
+  m_headerTitle->setProperty("class", "header-title");
+  m_headerTitle->setAlignment(Qt::AlignCenter);
+  headerLayout->addWidget(m_headerTitle);
 
-  m_balanceLabel = new QLabel("Balance: 0.00000000 BTC", m_welcomeCard);
-  m_balanceLabel->setProperty("class", "wallet-balance");
+  // Balance section with hide button
+  QHBoxLayout *balanceLayout = new QHBoxLayout();
+  balanceLayout->setSpacing(15);
+  balanceLayout->addStretch();
+
+  m_balanceLabel = new QLabel("$0.00 USD", m_headerSection);
+  m_balanceLabel->setProperty("class", "balance-amount");
   m_balanceLabel->setAlignment(Qt::AlignCenter);
-  welcomeLayout->addWidget(m_balanceLabel);
+  balanceLayout->addWidget(m_balanceLabel);
 
-  m_contentLayout->addWidget(m_welcomeCard);
+  m_toggleBalanceButton = new QPushButton(m_headerSection);
+  m_toggleBalanceButton->setIconSize(QSize(20, 20));
+  m_toggleBalanceButton->setMaximumWidth(32);
+  m_toggleBalanceButton->setMaximumHeight(32);
+  m_toggleBalanceButton->setProperty("class", "toggle-balance");
+  m_toggleBalanceButton->setToolTip("Hide/Show Balance");
+  balanceLayout->addWidget(m_toggleBalanceButton);
+
+  balanceLayout->addStretch();
+  headerLayout->addLayout(balanceLayout);
+
+  connect(m_toggleBalanceButton, &QPushButton::clicked, this,
+          &QtWalletUI::onToggleBalanceClicked);
+
+  m_contentLayout->addWidget(m_headerSection);
 }
 
 void QtWalletUI::createAddressSection() {
@@ -211,21 +233,24 @@ void QtWalletUI::setUserInfo(const QString &username, const QString &address) {
   m_currentUsername = username;
   m_currentAddress = address;
 
-  m_welcomeLabel->setText(QString("Welcome back, %1!").arg(username));
   m_addressLabel->setText(address);
 }
 
 void QtWalletUI::onViewBalanceClicked() {
   // Mock balance data for testing
   double mockBalance = 0.15234567;
-  QString balanceText =
-      QString("Balance: %1 BTC").arg(QString::number(mockBalance, 'f', 8));
-  m_balanceLabel->setText(balanceText);
+  double btcPrice = 43000.0; // Mock BTC price
+  double usdBalance = mockBalance * btcPrice;
+
+  if (m_balanceVisible) {
+    m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
+  }
 
   QMessageBox::information(this, "Balance Updated",
-                           QString("Your current balance is %1 BTC\n\nThis is "
+                           QString("Your current balance:\n%1 BTC\n$%L2 USD\n\nThis is "
                                    "mock data for testing purposes.")
-                               .arg(QString::number(mockBalance, 'f', 8)));
+                               .arg(QString::number(mockBalance, 'f', 8))
+                               .arg(usdBalance, 0, 'f', 2));
 
   emit viewBalanceRequested();
 }
@@ -284,11 +309,35 @@ void QtWalletUI::onThemeChanged() { applyTheme(); }
 
 void QtWalletUI::applyTheme() { updateStyles(); }
 
+QIcon QtWalletUI::createColoredIcon(const QString &svgPath, const QColor &color) {
+  QSvgRenderer renderer(svgPath);
+  QPixmap pixmap(24, 24);
+  pixmap.fill(Qt::transparent);
+
+  QPainter painter(&pixmap);
+  renderer.render(&painter);
+  painter.end();
+
+  // Colorize the icon
+  QPixmap coloredPixmap(24, 24);
+  coloredPixmap.fill(Qt::transparent);
+
+  QPainter colorPainter(&coloredPixmap);
+  colorPainter.setCompositionMode(QPainter::CompositionMode_Source);
+  colorPainter.drawPixmap(0, 0, pixmap);
+  colorPainter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+  colorPainter.fillRect(coloredPixmap.rect(), color);
+  colorPainter.end();
+
+  return QIcon(coloredPixmap);
+}
+
 void QtWalletUI::updateStyles() {
   setStyleSheet(m_themeManager->getMainWindowStyleSheet());
 
   const QString accent = m_themeManager->accentColor().name();
   const QString surface = m_themeManager->surfaceColor().name();
+  const QString text = m_themeManager->textColor().name();
 
   auto cardCss = [&](const QString &objName) {
     return QString(R"(
@@ -302,22 +351,81 @@ void QtWalletUI::updateStyles() {
         .arg(objName, surface, accent);
   };
 
-  m_welcomeCard->setStyleSheet(cardCss("welcomeCard"));
   m_addressCard->setStyleSheet(cardCss("addressCard"));
   m_actionsCard->setStyleSheet(cardCss("actionsCard"));
   m_historyCard->setStyleSheet(cardCss("historyCard"));
 
-  QString labelStyle = m_themeManager->getLabelStyleSheet();
-  QString titleStyle = labelStyle + QString(R"(
+  // Header section styling
+  QString headerTitleStyle = QString(R"(
         QLabel {
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            color: %1;
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: -1px;
             background-color: transparent;
-            padding: 15px 0px;
+            padding: 0px;
+            margin: 0px;
         }
-    )");
-  m_welcomeLabel->setStyleSheet(titleStyle);
+    )").arg(text);
 
-  m_balanceLabel->setStyleSheet(labelStyle);
+  QString balanceStyle = QString(R"(
+        QLabel {
+            color: %1;
+            font-size: 36px;
+            font-weight: 600;
+            background-color: transparent;
+            padding: 5px 15px;
+            margin: 0px;
+        }
+    )").arg(text);
+
+  // Toggle button uses theme colors
+  // For dark themes, icon color should be accent color
+  // For light themes, icon color should be text color
+  bool isDarkTheme = (m_themeManager->getCurrentTheme() == ThemeType::DARK ||
+                      m_themeManager->getCurrentTheme() == ThemeType::CRYPTO_DARK);
+
+  QString iconColor = isDarkTheme ? accent : text;
+
+  QString toggleButtonStyle = QString(R"(
+        QPushButton {
+            background-color: transparent;
+            color: %1;
+            border: none;
+            border-radius: 16px;
+            padding: 0px;
+            min-width: 32px;
+            max-width: 32px;
+            min-height: 32px;
+            max-height: 32px;
+        }
+        QPushButton:hover {
+            background-color: %2;
+        }
+        QPushButton:pressed {
+            background-color: %3;
+        }
+    )").arg(iconColor)
+       .arg(m_themeManager->surfaceColor().lighter(120).name())
+       .arg(m_themeManager->accentColor().lighter(160).name());
+
+  m_headerTitle->setStyleSheet(headerTitleStyle);
+  m_balanceLabel->setStyleSheet(balanceStyle);
+  m_toggleBalanceButton->setStyleSheet(toggleButtonStyle);
+
+  // Set the icon color based on theme
+  QColor iconColorValue = isDarkTheme ? m_themeManager->accentColor() : m_themeManager->textColor();
+  QIcon eyeOpenIcon = createColoredIcon(":/icons/icons/eye-open.svg", iconColorValue);
+
+  // Update the icon if balance is visible
+  if (m_balanceVisible) {
+    m_toggleBalanceButton->setIcon(eyeOpenIcon);
+  } else {
+    QIcon eyeClosedIcon = createColoredIcon(":/icons/icons/eye-closed.svg", iconColorValue);
+    m_toggleBalanceButton->setIcon(eyeClosedIcon);
+  }
+
+  QString labelStyle = m_themeManager->getLabelStyleSheet();
   m_addressTitleLabel->setStyleSheet(labelStyle);
   m_addressLabel->setStyleSheet(labelStyle);
   m_actionsTitle->setStyleSheet(labelStyle);
@@ -347,8 +455,17 @@ void QtWalletUI::updateStyles() {
 
   m_historyText->setStyleSheet(textEditStyle);
 
-  m_welcomeLabel->setFont(m_themeManager->titleFont());
-  m_balanceLabel->setFont(m_themeManager->textFont());
+  // Set fonts for header section
+  QFont headerFont = m_themeManager->titleFont();
+  headerFont.setPointSize(42);
+  headerFont.setBold(true);
+  m_headerTitle->setFont(headerFont);
+
+  QFont balanceFont = m_themeManager->titleFont();
+  balanceFont.setPointSize(36);
+  balanceFont.setBold(true);
+  m_balanceLabel->setFont(balanceFont);
+
   m_addressTitleLabel->setFont(m_themeManager->titleFont());
   m_addressLabel->setFont(m_themeManager->monoFont());
   m_actionsTitle->setFont(m_themeManager->titleFont());
@@ -362,6 +479,32 @@ void QtWalletUI::updateStyles() {
 }
 
 void QtWalletUI::onLogoutClicked() { emit logoutRequested(); }
+
+void QtWalletUI::onToggleBalanceClicked() {
+  m_balanceVisible = !m_balanceVisible;
+
+  // Determine icon color based on theme
+  bool isDarkTheme = (m_themeManager->getCurrentTheme() == ThemeType::DARK ||
+                      m_themeManager->getCurrentTheme() == ThemeType::CRYPTO_DARK);
+  QColor iconColor = isDarkTheme ? m_themeManager->accentColor() : m_themeManager->textColor();
+
+  if (m_balanceVisible) {
+    // Show balance - open eye icon
+    m_toggleBalanceButton->setIcon(createColoredIcon(":/icons/icons/eye-open.svg", iconColor));
+    // Restore the actual balance value
+    if (m_currentMockUser) {
+      double btcPrice = 43000.0; // Mock BTC price
+      double usdBalance = m_currentMockUser->balance * btcPrice;
+      m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
+    } else {
+      m_balanceLabel->setText("$0.00 USD");
+    }
+  } else {
+    // Hide balance - closed/crossed eye icon
+    m_toggleBalanceButton->setIcon(createColoredIcon(":/icons/icons/eye-closed.svg", iconColor));
+    m_balanceLabel->setText("••••••");
+  }
+}
 
 void QtWalletUI::resizeEvent(QResizeEvent *event) {
   QWidget::resizeEvent(event);
@@ -449,9 +592,12 @@ void QtWalletUI::setMockUser(const QString &username) {
     m_currentMockUser = &m_mockUsers[username];
     m_mockMode = true;
     setUserInfo(username, m_currentMockUser->primaryAddress);
-    m_balanceLabel->setText(
-        QString("Balance: %1 BTC")
-            .arg(QString::number(m_currentMockUser->balance, 'f', 8)));
+
+    // Convert BTC balance to USD
+    double btcPrice = 43000.0; // Mock BTC price
+    double usdBalance = m_currentMockUser->balance * btcPrice;
+    m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
+
     updateMockTransactionHistory();
   }
 }
@@ -530,7 +676,7 @@ void QtWalletUI::adjustButtonLayout() {
 }
 
 void QtWalletUI::updateCardSizes() {
-  if (!m_welcomeCard || !m_addressCard || !m_actionsCard || !m_historyCard) return;
+  if (!m_addressCard || !m_actionsCard || !m_historyCard) return;
 
   int windowWidth = this->width();
   int windowHeight = this->height();
@@ -558,7 +704,6 @@ void QtWalletUI::updateCardSizes() {
     }
   };
 
-  updateCardLayout(m_welcomeCard);
   updateCardLayout(m_addressCard);
   updateCardLayout(m_actionsCard);
   updateCardLayout(m_historyCard);

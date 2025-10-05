@@ -149,7 +149,7 @@ Result<User> UserRepository::getUserByUsername(const std::string& username) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "getUserByUsername");
 
     const std::string sql = R"(
-        SELECT id, username, password_hash, salt, created_at, last_login, wallet_version, is_active
+        SELECT id, username, email, password_hash, salt, created_at, last_login, wallet_version, is_active
         FROM users
         WHERE username = ? AND is_active = 1
     )";
@@ -180,7 +180,7 @@ Result<User> UserRepository::getUserById(int userId) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "getUserById");
 
     const std::string sql = R"(
-        SELECT id, username, password_hash, salt, created_at, last_login, wallet_version, is_active
+        SELECT id, username, email, password_hash, salt, created_at, last_login, wallet_version, is_active
         FROM users
         WHERE id = ?
     )";
@@ -367,30 +367,31 @@ User UserRepository::mapRowToUser(sqlite3_stmt* stmt) {
     User user;
     user.id = sqlite3_column_int(stmt, 0);
     user.username = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-    user.passwordHash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+    user.email = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+    user.passwordHash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
 
     // Extract salt blob
-    const void* saltData = sqlite3_column_blob(stmt, 3);
-    int saltSize = sqlite3_column_bytes(stmt, 3);
+    const void* saltData = sqlite3_column_blob(stmt, 4);
+    int saltSize = sqlite3_column_bytes(stmt, 4);
     if (saltData && saltSize > 0) {
         user.salt.assign(static_cast<const uint8_t*>(saltData),
                         static_cast<const uint8_t*>(saltData) + saltSize);
     }
 
     // Parse timestamps (SQLite stores as strings)
-    const char* createdAtStr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+    const char* createdAtStr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
     if (createdAtStr) {
         // For simplicity, using current time. In production, would parse ISO string
         user.createdAt = std::chrono::system_clock::now();
     }
 
-    const char* lastLoginStr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+    const char* lastLoginStr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
     if (lastLoginStr && strlen(lastLoginStr) > 0) {
         user.lastLogin = std::chrono::system_clock::now();
     }
 
-    user.walletVersion = sqlite3_column_int(stmt, 6);
-    user.isActive = sqlite3_column_int(stmt, 7) != 0;
+    user.walletVersion = sqlite3_column_int(stmt, 7);
+    user.isActive = sqlite3_column_int(stmt, 8) != 0;
 
     return user;
 }
