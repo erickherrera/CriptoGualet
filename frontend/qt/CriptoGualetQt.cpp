@@ -5,6 +5,8 @@
 #include "QtSeedDisplayDialog.h"
 #include "QtThemeManager.h"
 #include "QtWalletUI.h"
+#include "QtSettingsUI.h"
+#include "QtSidebar.h"
 #include "WalletAPI.h"
 
 #include <QAction>
@@ -64,15 +66,31 @@ void CriptoGualetQt::setupUI() {
   // Create navbar
   createNavbar();
 
-  // Create stacked widget for pages
-  m_stackedWidget = new QStackedWidget(m_centralWidget);
-  m_mainLayout->addWidget(m_stackedWidget);
+  // Create a container widget that will hold both sidebar and content
+  QWidget *contentContainer = new QWidget(m_centralWidget);
+  contentContainer->setObjectName("contentContainer");
+
+  // Create stacked widget for pages (this will be the base layer)
+  m_stackedWidget = new QStackedWidget(contentContainer);
+  m_stackedWidget->setGeometry(0, 0, contentContainer->width(), contentContainer->height());
 
   m_loginUI = new QtLoginUI(this);
   m_walletUI = new QtWalletUI(this);
+  m_settingsUI = new QtSettingsUI(this);
 
   m_stackedWidget->addWidget(m_loginUI);
   m_stackedWidget->addWidget(m_walletUI);
+  m_stackedWidget->addWidget(m_settingsUI);
+
+  // Create sidebar as overlay (will be positioned on top of stacked widget)
+  m_sidebar = new QtSidebar(m_themeManager, contentContainer);
+  m_sidebar->raise(); // Ensure sidebar is on top
+  m_sidebar->hide(); // Initially hidden
+
+  m_mainLayout->addWidget(contentContainer);
+
+  // Connect sidebar navigation signals
+  createSidebar();
 
   connect(
       m_loginUI, &QtLoginUI::loginRequested,
@@ -310,7 +328,6 @@ void CriptoGualetQt::createNavbar() {
 
   // Connect sign out button
   connect(m_signOutButton, &QPushButton::clicked, this,
-
           &CriptoGualetQt::showLoginScreen);
 
   // Add navbar to main layout (at the top)
@@ -318,6 +335,13 @@ void CriptoGualetQt::createNavbar() {
 
   // Initially hidden until user logs in
   m_navbar->hide();
+}
+
+void CriptoGualetQt::createSidebar() {
+  // Sidebar is now created in setupUI() since it needs to be a child of contentContainer
+  // Connect navigation signals
+  connect(m_sidebar, &QtSidebar::navigateToWallet, this, &CriptoGualetQt::showWalletScreen);
+  connect(m_sidebar, &QtSidebar::navigateToSettings, this, &CriptoGualetQt::showSettingsScreen);
 }
 
 void CriptoGualetQt::setupMenuBar() {
@@ -359,28 +383,55 @@ void CriptoGualetQt::showLoginScreen() {
   g_currentUser.clear();
   m_stackedWidget->setCurrentWidget(m_loginUI);
   updateNavbarVisibility();
+  updateSidebarVisibility();
   statusBar()->showMessage("Please log in or create an account");
 }
 
 void CriptoGualetQt::showWalletScreen() {
   m_stackedWidget->setCurrentWidget(m_walletUI);
   updateNavbarVisibility();
+  updateSidebarVisibility();
   statusBar()->showMessage(
       QString("Logged in as: %1").arg(QString::fromStdString(g_currentUser)));
 }
 
+void CriptoGualetQt::showSettingsScreen() {
+  m_stackedWidget->setCurrentWidget(m_settingsUI);
+  updateNavbarVisibility();
+  updateSidebarVisibility();
+  statusBar()->showMessage("Settings");
+}
+
 void CriptoGualetQt::updateNavbarVisibility() {
-  // Show navbar only when wallet screen is visible
-  if (m_stackedWidget->currentWidget() == m_walletUI) {
+  // Show navbar only when not on login screen
+  if (m_stackedWidget->currentWidget() != m_loginUI) {
     m_navbar->show();
   } else {
     m_navbar->hide();
   }
 }
 
+void CriptoGualetQt::updateSidebarVisibility() {
+  // Show sidebar only when not on login screen
+  if (m_stackedWidget->currentWidget() != m_loginUI) {
+    m_sidebar->show();
+    // Position sidebar at left edge of content container (below navbar)
+    QWidget *contentContainer = m_sidebar->parentWidget();
+    if (contentContainer) {
+      m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
+    }
+  } else {
+    m_sidebar->hide();
+  }
+}
+
 void CriptoGualetQt::onThemeChanged() {
   m_loginUI->applyTheme();
   m_walletUI->applyTheme();
+  m_settingsUI->applyTheme();
+  if (m_sidebar) {
+    m_sidebar->applyTheme();
+  }
   applyNavbarStyling();
 }
 
@@ -391,6 +442,22 @@ void CriptoGualetQt::applyNavbarStyling() {
   // Apply fonts to navbar components
   m_appTitleLabel->setFont(m_themeManager->titleFont());
   m_signOutButton->setFont(m_themeManager->buttonFont());
+}
+
+void CriptoGualetQt::resizeEvent(QResizeEvent *event) {
+  QMainWindow::resizeEvent(event);
+
+  // Update sidebar and stacked widget geometry when window is resized
+  if (m_sidebar && m_stackedWidget) {
+    QWidget *contentContainer = m_sidebar->parentWidget();
+    if (contentContainer) {
+      // Resize stacked widget to fill content container
+      m_stackedWidget->setGeometry(0, 0, contentContainer->width(), contentContainer->height());
+
+      // Resize sidebar to match container height
+      m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
+    }
+  }
 }
 
 int main(int argc, char *argv[]) {

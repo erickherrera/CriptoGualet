@@ -1,6 +1,5 @@
 #include "../include/CriptoGualetQt.h"
 #include "../include/Auth.h"
-#include "../include/CriptoGualet.h"
 #include "../include/QtLoginUI.h"
 #include "../include/QtSeedDisplayDialog.h"
 #include "../include/QtThemeManager.h"
@@ -33,7 +32,8 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   setWindowState(Qt::WindowMaximized);
 
   // Ensure window is visible and properly positioned
-  setWindowFlags(Qt::Window) setAttribute(Qt::WA_ShowWithoutActivating, false);
+  setWindowFlags(Qt::Window);
+  setAttribute(Qt::WA_ShowWithoutActivating, false);
 
   // Initialize wallet
   m_wallet = std::make_unique<WalletAPI::SimpleWallet>("btc/test3");

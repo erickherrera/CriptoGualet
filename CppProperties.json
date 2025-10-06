@@ -1,35 +1,3 @@
 {
-  "configurations": [
-    {
-      "inheritEnvironments": [
-        "clang_cl"
-      ],
-      "name": "x64-Clang",
-      "includePath": [
-        "${workspaceRoot}\\**",
-        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include",
-        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include\\QtCore",
-        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include\\QtWidgets",
-        "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\include\\QtGui"
-      ],
-      "compileCommands": "${workspaceRoot}\\build\\compile_commands.json",
-      "defines": [
-        "WIN32",
-        "_DEBUG",
-        "UNICODE",
-        "_UNICODE",
-        "QT_CORE_LIB",
-        "QT_WIDGETS_LIB",
-        "QT_GUI_LIB",
-        "QT_DLL",
-        "QT_NO_DEBUG",
-        "_WIN64",
-        "__clang__"
-      ],
-      "intelliSenseMode": "windows-clang-x64",
-      "compilerPath": "clang.exe",
-      "cStandard": "c17",
-      "cppStandard": "c++20"
-    }
-  ]
+  "configurations": []
 }
