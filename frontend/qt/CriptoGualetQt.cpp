@@ -66,13 +66,17 @@ void CriptoGualetQt::setupUI() {
   // Create navbar
   createNavbar();
 
-  // Create a container widget that will hold both sidebar and content
+  // Create a container widget that will hold the stacked widget
   QWidget *contentContainer = new QWidget(m_centralWidget);
   contentContainer->setObjectName("contentContainer");
 
-  // Create stacked widget for pages (this will be the base layer)
+  // Use vertical layout for just the stacked widget
+  QVBoxLayout *contentLayout = new QVBoxLayout(contentContainer);
+  contentLayout->setContentsMargins(0, 0, 0, 0);
+  contentLayout->setSpacing(0);
+
+  // Create stacked widget for pages (fills the entire container)
   m_stackedWidget = new QStackedWidget(contentContainer);
-  m_stackedWidget->setGeometry(0, 0, contentContainer->width(), contentContainer->height());
 
   m_loginUI = new QtLoginUI(this);
   m_walletUI = new QtWalletUI(this);
@@ -82,12 +86,14 @@ void CriptoGualetQt::setupUI() {
   m_stackedWidget->addWidget(m_walletUI);
   m_stackedWidget->addWidget(m_settingsUI);
 
-  // Create sidebar as overlay (will be positioned on top of stacked widget)
+  contentLayout->addWidget(m_stackedWidget);
+
+  m_mainLayout->addWidget(contentContainer);
+
+  // Create sidebar as an OVERLAY on top of the content container
   m_sidebar = new QtSidebar(m_themeManager, contentContainer);
   m_sidebar->raise(); // Ensure sidebar is on top
   m_sidebar->hide(); // Initially hidden
-
-  m_mainLayout->addWidget(contentContainer);
 
   // Connect sidebar navigation signals
   createSidebar();
@@ -415,7 +421,7 @@ void CriptoGualetQt::updateSidebarVisibility() {
   // Show sidebar only when not on login screen
   if (m_stackedWidget->currentWidget() != m_loginUI) {
     m_sidebar->show();
-    // Position sidebar at left edge of content container (below navbar)
+    // Position sidebar as overlay at left edge
     QWidget *contentContainer = m_sidebar->parentWidget();
     if (contentContainer) {
       m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
@@ -447,14 +453,10 @@ void CriptoGualetQt::applyNavbarStyling() {
 void CriptoGualetQt::resizeEvent(QResizeEvent *event) {
   QMainWindow::resizeEvent(event);
 
-  // Update sidebar and stacked widget geometry when window is resized
-  if (m_sidebar && m_stackedWidget) {
+  // Update sidebar geometry as overlay when window is resized
+  if (m_sidebar && m_sidebar->isVisible()) {
     QWidget *contentContainer = m_sidebar->parentWidget();
     if (contentContainer) {
-      // Resize stacked widget to fill content container
-      m_stackedWidget->setGeometry(0, 0, contentContainer->width(), contentContainer->height());
-
-      // Resize sidebar to match container height
       m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
     }
   }

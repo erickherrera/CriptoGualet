@@ -28,12 +28,14 @@ private:
     void setupUI();
     void animateSidebar(bool expand);
     void createNavigationButtons();
+    QIcon createColoredIcon(const QString &svgPath, const QColor &color);
 
     QtThemeManager *m_themeManager;
     QWidget *m_sidebarContent;
     QVBoxLayout *m_mainLayout;
     QVBoxLayout *m_navLayout;
 
+    QPushButton *m_menuButton;
     QPushButton *m_walletButton;
     QPushButton *m_settingsButton;
 
@@ -41,6 +43,6 @@ private:
 
     bool m_isExpanded;
 
-    static constexpr int COLLAPSED_WIDTH = 60;
+    static constexpr int COLLAPSED_WIDTH = 70;
     static constexpr int EXPANDED_WIDTH = 240;
 };
