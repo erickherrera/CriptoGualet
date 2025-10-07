@@ -182,40 +182,86 @@ bool QtSidebar::eventFilter(QObject *obj, QEvent *event) {
 }
 
 QIcon QtSidebar::createColoredIcon(const QString &svgPath, const QColor &color) {
+    // Render at higher resolution for better quality (2x scaling)
+    const int size = 48;
+    const int displaySize = 24;
+
     QSvgRenderer renderer(svgPath);
-    QPixmap pixmap(24, 24);
+    QPixmap pixmap(size, size);
     pixmap.fill(Qt::transparent);
 
+    // Enable high-quality rendering
     QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     renderer.render(&painter);
     painter.end();
 
     // Colorize the icon
-    QPixmap coloredPixmap(24, 24);
+    QPixmap coloredPixmap(size, size);
     coloredPixmap.fill(Qt::transparent);
 
     QPainter colorPainter(&coloredPixmap);
+    colorPainter.setRenderHint(QPainter::Antialiasing, true);
+    colorPainter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     colorPainter.setCompositionMode(QPainter::CompositionMode_Source);
     colorPainter.drawPixmap(0, 0, pixmap);
     colorPainter.setCompositionMode(QPainter::CompositionMode_SourceIn);
     colorPainter.fillRect(coloredPixmap.rect(), color);
     colorPainter.end();
 
-    return QIcon(coloredPixmap);
+    // Scale down to display size for crisp rendering
+    QPixmap scaledPixmap = coloredPixmap.scaled(displaySize, displaySize,
+                                                  Qt::KeepAspectRatio,
+                                                  Qt::SmoothTransformation);
+
+    return QIcon(scaledPixmap);
 }
 
 void QtSidebar::applyTheme() {
-    // Determine if theme is dark or light based on background luminance
-    bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
+    // Get current theme type
+    ThemeType themeType = m_themeManager->getCurrentTheme();
 
-    // Use grey tones that match the theme direction but remain clearly grey
-    // For dark themes: use a LIGHTER neutral grey (stays grey, doesn't blend with dark background)
-    // For light themes: use a DARKER neutral grey (stays grey, doesn't blend with light background)
-    QString sidebarBg = isDarkTheme ? "#505050" : "#383838";  // Pure greys
-    QString borderColor = isDarkTheme ? "#606060" : "#2a2a2a";
-    QString hoverColor = isDarkTheme ? "#5a5a5a" : "#484848";
-    QString pressedColor = isDarkTheme ? "#656565" : "#555555";
-    QString textColor = isDarkTheme ? "#e8e8e8" : "#d0d0d0";
+    // Define gray tones for each theme
+    QString sidebarBg, borderColor, textColor;
+    QColor iconColor;
+    QColor accentColor = m_themeManager->accentColor();
+    QString hoverColor = accentColor.name();
+    QString pressedColor = accentColor.darker(120).name();
+
+    switch (themeType) {
+        case ThemeType::DARK:
+            // Medium gray for regular dark theme
+            sidebarBg = "#4a4a4a";
+            borderColor = "#5a5a5a";
+            textColor = "#e8e8e8";
+            iconColor = QColor(232, 232, 232);
+            break;
+
+        case ThemeType::LIGHT:
+            // Medium-dark gray for light theme - darker text and icons for visibility
+            sidebarBg = "#5a5a5a";
+            borderColor = "#4a4a4a";
+            textColor = "#202020";
+            iconColor = QColor(40, 40, 40);
+            break;
+
+        case ThemeType::CRYPTO_DARK:
+            // Slightly darker gray for crypto dark theme
+            sidebarBg = "#3a3a3a";
+            borderColor = "#4a4a4a";
+            textColor = "#e0e0e0";
+            iconColor = QColor(224, 224, 224);
+            break;
+
+        case ThemeType::CRYPTO_LIGHT:
+            // Light gray for crypto light theme - darker text and icons for visibility
+            sidebarBg = "#6a6a6a";
+            borderColor = "#5a5a5a";
+            textColor = "#1a1a1a";
+            iconColor = QColor(30, 30, 30);
+            break;
+    }
 
     QString sidebarStyle = QString(R"(
         QtSidebar {
@@ -263,7 +309,6 @@ void QtSidebar::applyTheme() {
     setStyleSheet(sidebarStyle);
 
     // Create colored SVG icons that match text color
-    QColor iconColor = isDarkTheme ? QColor(232, 232, 232) : QColor(208, 208, 208);
     QIcon menuIcon = createColoredIcon(":/icons/icons/menu.svg", iconColor);
     QIcon walletIcon = createColoredIcon(":/icons/icons/wallet.svg", iconColor);
     QIcon settingsIcon = createColoredIcon(":/icons/icons/settings.svg", iconColor);
