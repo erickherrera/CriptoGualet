@@ -2,6 +2,7 @@
 #include "QtWalletUI.h"
 #include "QtExpandableWalletCard.h"
 #include "QtThemeManager.h"
+#include "PriceService.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -28,7 +29,19 @@
 
 QtWalletUI::QtWalletUI(QWidget *parent)
     : QWidget(parent), m_themeManager(&QtThemeManager::instance()),
-      m_currentMockUser(nullptr), m_balanceVisible(true), m_mockMode(false) {
+      m_currentMockUser(nullptr), m_balanceVisible(true), m_mockMode(false),
+      m_currentBTCPrice(0.0) {
+  // Initialize price fetcher
+  m_priceFetcher = std::make_unique<PriceService::PriceFetcher>();
+
+  // Setup price update timer (refresh every 60 seconds)
+  m_priceUpdateTimer = new QTimer(this);
+  connect(m_priceUpdateTimer, &QTimer::timeout, this, &QtWalletUI::onPriceUpdateTimer);
+  m_priceUpdateTimer->start(60000); // 60 seconds
+
+  // Fetch initial price
+  fetchBTCPrice();
+
   initializeMockUsers();
   setupUI();
   applyTheme();
@@ -173,21 +186,19 @@ void QtWalletUI::setUserInfo(const QString &username, const QString &address) {
 }
 
 void QtWalletUI::onViewBalanceClicked() {
-  // Mock balance data for testing
-  double mockBalance = 0.15234567;
-  double btcPrice = 43000.0; // Mock BTC price
-  double usdBalance = mockBalance * btcPrice;
-
-  if (m_balanceVisible) {
-    m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
+  if (!m_currentMockUser) {
+    return;
   }
+
+  double usdBalance = m_currentMockUser->balance * m_currentBTCPrice;
 
   QMessageBox::information(
       this, "Balance Updated",
-      QString("Your current balance:\n%1 BTC\n$%L2 USD\n\nThis is "
+      QString("Your current balance:\n%1 BTC\n$%L2 USD\n\nBTC Price: $%L3\n\nThis is "
               "mock data for testing purposes.")
-          .arg(QString::number(mockBalance, 'f', 8))
-          .arg(usdBalance, 0, 'f', 2));
+          .arg(QString::number(m_currentMockUser->balance, 'f', 8))
+          .arg(usdBalance, 0, 'f', 2)
+          .arg(m_currentBTCPrice, 0, 'f', 2));
 
   emit viewBalanceRequested();
 }
@@ -388,14 +399,8 @@ void QtWalletUI::onToggleBalanceClicked() {
     // Show balance - open eye icon
     m_toggleBalanceButton->setIcon(
         createColoredIcon(":/icons/icons/eye-open.svg", iconColor));
-    // Restore the actual balance value
-    if (m_currentMockUser) {
-      double btcPrice = 43000.0; // Mock BTC price
-      double usdBalance = m_currentMockUser->balance * btcPrice;
-      m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
-    } else {
-      m_balanceLabel->setText("$0.00 USD");
-    }
+    // Restore the actual balance value with real-time price
+    updateUSDBalance();
   } else {
     // Hide balance - closed/crossed eye icon
     m_toggleBalanceButton->setIcon(
@@ -491,10 +496,8 @@ void QtWalletUI::setMockUser(const QString &username) {
     m_mockMode = true;
     setUserInfo(username, m_currentMockUser->primaryAddress);
 
-    // Convert BTC balance to USD for header
-    double btcPrice = 43000.0; // Mock BTC price
-    double usdBalance = m_currentMockUser->balance * btcPrice;
-    m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
+    // Use real-time BTC price
+    updateUSDBalance();
 
     // Update Bitcoin wallet card balance
     if (m_bitcoinWalletCard) {
@@ -563,4 +566,39 @@ void QtWalletUI::adjustButtonLayout() {
 
 void QtWalletUI::updateCardSizes() {
   // Card sizing handled by the reusable wallet card component
+}
+
+void QtWalletUI::fetchBTCPrice() {
+  if (!m_priceFetcher) {
+    return;
+  }
+
+  // Fetch price in background (this may take a moment)
+  auto priceOpt = m_priceFetcher->GetBTCPrice();
+  if (priceOpt.has_value()) {
+    m_currentBTCPrice = priceOpt.value();
+    updateUSDBalance();
+  } else {
+    // If fetch fails, keep using the last known price
+    // or set a default fallback price
+    if (m_currentBTCPrice == 0.0) {
+      m_currentBTCPrice = 43000.0; // Fallback price
+    }
+  }
+}
+
+void QtWalletUI::updateUSDBalance() {
+  if (!m_currentMockUser || m_currentBTCPrice == 0.0) {
+    return;
+  }
+
+  double usdBalance = m_currentMockUser->balance * m_currentBTCPrice;
+  if (m_balanceVisible) {
+    m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
+  }
+}
+
+void QtWalletUI::onPriceUpdateTimer() {
+  // This runs every 60 seconds to refresh the BTC price
+  fetchBTCPrice();
 }

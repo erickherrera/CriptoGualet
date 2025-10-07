@@ -11,6 +11,17 @@ if(BLOCKCYPHER_AVAILABLE)
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
   )
   target_link_libraries(BlockCypher PRIVATE cpr::cpr nlohmann_json::nlohmann_json)
+
+  # Price Service Library
+  message(STATUS "Building Price Service")
+  add_library(PriceService STATIC
+    "PriceService.cpp"
+    "include/PriceService.h"
+  )
+  target_include_directories(PriceService PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  )
+  target_link_libraries(PriceService PRIVATE cpr::cpr nlohmann_json::nlohmann_json)
 else()
   message(STATUS "BlockCypher API will not be built - dependencies not found")
   message(STATUS "Run 'vcpkg install' to install dependencies: cpr, nlohmann-json")

@@ -41,7 +41,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
 
   # Add BlockCypher libraries if available
   if(BLOCKCYPHER_AVAILABLE)
-    list(APPEND QT_LINK_LIBRARIES BlockCypher WalletAPI)
+    list(APPEND QT_LINK_LIBRARIES BlockCypher WalletAPI PriceService)
     target_compile_definitions(CriptoGualetQt PRIVATE BLOCKCYPHER_AVAILABLE)
   endif()
 
