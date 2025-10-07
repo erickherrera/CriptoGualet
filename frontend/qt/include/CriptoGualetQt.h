@@ -1,48 +1,59 @@
 #pragma once
 
-#include <QMainWindow>
-#include <QStackedWidget>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include "../../../backend/core/include/WalletAPI.h"
 #include <QApplication>
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QMainWindow>
 #include <QPushButton>
+#include <QResizeEvent>
+#include <QStackedWidget>
+#include <QVBoxLayout>
 #include <memory>
-#include "WalletAPI.h"
 
 class QtLoginUI;
 class QtWalletUI;
+class QtSettingsUI;
 class QtThemeManager;
+class QtSidebar;
 
 class CriptoGualetQt : public QMainWindow {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-    explicit CriptoGualetQt(QWidget *parent = nullptr);
-    ~CriptoGualetQt() = default;
+  explicit CriptoGualetQt(QWidget *parent = nullptr);
+  ~CriptoGualetQt() = default;
 
 public slots:
-    void showLoginScreen();
-    void showWalletScreen();
-    void onThemeChanged();
+  void showLoginScreen();
+  void showWalletScreen();
+  void showSettingsScreen();
+  void onThemeChanged();
+
+protected:
+  void resizeEvent(QResizeEvent *event) override;
 
 private:
-    void setupUI();
-    void setupMenuBar();
-    void setupStatusBar();
-    void createNavbar();
-    void updateNavbarVisibility();
-    void applyNavbarStyling();
-    
-    QWidget *m_centralWidget;
-    QVBoxLayout *m_mainLayout;
-    QFrame *m_navbar;
-    QLabel *m_appTitleLabel;
-    QPushButton *m_signOutButton;
-    QStackedWidget *m_stackedWidget;
-    QtLoginUI *m_loginUI;
-    QtWalletUI *m_walletUI;
-    QtThemeManager *m_themeManager;
-    std::unique_ptr<WalletAPI::SimpleWallet> m_wallet;
+  void setupUI();
+  void setupMenuBar();
+  void setupStatusBar();
+  void createNavbar();
+  void createSidebar();
+  void updateNavbarVisibility();
+  void updateSidebarVisibility();
+  void applyNavbarStyling();
+
+  QWidget *m_centralWidget;
+  QVBoxLayout *m_mainLayout;
+  QFrame *m_navbar;
+  QLabel *m_appTitleLabel;
+  QPushButton *m_signOutButton;
+  QStackedWidget *m_stackedWidget;
+  QtLoginUI *m_loginUI;
+  QtWalletUI *m_walletUI;
+  QtSettingsUI *m_settingsUI;
+  QtSidebar *m_sidebar;
+  QtThemeManager *m_themeManager;
+  std::unique_ptr<WalletAPI::SimpleWallet> m_wallet;
 };

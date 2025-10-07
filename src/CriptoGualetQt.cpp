@@ -1,13 +1,10 @@
-#include "CriptoGualetQt.h"
-#include "Auth.h"
-#include "SharedTypes.h"
-#include "QtLoginUI.h"
-#include "QtSeedDisplayDialog.h"
-#include "QtThemeManager.h"
-#include "QtWalletUI.h"
-#include "QtSettingsUI.h"
-#include "QtSidebar.h"
-#include "WalletAPI.h"
+#include "../include/CriptoGualetQt.h"
+#include "../include/Auth.h"
+#include "../include/QtLoginUI.h"
+#include "../include/QtSeedDisplayDialog.h"
+#include "../include/QtThemeManager.h"
+#include "../include/QtWalletUI.h"
+#include "../include/WalletAPI.h"
 
 #include <QAction>
 #include <QApplication>
@@ -66,37 +63,15 @@ void CriptoGualetQt::setupUI() {
   // Create navbar
   createNavbar();
 
-  // Create a container widget that will hold the stacked widget
-  QWidget *contentContainer = new QWidget(m_centralWidget);
-  contentContainer->setObjectName("contentContainer");
-
-  // Use vertical layout for just the stacked widget
-  QVBoxLayout *contentLayout = new QVBoxLayout(contentContainer);
-  contentLayout->setContentsMargins(0, 0, 0, 0);
-  contentLayout->setSpacing(0);
-
-  // Create stacked widget for pages (fills the entire container)
-  m_stackedWidget = new QStackedWidget(contentContainer);
+  // Create stacked widget for pages
+  m_stackedWidget = new QStackedWidget(m_centralWidget);
+  m_mainLayout->addWidget(m_stackedWidget);
 
   m_loginUI = new QtLoginUI(this);
   m_walletUI = new QtWalletUI(this);
-  m_settingsUI = new QtSettingsUI(this);
 
   m_stackedWidget->addWidget(m_loginUI);
   m_stackedWidget->addWidget(m_walletUI);
-  m_stackedWidget->addWidget(m_settingsUI);
-
-  contentLayout->addWidget(m_stackedWidget);
-
-  m_mainLayout->addWidget(contentContainer);
-
-  // Create sidebar as an OVERLAY on top of the content container
-  m_sidebar = new QtSidebar(m_themeManager, contentContainer);
-  m_sidebar->raise(); // Ensure sidebar is on top
-  m_sidebar->hide(); // Initially hidden
-
-  // Connect sidebar navigation signals
-  createSidebar();
 
   connect(
       m_loginUI, &QtLoginUI::loginRequested,
@@ -334,6 +309,7 @@ void CriptoGualetQt::createNavbar() {
 
   // Connect sign out button
   connect(m_signOutButton, &QPushButton::clicked, this,
+
           &CriptoGualetQt::showLoginScreen);
 
   // Add navbar to main layout (at the top)
@@ -341,13 +317,6 @@ void CriptoGualetQt::createNavbar() {
 
   // Initially hidden until user logs in
   m_navbar->hide();
-}
-
-void CriptoGualetQt::createSidebar() {
-  // Sidebar is now created in setupUI() since it needs to be a child of contentContainer
-  // Connect navigation signals
-  connect(m_sidebar, &QtSidebar::navigateToWallet, this, &CriptoGualetQt::showWalletScreen);
-  connect(m_sidebar, &QtSidebar::navigateToSettings, this, &CriptoGualetQt::showSettingsScreen);
 }
 
 void CriptoGualetQt::setupMenuBar() {
@@ -389,55 +358,28 @@ void CriptoGualetQt::showLoginScreen() {
   g_currentUser.clear();
   m_stackedWidget->setCurrentWidget(m_loginUI);
   updateNavbarVisibility();
-  updateSidebarVisibility();
   statusBar()->showMessage("Please log in or create an account");
 }
 
 void CriptoGualetQt::showWalletScreen() {
   m_stackedWidget->setCurrentWidget(m_walletUI);
   updateNavbarVisibility();
-  updateSidebarVisibility();
   statusBar()->showMessage(
       QString("Logged in as: %1").arg(QString::fromStdString(g_currentUser)));
 }
 
-void CriptoGualetQt::showSettingsScreen() {
-  m_stackedWidget->setCurrentWidget(m_settingsUI);
-  updateNavbarVisibility();
-  updateSidebarVisibility();
-  statusBar()->showMessage("Settings");
-}
-
 void CriptoGualetQt::updateNavbarVisibility() {
-  // Show navbar only when not on login screen
-  if (m_stackedWidget->currentWidget() != m_loginUI) {
+  // Show navbar only when wallet screen is visible
+  if (m_stackedWidget->currentWidget() == m_walletUI) {
     m_navbar->show();
   } else {
     m_navbar->hide();
   }
 }
 
-void CriptoGualetQt::updateSidebarVisibility() {
-  // Show sidebar only when not on login screen
-  if (m_stackedWidget->currentWidget() != m_loginUI) {
-    m_sidebar->show();
-    // Position sidebar as overlay at left edge
-    QWidget *contentContainer = m_sidebar->parentWidget();
-    if (contentContainer) {
-      m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
-    }
-  } else {
-    m_sidebar->hide();
-  }
-}
-
 void CriptoGualetQt::onThemeChanged() {
   m_loginUI->applyTheme();
   m_walletUI->applyTheme();
-  m_settingsUI->applyTheme();
-  if (m_sidebar) {
-    m_sidebar->applyTheme();
-  }
   applyNavbarStyling();
 }
 
@@ -448,18 +390,6 @@ void CriptoGualetQt::applyNavbarStyling() {
   // Apply fonts to navbar components
   m_appTitleLabel->setFont(m_themeManager->titleFont());
   m_signOutButton->setFont(m_themeManager->buttonFont());
-}
-
-void CriptoGualetQt::resizeEvent(QResizeEvent *event) {
-  QMainWindow::resizeEvent(event);
-
-  // Update sidebar geometry as overlay when window is resized
-  if (m_sidebar && m_sidebar->isVisible()) {
-    QWidget *contentContainer = m_sidebar->parentWidget();
-    if (contentContainer) {
-      m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
-    }
-  }
 }
 
 int main(int argc, char *argv[]) {

@@ -13,6 +13,9 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QTimer>
+#include <memory>
+#include "PriceService.h"
 
 // Forward declarations
 class QtThemeManager;
@@ -64,6 +67,7 @@ private slots:
   void onLogoutClicked();
   void onThemeChanged();
   void onToggleBalanceClicked();
+  void onPriceUpdateTimer();
 
 protected:
   void resizeEvent(QResizeEvent *event) override;
@@ -110,6 +114,13 @@ private:
   void updateMockTransactionHistory();
   QMap<QString, MockUserData> m_mockUsers;
   MockUserData *m_currentMockUser;
+
+  // Price service
+  std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;
+  QTimer *m_priceUpdateTimer;
+  double m_currentBTCPrice;
+  void updateUSDBalance();
+  void fetchBTCPrice();
 
   // Flags
   bool m_balanceVisible;

@@ -28,16 +28,17 @@ void QtExpandableWalletCard::setupUI() {
   collapsedLayout->setContentsMargins(20, 12, 20, 12);
   collapsedLayout->setSpacing(15);
 
-  // Crypto logo container with background
+  // Crypto logo container with background (circular)
   QWidget *logoContainer = new QWidget(m_collapsedHeader);
   logoContainer->setObjectName("logoContainer");
-  logoContainer->setFixedSize(36, 36);
+  logoContainer->setFixedSize(40, 40);
 
   QHBoxLayout *logoLayout = new QHBoxLayout(logoContainer);
   logoLayout->setContentsMargins(0, 0, 0, 0);
   logoLayout->setAlignment(Qt::AlignCenter);
 
   m_cryptoLogo = new QLabel("₿", logoContainer);
+  m_cryptoLogo->setObjectName("cryptoLogo");
   m_cryptoLogo->setAlignment(Qt::AlignCenter);
   logoLayout->addWidget(m_cryptoLogo);
 
@@ -45,6 +46,7 @@ void QtExpandableWalletCard::setupUI() {
 
   // Balance container
   QWidget *balanceContainer = new QWidget(m_collapsedHeader);
+  balanceContainer->setObjectName("balanceContainer");
   QVBoxLayout *balanceLayout = new QVBoxLayout(balanceContainer);
   balanceLayout->setContentsMargins(0, 0, 0, 0);
   balanceLayout->setSpacing(2);
@@ -98,8 +100,9 @@ void QtExpandableWalletCard::setupUI() {
 
   // Transaction history section
   QWidget *historySection = new QWidget(m_expandedContent);
+  historySection->setObjectName("historySection");
   QVBoxLayout *historyLayout = new QVBoxLayout(historySection);
-  historyLayout->setContentsMargins(0, 0, 0, 0);
+  historyLayout->setContentsMargins(15, 15, 15, 15);
   historyLayout->setSpacing(10);
 
   m_historyTitleLabel = new QLabel("Transaction History", historySection);
@@ -159,18 +162,24 @@ void QtExpandableWalletCard::updateStyles() {
   QString accent = m_themeManager->accentColor().name();
   QString text = m_themeManager->textColor().name();
   QString textSecondary = m_themeManager->subtitleColor().name();
+  QString primary = m_themeManager->primaryColor().name();
+  QString background = m_themeManager->backgroundColor().name();
 
-  // Card styling
+  // Determine if dark theme for better contrast
+  bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
+
+  // Card styling with rounded corners
   QString walletCardCss = QString(R"(
     QFrame#expandableWalletCard {
       background-color: %1;
       border: 1px solid %2;
-      border-radius: 0px;
+      border-radius: 12px;
     }
     QWidget#walletButton {
       background-color: %2;
       border: none;
-      border-radius: 0px;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
     }
     QWidget#walletButton:hover {
       background-color: %3;
@@ -178,69 +187,93 @@ void QtExpandableWalletCard::updateStyles() {
     QWidget#expandedCard {
       background-color: %1;
       border-top: 1px solid %2;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
     }
     QWidget#logoContainer {
-      background-color: %1;
+      background-color: %6;
       border: none;
-      border-radius: 0px;
+      border-radius: 20px;
+    }
+    QWidget#balanceContainer {
+      background-color: transparent;
+      border: none;
+    }
+    QWidget#historySection {
+      background-color: %4;
+      border: 1px solid %5;
+      border-radius: 12px;
     }
   )")
-                              .arg(surface)
-                              .arg(accent)
-                              .arg(m_themeManager->accentColor().lighter(110).name());
+                              .arg(surface)                                             // %1 - card background
+                              .arg(accent)                                              // %2 - header/border
+                              .arg(m_themeManager->accentColor().lighter(110).name())   // %3 - hover
+                              .arg(primary)                                             // %4 - history section bg
+                              .arg(m_themeManager->secondaryColor().name())             // %5 - history section border
+                              .arg(background);                                         // %6 - logo container bg
 
   setStyleSheet(walletCardCss);
 
-  // Logo styling
+  // Logo styling with high contrast
+  // Use accent color for icon on foreground background for extra contrast
   QString logoStyle = QString(R"(
-    QLabel {
+    QLabel#cryptoLogo {
       color: %1;
-      font-size: 20px;
+      font-size: 22px;
       font-weight: bold;
       background: transparent;
       border: none;
     }
-  )").arg(text);
+  )").arg(accent);
   m_cryptoLogo->setStyleSheet(logoStyle);
 
-  // Crypto name styling
+  // Crypto name styling - light text on dark themes, dark text on light themes
+  QString cryptoNameColor = isDarkTheme
+      ? m_themeManager->textColor().lighter(130).name()
+      : m_themeManager->textColor().darker(150).name();
+
   QString nameStyle = QString(R"(
-    QLabel {
+    QLabel#cryptoName {
       color: %1;
       font-size: 10px;
       font-weight: 600;
       letter-spacing: 0.5px;
+      background-color: transparent;
     }
-  )").arg(textSecondary);
+  )").arg(cryptoNameColor);
   m_cryptoName->setStyleSheet(nameStyle);
 
-  // Balance styling
+  // Balance styling with better contrast
+  // Use brighter text color for better visibility
+  QString balanceColor = isDarkTheme ? m_themeManager->textColor().lighter(120).name() : text;
   QString balanceStyle = QString(R"(
-    QLabel {
+    QLabel#balanceAmount {
       color: %1;
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 700;
+      background-color: transparent;
     }
-  )").arg(text);
+  )").arg(balanceColor);
   m_balanceLabel->setStyleSheet(balanceStyle);
 
-  // Expand indicator styling
+  // Expand indicator styling - use accent color for better visibility
   QString indicatorStyle = QString(R"(
-    QLabel {
+    QLabel#expandIndicator {
       color: %1;
       font-size: 18px;
       font-weight: bold;
+      background-color: transparent;
     }
-  )").arg(text);
+  )").arg(accent);
   m_expandIndicator->setStyleSheet(indicatorStyle);
 
-  // Action button styling
+  // Action button styling with rounded corners
   QString buttonStyle = QString(R"(
     QPushButton#actionButton {
       background-color: %1;
       color: %2;
       border: none;
-      border-radius: 0px;
+      border-radius: 8px;
       padding: 12px 24px;
       font-size: 14px;
       font-weight: 600;
@@ -256,30 +289,32 @@ void QtExpandableWalletCard::updateStyles() {
   m_sendButton->setStyleSheet(buttonStyle);
   m_receiveButton->setStyleSheet(buttonStyle);
 
-  // History title styling
+  // History title styling using theme text color
   QString historyTitleStyle = QString(R"(
-    QLabel {
+    QLabel#historyTitle {
       color: %1;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 700;
+      background-color: transparent;
     }
   )").arg(text);
   m_historyTitleLabel->setStyleSheet(historyTitleStyle);
 
-  // History text area styling
+  // History text area styling - use theme colors for consistency
   QString textEditStyle = QString(R"(
-    QTextEdit {
+    QTextEdit#historyText {
       background-color: %1;
       color: %2;
-      border: none;
-      border-radius: 0px;
+      border: 1px solid %3;
+      border-radius: 8px;
       padding: 12px;
-      font-family: %3;
-      font-size: %4px;
+      font-family: %4;
+      font-size: %5px;
     }
   )")
-                            .arg(m_themeManager->surfaceColor().lighter(103).name())
-                            .arg(text)
+                            .arg(background)                                // background color
+                            .arg(text)                                      // text color
+                            .arg(m_themeManager->secondaryColor().name())   // border using secondary
                             .arg(m_themeManager->textFont().family())
                             .arg(m_themeManager->textFont().pointSize());
   m_historyText->setStyleSheet(textEditStyle);

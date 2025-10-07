@@ -8,11 +8,15 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "CriptoGualetQt.cpp"
     "QtLoginUI.cpp"
     "QtWalletUI.cpp"
+    "QtSettingsUI.cpp"
+    "QtSidebar.cpp"
     "QtThemeManager.cpp"
     "QtSeedDisplayDialog.cpp"
     "QtExpandableWalletCard.cpp"
     "include/QtLoginUI.h"
     "include/QtWalletUI.h"
+    "include/QtSettingsUI.h"
+    "include/QtSidebar.h"
     "include/QtThemeManager.h"
     "include/QtSeedDisplayDialog.h"
     "include/QtExpandableWalletCard.h"
@@ -37,7 +41,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
 
   # Add BlockCypher libraries if available
   if(BLOCKCYPHER_AVAILABLE)
-    list(APPEND QT_LINK_LIBRARIES BlockCypher WalletAPI)
+    list(APPEND QT_LINK_LIBRARIES BlockCypher WalletAPI PriceService)
     target_compile_definitions(CriptoGualetQt PRIVATE BLOCKCYPHER_AVAILABLE)
   endif()
 
@@ -50,6 +54,14 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "${CMAKE_SOURCE_DIR}/backend/database/include"
     "${CMAKE_SOURCE_DIR}/backend/repository/include"
     "${CMAKE_SOURCE_DIR}/backend/utils/include"
+  )
+
+  # Explicitly add Qt include directories for Clang compatibility
+  target_include_directories(CriptoGualetQt SYSTEM PRIVATE
+    ${Qt6Core_INCLUDE_DIRS}
+    ${Qt6Widgets_INCLUDE_DIRS}
+    ${Qt6Gui_INCLUDE_DIRS}
+    ${Qt6Svg_INCLUDE_DIRS}
   )
 
   # Cross-platform compiler flags with security for Qt target

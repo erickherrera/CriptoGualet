@@ -1,64 +1,65 @@
 #pragma once
 
-#include <QDialog>
-#include <QLabel>
-#include <QTextEdit>
-#include <QPushButton>
+#include "../../../backend/utils/include/QRGenerator.h"
 #include <QCheckBox>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QScrollArea>
+#include <QDialog>
 #include <QFrame>
-#include <QGroupBox>
 #include <QGridLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QPixmap>
+#include <QPushButton>
+#include <QScrollArea>
+#include <QTextEdit>
+#include <QVBoxLayout>
 #include <string>
 #include <vector>
-#include "QRGenerator.h"
 
 class QtSeedDisplayDialog : public QDialog {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-    explicit QtSeedDisplayDialog(const std::vector<std::string>& seedWords, QWidget* parent = nullptr);
-    ~QtSeedDisplayDialog() override = default;
+  explicit QtSeedDisplayDialog(const std::vector<std::string> &seedWords,
+                               QWidget *parent = nullptr);
+  ~QtSeedDisplayDialog() override = default;
 
-    bool userConfirmedBackup() const { return m_userConfirmed; }
+  bool userConfirmedBackup() const { return m_userConfirmed; }
 
 private slots:
-    void onConfirmBackup();
-    void onShowQRCode();
-    void onCopyToClipboard();
+  void onConfirmBackup();
+  void onShowQRCode();
+  void onCopyToClipboard();
 
 private:
-    void setupUI();
-    void setupSeedDisplay();
-    void setupQRDisplay();
-    void generateQRCode();
-    void createWordGrid();
+  void setupUI();
+  void setupSeedDisplay();
+  void setupQRDisplay();
+  void generateQRCode();
+  void createWordGrid();
 
-    // QR code generation helper methods
-    QImage createQRImage(const QR::QRData& qrData);
-    QImage scaleAndPadQRImage(const QImage& qrImage, int originalWidth);
-    void displayQRError(const QString& message);
-    void displayQRWarning();
+  // QR code generation helper methods
+  QImage createQRImage(const QR::QRData &qrData);
+  QImage scaleAndPadQRImage(const QImage &qrImage, int originalWidth);
+  void displayQRError(const QString &message);
+  void displayQRWarning();
 
-    std::vector<std::string> m_seedWords;
-    bool m_userConfirmed = false;
+  std::vector<std::string> m_seedWords;
+  bool m_userConfirmed = false;
 
-    QVBoxLayout* m_mainLayout = nullptr;
-    QScrollArea* m_scrollArea = nullptr;
-    QWidget* m_scrollContent = nullptr;
-    QVBoxLayout* m_scrollLayout = nullptr;
-    QTextEdit* m_seedTextEdit = nullptr;
-    QGridLayout* m_wordGrid = nullptr;
-    QGroupBox* m_wordGroup = nullptr;
-    QLabel* m_qrLabel = nullptr;
-    QPushButton* m_showQRButton = nullptr;
-    QPushButton* m_copyButton = nullptr;
-    QPushButton* m_confirmButton = nullptr;
-    QCheckBox* m_confirmCheckbox = nullptr;
+  QVBoxLayout *m_mainLayout = nullptr;
+  QScrollArea *m_scrollArea = nullptr;
+  QWidget *m_scrollContent = nullptr;
+  QVBoxLayout *m_scrollLayout = nullptr;
+  QTextEdit *m_seedTextEdit = nullptr;
+  QGridLayout *m_wordGrid = nullptr;
+  QGroupBox *m_wordGroup = nullptr;
+  QLabel *m_qrLabel = nullptr;
+  QPushButton *m_showQRButton = nullptr;
+  QPushButton *m_copyButton = nullptr;
+  QPushButton *m_confirmButton = nullptr;
+  QCheckBox *m_confirmCheckbox = nullptr;
 
-    QPixmap m_qrPixmap;
-    bool m_qrGenerated = false;
+  QPixmap m_qrPixmap;
+  bool m_qrGenerated = false;
 };
