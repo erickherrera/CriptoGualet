@@ -13,6 +13,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "QtThemeManager.cpp"
     "QtSeedDisplayDialog.cpp"
     "QtExpandableWalletCard.cpp"
+    "QtTopCryptosPage.cpp"
     "include/QtLoginUI.h"
     "include/QtWalletUI.h"
     "include/QtSettingsUI.h"
@@ -20,6 +21,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "include/QtThemeManager.h"
     "include/QtSeedDisplayDialog.h"
     "include/QtExpandableWalletCard.h"
+    "include/QtTopCryptosPage.h"
     "include/CriptoGualetQt.h"
     "../../resources/resources.qrc"
   )

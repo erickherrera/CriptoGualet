@@ -20,6 +20,7 @@ public:
 signals:
     void navigateToWallet();
     void navigateToSettings();
+    void navigateToTopCryptos();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -37,6 +38,7 @@ private:
 
     QPushButton *m_menuButton;
     QPushButton *m_walletButton;
+    QPushButton *m_topCryptosButton;
     QPushButton *m_settingsButton;
 
     QPropertyAnimation *m_widthAnimation;

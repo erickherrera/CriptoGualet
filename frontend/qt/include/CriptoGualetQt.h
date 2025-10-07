@@ -15,6 +15,7 @@
 class QtLoginUI;
 class QtWalletUI;
 class QtSettingsUI;
+class QtTopCryptosPage;
 class QtThemeManager;
 class QtSidebar;
 
@@ -29,6 +30,7 @@ public slots:
   void showLoginScreen();
   void showWalletScreen();
   void showSettingsScreen();
+  void showTopCryptosPage();
   void onThemeChanged();
 
 protected:
@@ -53,6 +55,7 @@ private:
   QtLoginUI *m_loginUI;
   QtWalletUI *m_walletUI;
   QtSettingsUI *m_settingsUI;
+  QtTopCryptosPage *m_topCryptosPage;
   QtSidebar *m_sidebar;
   QtThemeManager *m_themeManager;
   std::unique_ptr<WalletAPI::SimpleWallet> m_wallet;

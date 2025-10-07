@@ -101,6 +101,39 @@ void QtSidebar::createNavigationButtons() {
         }
     });
 
+    // Top Cryptos button with icon and text
+    m_topCryptosButton = new QPushButton(m_sidebarContent);
+    m_topCryptosButton->setProperty("class", "sidebar-nav-button");
+    m_topCryptosButton->setCursor(Qt::PointingHandCursor);
+    m_topCryptosButton->setToolTip("Top Cryptos");
+    m_topCryptosButton->setFixedHeight(50);
+
+    QHBoxLayout *topCryptosLayout = new QHBoxLayout(m_topCryptosButton);
+    topCryptosLayout->setContentsMargins(8, 0, 8, 0);
+    topCryptosLayout->setSpacing(12);
+
+    topCryptosLayout->addStretch();
+    QLabel *topCryptosIcon = new QLabel(m_topCryptosButton);
+    topCryptosIcon->setObjectName("topCryptosIcon");
+    topCryptosIcon->setAlignment(Qt::AlignCenter);
+    topCryptosIcon->setFixedSize(24, 24);
+    topCryptosLayout->addWidget(topCryptosIcon);
+
+    QLabel *topCryptosText = new QLabel("Markets", m_topCryptosButton);
+    topCryptosText->setObjectName("topCryptosText");
+    topCryptosText->setVisible(false);
+    topCryptosLayout->addWidget(topCryptosText);
+    topCryptosLayout->addStretch();
+
+    m_navLayout->addWidget(m_topCryptosButton);
+
+    connect(m_topCryptosButton, &QPushButton::clicked, this, [this]() {
+        emit navigateToTopCryptos();
+        if (m_isExpanded) {
+            toggleSidebar();
+        }
+    });
+
     // Settings button with icon and text
     m_settingsButton = new QPushButton(m_sidebarContent);
     m_settingsButton->setProperty("class", "sidebar-nav-button");
@@ -156,10 +189,14 @@ void QtSidebar::animateSidebar(bool expand) {
 
     // Update button text visibility based on state
     QLabel *walletText = m_walletButton->findChild<QLabel *>("walletText");
+    QLabel *topCryptosText = m_topCryptosButton->findChild<QLabel *>("topCryptosText");
     QLabel *settingsText = m_settingsButton->findChild<QLabel *>("settingsText");
 
     if (walletText) {
         walletText->setVisible(expand);
+    }
+    if (topCryptosText) {
+        topCryptosText->setVisible(expand);
     }
     if (settingsText) {
         settingsText->setVisible(expand);
@@ -311,6 +348,7 @@ void QtSidebar::applyTheme() {
     // Create colored SVG icons that match text color
     QIcon menuIcon = createColoredIcon(":/icons/icons/menu.svg", iconColor);
     QIcon walletIcon = createColoredIcon(":/icons/icons/wallet.svg", iconColor);
+    QIcon chartIcon = createColoredIcon(":/icons/icons/chart.svg", iconColor);
     QIcon settingsIcon = createColoredIcon(":/icons/icons/settings.svg", iconColor);
 
     // Set icons on buttons
@@ -319,11 +357,17 @@ void QtSidebar::applyTheme() {
 
     // Set icons on navigation buttons
     QLabel *walletIconLabel = m_walletButton->findChild<QLabel *>("walletIcon");
+    QLabel *topCryptosIconLabel = m_topCryptosButton->findChild<QLabel *>("topCryptosIcon");
     QLabel *settingsIconLabel = m_settingsButton->findChild<QLabel *>("settingsIcon");
 
     if (walletIconLabel) {
         QPixmap walletPixmap = walletIcon.pixmap(QSize(24, 24));
         walletIconLabel->setPixmap(walletPixmap);
+    }
+
+    if (topCryptosIconLabel) {
+        QPixmap chartPixmap = chartIcon.pixmap(QSize(24, 24));
+        topCryptosIconLabel->setPixmap(chartPixmap);
     }
 
     if (settingsIconLabel) {
@@ -339,6 +383,10 @@ void QtSidebar::applyTheme() {
     // Apply to wallet button text
     QLabel *walletText = m_walletButton->findChild<QLabel *>("walletText");
     if (walletText) walletText->setFont(textFont);
+
+    // Apply to top cryptos button text
+    QLabel *topCryptosText = m_topCryptosButton->findChild<QLabel *>("topCryptosText");
+    if (topCryptosText) topCryptosText->setFont(textFont);
 
     // Apply to settings button text
     QLabel *settingsText = m_settingsButton->findChild<QLabel *>("settingsText");
