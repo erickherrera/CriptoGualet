@@ -7,6 +7,7 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QNetworkAccessManager>
 
 // Forward declarations
 class QtThemeManager;
@@ -35,6 +36,7 @@ signals:
 
 private slots:
   void toggleExpanded();
+  void onIconDownloaded(QNetworkReply *reply);
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;
@@ -42,9 +44,12 @@ protected:
 private:
   void setupUI();
   void updateStyles();
+  QString getCryptoIconUrl(const QString &symbol);
+  void setFallbackIcon();
 
   // Theme
   QtThemeManager *m_themeManager;
+  QNetworkAccessManager *m_networkManager;
 
   // UI Components
   QWidget *m_collapsedHeader;

@@ -2,12 +2,22 @@
 #include "QtThemeManager.h"
 #include <QEvent>
 #include <QMouseEvent>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QPixmap>
+#include <QPainter>
+#include <QPainterPath>
+#include <QDebug>
 
 QtExpandableWalletCard::QtExpandableWalletCard(QtThemeManager *themeManager,
                                                QWidget *parent)
-    : QFrame(parent), m_themeManager(themeManager), m_isExpanded(false) {
+    : QFrame(parent), m_themeManager(themeManager), m_isExpanded(false),
+      m_networkManager(new QNetworkAccessManager(this)) {
   setupUI();
   applyTheme();
+
+  connect(m_networkManager, &QNetworkAccessManager::finished,
+          this, &QtExpandableWalletCard::onIconDownloaded);
 }
 
 void QtExpandableWalletCard::setupUI() {
@@ -125,7 +135,19 @@ void QtExpandableWalletCard::setCryptocurrency(const QString &name,
                                                const QString &logoText) {
   m_cryptoName->setText(name.toUpper());
   m_cryptoSymbol = symbol;
-  m_cryptoLogo->setText(logoText);
+
+  // Download crypto icon
+  QString iconUrl = getCryptoIconUrl(symbol);
+
+  // Set placeholder while loading
+  m_cryptoLogo->clear();
+  m_cryptoLogo->setStyleSheet("border-radius: 20px; background-color: rgba(100, 116, 139, 0.1);");
+
+  // Trigger icon download with proper headers
+  QNetworkRequest request(iconUrl);
+  request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
+  request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+  m_networkManager->get(request);
 }
 
 void QtExpandableWalletCard::setBalance(const QString &balance) {
@@ -134,6 +156,81 @@ void QtExpandableWalletCard::setBalance(const QString &balance) {
 
 void QtExpandableWalletCard::setTransactionHistory(const QString &historyHtml) {
   m_historyText->setHtml(historyHtml);
+}
+
+QString QtExpandableWalletCard::getCryptoIconUrl(const QString &symbol) {
+  // Use CoinGecko assets API
+  // Format: https://assets.coingecko.com/coins/images/{id}/large/{coin}.png
+  static const QMap<QString, QString> symbolToImagePath = {
+      {"BTC", "1/large/bitcoin.png"},
+      {"ETH", "279/large/ethereum.png"},
+      {"USDT", "325/large/tether.png"},
+      {"BNB", "825/large/binance-coin-logo.png"},
+      {"SOL", "4128/large/solana.png"},
+      {"USDC", "6319/large/usd-coin.png"},
+      {"XRP", "44/large/xrp.png"},
+      {"DOGE", "5/large/dogecoin.png"},
+      {"ADA", "975/large/cardano.png"},
+      {"TRX", "1094/large/tron-logo.png"},
+      {"AVAX", "12559/large/Avalanche_Circle_RedWhite_Trans.png"},
+      {"SHIB", "11939/large/shiba.png"},
+      {"DOT", "12171/large/polkadot.png"},
+      {"LINK", "877/large/chainlink-new-logo.png"},
+      {"MATIC", "4713/large/matic-token-icon.png"}
+  };
+
+  QString imagePath = symbolToImagePath.value(symbol.toUpper(), "1/large/bitcoin.png");
+  return QString("https://assets.coingecko.com/coins/images/%1").arg(imagePath);
+}
+
+void QtExpandableWalletCard::onIconDownloaded(QNetworkReply *reply) {
+  if (reply->error() == QNetworkReply::NoError) {
+    QByteArray imageData = reply->readAll();
+    QPixmap pixmap;
+
+    if (pixmap.loadFromData(imageData)) {
+      // Scale pixmap to fit icon label (40x40 for wallet card)
+      QPixmap scaledPixmap = pixmap.scaled(40, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+      m_cryptoLogo->setPixmap(scaledPixmap);
+      m_cryptoLogo->setStyleSheet("background: transparent; border: none;");
+
+      qDebug() << "Successfully loaded wallet icon from" << reply->url().toString();
+    } else {
+      qDebug() << "Failed to load image data from" << reply->url().toString();
+      setFallbackIcon();
+    }
+  } else {
+    qDebug() << "Network error downloading wallet icon:" << reply->errorString()
+             << "from" << reply->url().toString();
+    setFallbackIcon();
+  }
+  reply->deleteLater();
+}
+
+void QtExpandableWalletCard::setFallbackIcon() {
+  // Create a simple colored circle as fallback with Bitcoin symbol
+  QPixmap fallback(40, 40);
+  fallback.fill(Qt::transparent);
+
+  QPainter painter(&fallback);
+  painter.setRenderHint(QPainter::Antialiasing);
+
+  // Draw colored circle
+  painter.setBrush(QColor(100, 116, 139, 50));
+  painter.setPen(Qt::NoPen);
+  painter.drawEllipse(0, 0, 40, 40);
+
+  // Draw Bitcoin symbol
+  painter.setPen(QColor(100, 116, 139));
+  QFont font = painter.font();
+  font.setPointSize(18);
+  font.setBold(true);
+  painter.setFont(font);
+  painter.drawText(QRect(0, 0, 40, 40), Qt::AlignCenter, "₿");
+
+  m_cryptoLogo->setPixmap(fallback);
+  m_cryptoLogo->setStyleSheet("");
 }
 
 void QtExpandableWalletCard::toggleExpanded() {
@@ -191,7 +288,7 @@ void QtExpandableWalletCard::updateStyles() {
       border-bottom-right-radius: 12px;
     }
     QWidget#logoContainer {
-      background-color: %6;
+      background-color: transparent;
       border: none;
       border-radius: 20px;
     }
@@ -209,8 +306,7 @@ void QtExpandableWalletCard::updateStyles() {
                               .arg(accent)                                              // %2 - header/border
                               .arg(m_themeManager->accentColor().lighter(110).name())   // %3 - hover
                               .arg(primary)                                             // %4 - history section bg
-                              .arg(m_themeManager->secondaryColor().name())             // %5 - history section border
-                              .arg(background);                                         // %6 - logo container bg
+                              .arg(m_themeManager->secondaryColor().name());            // %5 - history section border
 
   setStyleSheet(walletCardCss);
 
