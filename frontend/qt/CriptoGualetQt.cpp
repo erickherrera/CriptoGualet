@@ -1,13 +1,13 @@
 #include "CriptoGualetQt.h"
 #include "Auth.h"
-#include "SharedTypes.h"
 #include "QtLoginUI.h"
 #include "QtSeedDisplayDialog.h"
-#include "QtThemeManager.h"
-#include "QtWalletUI.h"
 #include "QtSettingsUI.h"
-#include "QtTopCryptosPage.h"
 #include "QtSidebar.h"
+#include "QtThemeManager.h"
+#include "QtTopCryptosPage.h"
+#include "QtWalletUI.h"
+#include "SharedTypes.h"
 #include "WalletAPI.h"
 
 #include <QAction>
@@ -96,7 +96,7 @@ void CriptoGualetQt::setupUI() {
   // Create sidebar as an OVERLAY on top of the content container
   m_sidebar = new QtSidebar(m_themeManager, contentContainer);
   m_sidebar->raise(); // Ensure sidebar is on top
-  m_sidebar->hide(); // Initially hidden
+  m_sidebar->hide();  // Initially hidden
 
   // Connect sidebar navigation signals
   createSidebar();
@@ -351,11 +351,14 @@ void CriptoGualetQt::createNavbar() {
 }
 
 void CriptoGualetQt::createSidebar() {
-  // Sidebar is now created in setupUI() since it needs to be a child of contentContainer
-  // Connect navigation signals
-  connect(m_sidebar, &QtSidebar::navigateToWallet, this, &CriptoGualetQt::showWalletScreen);
-  connect(m_sidebar, &QtSidebar::navigateToTopCryptos, this, &CriptoGualetQt::showTopCryptosPage);
-  connect(m_sidebar, &QtSidebar::navigateToSettings, this, &CriptoGualetQt::showSettingsScreen);
+  // Sidebar is now created in setupUI() since it needs to be a child of
+  // contentContainer Connect navigation signals
+  connect(m_sidebar, &QtSidebar::navigateToWallet, this,
+          &CriptoGualetQt::showWalletScreen);
+  connect(m_sidebar, &QtSidebar::navigateToTopCryptos, this,
+          &CriptoGualetQt::showTopCryptosPage);
+  connect(m_sidebar, &QtSidebar::navigateToSettings, this,
+          &CriptoGualetQt::showSettingsScreen);
 }
 
 void CriptoGualetQt::setupMenuBar() {
@@ -440,7 +443,8 @@ void CriptoGualetQt::updateSidebarVisibility() {
     // Position sidebar as overlay at left edge
     QWidget *contentContainer = m_sidebar->parentWidget();
     if (contentContainer) {
-      m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
+      m_sidebar->setGeometry(0, 0, m_sidebar->width(),
+                             contentContainer->height());
     }
   } else {
     m_sidebar->hide();
@@ -473,7 +477,8 @@ void CriptoGualetQt::resizeEvent(QResizeEvent *event) {
   if (m_sidebar && m_sidebar->isVisible()) {
     QWidget *contentContainer = m_sidebar->parentWidget();
     if (contentContainer) {
-      m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
+      m_sidebar->setGeometry(0, 0, m_sidebar->width(),
+                             contentContainer->height());
     }
   }
 }

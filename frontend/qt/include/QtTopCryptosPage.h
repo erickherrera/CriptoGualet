@@ -9,6 +9,8 @@
 #include <QTimer>
 #include <QPushButton>
 #include <QResizeEvent>
+#include <QNetworkAccessManager>
+#include <QMap>
 #include <memory>
 #include "PriceService.h"
 
@@ -27,8 +29,10 @@ private:
     void setupUI();
     QString formatPrice(double price);
     QString formatMarketCap(double marketCap);
+    QString getCryptoIconUrl(const QString &symbol);
+    void setFallbackIcon();
 
-    QLabel *m_rankLabel;
+    QLabel *m_iconLabel;
     QLabel *m_symbolLabel;
     QLabel *m_nameLabel;
     QLabel *m_priceLabel;
@@ -36,6 +40,10 @@ private:
     QLabel *m_marketCapLabel;
 
     QtThemeManager *m_themeManager;
+    QNetworkAccessManager *m_networkManager;
+
+private slots:
+    void onIconDownloaded(QNetworkReply *reply);
 };
 
 // Main page for displaying top cryptocurrencies

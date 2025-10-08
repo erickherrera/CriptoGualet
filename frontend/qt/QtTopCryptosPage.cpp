@@ -8,6 +8,10 @@
 #include <QSpacerItem>
 #include <QTimer>
 #include <QDebug>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QPixmap>
 
 // ============================================================================
 // QtCryptoCard Implementation
@@ -15,9 +19,13 @@
 
 QtCryptoCard::QtCryptoCard(QWidget *parent)
     : QFrame(parent)
-    , m_themeManager(&QtThemeManager::instance()) {
+    , m_themeManager(&QtThemeManager::instance())
+    , m_networkManager(new QNetworkAccessManager(this)) {
     setupUI();
     applyTheme();
+
+    connect(m_networkManager, &QNetworkAccessManager::finished,
+            this, &QtCryptoCard::onIconDownloaded);
 }
 
 void QtCryptoCard::setupUI() {
@@ -26,15 +34,11 @@ void QtCryptoCard::setupUI() {
     mainLayout->setContentsMargins(24, 20, 24, 20);
     mainLayout->setSpacing(16);
 
-    // Rank badge (left side)
-    m_rankLabel = new QLabel(this);
-    m_rankLabel->setAlignment(Qt::AlignCenter);
-    m_rankLabel->setFixedSize(48, 48);
-    m_rankLabel->setStyleSheet(
-        "font-size: 18px;"
-        "font-weight: bold;"
-        "border-radius: 24px;"
-    );
+    // Crypto icon (left side)
+    m_iconLabel = new QLabel(this);
+    m_iconLabel->setAlignment(Qt::AlignCenter);
+    m_iconLabel->setFixedSize(48, 48);
+    m_iconLabel->setScaledContents(true);
 
     // Crypto info (middle)
     QVBoxLayout *infoLayout = new QVBoxLayout();
@@ -81,7 +85,7 @@ void QtCryptoCard::setupUI() {
     priceLayout->addWidget(m_changeLabel);
 
     // Add to main layout
-    mainLayout->addWidget(m_rankLabel);
+    mainLayout->addWidget(m_iconLabel);
     mainLayout->addLayout(infoLayout, 1);
     mainLayout->addLayout(priceLayout);
 
@@ -91,8 +95,24 @@ void QtCryptoCard::setupUI() {
 }
 
 void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &data, int rank) {
-    m_rankLabel->setText(QString::number(rank));
-    m_symbolLabel->setText(QString::fromStdString(data.symbol));
+    // Download crypto icon
+    QString symbol = QString::fromStdString(data.symbol);
+    QString iconUrl = getCryptoIconUrl(symbol);
+
+    // Set placeholder while loading
+    m_iconLabel->clear();
+    m_iconLabel->setStyleSheet("border-radius: 24px; background-color: rgba(100, 116, 139, 0.1);");
+
+    // Trigger icon download with proper headers
+    QNetworkRequest request(iconUrl);
+    request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    m_networkManager->get(request);
+
+    // Add rank prefix to symbol
+    m_symbolLabel->setText(QString("#%1  %2")
+        .arg(rank)
+        .arg(symbol));
     m_nameLabel->setText(QString::fromStdString(data.name));
     m_priceLabel->setText(formatPrice(data.usd_price));
     m_marketCapLabel->setText("MCap: " + formatMarketCap(data.market_cap));
@@ -123,21 +143,6 @@ void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &data, int 
             "color: #ef4444;"
         );
     }
-
-    // Rank badge color gradient
-    QColor rankColor;
-    if (rank == 1) rankColor = QColor(255, 215, 0);      // Gold
-    else if (rank == 2) rankColor = QColor(192, 192, 192); // Silver
-    else if (rank == 3) rankColor = QColor(205, 127, 50);  // Bronze
-    else rankColor = QColor(100, 116, 139);                // Slate
-
-    m_rankLabel->setStyleSheet(QString(
-        "font-size: 18px;"
-        "font-weight: bold;"
-        "border-radius: 24px;"
-        "background-color: rgba(%1, %2, %3, 0.2);"
-        "color: rgb(%1, %2, %3);"
-    ).arg(rankColor.red()).arg(rankColor.green()).arg(rankColor.blue()));
 }
 
 QString QtCryptoCard::formatPrice(double price) {
@@ -162,17 +167,108 @@ QString QtCryptoCard::formatMarketCap(double marketCap) {
     }
 }
 
+QString QtCryptoCard::getCryptoIconUrl(const QString &symbol) {
+    // Use CoinGecko assets API
+    // Format: https://assets.coingecko.com/coins/images/{id}/large/{coin}.png
+    static const QMap<QString, QString> symbolToImagePath = {
+        {"BTC", "1/large/bitcoin.png"},
+        {"ETH", "279/large/ethereum.png"},
+        {"USDT", "325/large/tether.png"},
+        {"BNB", "825/large/binance-coin-logo.png"},
+        {"SOL", "4128/large/solana.png"},
+        {"USDC", "6319/large/usd-coin.png"},
+        {"XRP", "44/large/xrp.png"},
+        {"DOGE", "5/large/dogecoin.png"},
+        {"ADA", "975/large/cardano.png"},
+        {"TRX", "1094/large/tron-logo.png"},
+        {"AVAX", "12559/large/Avalanche_Circle_RedWhite_Trans.png"},
+        {"SHIB", "11939/large/shiba.png"},
+        {"DOT", "12171/large/polkadot.png"},
+        {"LINK", "877/large/chainlink-new-logo.png"},
+        {"MATIC", "4713/large/matic-token-icon.png"}
+    };
+
+    QString imagePath = symbolToImagePath.value(symbol.toUpper(), "1/large/bitcoin.png");
+    return QString("https://assets.coingecko.com/coins/images/%1").arg(imagePath);
+}
+
+void QtCryptoCard::onIconDownloaded(QNetworkReply *reply) {
+    if (reply->error() == QNetworkReply::NoError) {
+        QByteArray imageData = reply->readAll();
+        QPixmap pixmap;
+
+        if (pixmap.loadFromData(imageData)) {
+            // Scale pixmap to fit icon label with smooth transformation
+            QPixmap scaledPixmap = pixmap.scaled(48, 48, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+            // Create a rounded pixmap
+            QPixmap roundedPixmap(48, 48);
+            roundedPixmap.fill(Qt::transparent);
+
+            QPainter painter(&roundedPixmap);
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.setRenderHint(QPainter::SmoothPixmapTransform);
+
+            QPainterPath path;
+            path.addEllipse(0, 0, 48, 48);
+            painter.setClipPath(path);
+
+            // Center the scaled pixmap
+            int x = (48 - scaledPixmap.width()) / 2;
+            int y = (48 - scaledPixmap.height()) / 2;
+            painter.drawPixmap(x, y, scaledPixmap);
+
+            m_iconLabel->setPixmap(roundedPixmap);
+            m_iconLabel->setStyleSheet("");
+
+            qDebug() << "Successfully loaded crypto icon from" << reply->url().toString();
+        } else {
+            qDebug() << "Failed to load image data from" << reply->url().toString();
+            setFallbackIcon();
+        }
+    } else {
+        qDebug() << "Network error downloading crypto icon:" << reply->errorString()
+                 << "from" << reply->url().toString();
+        setFallbackIcon();
+    }
+    reply->deleteLater();
+}
+
+void QtCryptoCard::setFallbackIcon() {
+    // Create a simple colored circle as fallback
+    QPixmap fallback(48, 48);
+    fallback.fill(Qt::transparent);
+
+    QPainter painter(&fallback);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    // Draw colored circle
+    painter.setBrush(QColor(100, 116, 139, 50));
+    painter.setPen(Qt::NoPen);
+    painter.drawEllipse(0, 0, 48, 48);
+
+    // Draw currency symbol
+    painter.setPen(QColor(100, 116, 139));
+    QFont font = painter.font();
+    font.setPointSize(18);
+    font.setBold(true);
+    painter.setFont(font);
+    painter.drawText(QRect(0, 0, 48, 48), Qt::AlignCenter, "$");
+
+    m_iconLabel->setPixmap(fallback);
+    m_iconLabel->setStyleSheet("");
+}
+
 void QtCryptoCard::applyTheme() {
     QString cardBg = m_themeManager->surfaceColor().name();
-    QString borderColor = m_themeManager->surfaceColor().lighter(120).name();
 
     QString cardStyle = QString(
         "QFrame {"
         "  background-color: %1;"
         "  border-radius: 16px;"
-        "  border: 1px solid %2;"
+        "  border: none;"
         "}"
-    ).arg(cardBg, borderColor);
+    ).arg(cardBg);
 
     setStyleSheet(cardStyle);
 
