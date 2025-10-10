@@ -38,7 +38,7 @@ void QtCryptoCard::setupUI() {
     m_iconLabel = new QLabel(this);
     m_iconLabel->setAlignment(Qt::AlignCenter);
     m_iconLabel->setFixedSize(48, 48);
-    m_iconLabel->setScaledContents(true);
+    m_iconLabel->setScaledContents(true); // Scale to fit label
 
     // Crypto info (middle)
     QVBoxLayout *infoLayout = new QVBoxLayout();
@@ -198,11 +198,18 @@ void QtCryptoCard::onIconDownloaded(QNetworkReply *reply) {
         QPixmap pixmap;
 
         if (pixmap.loadFromData(imageData)) {
-            // Scale pixmap to fit icon label with smooth transformation
-            QPixmap scaledPixmap = pixmap.scaled(48, 48, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            // Use higher resolution for better quality (2x the display size)
+            int highResSize = 96;
 
-            // Create a rounded pixmap
-            QPixmap roundedPixmap(48, 48);
+            // Scale pixmap to high resolution with smooth transformation
+            QPixmap scaledPixmap = pixmap.scaled(
+                highResSize, highResSize,
+                Qt::KeepAspectRatio,
+                Qt::SmoothTransformation
+            );
+
+            // Create a rounded pixmap at high resolution
+            QPixmap roundedPixmap(highResSize, highResSize);
             roundedPixmap.fill(Qt::transparent);
 
             QPainter painter(&roundedPixmap);
@@ -210,14 +217,15 @@ void QtCryptoCard::onIconDownloaded(QNetworkReply *reply) {
             painter.setRenderHint(QPainter::SmoothPixmapTransform);
 
             QPainterPath path;
-            path.addEllipse(0, 0, 48, 48);
+            path.addEllipse(0, 0, highResSize, highResSize);
             painter.setClipPath(path);
 
             // Center the scaled pixmap
-            int x = (48 - scaledPixmap.width()) / 2;
-            int y = (48 - scaledPixmap.height()) / 2;
+            int x = (highResSize - scaledPixmap.width()) / 2;
+            int y = (highResSize - scaledPixmap.height()) / 2;
             painter.drawPixmap(x, y, scaledPixmap);
 
+            // Label will scale this down to 48x48 with smooth transformation
             m_iconLabel->setPixmap(roundedPixmap);
             m_iconLabel->setStyleSheet("");
 
@@ -235,8 +243,11 @@ void QtCryptoCard::onIconDownloaded(QNetworkReply *reply) {
 }
 
 void QtCryptoCard::setFallbackIcon() {
-    // Create a simple colored circle as fallback
-    QPixmap fallback(48, 48);
+    // Use higher resolution for better quality
+    int highResSize = 96;
+
+    // Create a simple colored circle as fallback at high resolution
+    QPixmap fallback(highResSize, highResSize);
     fallback.fill(Qt::transparent);
 
     QPainter painter(&fallback);
@@ -245,16 +256,17 @@ void QtCryptoCard::setFallbackIcon() {
     // Draw colored circle
     painter.setBrush(QColor(100, 116, 139, 50));
     painter.setPen(Qt::NoPen);
-    painter.drawEllipse(0, 0, 48, 48);
+    painter.drawEllipse(0, 0, highResSize, highResSize);
 
     // Draw currency symbol
     painter.setPen(QColor(100, 116, 139));
     QFont font = painter.font();
-    font.setPointSize(18);
+    font.setPointSize(36); // Scaled up for high-res
     font.setBold(true);
     painter.setFont(font);
-    painter.drawText(QRect(0, 0, 48, 48), Qt::AlignCenter, "$");
+    painter.drawText(QRect(0, 0, highResSize, highResSize), Qt::AlignCenter, "$");
 
+    // Label will scale this down to 48x48 with smooth transformation
     m_iconLabel->setPixmap(fallback);
     m_iconLabel->setStyleSheet("");
 }

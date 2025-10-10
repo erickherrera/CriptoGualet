@@ -41,7 +41,7 @@ void QtExpandableWalletCard::setupUI() {
   // Crypto logo container with background (circular)
   QWidget *logoContainer = new QWidget(m_collapsedHeader);
   logoContainer->setObjectName("logoContainer");
-  logoContainer->setFixedSize(40, 40);
+  logoContainer->setFixedSize(48, 48); // Increased from 40x40 for better clarity
 
   QHBoxLayout *logoLayout = new QHBoxLayout(logoContainer);
   logoLayout->setContentsMargins(0, 0, 0, 0);
@@ -50,6 +50,7 @@ void QtExpandableWalletCard::setupUI() {
   m_cryptoLogo = new QLabel("₿", logoContainer);
   m_cryptoLogo->setObjectName("cryptoLogo");
   m_cryptoLogo->setAlignment(Qt::AlignCenter);
+  m_cryptoLogo->setScaledContents(false); // Preserve aspect ratio
   logoLayout->addWidget(m_cryptoLogo);
 
   collapsedLayout->addWidget(logoContainer);
@@ -141,7 +142,7 @@ void QtExpandableWalletCard::setCryptocurrency(const QString &name,
 
   // Set placeholder while loading
   m_cryptoLogo->clear();
-  m_cryptoLogo->setStyleSheet("border-radius: 20px; background-color: rgba(100, 116, 139, 0.1);");
+  m_cryptoLogo->setStyleSheet("border-radius: 24px; background-color: rgba(100, 116, 139, 0.1);");
 
   // Trigger icon download with proper headers
   QNetworkRequest request(iconUrl);
@@ -189,8 +190,17 @@ void QtExpandableWalletCard::onIconDownloaded(QNetworkReply *reply) {
     QPixmap pixmap;
 
     if (pixmap.loadFromData(imageData)) {
-      // Scale pixmap to fit icon label (40x40 for wallet card)
-      QPixmap scaledPixmap = pixmap.scaled(40, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+      // Get device pixel ratio for high DPI support
+      qreal dpr = devicePixelRatioF();
+      int iconSize = 48; // Increased from 40 for better clarity
+
+      // Scale pixmap with high DPI support
+      QPixmap scaledPixmap = pixmap.scaled(
+          qRound(iconSize * dpr), qRound(iconSize * dpr),
+          Qt::KeepAspectRatio,
+          Qt::SmoothTransformation
+      );
+      scaledPixmap.setDevicePixelRatio(dpr);
 
       m_cryptoLogo->setPixmap(scaledPixmap);
       m_cryptoLogo->setStyleSheet("background: transparent; border: none;");
@@ -209,9 +219,15 @@ void QtExpandableWalletCard::onIconDownloaded(QNetworkReply *reply) {
 }
 
 void QtExpandableWalletCard::setFallbackIcon() {
+  // Get device pixel ratio for high DPI support
+  qreal dpr = devicePixelRatioF();
+  int iconSize = 48;
+  int scaledSize = qRound(iconSize * dpr);
+
   // Create a simple colored circle as fallback with Bitcoin symbol
-  QPixmap fallback(40, 40);
+  QPixmap fallback(scaledSize, scaledSize);
   fallback.fill(Qt::transparent);
+  fallback.setDevicePixelRatio(dpr);
 
   QPainter painter(&fallback);
   painter.setRenderHint(QPainter::Antialiasing);
@@ -219,15 +235,15 @@ void QtExpandableWalletCard::setFallbackIcon() {
   // Draw colored circle
   painter.setBrush(QColor(100, 116, 139, 50));
   painter.setPen(Qt::NoPen);
-  painter.drawEllipse(0, 0, 40, 40);
+  painter.drawEllipse(0, 0, scaledSize, scaledSize);
 
   // Draw Bitcoin symbol
   painter.setPen(QColor(100, 116, 139));
   QFont font = painter.font();
-  font.setPointSize(18);
+  font.setPointSize(20);
   font.setBold(true);
   painter.setFont(font);
-  painter.drawText(QRect(0, 0, 40, 40), Qt::AlignCenter, "₿");
+  painter.drawText(QRect(0, 0, scaledSize, scaledSize), Qt::AlignCenter, "₿");
 
   m_cryptoLogo->setPixmap(fallback);
   m_cryptoLogo->setStyleSheet("");
@@ -290,7 +306,7 @@ void QtExpandableWalletCard::updateStyles() {
     QWidget#logoContainer {
       background-color: transparent;
       border: none;
-      border-radius: 20px;
+      border-radius: 24px;
     }
     QWidget#balanceContainer {
       background-color: transparent;

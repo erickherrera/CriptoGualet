@@ -97,7 +97,7 @@ void QtThemeManager::setupCryptoDarkTheme() {
   m_backgroundColor = QColor(13, 13, 13);
   m_surfaceColor = QColor(25, 25, 25);
   m_textColor = QColor(255, 255, 255);
-  m_accentColor = QColor(80, 20, 60);   // Deep wine/purple burgundy
+  m_accentColor = QColor(80, 20, 60); // Deep wine/purple burgundy
   m_errorColor = QColor(220, 38, 38);
   m_successColor = QColor(34, 197, 94);
   m_warningColor = QColor(150, 90, 45); // Warmer brown-orange
@@ -116,15 +116,16 @@ void QtThemeManager::setupCryptoDarkTheme() {
 
 void QtThemeManager::setupCryptoLightTheme() {
   // Light version of CryptoDark theme with improved contrast
-  m_primaryColor = QColor(248, 250, 252);     // Very light gray/white
-  m_secondaryColor = QColor(148, 163, 184);   // Medium gray for better contrast
-  m_backgroundColor = QColor(255, 255, 255);  // Pure white background
-  m_surfaceColor = QColor(241, 245, 249);     // Slightly darker surface for contrast
-  m_textColor = QColor(15, 23, 42);           // Dark text for contrast
-  m_accentColor = QColor(120, 40, 80);        // Wine/purple burgundy (lighter)
-  m_errorColor = QColor(239, 68, 68);         // Red for errors
-  m_successColor = QColor(34, 197, 94);       // Green for success
-  m_warningColor = QColor(245, 158, 11);      // Amber for warnings
+  m_primaryColor = QColor(248, 250, 252);    // Very light gray/white
+  m_secondaryColor = QColor(148, 163, 184);  // Medium gray for better contrast
+  m_backgroundColor = QColor(255, 255, 255); // Pure white background
+  m_surfaceColor =
+      QColor(241, 245, 249);             // Slightly darker surface for contrast
+  m_textColor = QColor(15, 23, 42);      // Dark text for contrast
+  m_accentColor = QColor(120, 40, 80);   // Wine/purple burgundy (lighter)
+  m_errorColor = QColor(239, 68, 68);    // Red for errors
+  m_successColor = QColor(34, 197, 94);  // Green for success
+  m_warningColor = QColor(245, 158, 11); // Amber for warnings
 
   m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
@@ -267,14 +268,14 @@ QString QtThemeManager::getLabelStyleSheet() const {
             border-radius: 4px;
         }
     )")
-      .arg(textColor().name())         // %1: text color
-      .arg(textFont().family())        // %2: base font family
-      .arg(textFont().pointSize())     // %3: normal font size
-      .arg(titleFont().pointSize())    // %4: title size
-      .arg(textFont().pointSize() - 2) // %5: subtitle slightly smaller
-      .arg(m_subtitleColor.name())     // %6: subtitle color
-      .arg(monoFont().family())        // %7: monospace font for address
-      .arg(accentColor().name())       // %8: background for address
+      .arg(textColor().name())          // %1: text color
+      .arg(textFont().family())         // %2: base font family
+      .arg(textFont().pointSize())      // %3: normal font size
+      .arg(titleFont().pointSize())     // %4: title size
+      .arg(textFont().pointSize() - 2)  // %5: subtitle slightly smaller
+      .arg(m_subtitleColor.name())      // %6: subtitle color
+      .arg(monoFont().family())         // %7: monospace font for address
+      .arg(accentColor().name())        // %8: background for address
       .arg(textFont().pointSize() + 4); // %9: balance font size
 }
 
@@ -292,7 +293,7 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
             background-color: %5;
             border: 1px solid %6;
             border-radius: 12px;
-            padding: 16px;
+            padding: 10px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         QFrame[class="navbar"] {
@@ -303,7 +304,7 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
         }
         QLabel[class="navbar-title"] {
             font-family: %9;
-            font-size: 30px;
+            font-size: 35px;
             font-weight: bold;
             color: %10;
         }

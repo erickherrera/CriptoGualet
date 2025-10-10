@@ -287,10 +287,10 @@ void CriptoGualetQt::setupUI() {
 void CriptoGualetQt::createNavbar() {
   m_navbar = new QFrame(m_centralWidget);
   m_navbar->setProperty("class", "navbar");
-  m_navbar->setFixedHeight(60);
+  m_navbar->setFixedHeight(100);
 
   QHBoxLayout *navLayout = new QHBoxLayout(m_navbar);
-  navLayout->setContentsMargins(20, 10, 20, 10);
+  navLayout->setContentsMargins(20, 15, 20, 15);
   navLayout->setSpacing(10);
 
   // App title/logo
