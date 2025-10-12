@@ -40,7 +40,7 @@ void QtSidebar::setupUI() {
     m_menuButton->setProperty("class", "sidebar-menu-button");
     m_menuButton->setCursor(Qt::PointingHandCursor);
     m_menuButton->setToolTip("Toggle Menu");
-    m_menuButton->setFixedSize(50, 50);
+    m_menuButton->setFixedHeight(50);  // Only fix height, allow width to expand
     m_navLayout->addWidget(m_menuButton);
 
     // Connect menu button to toggle sidebar
@@ -268,35 +268,35 @@ void QtSidebar::applyTheme() {
 
     switch (themeType) {
         case ThemeType::DARK:
-            // Medium gray for regular dark theme
-            sidebarBg = "#4a4a4a";
-            borderColor = "#5a5a5a";
-            textColor = "#e8e8e8";
-            iconColor = QColor(232, 232, 232);
+            // Distinct blue-tinted gray for dark theme (contrasts with #1a202c background)
+            sidebarBg = "#374151";  // Lighter than background for clear separation
+            borderColor = "#4b5563";
+            textColor = "#f3f4f6";
+            iconColor = QColor(243, 244, 246);
             break;
 
         case ThemeType::LIGHT:
-            // Medium-dark gray for light theme - darker text and icons for visibility
-            sidebarBg = "#5a5a5a";
-            borderColor = "#4a4a4a";
-            textColor = "#202020";
-            iconColor = QColor(40, 40, 40);
+            // Darker gray-blue for light theme (contrasts with #f8fafc background)
+            sidebarBg = "#475569";  // Darker to stand out against light background
+            borderColor = "#64748b";
+            textColor = "#f8fafc";
+            iconColor = QColor(248, 250, 252);
             break;
 
         case ThemeType::CRYPTO_DARK:
-            // Slightly darker gray for crypto dark theme
-            sidebarBg = "#3a3a3a";
-            borderColor = "#4a4a4a";
-            textColor = "#e0e0e0";
-            iconColor = QColor(224, 224, 224);
+            // Medium-dark for crypto dark theme (contrasts with #0d0d0d background)
+            sidebarBg = "#27272a";  // Noticeably lighter than near-black background
+            borderColor = "#3f3f46";
+            textColor = "#fafafa";
+            iconColor = QColor(250, 250, 250);
             break;
 
         case ThemeType::CRYPTO_LIGHT:
-            // Light gray for crypto light theme - darker text and icons for visibility
-            sidebarBg = "#6a6a6a";
-            borderColor = "#5a5a5a";
-            textColor = "#1a1a1a";
-            iconColor = QColor(30, 30, 30);
+            // Slate gray for crypto light theme (contrasts with #ffffff background)
+            sidebarBg = "#52525b";  // Medium gray to stand out against white
+            borderColor = "#71717a";
+            textColor = "#fafafa";
+            iconColor = QColor(250, 250, 250);
             break;
     }
 
