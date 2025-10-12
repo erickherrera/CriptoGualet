@@ -17,6 +17,7 @@ std::vector<uint8_t> B64Decode(const std::string &s);
 
 // === Hash Functions ===
 bool SHA256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out);
+bool RIPEMD160(const uint8_t *data, size_t len, std::array<uint8_t, 20> &out);
 bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data, size_t data_len, std::vector<uint8_t> &out);
 bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data, size_t data_len, std::vector<uint8_t> &out);
 
@@ -90,5 +91,33 @@ bool CreateDatabaseKey(const std::string &password, DatabaseKeyInfo &key_info,
                        std::vector<uint8_t> &database_key);
 bool VerifyDatabaseKey(const std::string &password, const DatabaseKeyInfo &key_info,
                        std::vector<uint8_t> &database_key);
+
+// === BIP32 Hierarchical Deterministic Key Derivation ===
+struct BIP32ExtendedKey {
+  std::vector<uint8_t> chainCode;  // 32 bytes
+  std::vector<uint8_t> key;         // 32 bytes private key or 33 bytes public key
+  uint8_t depth;
+  uint32_t fingerprint;
+  uint32_t childNumber;
+  bool isPrivate;
+};
+
+// Generate master extended key from BIP39 seed
+bool BIP32_MasterKeyFromSeed(const std::array<uint8_t, 64> &seed,
+                              BIP32ExtendedKey &masterKey);
+
+// Derive child key from parent (hardened derivation if index >= 0x80000000)
+bool BIP32_DeriveChild(const BIP32ExtendedKey &parent, uint32_t index,
+                       BIP32ExtendedKey &child);
+
+// Derive key from BIP44 path (e.g., "m/44'/0'/0'/0/0")
+bool BIP32_DerivePath(const BIP32ExtendedKey &master, const std::string &path,
+                      BIP32ExtendedKey &derived);
+
+// Generate Bitcoin address from extended public key
+bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &address);
+
+// Get WIF (Wallet Import Format) private key
+bool BIP32_GetWIF(const BIP32ExtendedKey &extKey, std::string &wif, bool testnet = false);
 
 } // namespace Crypto

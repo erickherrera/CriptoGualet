@@ -172,3 +172,37 @@ else()
   target_compile_options(test_repository PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
   target_link_options(test_repository PRIVATE -fPIE -pie)
 endif()
+
+# ---- Auth + Database Integration Test Executable ----
+add_executable(test_auth_database_integration
+  "test_auth_database_integration.cpp"
+)
+target_link_libraries(test_auth_database_integration PRIVATE Auth Repository Database Crypto SharedSymbols comctl32 crypt32 bcrypt)
+target_include_directories(test_auth_database_integration PRIVATE
+  "${CMAKE_SOURCE_DIR}/backend/core/include"
+  "${CMAKE_SOURCE_DIR}/backend/repository/include"
+  "${CMAKE_SOURCE_DIR}/backend/database/include"
+  "${CMAKE_SOURCE_DIR}/backend/utils/include"
+)
+
+# Copy SQLCipher DLL for test execution
+if(WIN32 AND sqlcipher_FOUND)
+  add_custom_command(TARGET test_auth_database_integration POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
+    "$<TARGET_FILE_DIR:test_auth_database_integration>"
+    COMMENT "Copying SQLCipher DLL for test execution")
+endif()
+
+# Cross-platform compiler flags with security for auth integration test executable
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+  target_compile_options(test_auth_database_integration PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
+  target_link_options(test_auth_database_integration PRIVATE -fPIE -pie)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  target_compile_options(test_auth_database_integration PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  target_compile_options(test_auth_database_integration PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
+else()
+  target_compile_options(test_auth_database_integration PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+  target_link_options(test_auth_database_integration PRIVATE -fPIE -pie)
+endif()

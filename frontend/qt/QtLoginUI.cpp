@@ -41,8 +41,12 @@ QtLoginUI::QtLoginUI(QWidget *parent)
   m_messageTimer->setSingleShot(true);
   connect(m_messageTimer, &QTimer::timeout, this, &QtLoginUI::clearMessage);
 
-  // Load user database on startup
-  Auth::LoadUserDatabase();
+  // Initialize Auth database and Repository layer on startup
+  if (!Auth::InitializeAuthDatabase()) {
+    // Database initialization failed - log warning but allow app to continue
+    // Users can still be created in-memory for this session
+    qWarning() << "Failed to initialize authentication database. Data will not be persisted.";
+  }
 
   setupUI();
   applyTheme();

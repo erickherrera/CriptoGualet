@@ -70,8 +70,14 @@ bool IsRateLimited(const std::string &identifier);
 bool IsValidUsername(const std::string &username);
 bool IsValidPassword(const std::string &password);
 
-// Secure data persistence
-void SaveUserDatabase();
-void LoadUserDatabase();
+// REMOVED: SaveUserDatabase() and LoadUserDatabase()
+// These insecure functions have been removed. Use Repository layer instead:
+// - UserRepository for user authentication data
+// - WalletRepository for wallet addresses and encrypted seeds
+// All data is now stored in SQLCipher encrypted database
+
+// Initialize database and repository layer
+// Should be called once at application startup
+bool InitializeAuthDatabase();
 
 } // namespace Auth

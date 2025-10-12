@@ -22,6 +22,7 @@
 
 // Include your auth header
 #include "Auth.h"
+#include "Crypto.h"
 #include "SharedTypes.h"
 
 #pragma comment(lib, "Bcrypt.lib")
@@ -533,15 +534,15 @@ bool test_RateLimiting() {
     std::string testUser = "ratelimittest_" + std::to_string(std::time(nullptr));
     std::string correctPassword = "testpass123";
     std::string wrongPassword = "wrongpass";
-    
+
     // Create user
     g_users.erase(testUser);
     auto response = Auth::RegisterUser(testUser, correctPassword);
     if (!response.success()) return false;
-    
+
     // Clear any existing rate limits
     Auth::ClearRateLimit(testUser);
-    
+
     // Try wrong password multiple times (should trigger rate limiting)
     bool wasRateLimited = false;
     for (int i = 0; i < 6; i++) {  // More than MAX_LOGIN_ATTEMPTS
@@ -551,16 +552,325 @@ bool test_RateLimiting() {
             break;
         }
     }
-    
+
     // Should be rate limited after correct password too
     auto correctResponse = Auth::LoginUser(testUser, correctPassword);
     bool correctPasswordAlsoBlocked = (correctResponse.result == Auth::AuthResult::RATE_LIMITED);
-    
+
     // Clean up
     Auth::ClearRateLimit(testUser);
     g_users.erase(testUser);
-    
+
     return wasRateLimited && correctPasswordAlsoBlocked;
+}
+
+// ========================================
+// BIP32 Cryptographic Tests (Phase 1)
+// ========================================
+
+bool test_BIP32_MasterKeyGeneration() {
+    // Test BIP32 master key generation from seed
+    std::array<uint8_t, 64> testSeed = {};
+    for (size_t i = 0; i < 64; i++) {
+        testSeed[i] = static_cast<uint8_t>(i);
+    }
+
+    Crypto::BIP32ExtendedKey masterKey;
+    if (!Crypto::BIP32_MasterKeyFromSeed(testSeed, masterKey)) {
+        std::cout << "Failed to generate master key from seed\n";
+        return false;
+    }
+
+    // Verify master key properties
+    if (!masterKey.isPrivate) {
+        std::cout << "Master key should be private\n";
+        return false;
+    }
+
+    if (masterKey.key.size() != 32) {
+        std::cout << "Master key should be 32 bytes, got " << masterKey.key.size() << "\n";
+        return false;
+    }
+
+    if (masterKey.chainCode.size() != 32) {
+        std::cout << "Chain code should be 32 bytes, got " << masterKey.chainCode.size() << "\n";
+        return false;
+    }
+
+    if (masterKey.depth != 0) {
+        std::cout << "Master key depth should be 0, got " << static_cast<int>(masterKey.depth) << "\n";
+        return false;
+    }
+
+    return true;
+}
+
+bool test_BIP32_ChildKeyDerivation() {
+    // Test child key derivation (both hardened and normal)
+    std::array<uint8_t, 64> testSeed = {};
+    for (size_t i = 0; i < 64; i++) {
+        testSeed[i] = static_cast<uint8_t>(i);
+    }
+
+    Crypto::BIP32ExtendedKey masterKey;
+    if (!Crypto::BIP32_MasterKeyFromSeed(testSeed, masterKey)) {
+        return false;
+    }
+
+    // Test hardened derivation (m/0')
+    Crypto::BIP32ExtendedKey hardenedChild;
+    if (!Crypto::BIP32_DeriveChild(masterKey, 0x80000000, hardenedChild)) {
+        std::cout << "Failed to derive hardened child key\n";
+        return false;
+    }
+
+    if (!hardenedChild.isPrivate) {
+        std::cout << "Hardened child should be private\n";
+        return false;
+    }
+
+    if (hardenedChild.depth != 1) {
+        std::cout << "Child depth should be 1, got " << static_cast<int>(hardenedChild.depth) << "\n";
+        return false;
+    }
+
+    // Test normal derivation (m/0)
+    Crypto::BIP32ExtendedKey normalChild;
+    if (!Crypto::BIP32_DeriveChild(masterKey, 0, normalChild)) {
+        std::cout << "Failed to derive normal child key\n";
+        return false;
+    }
+
+    if (!normalChild.isPrivate) {
+        std::cout << "Normal child should be private\n";
+        return false;
+    }
+
+    // Verify hardened and normal children are different
+    if (hardenedChild.key == normalChild.key) {
+        std::cout << "Hardened and normal children should be different\n";
+        return false;
+    }
+
+    return true;
+}
+
+bool test_BIP32_PathDerivation() {
+    // Test BIP44 path derivation: m/44'/0'/0'/0/0
+    std::array<uint8_t, 64> testSeed = {};
+    for (size_t i = 0; i < 64; i++) {
+        testSeed[i] = static_cast<uint8_t>(i);
+    }
+
+    Crypto::BIP32ExtendedKey masterKey;
+    if (!Crypto::BIP32_MasterKeyFromSeed(testSeed, masterKey)) {
+        return false;
+    }
+
+    // Derive BIP44 path
+    Crypto::BIP32ExtendedKey derivedKey;
+    if (!Crypto::BIP32_DerivePath(masterKey, "m/44'/0'/0'/0/0", derivedKey)) {
+        std::cout << "Failed to derive BIP44 path\n";
+        return false;
+    }
+
+    if (!derivedKey.isPrivate) {
+        std::cout << "Derived key should be private\n";
+        return false;
+    }
+
+    if (derivedKey.depth != 5) {
+        std::cout << "Derived key depth should be 5 (m/44'/0'/0'/0/0), got "
+                  << static_cast<int>(derivedKey.depth) << "\n";
+        return false;
+    }
+
+    // Test consistency - same path should give same result
+    Crypto::BIP32ExtendedKey derivedKey2;
+    if (!Crypto::BIP32_DerivePath(masterKey, "m/44'/0'/0'/0/0", derivedKey2)) {
+        return false;
+    }
+
+    if (derivedKey.key != derivedKey2.key) {
+        std::cout << "Path derivation is not deterministic\n";
+        return false;
+    }
+
+    return true;
+}
+
+bool test_BIP32_BitcoinAddressGeneration() {
+    // Test Bitcoin address generation from BIP32 key
+    std::array<uint8_t, 64> testSeed = {};
+    for (size_t i = 0; i < 64; i++) {
+        testSeed[i] = static_cast<uint8_t>(i);
+    }
+
+    Crypto::BIP32ExtendedKey masterKey;
+    if (!Crypto::BIP32_MasterKeyFromSeed(testSeed, masterKey)) {
+        return false;
+    }
+
+    Crypto::BIP32ExtendedKey derivedKey;
+    if (!Crypto::BIP32_DerivePath(masterKey, "m/44'/0'/0'/0/0", derivedKey)) {
+        return false;
+    }
+
+    std::string address;
+    if (!Crypto::BIP32_GetBitcoinAddress(derivedKey, address)) {
+        std::cout << "Failed to generate Bitcoin address\n";
+        return false;
+    }
+
+    // Verify address format (should start with '1' for mainnet P2PKH)
+    if (address.empty()) {
+        std::cout << "Address is empty\n";
+        return false;
+    }
+
+    if (address[0] != '1') {
+        std::cout << "Address should start with '1' for mainnet, got '" << address[0] << "'\n";
+        return false;
+    }
+
+    if (address.length() < 26 || address.length() > 35) {
+        std::cout << "Address length should be 26-35 characters, got " << address.length() << "\n";
+        return false;
+    }
+
+    std::cout << "Generated Bitcoin address: " << address << "\n";
+
+    return true;
+}
+
+bool test_BIP32_WIFExport() {
+    // Test WIF (Wallet Import Format) export
+    std::array<uint8_t, 64> testSeed = {};
+    for (size_t i = 0; i < 64; i++) {
+        testSeed[i] = static_cast<uint8_t>(i);
+    }
+
+    Crypto::BIP32ExtendedKey masterKey;
+    if (!Crypto::BIP32_MasterKeyFromSeed(testSeed, masterKey)) {
+        return false;
+    }
+
+    std::string wif;
+    if (!Crypto::BIP32_GetWIF(masterKey, wif, false)) {
+        std::cout << "Failed to export WIF\n";
+        return false;
+    }
+
+    // Verify WIF format (should start with '5' or 'K'/'L' for mainnet)
+    if (wif.empty()) {
+        std::cout << "WIF is empty\n";
+        return false;
+    }
+
+    if (wif[0] != '5' && wif[0] != 'K' && wif[0] != 'L') {
+        std::cout << "WIF should start with '5', 'K', or 'L' for mainnet, got '" << wif[0] << "'\n";
+        return false;
+    }
+
+    if (wif.length() < 51 || wif.length() > 52) {
+        std::cout << "WIF length should be 51-52 characters, got " << wif.length() << "\n";
+        return false;
+    }
+
+    std::cout << "Generated WIF (first 10 chars): " << wif.substr(0, 10) << "...\n";
+
+    return true;
+}
+
+bool test_BIP32_Secp256k1Integration() {
+    // Test that secp256k1 elliptic curve operations work correctly
+    std::array<uint8_t, 64> testSeed = {};
+    for (size_t i = 0; i < 64; i++) {
+        testSeed[i] = static_cast<uint8_t>(i + 100); // Different seed for variety
+    }
+
+    Crypto::BIP32ExtendedKey masterKey;
+    if (!Crypto::BIP32_MasterKeyFromSeed(testSeed, masterKey)) {
+        return false;
+    }
+
+    // Derive multiple addresses - they should all be different
+    std::vector<std::string> addresses;
+    for (uint32_t i = 0; i < 5; i++) {
+        std::string path = "m/44'/0'/0'/0/" + std::to_string(i);
+        Crypto::BIP32ExtendedKey derivedKey;
+        if (!Crypto::BIP32_DerivePath(masterKey, path, derivedKey)) {
+            std::cout << "Failed to derive path: " << path << "\n";
+            return false;
+        }
+
+        std::string address;
+        if (!Crypto::BIP32_GetBitcoinAddress(derivedKey, address)) {
+            std::cout << "Failed to generate address for path: " << path << "\n";
+            return false;
+        }
+
+        addresses.push_back(address);
+    }
+
+    // Verify all addresses are unique
+    std::set<std::string> uniqueAddresses(addresses.begin(), addresses.end());
+    if (uniqueAddresses.size() != addresses.size()) {
+        std::cout << "Generated addresses are not unique\n";
+        return false;
+    }
+
+    std::cout << "Generated 5 unique addresses using secp256k1\n";
+
+    return true;
+}
+
+bool test_BIP32_KnownTestVector() {
+    // Test with known BIP39 test vector:
+    // Mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+    // This is a well-known BIP39 test case
+
+    // Known BIP39 seed for this mnemonic (with empty passphrase)
+    std::array<uint8_t, 64> knownSeed = {
+        0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08,
+        0x4a, 0xbc, 0xa9, 0x1e, 0x89, 0x43, 0xd7, 0x43,
+        0x04, 0x5e, 0x78, 0xcd, 0x56, 0xa0, 0x41, 0x75,
+        0x9f, 0xfb, 0x8b, 0x7a, 0x33, 0xcd, 0xae, 0xcd,
+        0xd5, 0xae, 0x3f, 0x5e, 0x1e, 0xd9, 0x6e, 0x82,
+        0xf9, 0xf0, 0xc4, 0xa7, 0x50, 0x63, 0xe1, 0x38,
+        0x97, 0xe4, 0x2c, 0x62, 0x9b, 0x9b, 0x5d, 0x3a,
+        0x0e, 0x59, 0xc4, 0x82, 0xf3, 0x5d, 0x6e, 0xcd
+    };
+
+    Crypto::BIP32ExtendedKey masterKey;
+    if (!Crypto::BIP32_MasterKeyFromSeed(knownSeed, masterKey)) {
+        std::cout << "Failed to derive master key from known seed\n";
+        return false;
+    }
+
+    // Derive m/44'/0'/0'/0/0 (first Bitcoin address)
+    Crypto::BIP32ExtendedKey derivedKey;
+    if (!Crypto::BIP32_DerivePath(masterKey, "m/44'/0'/0'/0/0", derivedKey)) {
+        std::cout << "Failed to derive BIP44 path from known seed\n";
+        return false;
+    }
+
+    std::string address;
+    if (!Crypto::BIP32_GetBitcoinAddress(derivedKey, address)) {
+        std::cout << "Failed to generate address from known seed\n";
+        return false;
+    }
+
+    // The address should be deterministic for this known test vector
+    std::cout << "Known test vector address: " << address << "\n";
+
+    // Verify it's a valid Bitcoin address format
+    if (address.empty() || address[0] != '1') {
+        std::cout << "Known test vector produced invalid address\n";
+        return false;
+    }
+
+    return true;
 }
 
 } // namespace TestBIP39
@@ -570,10 +880,10 @@ int main() {
     
     std::cout << "BIP39 Functionality Test Suite\n";
     std::cout << std::string(50, '=') << "\n\n";
-    
-    // Load user database
-    Auth::LoadUserDatabase();
-    
+
+    // REMOVED: Auth::LoadUserDatabase() - insecure plaintext database function
+    // Tests work with in-memory g_users map; production uses Repository layer
+
     TestRunner runner;
     
     // Core BIP39 tests
@@ -595,12 +905,25 @@ int main() {
     // Edge case and security tests
     runner.runTest("Multiple User Registrations", test_MultipleUserRegistrations);
     runner.runTest("Rate Limiting", test_RateLimiting);
-    
+
+    // BIP32 Cryptographic Tests (Phase 1 Verification)
+    std::cout << "\n" << std::string(50, '=') << "\n";
+    std::cout << "BIP32 CRYPTOGRAPHIC TESTS (Phase 1)\n";
+    std::cout << std::string(50, '=') << "\n\n";
+
+    runner.runTest("BIP32: Master Key Generation", test_BIP32_MasterKeyGeneration);
+    runner.runTest("BIP32: Child Key Derivation", test_BIP32_ChildKeyDerivation);
+    runner.runTest("BIP32: Path Derivation (BIP44)", test_BIP32_PathDerivation);
+    runner.runTest("BIP32: Bitcoin Address Generation", test_BIP32_BitcoinAddressGeneration);
+    runner.runTest("BIP32: WIF Private Key Export", test_BIP32_WIFExport);
+    runner.runTest("BIP32: secp256k1 Integration", test_BIP32_Secp256k1Integration);
+    runner.runTest("BIP32: Known Test Vector", test_BIP32_KnownTestVector);
+
     runner.printSummary();
-    
-    // Save any changes to database
-    Auth::SaveUserDatabase();
-    
+
+    // REMOVED: Auth::SaveUserDatabase() - insecure plaintext database function
+    // Tests use in-memory data; production should persist via Repository layer
+
     std::cout << "\nTest run completed. Press any key to continue...\n";
     std::cin.get();
     

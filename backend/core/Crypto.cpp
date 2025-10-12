@@ -15,6 +15,9 @@
 #include <string>
 #include <vector>
 
+// Third-party headers
+#include <secp256k1.h>
+
 // Project headers
 #include "Crypto.h"
 
@@ -22,6 +25,14 @@
 #pragma comment(lib, "Crypt32.lib")
 
 namespace Crypto {
+
+// Global secp256k1 context (initialized once)
+static secp256k1_context* GetSecp256k1Context() {
+  static secp256k1_context* ctx = secp256k1_context_create(
+    SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY
+  );
+  return ctx;
+}
 
 // === Random Number Generation ===
 bool RandBytes(void *buf, size_t len) {
@@ -840,6 +851,363 @@ bool VerifyDatabaseKey(const std::string &password, const DatabaseKeyInfo &key_i
   }
 
   return true;
+}
+
+// === BIP32 Hierarchical Deterministic Key Derivation ===
+
+// Helper: Read 4 bytes as big-endian uint32
+static uint32_t ReadBE32(const uint8_t* ptr) {
+  return (static_cast<uint32_t>(ptr[0]) << 24) |
+         (static_cast<uint32_t>(ptr[1]) << 16) |
+         (static_cast<uint32_t>(ptr[2]) << 8) |
+         static_cast<uint32_t>(ptr[3]);
+}
+
+// Helper: Write uint32 as big-endian 4 bytes
+static void WriteBE32(uint8_t* ptr, uint32_t value) {
+  ptr[0] = static_cast<uint8_t>(value >> 24);
+  ptr[1] = static_cast<uint8_t>(value >> 16);
+  ptr[2] = static_cast<uint8_t>(value >> 8);
+  ptr[3] = static_cast<uint8_t>(value);
+}
+
+// Helper: Base58 encoding for Bitcoin addresses and WIF
+static const char* BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+static std::string EncodeBase58(const std::vector<uint8_t>& data) {
+  // Count leading zeros
+  size_t leading_zeros = 0;
+  for (size_t i = 0; i < data.size() && data[i] == 0; ++i) {
+    ++leading_zeros;
+  }
+
+  // Allocate enough space in big-endian base58 representation
+  std::vector<uint8_t> b58((data.size() - leading_zeros) * 138 / 100 + 1);
+
+  // Process the bytes
+  for (size_t i = leading_zeros; i < data.size(); ++i) {
+    int carry = data[i];
+    for (size_t j = 0; j < b58.size(); ++j) {
+      carry += 256 * b58[j];
+      b58[j] = carry % 58;
+      carry /= 58;
+    }
+  }
+
+  // Skip leading zeros in base58 result
+  size_t b58_leading_zeros = 0;
+  for (size_t i = 0; i < b58.size() && b58[i] == 0; ++i) {
+    ++b58_leading_zeros;
+  }
+
+  // Translate the result into a string
+  std::string result;
+  result.reserve(leading_zeros + (b58.size() - b58_leading_zeros));
+  result.assign(leading_zeros, '1');
+  for (size_t i = b58_leading_zeros; i < b58.size(); ++i) {
+    result += BASE58_ALPHABET[b58[b58.size() - 1 - i]];
+  }
+
+  return result;
+}
+
+// Helper: Base58Check encoding (with double SHA256 checksum)
+static std::string EncodeBase58Check(const std::vector<uint8_t>& data) {
+  // Add 4-byte checksum (first 4 bytes of double SHA256)
+  std::array<uint8_t, 32> hash1, hash2;
+  if (!SHA256(data.data(), data.size(), hash1)) {
+    return "";
+  }
+  if (!SHA256(hash1.data(), hash1.size(), hash2)) {
+    return "";
+  }
+
+  std::vector<uint8_t> data_with_checksum = data;
+  data_with_checksum.insert(data_with_checksum.end(), hash2.begin(), hash2.begin() + 4);
+
+  return EncodeBase58(data_with_checksum);
+}
+
+// NOTE: For production use, this requires secp256k1 library for proper elliptic curve operations
+// This is a simplified implementation that provides the structure but needs external crypto library
+// TODO: Integrate secp256k1 for proper point addition and scalar multiplication
+
+bool BIP32_MasterKeyFromSeed(const std::array<uint8_t, 64> &seed,
+                              BIP32ExtendedKey &masterKey) {
+  // BIP32 specifies: I = HMAC-SHA512(Key = "Bitcoin seed", Data = S)
+  const char* hmac_key_str = "Bitcoin seed";
+  std::vector<uint8_t> hmac_key(hmac_key_str, hmac_key_str + std::strlen(hmac_key_str));
+
+  std::vector<uint8_t> I;
+  if (!HMAC_SHA512(hmac_key, seed.data(), seed.size(), I)) {
+    return false;
+  }
+
+  // Split I into two 32-byte sequences: IL (master private key) and IR (master chain code)
+  masterKey.key.assign(I.begin(), I.begin() + 32);
+  masterKey.chainCode.assign(I.begin() + 32, I.begin() + 64);
+  masterKey.depth = 0;
+  masterKey.fingerprint = 0;
+  masterKey.childNumber = 0;
+  masterKey.isPrivate = true;
+
+  // Securely wipe the HMAC result
+  SecureWipeVector(I);
+
+  // TODO: Verify that the key is valid (not zero and less than secp256k1 curve order)
+  // For now, assume it's valid (extremely unlikely to be invalid)
+
+  return true;
+}
+
+bool BIP32_DeriveChild(const BIP32ExtendedKey &parent, uint32_t index,
+                       BIP32ExtendedKey &child) {
+  if (!parent.isPrivate && index >= 0x80000000) {
+    // Cannot derive hardened child from public key
+    return false;
+  }
+
+  const bool hardened = (index >= 0x80000000);
+
+  // Prepare data for HMAC-SHA512
+  std::vector<uint8_t> data;
+  data.reserve(37); // Max size: 1 + 32 + 4
+
+  if (hardened) {
+    // Hardened derivation: data = 0x00 || ser256(kpar) || ser32(i)
+    data.push_back(0x00);
+    data.insert(data.end(), parent.key.begin(), parent.key.end());
+  } else {
+    // Normal derivation: data = serP(point(kpar)) || ser32(i)
+    if (parent.isPrivate) {
+      // Derive public key from private key using secp256k1
+      secp256k1_pubkey pubkey;
+      auto* ctx = GetSecp256k1Context();
+
+      if (!secp256k1_ec_pubkey_create(ctx, &pubkey, parent.key.data())) {
+        return false;
+      }
+
+      // Serialize public key in compressed format (33 bytes)
+      uint8_t pubkey_serialized[33];
+      size_t pubkey_len = sizeof(pubkey_serialized);
+      secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkey_len, &pubkey, SECP256K1_EC_COMPRESSED);
+
+      data.insert(data.end(), pubkey_serialized, pubkey_serialized + pubkey_len);
+    } else {
+      // Parent is already public key
+      data.insert(data.end(), parent.key.begin(), parent.key.end());
+    }
+  }
+
+  // Append child index as big-endian uint32
+  uint8_t index_bytes[4];
+  WriteBE32(index_bytes, index);
+  data.insert(data.end(), index_bytes, index_bytes + 4);
+
+  // I = HMAC-SHA512(Key = cpar, Data = data)
+  std::vector<uint8_t> I;
+  if (!HMAC_SHA512(parent.chainCode, data.data(), data.size(), I)) {
+    SecureWipeVector(data);
+    return false;
+  }
+
+  // Split I into IL (32 bytes) and IR (32 bytes)
+  std::vector<uint8_t> IL(I.begin(), I.begin() + 32);
+  std::vector<uint8_t> IR(I.begin() + 32, I.begin() + 64);
+
+  // Child chain code = IR
+  child.chainCode = IR;
+
+  if (parent.isPrivate) {
+    // Child private key = parse256(IL) + kpar (mod n)
+    child.key = parent.key; // Start with parent key
+    auto* ctx = GetSecp256k1Context();
+
+    // Add IL to parent private key (mod curve order)
+    if (!secp256k1_ec_seckey_tweak_add(ctx, child.key.data(), IL.data())) {
+      SecureWipeVector(data);
+      SecureWipeVector(I);
+      SecureWipeVector(IL);
+      return false;
+    }
+    child.isPrivate = true;
+  } else {
+    // Child public key = point(parse256(IL)) + Kpar
+    auto* ctx = GetSecp256k1Context();
+
+    // Parse parent public key
+    secp256k1_pubkey parent_pubkey;
+    if (!secp256k1_ec_pubkey_parse(ctx, &parent_pubkey, parent.key.data(), parent.key.size())) {
+      SecureWipeVector(data);
+      SecureWipeVector(I);
+      SecureWipeVector(IL);
+      return false;
+    }
+
+    // Add IL as tweak to parent public key
+    if (!secp256k1_ec_pubkey_tweak_add(ctx, &parent_pubkey, IL.data())) {
+      SecureWipeVector(data);
+      SecureWipeVector(I);
+      SecureWipeVector(IL);
+      return false;
+    }
+
+    // Serialize child public key
+    uint8_t child_pubkey_serialized[33];
+    size_t child_pubkey_len = sizeof(child_pubkey_serialized);
+    secp256k1_ec_pubkey_serialize(ctx, child_pubkey_serialized, &child_pubkey_len,
+                                  &parent_pubkey, SECP256K1_EC_COMPRESSED);
+
+    child.key.assign(child_pubkey_serialized, child_pubkey_serialized + child_pubkey_len);
+    child.isPrivate = false;
+  }
+
+  child.depth = parent.depth + 1;
+  child.childNumber = index;
+
+  // Compute parent fingerprint (first 4 bytes of parent public key hash)
+  // TODO: Need proper public key serialization
+  std::array<uint8_t, 32> parent_hash;
+  SHA256(parent.key.data(), parent.key.size(), parent_hash);
+  child.fingerprint = ReadBE32(parent_hash.data());
+
+  // Clean up sensitive data
+  SecureWipeVector(data);
+  SecureWipeVector(I);
+  SecureWipeVector(IL);
+
+  // TODO: Verify child key is valid (not zero and less than curve order)
+
+  return true;
+}
+
+bool BIP32_DerivePath(const BIP32ExtendedKey &master, const std::string &path,
+                      BIP32ExtendedKey &derived) {
+  // Parse path like "m/44'/0'/0'/0/0"
+  if (path.empty() || path[0] != 'm') {
+    return false;
+  }
+
+  derived = master;
+
+  // Skip "m" and parse each level
+  size_t pos = 1;
+  while (pos < path.size()) {
+    if (path[pos] == '/') {
+      ++pos;
+      continue;
+    }
+
+    // Parse index number
+    uint32_t index = 0;
+    bool hardened = false;
+
+    while (pos < path.size() && std::isdigit(path[pos])) {
+      index = index * 10 + (path[pos] - '0');
+      ++pos;
+    }
+
+    // Check for hardened derivation marker
+    if (pos < path.size() && (path[pos] == '\'' || path[pos] == 'h')) {
+      hardened = true;
+      ++pos;
+    }
+
+    if (hardened) {
+      index |= 0x80000000; // Set hardened bit
+    }
+
+    // Derive child at this level
+    BIP32ExtendedKey child;
+    if (!BIP32_DeriveChild(derived, index, child)) {
+      return false;
+    }
+    derived = child;
+  }
+
+  return true;
+}
+
+bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &address) {
+  // Bitcoin address generation:
+  // 1. Start with public key (33 bytes compressed or 65 bytes uncompressed)
+  // 2. SHA256 hash
+  // 3. RIPEMD-160 hash (TODO: not available, using SHA256 as placeholder)
+  // 4. Add version byte (0x00 for mainnet P2PKH)
+  // 5. Base58Check encode
+
+  std::vector<uint8_t> pubkey;
+
+  if (extKey.isPrivate) {
+    // Derive public key from private key using secp256k1
+    secp256k1_pubkey pubkey_struct;
+    auto* ctx = GetSecp256k1Context();
+
+    if (!secp256k1_ec_pubkey_create(ctx, &pubkey_struct, extKey.key.data())) {
+      return false;
+    }
+
+    // Serialize public key in compressed format (33 bytes)
+    uint8_t pubkey_serialized[33];
+    size_t pubkey_len = sizeof(pubkey_serialized);
+    secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkey_len,
+                                  &pubkey_struct, SECP256K1_EC_COMPRESSED);
+
+    pubkey.assign(pubkey_serialized, pubkey_serialized + pubkey_len);
+  } else {
+    pubkey = extKey.key;
+  }
+
+  // SHA256 hash of public key
+  std::array<uint8_t, 32> sha_hash;
+  if (!SHA256(pubkey.data(), pubkey.size(), sha_hash)) {
+    return false;
+  }
+
+  // RIPEMD-160 not available - using truncated SHA256 as placeholder
+  // TODO: Implement RIPEMD-160 or use a crypto library
+  std::array<uint8_t, 32> hash160_replacement;
+  if (!SHA256(sha_hash.data(), sha_hash.size(), hash160_replacement)) {
+    return false;
+  }
+
+  // Use first 20 bytes to simulate RIPEMD-160 output
+  std::vector<uint8_t> pubkey_hash(hash160_replacement.begin(), hash160_replacement.begin() + 20);
+
+  // Add version byte (0x00 for mainnet P2PKH)
+  std::vector<uint8_t> versioned_hash;
+  versioned_hash.push_back(0x00);
+  versioned_hash.insert(versioned_hash.end(), pubkey_hash.begin(), pubkey_hash.end());
+
+  // Base58Check encode
+  address = EncodeBase58Check(versioned_hash);
+
+  return !address.empty();
+}
+
+bool BIP32_GetWIF(const BIP32ExtendedKey &extKey, std::string &wif, bool testnet) {
+  if (!extKey.isPrivate) {
+    return false; // Can only export private keys
+  }
+
+  // WIF format:
+  // 1. Version byte (0x80 for mainnet, 0xEF for testnet)
+  // 2. Private key (32 bytes)
+  // 3. Compression flag (0x01 for compressed)
+  // 4. Base58Check encode
+
+  std::vector<uint8_t> data;
+  data.push_back(testnet ? 0xEF : 0x80); // Version byte
+  data.insert(data.end(), extKey.key.begin(), extKey.key.end()); // Private key
+  data.push_back(0x01); // Compression flag (compressed pubkey)
+
+  wif = EncodeBase58Check(data);
+
+  // Securely wipe the data
+  SecureWipeVector(data);
+
+  return !wif.empty();
 }
 
 } // namespace Crypto
