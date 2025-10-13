@@ -120,4 +120,138 @@ bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &addres
 // Get WIF (Wallet Import Format) private key
 bool BIP32_GetWIF(const BIP32ExtendedKey &extKey, std::string &wif, bool testnet = false);
 
+// === Transaction Signing Functions ===
+
+// ECDSA signature structure (DER encoded)
+struct ECDSASignature {
+  std::vector<uint8_t> r;  // R component (32 bytes)
+  std::vector<uint8_t> s;  // S component (32 bytes)
+  std::vector<uint8_t> der_encoded;  // DER encoded signature for Bitcoin
+};
+
+// Sign a 32-byte hash with a private key (returns DER-encoded signature)
+bool SignHash(const std::vector<uint8_t> &private_key, const std::array<uint8_t, 32> &hash,
+              ECDSASignature &signature);
+
+// Verify a signature against a public key and hash
+bool VerifySignature(const std::vector<uint8_t> &public_key, const std::array<uint8_t, 32> &hash,
+                     const ECDSASignature &signature);
+
+// === Bitcoin Transaction Helper Functions ===
+
+// UTXO (Unspent Transaction Output) structure
+struct UTXO {
+  std::string txid;            // Transaction ID (hex string)
+  uint32_t vout;               // Output index
+  uint64_t amount;             // Amount in satoshis
+  std::string address;         // Address that can spend this UTXO
+  std::string script_pubkey;   // Script public key (hex)
+  uint32_t confirmations;      // Number of confirmations
+};
+
+// Transaction input structure
+struct TransactionInput {
+  std::string txid;            // Previous transaction ID
+  uint32_t vout;               // Previous output index
+  std::string script_sig;      // Signature script (hex)
+  uint32_t sequence;           // Sequence number (0xFFFFFFFF for final)
+};
+
+// Transaction output structure
+struct TransactionOutput {
+  uint64_t amount;             // Amount in satoshis
+  std::string script_pubkey;   // Public key script (hex)
+  std::string address;         // Recipient address
+};
+
+// Bitcoin transaction structure
+struct BitcoinTransaction {
+  uint32_t version;                            // Transaction version (usually 1 or 2)
+  std::vector<TransactionInput> inputs;        // Transaction inputs
+  std::vector<TransactionOutput> outputs;      // Transaction outputs
+  uint32_t locktime;                           // Lock time (0 for immediate)
+  std::string raw_hex;                         // Raw transaction hex
+  std::string txid;                            // Transaction ID (after signing)
+};
+
+// Create a P2PKH script pubkey from an address
+bool CreateP2PKHScript(const std::string &address, std::vector<uint8_t> &script);
+
+// Create a transaction hash for signing (single input, using SIGHASH_ALL)
+bool CreateTransactionSigHash(const BitcoinTransaction &tx, size_t input_index,
+                               const std::string &prev_script_pubkey,
+                               std::array<uint8_t, 32> &sighash);
+
+// Sign a Bitcoin transaction input
+bool SignTransactionInput(BitcoinTransaction &tx, size_t input_index,
+                          const std::vector<uint8_t> &private_key,
+                          const std::vector<uint8_t> &public_key,
+                          const std::string &prev_script_pubkey);
+
+// Serialize a transaction to raw hex
+bool SerializeTransaction(const BitcoinTransaction &tx, std::string &raw_hex);
+
+// Calculate transaction ID from raw hex
+bool CalculateTransactionID(const std::string &raw_hex, std::string &txid);
+
+// === BIP44 Helper Functions ===
+
+// BIP44 defines the hierarchical structure: m / purpose' / coin_type' / account' / change / address_index
+// For Bitcoin mainnet: m/44'/0'/0'/0/0 (first receiving address)
+// For Bitcoin testnet: m/44'/1'/0'/0/0
+
+// Derive a BIP44 address key from master key
+bool BIP44_DeriveAddressKey(const BIP32ExtendedKey &master, uint32_t account,
+                             bool change, uint32_t address_index,
+                             BIP32ExtendedKey &address_key, bool testnet = false);
+
+// Derive Bitcoin address from BIP44 path
+bool BIP44_GetAddress(const BIP32ExtendedKey &master, uint32_t account,
+                      bool change, uint32_t address_index,
+                      std::string &address, bool testnet = false);
+
+// Generate multiple addresses for an account
+bool BIP44_GenerateAddresses(const BIP32ExtendedKey &master, uint32_t account,
+                              bool change, uint32_t start_index, uint32_t count,
+                              std::vector<std::string> &addresses, bool testnet = false);
+
+// === UTXO Management Functions ===
+
+// UTXO set for an address
+struct UTXOSet {
+  std::string address;
+  std::vector<UTXO> utxos;
+  uint64_t total_amount;  // Sum of all UTXO amounts
+  uint32_t utxo_count;
+};
+
+// Select UTXOs for a transaction (coin selection algorithm)
+struct CoinSelection {
+  std::vector<UTXO> selected_utxos;
+  uint64_t total_input;      // Total input amount
+  uint64_t target_amount;    // Amount to send
+  uint64_t fee;              // Transaction fee
+  uint64_t change_amount;    // Change to return
+  bool has_change;           // Whether change output is needed
+};
+
+// Simple coin selection algorithm (largest first)
+bool SelectCoins(const std::vector<UTXO> &available_utxos,
+                 uint64_t target_amount, uint64_t fee_per_byte,
+                 CoinSelection &selection);
+
+// Estimate transaction size in bytes (for fee calculation)
+uint64_t EstimateTransactionSize(size_t input_count, size_t output_count);
+
+// Calculate total fee for a transaction
+uint64_t CalculateFee(size_t input_count, size_t output_count, uint64_t fee_per_byte);
+
+// Create a complete unsigned transaction from UTXOs
+bool CreateUnsignedTransaction(const std::vector<UTXO> &inputs,
+                                const std::string &recipient_address,
+                                uint64_t send_amount,
+                                const std::string &change_address,
+                                uint64_t change_amount,
+                                BitcoinTransaction &tx);
+
 } // namespace Crypto

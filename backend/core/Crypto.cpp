@@ -114,6 +114,129 @@ bool SHA256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out) {
   return BCRYPT_SUCCESS(st);
 }
 
+// === RIPEMD-160 Implementation ===
+// Windows BCrypt doesn't support RIPEMD-160, so we implement it manually
+// This is required for proper Bitcoin address generation (Hash160 = RIPEMD160(SHA256(data)))
+
+static uint32_t RIPEMD160_F(uint32_t x, uint32_t y, uint32_t z, int round) {
+  if (round < 16) return x ^ y ^ z;
+  if (round < 32) return (x & y) | (~x & z);
+  if (round < 48) return (x | ~y) ^ z;
+  if (round < 64) return (x & z) | (y & ~z);
+  return x ^ (y | ~z);
+}
+
+static uint32_t RIPEMD160_ROL(uint32_t value, int bits) {
+  return (value << bits) | (value >> (32 - bits));
+}
+
+bool RIPEMD160(const uint8_t *data, size_t len, std::array<uint8_t, 20> &out) {
+  // RIPEMD-160 constants
+  static const uint32_t KL[5] = {0x00000000, 0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xA953FD4E};
+  static const uint32_t KR[5] = {0x50A28BE6, 0x5C4DD124, 0x6D703EF3, 0x7A6D76E9, 0x00000000};
+
+  static const int RL[80] = {
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8,
+    3, 10, 14, 4, 9, 15, 8, 1, 2, 7, 0, 6, 13, 11, 5, 12,
+    1, 9, 11, 10, 0, 8, 12, 4, 13, 3, 7, 15, 14, 5, 6, 2,
+    4, 0, 5, 9, 7, 12, 2, 10, 14, 1, 3, 8, 11, 6, 15, 13
+  };
+
+  static const int RR[80] = {
+    5, 14, 7, 0, 9, 2, 11, 4, 13, 6, 15, 8, 1, 10, 3, 12,
+    6, 11, 3, 7, 0, 13, 5, 10, 14, 15, 8, 12, 4, 9, 1, 2,
+    15, 5, 1, 3, 7, 14, 6, 9, 11, 8, 12, 2, 10, 0, 4, 13,
+    8, 6, 4, 1, 3, 11, 15, 0, 5, 12, 2, 13, 9, 7, 10, 14,
+    12, 15, 10, 4, 1, 5, 8, 7, 6, 2, 13, 14, 0, 3, 9, 11
+  };
+
+  static const int SL[80] = {
+    11, 14, 15, 12, 5, 8, 7, 9, 11, 13, 14, 15, 6, 7, 9, 8,
+    7, 6, 8, 13, 11, 9, 7, 15, 7, 12, 15, 9, 11, 7, 13, 12,
+    11, 13, 6, 7, 14, 9, 13, 15, 14, 8, 13, 6, 5, 12, 7, 5,
+    11, 12, 14, 15, 14, 15, 9, 8, 9, 14, 5, 6, 8, 6, 5, 12,
+    9, 15, 5, 11, 6, 8, 13, 12, 5, 12, 13, 14, 11, 8, 5, 6
+  };
+
+  static const int SR[80] = {
+    8, 9, 9, 11, 13, 15, 15, 5, 7, 7, 8, 11, 14, 14, 12, 6,
+    9, 13, 15, 7, 12, 8, 9, 11, 7, 7, 12, 7, 6, 15, 13, 11,
+    9, 7, 15, 11, 8, 6, 6, 14, 12, 13, 5, 14, 13, 13, 7, 5,
+    15, 5, 8, 11, 14, 14, 6, 14, 6, 9, 12, 9, 12, 5, 15, 8,
+    8, 5, 12, 9, 12, 5, 14, 6, 8, 13, 6, 5, 15, 13, 11, 11
+  };
+
+  // Initialize state
+  uint32_t h0 = 0x67452301;
+  uint32_t h1 = 0xEFCDAB89;
+  uint32_t h2 = 0x98BADCFE;
+  uint32_t h3 = 0x10325476;
+  uint32_t h4 = 0xC3D2E1F0;
+
+  // Prepare message with padding
+  uint64_t bit_len = len * 8;
+  size_t new_len = len + 1;
+  while (new_len % 64 != 56) new_len++;
+
+  std::vector<uint8_t> padded(new_len + 8);
+  std::memcpy(padded.data(), data, len);
+  padded[len] = 0x80;
+
+  // Append length in little-endian
+  for (int i = 0; i < 8; i++) {
+    padded[new_len + i] = (bit_len >> (i * 8)) & 0xFF;
+  }
+
+  // Process blocks
+  for (size_t block = 0; block < padded.size(); block += 64) {
+    uint32_t X[16];
+    for (int i = 0; i < 16; i++) {
+      X[i] = static_cast<uint32_t>(padded[block + i * 4]) |
+             (static_cast<uint32_t>(padded[block + i * 4 + 1]) << 8) |
+             (static_cast<uint32_t>(padded[block + i * 4 + 2]) << 16) |
+             (static_cast<uint32_t>(padded[block + i * 4 + 3]) << 24);
+    }
+
+    // Left line
+    uint32_t AL = h0, BL = h1, CL = h2, DL = h3, EL = h4;
+    // Right line
+    uint32_t AR = h0, BR = h1, CR = h2, DR = h3, ER = h4;
+
+    // 80 rounds
+    for (int i = 0; i < 80; i++) {
+      // Left line
+      uint32_t TL = AL + RIPEMD160_F(BL, CL, DL, i) + X[RL[i]] + KL[i / 16];
+      TL = RIPEMD160_ROL(TL, SL[i]) + EL;
+      AL = EL; EL = DL; DL = RIPEMD160_ROL(CL, 10); CL = BL; BL = TL;
+
+      // Right line
+      uint32_t TR = AR + RIPEMD160_F(BR, CR, DR, 79 - i) + X[RR[i]] + KR[i / 16];
+      TR = RIPEMD160_ROL(TR, SR[i]) + ER;
+      AR = ER; ER = DR; DR = RIPEMD160_ROL(CR, 10); CR = BR; BR = TR;
+    }
+
+    // Update state
+    uint32_t T = h1 + CL + DR;
+    h1 = h2 + DL + ER;
+    h2 = h3 + EL + AR;
+    h3 = h4 + AL + BR;
+    h4 = h0 + BL + CR;
+    h0 = T;
+  }
+
+  // Output hash in little-endian
+  for (int i = 0; i < 4; i++) {
+    out[i] = (h0 >> (i * 8)) & 0xFF;
+    out[i + 4] = (h1 >> (i * 8)) & 0xFF;
+    out[i + 8] = (h2 >> (i * 8)) & 0xFF;
+    out[i + 12] = (h3 >> (i * 8)) & 0xFF;
+    out[i + 16] = (h4 >> (i * 8)) & 0xFF;
+  }
+
+  return true;
+}
+
 bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data,
                 size_t data_len, std::vector<uint8_t> &out) {
   out.assign(32, 0);
@@ -1165,18 +1288,15 @@ bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &addres
     return false;
   }
 
-  // RIPEMD-160 not available - using truncated SHA256 as placeholder
-  // TODO: Implement RIPEMD-160 or use a crypto library
-  std::array<uint8_t, 32> hash160_replacement;
-  if (!SHA256(sha_hash.data(), sha_hash.size(), hash160_replacement)) {
+  // RIPEMD-160 hash of SHA256 (Hash160)
+  std::array<uint8_t, 20> pubkey_hash;
+  if (!RIPEMD160(sha_hash.data(), sha_hash.size(), pubkey_hash)) {
     return false;
   }
 
-  // Use first 20 bytes to simulate RIPEMD-160 output
-  std::vector<uint8_t> pubkey_hash(hash160_replacement.begin(), hash160_replacement.begin() + 20);
-
   // Add version byte (0x00 for mainnet P2PKH)
   std::vector<uint8_t> versioned_hash;
+  versioned_hash.reserve(21);
   versioned_hash.push_back(0x00);
   versioned_hash.insert(versioned_hash.end(), pubkey_hash.begin(), pubkey_hash.end());
 
@@ -1208,6 +1328,500 @@ bool BIP32_GetWIF(const BIP32ExtendedKey &extKey, std::string &wif, bool testnet
   SecureWipeVector(data);
 
   return !wif.empty();
+}
+
+// === Transaction Signing Functions ===
+
+bool SignHash(const std::vector<uint8_t> &private_key, const std::array<uint8_t, 32> &hash,
+              ECDSASignature &signature) {
+  if (private_key.size() != 32) {
+    return false;
+  }
+
+  auto* ctx = GetSecp256k1Context();
+
+  // Create signature
+  secp256k1_ecdsa_signature sig;
+  if (!secp256k1_ecdsa_sign(ctx, &sig, hash.data(), private_key.data(), nullptr, nullptr)) {
+    return false;
+  }
+
+  // Normalize signature to low-S form (required by Bitcoin)
+  secp256k1_ecdsa_signature_normalize(ctx, &sig, &sig);
+
+  // Serialize to DER format
+  uint8_t der[74];  // Maximum DER signature size
+  size_t der_len = sizeof(der);
+  if (!secp256k1_ecdsa_signature_serialize_der(ctx, der, &der_len, &sig)) {
+    return false;
+  }
+
+  signature.der_encoded.assign(der, der + der_len);
+
+  // Extract R and S components (compact form)
+  uint8_t compact[64];
+  secp256k1_ecdsa_signature_serialize_compact(ctx, compact, &sig);
+  signature.r.assign(compact, compact + 32);
+  signature.s.assign(compact + 32, compact + 64);
+
+  return true;
+}
+
+bool VerifySignature(const std::vector<uint8_t> &public_key, const std::array<uint8_t, 32> &hash,
+                     const ECDSASignature &signature) {
+  if (public_key.empty() || signature.der_encoded.empty()) {
+    return false;
+  }
+
+  auto* ctx = GetSecp256k1Context();
+
+  // Parse public key
+  secp256k1_pubkey pubkey;
+  if (!secp256k1_ec_pubkey_parse(ctx, &pubkey, public_key.data(), public_key.size())) {
+    return false;
+  }
+
+  // Parse DER signature
+  secp256k1_ecdsa_signature sig;
+  if (!secp256k1_ecdsa_signature_parse_der(ctx, &sig, signature.der_encoded.data(),
+                                            signature.der_encoded.size())) {
+    return false;
+  }
+
+  // Verify signature
+  return secp256k1_ecdsa_verify(ctx, &sig, hash.data(), &pubkey) == 1;
+}
+
+// === Bitcoin Transaction Helper Functions ===
+
+// Helper: Convert hex string to bytes
+static std::vector<uint8_t> HexToBytes(const std::string &hex) {
+  std::vector<uint8_t> bytes;
+  for (size_t i = 0; i < hex.length(); i += 2) {
+    std::string byte_str = hex.substr(i, 2);
+    uint8_t byte = static_cast<uint8_t>(std::strtoul(byte_str.c_str(), nullptr, 16));
+    bytes.push_back(byte);
+  }
+  return bytes;
+}
+
+// Helper: Convert bytes to hex string
+static std::string BytesToHex(const std::vector<uint8_t> &bytes) {
+  std::ostringstream oss;
+  for (uint8_t byte : bytes) {
+    oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+  }
+  return oss.str();
+}
+
+// Helper: Write variable-length integer (VarInt)
+static void WriteVarInt(std::vector<uint8_t> &out, uint64_t value) {
+  if (value < 0xFD) {
+    out.push_back(static_cast<uint8_t>(value));
+  } else if (value <= 0xFFFF) {
+    out.push_back(0xFD);
+    out.push_back(static_cast<uint8_t>(value & 0xFF));
+    out.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
+  } else if (value <= 0xFFFFFFFF) {
+    out.push_back(0xFE);
+    for (int i = 0; i < 4; i++) {
+      out.push_back(static_cast<uint8_t>((value >> (i * 8)) & 0xFF));
+    }
+  } else {
+    out.push_back(0xFF);
+    for (int i = 0; i < 8; i++) {
+      out.push_back(static_cast<uint8_t>((value >> (i * 8)) & 0xFF));
+    }
+  }
+}
+
+// Helper: Write uint32 in little-endian
+static void WriteUInt32LE(std::vector<uint8_t> &out, uint32_t value) {
+  for (int i = 0; i < 4; i++) {
+    out.push_back(static_cast<uint8_t>((value >> (i * 8)) & 0xFF));
+  }
+}
+
+// Helper: Write uint64 in little-endian
+static void WriteUInt64LE(std::vector<uint8_t> &out, uint64_t value) {
+  for (int i = 0; i < 8; i++) {
+    out.push_back(static_cast<uint8_t>((value >> (i * 8)) & 0xFF));
+  }
+}
+
+// Helper: Decode Base58Check to get payload (without version byte and checksum)
+static bool DecodeBase58Check(const std::string &address, std::vector<uint8_t> &payload) {
+  // This is a simplified version - in production, implement full Base58 decoding
+  // For now, return empty to indicate we need full implementation
+  // TODO: Implement proper Base58 decoding
+  return false;
+}
+
+bool CreateP2PKHScript(const std::string &address, std::vector<uint8_t> &script) {
+  // Decode address to get public key hash
+  std::vector<uint8_t> decoded;
+  if (!DecodeBase58Check(address, decoded)) {
+    // Fallback: Create script manually if we have the hash
+    // TODO: Implement proper Base58 decoding
+    return false;
+  }
+
+  // P2PKH script: OP_DUP OP_HASH160 <pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
+  script.clear();
+  script.push_back(0x76);  // OP_DUP
+  script.push_back(0xA9);  // OP_HASH160
+  script.push_back(0x14);  // Push 20 bytes
+  script.insert(script.end(), decoded.begin(), decoded.end());
+  script.push_back(0x88);  // OP_EQUALVERIFY
+  script.push_back(0xAC);  // OP_CHECKSIG
+
+  return true;
+}
+
+bool CreateTransactionSigHash(const BitcoinTransaction &tx, size_t input_index,
+                               const std::string &prev_script_pubkey,
+                               std::array<uint8_t, 32> &sighash) {
+  if (input_index >= tx.inputs.size()) {
+    return false;
+  }
+
+  std::vector<uint8_t> serialized;
+
+  // Version
+  WriteUInt32LE(serialized, tx.version);
+
+  // Input count
+  WriteVarInt(serialized, tx.inputs.size());
+
+  // Inputs
+  for (size_t i = 0; i < tx.inputs.size(); i++) {
+    const auto &input = tx.inputs[i];
+
+    // Previous output (txid + vout)
+    std::vector<uint8_t> txid_bytes = HexToBytes(input.txid);
+    std::reverse(txid_bytes.begin(), txid_bytes.end());  // Reverse for little-endian
+    serialized.insert(serialized.end(), txid_bytes.begin(), txid_bytes.end());
+    WriteUInt32LE(serialized, input.vout);
+
+    // Script
+    if (i == input_index) {
+      // For the input being signed, use prev_script_pubkey
+      std::vector<uint8_t> script_bytes = HexToBytes(prev_script_pubkey);
+      WriteVarInt(serialized, script_bytes.size());
+      serialized.insert(serialized.end(), script_bytes.begin(), script_bytes.end());
+    } else {
+      // For other inputs, use empty script
+      WriteVarInt(serialized, 0);
+    }
+
+    // Sequence
+    WriteUInt32LE(serialized, input.sequence);
+  }
+
+  // Output count
+  WriteVarInt(serialized, tx.outputs.size());
+
+  // Outputs
+  for (const auto &output : tx.outputs) {
+    WriteUInt64LE(serialized, output.amount);
+    std::vector<uint8_t> script_bytes = HexToBytes(output.script_pubkey);
+    WriteVarInt(serialized, script_bytes.size());
+    serialized.insert(serialized.end(), script_bytes.begin(), script_bytes.end());
+  }
+
+  // Locktime
+  WriteUInt32LE(serialized, tx.locktime);
+
+  // Sighash type (SIGHASH_ALL = 0x01)
+  WriteUInt32LE(serialized, 0x00000001);
+
+  // Double SHA256 to get sighash
+  std::array<uint8_t, 32> hash1, hash2;
+  if (!SHA256(serialized.data(), serialized.size(), hash1)) {
+    return false;
+  }
+  if (!SHA256(hash1.data(), hash1.size(), hash2)) {
+    return false;
+  }
+
+  sighash = hash2;
+  return true;
+}
+
+bool SignTransactionInput(BitcoinTransaction &tx, size_t input_index,
+                          const std::vector<uint8_t> &private_key,
+                          const std::vector<uint8_t> &public_key,
+                          const std::string &prev_script_pubkey) {
+  if (input_index >= tx.inputs.size()) {
+    return false;
+  }
+
+  // Create sighash
+  std::array<uint8_t, 32> sighash;
+  if (!CreateTransactionSigHash(tx, input_index, prev_script_pubkey, sighash)) {
+    return false;
+  }
+
+  // Sign the hash
+  ECDSASignature signature;
+  if (!SignHash(private_key, sighash, signature)) {
+    return false;
+  }
+
+  // Create scriptSig: <signature> <pubkey>
+  std::vector<uint8_t> script_sig;
+
+  // Push signature (with SIGHASH_ALL byte)
+  std::vector<uint8_t> sig_with_hashtype = signature.der_encoded;
+  sig_with_hashtype.push_back(0x01);  // SIGHASH_ALL
+  script_sig.push_back(static_cast<uint8_t>(sig_with_hashtype.size()));
+  script_sig.insert(script_sig.end(), sig_with_hashtype.begin(), sig_with_hashtype.end());
+
+  // Push public key
+  script_sig.push_back(static_cast<uint8_t>(public_key.size()));
+  script_sig.insert(script_sig.end(), public_key.begin(), public_key.end());
+
+  // Convert to hex and update input
+  tx.inputs[input_index].script_sig = BytesToHex(script_sig);
+
+  return true;
+}
+
+bool SerializeTransaction(const BitcoinTransaction &tx, std::string &raw_hex) {
+  std::vector<uint8_t> serialized;
+
+  // Version
+  WriteUInt32LE(serialized, tx.version);
+
+  // Input count
+  WriteVarInt(serialized, tx.inputs.size());
+
+  // Inputs
+  for (const auto &input : tx.inputs) {
+    // Previous output (txid + vout)
+    std::vector<uint8_t> txid_bytes = HexToBytes(input.txid);
+    std::reverse(txid_bytes.begin(), txid_bytes.end());  // Reverse for little-endian
+    serialized.insert(serialized.end(), txid_bytes.begin(), txid_bytes.end());
+    WriteUInt32LE(serialized, input.vout);
+
+    // Script
+    std::vector<uint8_t> script_bytes = HexToBytes(input.script_sig);
+    WriteVarInt(serialized, script_bytes.size());
+    serialized.insert(serialized.end(), script_bytes.begin(), script_bytes.end());
+
+    // Sequence
+    WriteUInt32LE(serialized, input.sequence);
+  }
+
+  // Output count
+  WriteVarInt(serialized, tx.outputs.size());
+
+  // Outputs
+  for (const auto &output : tx.outputs) {
+    WriteUInt64LE(serialized, output.amount);
+    std::vector<uint8_t> script_bytes = HexToBytes(output.script_pubkey);
+    WriteVarInt(serialized, script_bytes.size());
+    serialized.insert(serialized.end(), script_bytes.begin(), script_bytes.end());
+  }
+
+  // Locktime
+  WriteUInt32LE(serialized, tx.locktime);
+
+  raw_hex = BytesToHex(serialized);
+  return true;
+}
+
+bool CalculateTransactionID(const std::string &raw_hex, std::string &txid) {
+  std::vector<uint8_t> raw_bytes = HexToBytes(raw_hex);
+
+  // Double SHA256
+  std::array<uint8_t, 32> hash1, hash2;
+  if (!SHA256(raw_bytes.data(), raw_bytes.size(), hash1)) {
+    return false;
+  }
+  if (!SHA256(hash1.data(), hash1.size(), hash2)) {
+    return false;
+  }
+
+  // Reverse for display (Bitcoin displays txid in reverse byte order)
+  std::vector<uint8_t> reversed(hash2.rbegin(), hash2.rend());
+  txid = BytesToHex(reversed);
+
+  return true;
+}
+
+// === BIP44 Helper Functions ===
+
+bool BIP44_DeriveAddressKey(const BIP32ExtendedKey &master, uint32_t account,
+                             bool change, uint32_t address_index,
+                             BIP32ExtendedKey &address_key, bool testnet) {
+  // BIP44 path: m / purpose' / coin_type' / account' / change / address_index
+  // purpose = 44' (hardened)
+  // coin_type = 0' for Bitcoin mainnet, 1' for testnet (hardened)
+  // account = account' (hardened)
+  // change = 0 for receiving, 1 for change (not hardened)
+  // address_index = index (not hardened)
+
+  std::ostringstream path_builder;
+  path_builder << "m/44'/";
+  path_builder << (testnet ? "1'" : "0'") << "/";
+  path_builder << account << "'/";
+  path_builder << (change ? "1" : "0") << "/";
+  path_builder << address_index;
+
+  std::string path = path_builder.str();
+  return BIP32_DerivePath(master, path, address_key);
+}
+
+bool BIP44_GetAddress(const BIP32ExtendedKey &master, uint32_t account,
+                      bool change, uint32_t address_index,
+                      std::string &address, bool testnet) {
+  BIP32ExtendedKey address_key;
+  if (!BIP44_DeriveAddressKey(master, account, change, address_index, address_key, testnet)) {
+    return false;
+  }
+
+  return BIP32_GetBitcoinAddress(address_key, address);
+}
+
+bool BIP44_GenerateAddresses(const BIP32ExtendedKey &master, uint32_t account,
+                              bool change, uint32_t start_index, uint32_t count,
+                              std::vector<std::string> &addresses, bool testnet) {
+  addresses.clear();
+  addresses.reserve(count);
+
+  for (uint32_t i = 0; i < count; i++) {
+    std::string address;
+    if (!BIP44_GetAddress(master, account, change, start_index + i, address, testnet)) {
+      return false;
+    }
+    addresses.push_back(address);
+  }
+
+  return true;
+}
+
+// === UTXO Management Functions ===
+
+bool SelectCoins(const std::vector<UTXO> &available_utxos,
+                 uint64_t target_amount, uint64_t fee_per_byte,
+                 CoinSelection &selection) {
+  // Simple coin selection: Largest first algorithm
+  // Sort UTXOs by amount (largest first)
+  std::vector<UTXO> sorted_utxos = available_utxos;
+  std::sort(sorted_utxos.begin(), sorted_utxos.end(),
+            [](const UTXO &a, const UTXO &b) { return a.amount > b.amount; });
+
+  selection.selected_utxos.clear();
+  selection.total_input = 0;
+  selection.target_amount = target_amount;
+  selection.fee = 0;
+  selection.change_amount = 0;
+  selection.has_change = false;
+
+  // Keep adding UTXOs until we have enough
+  for (const auto &utxo : sorted_utxos) {
+    selection.selected_utxos.push_back(utxo);
+    selection.total_input += utxo.amount;
+
+    // Estimate fee with current number of inputs and outputs
+    size_t output_count = 1;  // At least one output (recipient)
+    selection.fee = CalculateFee(selection.selected_utxos.size(), output_count, fee_per_byte);
+
+    uint64_t required_total = target_amount + selection.fee;
+
+    if (selection.total_input >= required_total) {
+      // We have enough! Check if we need change output
+      selection.change_amount = selection.total_input - required_total;
+
+      // Only create change output if it's economical (dust threshold ~546 satoshis)
+      const uint64_t DUST_THRESHOLD = 546;
+      if (selection.change_amount >= DUST_THRESHOLD) {
+        selection.has_change = true;
+        output_count = 2;  // Add change output
+        // Recalculate fee with change output
+        selection.fee = CalculateFee(selection.selected_utxos.size(), output_count, fee_per_byte);
+        selection.change_amount = selection.total_input - target_amount - selection.fee;
+      } else {
+        // Change too small, add it to fee
+        selection.has_change = false;
+        selection.change_amount = 0;
+      }
+
+      return true;
+    }
+  }
+
+  // Not enough funds
+  return false;
+}
+
+uint64_t EstimateTransactionSize(size_t input_count, size_t output_count) {
+  // Rough estimate of transaction size in bytes
+  // Version: 4 bytes
+  // Input count: ~1 byte (VarInt)
+  // Inputs: ~148 bytes each (txid=32 + vout=4 + script_sig=~107 + sequence=4)
+  // Output count: ~1 byte (VarInt)
+  // Outputs: ~34 bytes each (amount=8 + script_pubkey=~26)
+  // Locktime: 4 bytes
+
+  uint64_t size = 4;  // Version
+  size += 1;  // Input count
+  size += input_count * 148;  // Inputs
+  size += 1;  // Output count
+  size += output_count * 34;  // Outputs
+  size += 4;  // Locktime
+
+  return size;
+}
+
+uint64_t CalculateFee(size_t input_count, size_t output_count, uint64_t fee_per_byte) {
+  uint64_t tx_size = EstimateTransactionSize(input_count, output_count);
+  return tx_size * fee_per_byte;
+}
+
+bool CreateUnsignedTransaction(const std::vector<UTXO> &inputs,
+                                const std::string &recipient_address,
+                                uint64_t send_amount,
+                                const std::string &change_address,
+                                uint64_t change_amount,
+                                BitcoinTransaction &tx) {
+  tx.version = 1;
+  tx.locktime = 0;
+  tx.inputs.clear();
+  tx.outputs.clear();
+
+  // Add inputs
+  for (const auto &utxo : inputs) {
+    TransactionInput input;
+    input.txid = utxo.txid;
+    input.vout = utxo.vout;
+    input.script_sig = "";  // Empty for unsigned transaction
+    input.sequence = 0xFFFFFFFF;  // Final
+    tx.inputs.push_back(input);
+  }
+
+  // Add recipient output
+  TransactionOutput recipient_output;
+  recipient_output.amount = send_amount;
+  recipient_output.address = recipient_address;
+
+  // Create P2PKH script for recipient
+  // For now, use a placeholder script hex
+  // TODO: Implement proper CreateP2PKHScript with Base58 decoding
+  recipient_output.script_pubkey = "76a914";  // OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
+  tx.outputs.push_back(recipient_output);
+
+  // Add change output if needed
+  if (change_amount > 0 && !change_address.empty()) {
+    TransactionOutput change_output;
+    change_output.amount = change_amount;
+    change_output.address = change_address;
+    change_output.script_pubkey = "76a914";  // Placeholder
+    tx.outputs.push_back(change_output);
+  }
+
+  return true;
 }
 
 } // namespace Crypto

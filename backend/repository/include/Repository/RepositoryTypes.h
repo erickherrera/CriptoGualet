@@ -133,6 +133,29 @@ struct Transaction {
 };
 
 /**
+ * @brief UTXO (Unspent Transaction Output) entity structure
+ */
+struct UTXO {
+    int id;
+    int walletId;
+    int addressId;
+    std::string txid;                  // Transaction ID (hex)
+    uint32_t vout;                     // Output index
+    int64_t amountSatoshis;            // Amount in satoshis
+    std::string address;               // Address that can spend this UTXO
+    std::string scriptPubKey;          // Script public key (hex)
+    uint32_t confirmations;            // Number of confirmations
+    std::optional<int> blockHeight;    // Block height where confirmed
+    bool isSpent;                      // Whether this UTXO has been spent
+    std::optional<std::string> spentInTxid;  // Transaction ID where spent
+    std::chrono::system_clock::time_point createdAt;
+    std::optional<std::chrono::system_clock::time_point> spentAt;
+
+    UTXO() : id(0), walletId(0), addressId(0), vout(0), amountSatoshis(0),
+             confirmations(0), isSpent(false) {}
+};
+
+/**
  * @brief Encrypted seed entity structure
  */
 struct EncryptedSeed {

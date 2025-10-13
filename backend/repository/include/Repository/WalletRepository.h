@@ -197,6 +197,89 @@ public:
      */
     Result<WalletStats> getWalletStats(int userId);
 
+    // === UTXO Management Functions ===
+
+    /**
+     * @brief Add a new UTXO to the database
+     * @param walletId Wallet ID
+     * @param addressId Address ID
+     * @param txid Transaction ID
+     * @param vout Output index
+     * @param amountSatoshis Amount in satoshis
+     * @param scriptPubKey Script public key (hex)
+     * @param confirmations Number of confirmations
+     * @param blockHeight Optional block height
+     * @return Result containing the created UTXO
+     */
+    Result<UTXO> addUTXO(int walletId, int addressId, const std::string& txid,
+                        uint32_t vout, int64_t amountSatoshis,
+                        const std::string& scriptPubKey, uint32_t confirmations,
+                        const std::optional<int>& blockHeight = std::nullopt);
+
+    /**
+     * @brief Get all unspent UTXOs for a wallet
+     * @param walletId Wallet ID
+     * @param minConfirmations Minimum number of confirmations (default: 1)
+     * @return Result containing list of unspent UTXOs
+     */
+    Result<std::vector<UTXO>> getUnspentUTXOs(int walletId, uint32_t minConfirmations = 1);
+
+    /**
+     * @brief Get all unspent UTXOs for a specific address
+     * @param addressId Address ID
+     * @param minConfirmations Minimum number of confirmations (default: 1)
+     * @return Result containing list of unspent UTXOs
+     */
+    Result<std::vector<UTXO>> getUnspentUTXOsByAddress(int addressId, uint32_t minConfirmations = 1);
+
+    /**
+     * @brief Mark UTXO as spent
+     * @param utxoId UTXO ID
+     * @param spentInTxid Transaction ID where it was spent
+     * @return Result indicating success or failure
+     */
+    Result<bool> markUTXOAsSpent(int utxoId, const std::string& spentInTxid);
+
+    /**
+     * @brief Mark multiple UTXOs as spent
+     * @param utxoIds List of UTXO IDs
+     * @param spentInTxid Transaction ID where they were spent
+     * @return Result indicating success or failure
+     */
+    Result<bool> markUTXOsAsSpent(const std::vector<int>& utxoIds, const std::string& spentInTxid);
+
+    /**
+     * @brief Update UTXO confirmation count
+     * @param txid Transaction ID
+     * @param confirmations New confirmation count
+     * @return Result indicating success or failure
+     */
+    Result<bool> updateUTXOConfirmations(const std::string& txid, uint32_t confirmations);
+
+    /**
+     * @brief Get total spendable balance for a wallet
+     * @param walletId Wallet ID
+     * @param minConfirmations Minimum number of confirmations (default: 1)
+     * @return Result containing total spendable balance in satoshis
+     */
+    Result<int64_t> getSpendableBalance(int walletId, uint32_t minConfirmations = 1);
+
+    /**
+     * @brief Check if a UTXO exists (to avoid duplicates)
+     * @param txid Transaction ID
+     * @param vout Output index
+     * @return Result indicating if UTXO exists
+     */
+    Result<bool> utxoExists(const std::string& txid, uint32_t vout);
+
+    /**
+     * @brief Get UTXO by transaction ID and output index
+     * @param txid Transaction ID
+     * @param vout Output index
+     * @return Result containing the UTXO
+     */
+    Result<UTXO> getUTXOByTxidVout(const std::string& txid, uint32_t vout);
+
 private:
     /**
      * @brief Convert database row to Wallet object
@@ -211,6 +294,13 @@ private:
      * @return Address object populated from database row
      */
     Address mapRowToAddress(sqlite3_stmt* stmt);
+
+    /**
+     * @brief Convert database row to UTXO object
+     * @param stmt SQLite statement handle
+     * @return UTXO object populated from database row
+     */
+    UTXO mapRowToUTXO(sqlite3_stmt* stmt);
 
     /**
      * @brief Validate wallet name format and requirements
