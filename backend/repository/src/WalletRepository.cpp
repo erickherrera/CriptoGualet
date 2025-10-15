@@ -608,4 +608,655 @@ std::string WalletRepository::generateBitcoinAddress(int walletId, int addressIn
     return oss.str();
 }
 
+int64_t WalletRepository::calculateWalletBalance(int walletId) {
+    const std::string sql = R"(
+        SELECT COALESCE(SUM(balance_satoshis), 0)
+        FROM addresses
+        WHERE wallet_id = ?
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return 0;
+    }
+
+    sqlite3_bind_int(stmt, 1, walletId);
+
+    int64_t balance = 0;
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        balance = sqlite3_column_int64(stmt, 0);
+    }
+
+    sqlite3_finalize(stmt);
+    return balance;
+}
+
+// === Additional Wallet Management Methods ===
+
+Result<bool> WalletRepository::updateWallet(int walletId,
+                                           const std::optional<std::string>& walletName,
+                                           const std::optional<std::string>& derivationPath,
+                                           const std::optional<std::string>& extendedPublicKey) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "updateWallet");
+
+    std::string sql = "UPDATE wallets SET ";
+    std::vector<std::string> updates;
+
+    if (walletName.has_value()) {
+        auto nameValidation = validateWalletName(*walletName);
+        if (!nameValidation) {
+            return nameValidation;
+        }
+        updates.push_back("wallet_name = ?");
+    }
+
+    if (derivationPath.has_value()) {
+        updates.push_back("derivation_path = ?");
+    }
+
+    if (extendedPublicKey.has_value()) {
+        updates.push_back("extended_public_key = ?");
+    }
+
+    if (updates.empty()) {
+        return Result<bool>("No fields to update", 400);
+    }
+
+    for (size_t i = 0; i < updates.size(); ++i) {
+        if (i > 0) sql += ", ";
+        sql += updates[i];
+    }
+    sql += " WHERE id = ?";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare wallet update statement", 500);
+    }
+
+    int paramIndex = 1;
+    if (walletName.has_value()) {
+        sqlite3_bind_text(stmt, paramIndex++, walletName->c_str(), -1, SQLITE_STATIC);
+    }
+    if (derivationPath.has_value()) {
+        sqlite3_bind_text(stmt, paramIndex++, derivationPath->c_str(), -1, SQLITE_STATIC);
+    }
+    if (extendedPublicKey.has_value()) {
+        sqlite3_bind_text(stmt, paramIndex++, extendedPublicKey->c_str(), -1, SQLITE_STATIC);
+    }
+    sqlite3_bind_int(stmt, paramIndex, walletId);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        REPO_LOG_INFO(COMPONENT_NAME, "Wallet updated successfully", "WalletID: " + std::to_string(walletId));
+        return Result<bool>(true);
+    } else {
+        return Result<bool>("Database error during wallet update", 500);
+    }
+}
+
+Result<bool> WalletRepository::setWalletActive(int walletId, bool isActive) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "setWalletActive");
+
+    const std::string sql = "UPDATE wallets SET is_active = ? WHERE id = ?";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare wallet status update", 500);
+    }
+
+    sqlite3_bind_int(stmt, 1, isActive ? 1 : 0);
+    sqlite3_bind_int(stmt, 2, walletId);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        return Result<bool>(true);
+    } else {
+        return Result<bool>("Database error during wallet status update", 500);
+    }
+}
+
+Result<bool> WalletRepository::deleteWallet(int walletId) {
+    return setWalletActive(walletId, false);
+}
+
+Result<Address> WalletRepository::getAddressByString(const std::string& addressStr) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "getAddressByString");
+
+    const std::string sql = R"(
+        SELECT id, wallet_id, address, address_index, is_change, public_key, created_at, label, balance_satoshis
+        FROM addresses
+        WHERE address = ?
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<Address>("Failed to prepare address query", 500);
+    }
+
+    sqlite3_bind_text(stmt, 1, addressStr.c_str(), -1, SQLITE_STATIC);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        Address address = mapRowToAddress(stmt);
+        sqlite3_finalize(stmt);
+        return Result<Address>(address);
+    } else if (rc == SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return Result<Address>("Address not found", 404);
+    } else {
+        sqlite3_finalize(stmt);
+        return Result<Address>("Database error while retrieving address", 500);
+    }
+}
+
+Result<bool> WalletRepository::updateAddressLabel(int addressId, const std::string& label) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "updateAddressLabel");
+
+    const std::string sql = "UPDATE addresses SET label = ? WHERE id = ?";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare address label update", 500);
+    }
+
+    sqlite3_bind_text(stmt, 1, label.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, addressId);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        return Result<bool>(true);
+    } else {
+        return Result<bool>("Database error during address label update", 500);
+    }
+}
+
+Result<bool> WalletRepository::updateAddressBalance(int addressId, int64_t balanceSatoshis) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "updateAddressBalance");
+
+    const std::string sql = "UPDATE addresses SET balance_satoshis = ? WHERE id = ?";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare address balance update", 500);
+    }
+
+    sqlite3_bind_int64(stmt, 1, balanceSatoshis);
+    sqlite3_bind_int(stmt, 2, addressId);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        return Result<bool>(true);
+    } else {
+        return Result<bool>("Database error during address balance update", 500);
+    }
+}
+
+Result<bool> WalletRepository::confirmSeedBackup(int userId) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "confirmSeedBackup");
+
+    const std::string sql = "UPDATE encrypted_seeds SET backup_confirmed = 1 WHERE user_id = ?";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare seed backup confirmation", 500);
+    }
+
+    sqlite3_bind_int(stmt, 1, userId);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        REPO_LOG_INFO(COMPONENT_NAME, "Seed backup confirmed", "UserID: " + std::to_string(userId));
+        return Result<bool>(true);
+    } else {
+        return Result<bool>("Database error during seed backup confirmation", 500);
+    }
+}
+
+Result<bool> WalletRepository::hasSeedStored(int userId) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "hasSeedStored");
+
+    const std::string sql = "SELECT COUNT(*) FROM encrypted_seeds WHERE user_id = ?";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare seed check query", 500);
+    }
+
+    sqlite3_bind_int(stmt, 1, userId);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        int count = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+        return Result<bool>(count > 0);
+    } else {
+        sqlite3_finalize(stmt);
+        return Result<bool>("Database error while checking for seed", 500);
+    }
+}
+
+Result<WalletStats> WalletRepository::getWalletStats(int userId) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "getWalletStats");
+
+    WalletStats stats;
+
+    // Get wallet counts and balances
+    const std::string sql = R"(
+        SELECT
+            COUNT(*) as total_wallets,
+            COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_wallets
+        FROM wallets
+        WHERE user_id = ?
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<WalletStats>("Failed to prepare wallet stats query", 500);
+    }
+
+    sqlite3_bind_int(stmt, 1, userId);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        stats.totalWallets = sqlite3_column_int(stmt, 0);
+        stats.activeWallets = sqlite3_column_int(stmt, 1);
+    }
+    sqlite3_finalize(stmt);
+
+    // Check if seed backup is confirmed
+    const std::string seedSql = "SELECT backup_confirmed FROM encrypted_seeds WHERE user_id = ?";
+    rc = sqlite3_prepare_v2(m_dbManager.getHandle(), seedSql.c_str(), -1, &stmt, nullptr);
+    if (rc == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, userId);
+        rc = sqlite3_step(stmt);
+        if (rc == SQLITE_ROW) {
+            stats.hasSeedBackup = sqlite3_column_int(stmt, 0) != 0;
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    return Result<WalletStats>(stats);
+}
+
+// === UTXO Management Methods ===
+
+Result<UTXO> WalletRepository::addUTXO(int walletId, int addressId, const std::string& txid,
+                                       uint32_t vout, int64_t amountSatoshis,
+                                       const std::string& scriptPubKey, uint32_t confirmations,
+                                       const std::optional<int>& blockHeight) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "addUTXO");
+
+    // First check if UTXO already exists
+    auto existsResult = utxoExists(txid, vout);
+    if (existsResult && *existsResult) {
+        return Result<UTXO>("UTXO already exists", 409);
+    }
+
+    // Get address string for the UTXO
+    auto addressResult = getAddressByString("");  // We need address by ID, simplified here
+    std::string address = "";
+
+    const std::string sql = R"(
+        INSERT INTO transaction_outputs
+        (transaction_id, output_index, script_pubkey, address, amount_satoshis, is_spent, spent_in_txid)
+        VALUES (0, ?, ?, ?, ?, 0, NULL)
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<UTXO>("Failed to prepare UTXO insertion", 500);
+    }
+
+    sqlite3_bind_int(stmt, 1, static_cast<int>(vout));
+    sqlite3_bind_text(stmt, 2, scriptPubKey.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, address.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int64(stmt, 4, amountSatoshis);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        UTXO utxo;
+        utxo.walletId = walletId;
+        utxo.addressId = addressId;
+        utxo.txid = txid;
+        utxo.vout = vout;
+        utxo.amountSatoshis = amountSatoshis;
+        utxo.scriptPubKey = scriptPubKey;
+        utxo.confirmations = confirmations;
+        utxo.blockHeight = blockHeight;
+        utxo.isSpent = false;
+        utxo.createdAt = std::chrono::system_clock::now();
+
+        REPO_LOG_INFO(COMPONENT_NAME, "UTXO added successfully",
+                     "TXID: " + txid + ", Vout: " + std::to_string(vout));
+        return Result<UTXO>(utxo);
+    } else {
+        return Result<UTXO>("Failed to insert UTXO", 500);
+    }
+}
+
+Result<std::vector<UTXO>> WalletRepository::getUnspentUTXOs(int walletId, uint32_t minConfirmations) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "getUnspentUTXOs");
+
+    const std::string sql = R"(
+        SELECT txout.id, txout.transaction_id, txout.output_index, t.txid, txout.address,
+               txout.amount_satoshis, t.confirmation_count, t.is_confirmed
+        FROM transaction_outputs txout
+        JOIN transactions t ON txout.transaction_id = t.id
+        WHERE t.wallet_id = ?
+          AND txout.is_spent = 0
+          AND t.confirmation_count >= ?
+        ORDER BY t.created_at DESC
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<std::vector<UTXO>>("Failed to prepare UTXO query", 500);
+    }
+
+    sqlite3_bind_int(stmt, 1, walletId);
+    sqlite3_bind_int(stmt, 2, static_cast<int>(minConfirmations));
+
+    std::vector<UTXO> utxos;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        UTXO utxo = mapRowToUTXO(stmt);
+        utxos.push_back(utxo);
+    }
+
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        return Result<std::vector<UTXO>>(utxos);
+    } else {
+        return Result<std::vector<UTXO>>("Database error while retrieving UTXOs", 500);
+    }
+}
+
+Result<std::vector<UTXO>> WalletRepository::getUnspentUTXOsByAddress(int addressId, uint32_t minConfirmations) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "getUnspentUTXOsByAddress");
+
+    // Get address string first
+    const std::string addressSql = "SELECT address FROM addresses WHERE id = ?";
+    sqlite3_stmt* addrStmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), addressSql.c_str(), -1, &addrStmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<std::vector<UTXO>>("Failed to query address", 500);
+    }
+
+    sqlite3_bind_int(addrStmt, 1, addressId);
+    rc = sqlite3_step(addrStmt);
+
+    std::string addressStr;
+    if (rc == SQLITE_ROW) {
+        addressStr = reinterpret_cast<const char*>(sqlite3_column_text(addrStmt, 0));
+    }
+    sqlite3_finalize(addrStmt);
+
+    if (addressStr.empty()) {
+        return Result<std::vector<UTXO>>("Address not found", 404);
+    }
+
+    // Now get UTXOs for this address
+    const std::string sql = R"(
+        SELECT txout.id, txout.transaction_id, txout.output_index, t.txid, txout.address,
+               txout.amount_satoshis, t.confirmation_count, t.is_confirmed
+        FROM transaction_outputs txout
+        JOIN transactions t ON txout.transaction_id = t.id
+        WHERE txout.address = ?
+          AND txout.is_spent = 0
+          AND t.confirmation_count >= ?
+        ORDER BY t.created_at DESC
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<std::vector<UTXO>>("Failed to prepare UTXO query", 500);
+    }
+
+    sqlite3_bind_text(stmt, 1, addressStr.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, static_cast<int>(minConfirmations));
+
+    std::vector<UTXO> utxos;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        UTXO utxo = mapRowToUTXO(stmt);
+        utxos.push_back(utxo);
+    }
+
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        return Result<std::vector<UTXO>>(utxos);
+    } else {
+        return Result<std::vector<UTXO>>("Database error while retrieving UTXOs", 500);
+    }
+}
+
+Result<bool> WalletRepository::markUTXOAsSpent(int utxoId, const std::string& spentInTxid) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "markUTXOAsSpent");
+
+    const std::string sql = R"(
+        UPDATE transaction_outputs
+        SET is_spent = 1, spent_in_txid = ?
+        WHERE id = ?
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare UTXO spent update", 500);
+    }
+
+    sqlite3_bind_text(stmt, 1, spentInTxid.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, utxoId);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        REPO_LOG_INFO(COMPONENT_NAME, "UTXO marked as spent", "UtxoID: " + std::to_string(utxoId));
+        return Result<bool>(true);
+    } else {
+        return Result<bool>("Database error during UTXO spent update", 500);
+    }
+}
+
+Result<bool> WalletRepository::markUTXOsAsSpent(const std::vector<int>& utxoIds, const std::string& spentInTxid) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "markUTXOsAsSpent");
+
+    if (utxoIds.empty()) {
+        return Result<bool>("No UTXOs provided", 400);
+    }
+
+    auto transaction = m_dbManager.beginTransaction();
+    if (!transaction) {
+        return Result<bool>("Failed to begin transaction", 500);
+    }
+
+    try {
+        for (int utxoId : utxoIds) {
+            auto result = markUTXOAsSpent(utxoId, spentInTxid);
+            if (!result) {
+                m_dbManager.rollbackTransaction();
+                return result;
+            }
+        }
+
+        auto commitResult = m_dbManager.commitTransaction();
+        if (!commitResult) {
+            return Result<bool>("Failed to commit transaction", 500);
+        }
+
+        REPO_LOG_INFO(COMPONENT_NAME, "Multiple UTXOs marked as spent",
+                     "Count: " + std::to_string(utxoIds.size()));
+        return Result<bool>(true);
+
+    } catch (const std::exception& e) {
+        m_dbManager.rollbackTransaction();
+        return Result<bool>("Exception during bulk UTXO update", 500);
+    }
+}
+
+Result<bool> WalletRepository::updateUTXOConfirmations(const std::string& txid, uint32_t confirmations) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "updateUTXOConfirmations");
+
+    const std::string sql = "UPDATE transactions SET confirmation_count = ? WHERE txid = ?";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare confirmation update", 500);
+    }
+
+    sqlite3_bind_int(stmt, 1, static_cast<int>(confirmations));
+    sqlite3_bind_text(stmt, 2, txid.c_str(), -1, SQLITE_STATIC);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        return Result<bool>(true);
+    } else {
+        return Result<bool>("Database error during confirmation update", 500);
+    }
+}
+
+Result<int64_t> WalletRepository::getSpendableBalance(int walletId, uint32_t minConfirmations) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "getSpendableBalance");
+
+    const std::string sql = R"(
+        SELECT COALESCE(SUM(txout.amount_satoshis), 0)
+        FROM transaction_outputs txout
+        JOIN transactions t ON txout.transaction_id = t.id
+        WHERE t.wallet_id = ?
+          AND txout.is_spent = 0
+          AND t.confirmation_count >= ?
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::string error = "Failed to prepare balance query: ";
+        if (m_dbManager.getHandle()) {
+            error += sqlite3_errmsg(m_dbManager.getHandle());
+        } else {
+            error += "Database handle is null";
+        }
+        return Result<int64_t>(error, 500);
+    }
+
+    sqlite3_bind_int(stmt, 1, walletId);
+    sqlite3_bind_int(stmt, 2, static_cast<int>(minConfirmations));
+
+    int64_t balance = 0;
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        balance = sqlite3_column_int64(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+
+    return Result<int64_t>(balance);
+}
+
+Result<bool> WalletRepository::utxoExists(const std::string& txid, uint32_t vout) {
+    const std::string sql = R"(
+        SELECT COUNT(*)
+        FROM transaction_outputs txout
+        JOIN transactions t ON txout.transaction_id = t.id
+        WHERE t.txid = ? AND txout.output_index = ?
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare UTXO existence check", 500);
+    }
+
+    sqlite3_bind_text(stmt, 1, txid.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, static_cast<int>(vout));
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        int count = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+        return Result<bool>(count > 0);
+    } else {
+        sqlite3_finalize(stmt);
+        return Result<bool>("Database error during UTXO existence check", 500);
+    }
+}
+
+Result<UTXO> WalletRepository::getUTXOByTxidVout(const std::string& txid, uint32_t vout) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "getUTXOByTxidVout");
+
+    const std::string sql = R"(
+        SELECT txout.id, txout.transaction_id, txout.output_index, t.txid, txout.address,
+               txout.amount_satoshis, t.confirmation_count, t.is_confirmed
+        FROM transaction_outputs txout
+        JOIN transactions t ON txout.transaction_id = t.id
+        WHERE t.txid = ? AND txout.output_index = ?
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<UTXO>("Failed to prepare UTXO query", 500);
+    }
+
+    sqlite3_bind_text(stmt, 1, txid.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, static_cast<int>(vout));
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        UTXO utxo = mapRowToUTXO(stmt);
+        sqlite3_finalize(stmt);
+        return Result<UTXO>(utxo);
+    } else if (rc == SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return Result<UTXO>("UTXO not found", 404);
+    } else {
+        sqlite3_finalize(stmt);
+        return Result<UTXO>("Database error while retrieving UTXO", 500);
+    }
+}
+
+UTXO WalletRepository::mapRowToUTXO(sqlite3_stmt* stmt) {
+    UTXO utxo;
+    utxo.id = sqlite3_column_int(stmt, 0);
+    // Column 1 is transaction_id from DB, we don't store it directly in UTXO
+    utxo.vout = static_cast<uint32_t>(sqlite3_column_int(stmt, 2));
+    utxo.txid = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+    utxo.address = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+    utxo.amountSatoshis = sqlite3_column_int64(stmt, 5);
+    utxo.confirmations = static_cast<uint32_t>(sqlite3_column_int(stmt, 6));
+    // Column 7 is is_confirmed boolean - we use it to derive isSpent
+    bool isConfirmed = sqlite3_column_int(stmt, 7) != 0;
+    utxo.isSpent = false;  // We only query unspent UTXOs, so this is always false
+    utxo.createdAt = std::chrono::system_clock::now(); // Simplified
+    return utxo;
+}
+
 } // namespace Repository

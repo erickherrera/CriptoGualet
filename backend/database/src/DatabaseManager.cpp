@@ -1032,9 +1032,9 @@ bool DatabaseManager::containsDangerousSQL(const std::string &sql) {
       "union select",  "union all select",
       "' or '1'='1",   "\" or \"1\"=\"1",
       "' or 1=1",      "\" or 1=1",
-      "script",        "javascript",
-      "vbscript",      "onload",
-      "onerror",       "; drop ",
+      "<script",       "javascript:",
+      "vbscript:",     "onload=",
+      "onerror=",      "; drop ",
       "; delete ",     "; truncate "};
 
   // Allow legitimate DDL operations (CREATE TABLE, ALTER TABLE, etc.)

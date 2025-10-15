@@ -16,28 +16,30 @@ Logger::~Logger() {
 }
 
 bool Logger::initialize(const std::string& logFilePath, LogLevel minLevel, bool enableConsole) {
-    std::lock_guard<std::mutex> lock(m_queueMutex);
+    {
+        std::lock_guard<std::mutex> lock(m_queueMutex);
 
-    if (m_initialized) {
-        return true; // Already initialized
-    }
+        if (m_initialized) {
+            return true; // Already initialized
+        }
 
-    m_logFilePath = logFilePath;
-    m_minLevel = minLevel;
-    m_enableConsole = enableConsole;
+        m_logFilePath = logFilePath;
+        m_minLevel = minLevel;
+        m_enableConsole = enableConsole;
 
-    // Open log file
-    m_logFile.open(m_logFilePath, std::ios::app);
-    if (!m_logFile.is_open()) {
-        std::cerr << "Failed to open log file: " << m_logFilePath << std::endl;
-        return false;
-    }
+        // Open log file
+        m_logFile.open(m_logFilePath, std::ios::app);
+        if (!m_logFile.is_open()) {
+            std::cerr << "Failed to open log file: " << m_logFilePath << std::endl;
+            return false;
+        }
 
-    // Start the logging worker thread
-    m_shutdown = false;
-    m_logWorker = std::thread(&Logger::logWorker, this);
+        // Start the logging worker thread
+        m_shutdown = false;
+        m_logWorker = std::thread(&Logger::logWorker, this);
 
-    m_initialized = true;
+        m_initialized = true;
+    } // Release lock before calling log()
 
     // Log initialization
     log(LogLevel::INFO, "Logger", "Logger initialized", "LogFile: " + m_logFilePath);

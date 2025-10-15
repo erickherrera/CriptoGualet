@@ -324,20 +324,7 @@ struct WalletBalance {
     WalletBalance() : confirmedBalance(0), unconfirmedBalance(0), totalBalance(0), utxoCount(0) {}
 };
 
-/**
- * @brief Unspent Transaction Output (UTXO)
- */
-struct UTXO {
-    int transactionId;
-    int outputIndex;
-    std::string txid;
-    std::string address;
-    int64_t amountSatoshis;
-    int confirmationCount;
-    bool isConfirmed;
-
-    UTXO() : transactionId(0), outputIndex(0), amountSatoshis(0), confirmationCount(0), isConfirmed(false) {}
-};
+// UTXO struct is defined in RepositoryTypes.h
 
 /**
  * @brief Transaction search criteria

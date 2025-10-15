@@ -241,3 +241,66 @@ else()
   target_compile_options(test_bip32_transaction PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
   target_link_options(test_bip32_transaction PRIVATE -fPIE -pie)
 endif()
+
+# ==============================================================================
+# Repository Unit Tests (Phase 3)
+# ==============================================================================
+
+# ---- TestUtils Library ----
+# Shared utilities for all repository tests
+add_library(TestUtils STATIC
+  "src/TestUtils.cpp"
+)
+target_include_directories(TestUtils PUBLIC
+  "${CMAKE_SOURCE_DIR}/Tests/include"
+  "${CMAKE_SOURCE_DIR}/backend/repository/include"
+  "${CMAKE_SOURCE_DIR}/backend/database/include"
+  "${CMAKE_SOURCE_DIR}/backend/core/include"
+)
+target_link_libraries(TestUtils PUBLIC Repository Database Crypto)
+
+# Helper macro for repository test configuration
+macro(add_repository_test target_name source_file)
+  add_executable(${target_name} ${source_file})
+  target_link_libraries(${target_name} PRIVATE TestUtils Repository Database Crypto)
+  target_include_directories(${target_name} PRIVATE
+    "${CMAKE_SOURCE_DIR}/Tests/include"
+    "${CMAKE_SOURCE_DIR}/backend/repository/include"
+    "${CMAKE_SOURCE_DIR}/backend/database/include"
+    "${CMAKE_SOURCE_DIR}/backend/core/include"
+  )
+
+  # Copy SQLCipher DLL for test execution on Windows
+  if(WIN32 AND sqlcipher_FOUND)
+    add_custom_command(TARGET ${target_name} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
+      "$<TARGET_FILE_DIR:${target_name}>"
+      COMMENT "Copying SQLCipher DLL for ${target_name}")
+  endif()
+
+  # Cross-platform compiler flags
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
+    target_link_options(${target_name} PRIVATE -fPIE -pie)
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+  elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    target_compile_options(${target_name} PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
+  else()
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+    target_link_options(${target_name} PRIVATE -fPIE -pie)
+  endif()
+endmacro()
+
+# ---- UserRepository Tests ----
+add_repository_test(test_user_repository "test_user_repository.cpp")
+
+# ---- WalletRepository Tests ----
+add_repository_test(test_wallet_repository "test_wallet_repository.cpp")
+
+# ---- TransactionRepository Tests ----
+add_repository_test(test_transaction_repository "test_transaction_repository.cpp")
+
+# ---- Repository Integration Tests ----
+add_repository_test(test_repository_integration "test_repository_integration.cpp")
