@@ -89,7 +89,7 @@ public:
     }
 
     bool testRegisterUserPersistence() {
-        std::cout << "\n=== Test 1: RegisterUserWithMnemonic Database Persistence ===" << std::endl;
+        std::cout << "\n=== Test 1: Register User With Mnemonic Database Persistence ===" << std::endl;
 
         bool allPassed = true;
 

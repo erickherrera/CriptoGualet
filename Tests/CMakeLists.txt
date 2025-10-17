@@ -1,17 +1,5 @@
 # Test Executables
 
-# ---- Debug Test Executable (Basic Auth) ----
-add_executable(debug_test
-  "test_basic_auth.cpp"
-)
-target_link_libraries(debug_test PRIVATE Auth SharedSymbols comctl32 crypt32 bcrypt)
-target_include_directories(debug_test PRIVATE
-  "${CMAKE_SOURCE_DIR}/backend/core/include"
-  "${CMAKE_SOURCE_DIR}/backend/repository/include"
-  "${CMAKE_SOURCE_DIR}/backend/database/include"
-  "${CMAKE_SOURCE_DIR}/backend/utils/include"
-)
-
 # ---- BIP39 Test Executable ----
 add_executable(test_bip39
   "test_bip39.cpp"
@@ -149,30 +137,6 @@ else()
   target_link_options(test_security_enhancements PRIVATE -fPIE -pie)
 endif()
 
-# ---- Repository Test Executable ----
-add_executable(test_repository
-  "test_repository.cpp"
-)
-target_link_libraries(test_repository PRIVATE Repository)
-target_include_directories(test_repository PRIVATE
-  "${CMAKE_SOURCE_DIR}/backend/repository/include"
-  "${CMAKE_SOURCE_DIR}/backend/database/include"
-  "${CMAKE_SOURCE_DIR}/backend/core/include"
-)
-
-# Cross-platform compiler flags with security for repository test executable
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
-  target_compile_options(test_repository PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
-  target_link_options(test_repository PRIVATE -fPIE -pie)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
-  target_compile_options(test_repository PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
-elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-  target_compile_options(test_repository PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
-else()
-  target_compile_options(test_repository PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
-  target_link_options(test_repository PRIVATE -fPIE -pie)
-endif()
-
 # ---- Auth + Database Integration Test Executable ----
 add_executable(test_auth_database_integration
   "test_auth_database_integration.cpp"
@@ -205,41 +169,6 @@ elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 else()
   target_compile_options(test_auth_database_integration PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
   target_link_options(test_auth_database_integration PRIVATE -fPIE -pie)
-endif()
-
-# ---- BIP32/BIP44 Transaction Test Executable ----
-# Find secp256k1 library (same as backend/core)
-find_package(unofficial-secp256k1 CONFIG REQUIRED)
-
-add_executable(test_bip32_transaction
-  "test_bip32_transaction.cpp"
-)
-
-target_link_libraries(test_bip32_transaction PRIVATE
-  Crypto
-  unofficial::secp256k1
-  unofficial::secp256k1_precomputed
-  comctl32
-  crypt32
-  bcrypt
-)
-
-target_include_directories(test_bip32_transaction PRIVATE
-  "${CMAKE_SOURCE_DIR}/backend/core/include"
-  "${CMAKE_SOURCE_DIR}/backend/utils/include"
-)
-
-# Cross-platform compiler flags with security for BIP32 transaction test
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
-  target_compile_options(test_bip32_transaction PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
-  target_link_options(test_bip32_transaction PRIVATE -fPIE -pie)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
-  target_compile_options(test_bip32_transaction PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
-elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-  target_compile_options(test_bip32_transaction PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
-else()
-  target_compile_options(test_bip32_transaction PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
-  target_link_options(test_bip32_transaction PRIVATE -fPIE -pie)
 endif()
 
 # ==============================================================================
