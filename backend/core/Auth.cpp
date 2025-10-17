@@ -16,17 +16,17 @@
 // Project headers before Windows headers to avoid macro conflicts
 #include "Auth.h"
 #include "Crypto.h"
-#include "SharedTypes.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
 #include "Database/DatabaseManager.h"
 #include "Repository/UserRepository.h"
 #include "Repository/WalletRepository.h"
+#include "SharedTypes.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
 
 // Windows headers need to be after project headers to avoid macro conflicts
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
+#include <windows.h>
 
 // No Qt headers needed in Auth library
 
@@ -55,20 +55,21 @@ static bool InitializeDatabase() {
   }
 
   try {
-    auto& dbManager = Database::DatabaseManager::getInstance();
+    auto &dbManager = Database::DatabaseManager::getInstance();
 
     // Get database path from environment or use default
     std::string dbPath = "wallet.db";
 #pragma warning(push)
-#pragma warning(disable: 4996) // Suppress getenv warning
-    if (const char* envPath = std::getenv("WALLET_DB_PATH")) {
+#pragma warning(disable : 4996) // Suppress getenv warning
+    if (const char *envPath = std::getenv("WALLET_DB_PATH")) {
       dbPath = envPath;
     }
 #pragma warning(pop)
 
-    // Get encryption key - in production, derive from user master password or secure key
-    // For now, use a derived key from machine+user context
-    std::string encryptionKey = "CHANGE_ME_IN_PRODUCTION_USE_SECURE_KEY_DERIVATION";
+    // Get encryption key - in production, derive from user master password or
+    // secure key For now, use a derived key from machine+user context
+    std::string encryptionKey =
+        "CHANGE_ME_IN_PRODUCTION_USE_SECURE_KEY_DERIVATION";
 
     // Initialize database
     auto result = dbManager.initialize(dbPath, encryptionKey);
@@ -166,11 +167,10 @@ static bool InitializeDatabase() {
 
     g_databaseInitialized = true;
     return true;
-  } catch (const std::exception&) {
+  } catch (const std::exception &) {
     return false;
   }
 }
-
 
 // Rate limiting data structures
 struct RateLimitEntry {
@@ -202,26 +202,25 @@ static inline std::string trim(const std::string &s) {
 
 static bool LoadWordList(std::vector<std::string> &out) {
   out.clear();
-  
+
   // Try multiple possible locations for the wordlist
   std::vector<std::string> possiblePaths = {
-    "src/assets/bip39/english.txt",
-    "assets/bip39/english.txt",
-    "../src/assets/bip39/english.txt",
-    "../assets/bip39/english.txt",
-    "../../../../../src/assets/bip39/english.txt",
-    "../../../../../../src/assets/bip39/english.txt"
-  };
-  
+      "src/assets/bip39/english.txt",
+      "assets/bip39/english.txt",
+      "../src/assets/bip39/english.txt",
+      "../assets/bip39/english.txt",
+      "../../../../../src/assets/bip39/english.txt",
+      "../../../../../../src/assets/bip39/english.txt"};
+
   // Also check environment variable
 #pragma warning(push)
-#pragma warning(disable: 4996) // Suppress getenv warning - this is safe usage
+#pragma warning(disable : 4996) // Suppress getenv warning - this is safe usage
   if (const char *env = std::getenv("BIP39_WORDLIST")) {
     possiblePaths.insert(possiblePaths.begin(), env);
   }
 #pragma warning(pop)
-  
-  for (const auto& path : possiblePaths) {
+
+  for (const auto &path : possiblePaths) {
     std::ifstream f(path, std::ios::binary);
     if (f.is_open()) {
       std::string line;
@@ -237,10 +236,9 @@ static bool LoadWordList(std::vector<std::string> &out) {
       out.clear();
     }
   }
-  
+
   return false;
 }
-
 
 // Parse "word word ...", normalize spaces to single space, lowercase
 static std::vector<std::string> SplitWordsNormalized(const std::string &text) {
@@ -250,7 +248,9 @@ static std::vector<std::string> SplitWordsNormalized(const std::string &text) {
   for (char ch : text) {
     if (std::isspace((unsigned char)ch)) {
       if (!cur.empty()) {
-        std::transform(cur.begin(), cur.end(), cur.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        std::transform(
+            cur.begin(), cur.end(), cur.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         out.push_back(cur);
         cur.clear();
       }
@@ -259,12 +259,13 @@ static std::vector<std::string> SplitWordsNormalized(const std::string &text) {
     }
   }
   if (!cur.empty()) {
-    std::transform(cur.begin(), cur.end(), cur.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    std::transform(cur.begin(), cur.end(), cur.begin(), [](unsigned char c) {
+      return static_cast<char>(std::tolower(c));
+    });
     out.push_back(cur);
   }
   return out;
 }
-
 
 static fs::path VaultPathForUser(const std::string &username) {
   return fs::path(SEED_VAULT_DIR) / (username + ".bin");
@@ -315,11 +316,13 @@ static bool RetrieveUserSeedDPAPI(const std::string &username,
   return true;
 }
 
-// REMOVED: WriteOneTimeMnemonicFile - No longer creating insecure plain text files
-// Seed phrases are now displayed securely via QtSeedDisplayDialog with user confirmation
+// REMOVED: WriteOneTimeMnemonicFile - No longer creating insecure plain text
+// files Seed phrases are now displayed securely via QtSeedDisplayDialog with
+// user confirmation
 
-// REMOVED: TryLoadOneTimeMnemonicFile - No longer reading from insecure plain text files
-// Seed phrases are now handled securely in memory only during the registration/display process
+// REMOVED: TryLoadOneTimeMnemonicFile - No longer reading from insecure plain
+// text files Seed phrases are now handled securely in memory only during the
+// registration/display process
 
 } // namespace
 
@@ -341,7 +344,7 @@ AuthResponse RevealSeed(const std::string &username,
     if (!authResult.success) {
       return {AuthResult::INVALID_CREDENTIALS, "Invalid username or password."};
     }
-  } catch (const std::exception&) {
+  } catch (const std::exception &) {
     return {AuthResult::SYSTEM_ERROR,
             "Database error during authentication. Please try again."};
   }
@@ -351,7 +354,8 @@ AuthResponse RevealSeed(const std::string &username,
   if (!RetrieveUserSeedDPAPI(username, seed)) {
     return {AuthResult::SYSTEM_ERROR,
             "Could not decrypt your seed on this device. "
-            "The seed may have been encrypted on a different Windows user account or machine."};
+            "The seed may have been encrypted on a different Windows user "
+            "account or machine."};
   }
 
   // Hex encode
@@ -379,13 +383,14 @@ AuthResponse RestoreFromSeed(const std::string &username,
             "Database not initialized. Please restart the application."};
   }
 
-  // Authenticate user via repository before overwriting vault (single source of truth)
+  // Authenticate user via repository before overwriting vault (single source of
+  // truth)
   try {
     auto authResult = g_userRepo->authenticateUser(username, passwordForReauth);
     if (!authResult.success) {
       return {AuthResult::INVALID_CREDENTIALS, "Invalid username or password."};
     }
-  } catch (const std::exception&) {
+  } catch (const std::exception &) {
     return {AuthResult::SYSTEM_ERROR,
             "Database error during authentication. Please try again."};
   }
@@ -443,7 +448,8 @@ std::string CreatePasswordHash(const std::string &password,
   }
 
   std::vector<uint8_t> dk;
-  if (!Crypto::PBKDF2_HMAC_SHA256(password, salt.data(), salt.size(), iterations, dk, 32)) {
+  if (!Crypto::PBKDF2_HMAC_SHA256(password, salt.data(), salt.size(),
+                                  iterations, dk, 32)) {
     return {};
   }
 
@@ -483,8 +489,8 @@ bool VerifyPassword(const std::string &password, const std::string &stored) {
     return false;
 
   std::vector<uint8_t> test;
-  if (!Crypto::PBKDF2_HMAC_SHA256(password, salt.data(), salt.size(), iterations, test,
-                          dk.size())) {
+  if (!Crypto::PBKDF2_HMAC_SHA256(password, salt.data(), salt.size(),
+                                  iterations, test, dk.size())) {
     return false;
   }
   return Crypto::ConstantTimeEquals(test, dk);
@@ -583,7 +589,8 @@ static bool DeriveWalletCredentialsFromSeed(const std::array<uint8_t, 64> &seed,
   }
 
   // 2. Derive first account address using BIP44 path: m/44'/0'/0'/0/0
-  //    44' = BIP44, 0' = Bitcoin, 0' = Account #0, 0 = external chain, 0 = first address
+  //    44' = BIP44, 0' = Bitcoin, 0' = Account #0, 0 = external chain, 0 =
+  //    first address
   Crypto::BIP32ExtendedKey derivedKey;
   if (!Crypto::BIP32_DerivePath(masterKey, "m/44'/0'/0'/0/0", derivedKey)) {
     if (logFile && logFile->is_open()) {
@@ -621,9 +628,10 @@ static bool DeriveWalletCredentialsFromSeed(const std::array<uint8_t, 64> &seed,
 }
 
 // === NEW: generate + store seed (called during registration) ===
-static bool GenerateAndActivateSeedForUser(const std::string &username,
-                                           std::vector<std::string> &outMnemonic,
-                                           std::ofstream *logFile) {
+static bool
+GenerateAndActivateSeedForUser(const std::string &username,
+                               std::vector<std::string> &outMnemonic,
+                               std::ofstream *logFile) {
   // 1) Load wordlist
   std::vector<std::string> wordlist;
   if (!LoadWordList(wordlist)) {
@@ -686,8 +694,9 @@ static bool GenerateAndActivateSeedForUser(const std::string &username,
 
 AuthResponse RegisterUser(const std::string &username,
                           const std::string &password) {
-  // SECURITY: Debug logging disabled in production to prevent sensitive data leakage
-  // Use proper logging framework with configurable levels and secure storage instead
+  // SECURITY: Debug logging disabled in production to prevent sensitive data
+  // leakage Use proper logging framework with configurable levels and secure
+  // storage instead
   std::ofstream logFile("registration_debug.log", std::ios::app);
 
   // Basic input validation
@@ -749,25 +758,27 @@ AuthResponse RegisterUser(const std::string &username,
       return {AuthResult::USER_ALREADY_EXISTS,
               "Username already exists. Please choose a different username."};
     }
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     if (logFile.is_open()) {
-      logFile << "Database: Exception checking existing user: " << e.what() << "\n";
+      logFile << "Database: Exception checking existing user: " << e.what()
+              << "\n";
       logFile.flush();
     }
-    return {AuthResult::SYSTEM_ERROR,
-            "Database error. Please try again."};
+    return {AuthResult::SYSTEM_ERROR, "Database error. Please try again."};
   }
 
   // === BIP-39 seed generation ===
   std::vector<std::string> generatedMnemonic;
-  bool seedOk = GenerateAndActivateSeedForUser(username, generatedMnemonic, &logFile);
+  bool seedOk =
+      GenerateAndActivateSeedForUser(username, generatedMnemonic, &logFile);
 
   // Derive wallet credentials from seed using BIP32
   std::string privateKeyWIF, walletAddress;
   if (seedOk) {
     std::array<uint8_t, 64> seed{};
     if (RetrieveUserSeedDPAPI(username, seed)) {
-      if (!DeriveWalletCredentialsFromSeed(seed, privateKeyWIF, walletAddress, &logFile)) {
+      if (!DeriveWalletCredentialsFromSeed(seed, privateKeyWIF, walletAddress,
+                                           &logFile)) {
         if (logFile.is_open()) {
           logFile << "BIP32: WARNING - Failed to derive keys from seed\n";
           logFile.flush();
@@ -780,7 +791,8 @@ AuthResponse RegisterUser(const std::string &username,
   // Create user in database (single source of truth)
   int userId = 0;
   try {
-    auto createResult = g_userRepo->createUser(username, "", password);  // Empty email for this overload
+    auto createResult = g_userRepo->createUser(
+        username, "", password); // Empty email for this overload
 
     if (!createResult.success) {
       if (logFile.is_open()) {
@@ -799,7 +811,8 @@ AuthResponse RegisterUser(const std::string &username,
 
     // Store encrypted seed in database if generation was successful
     if (seedOk && !generatedMnemonic.empty()) {
-      auto seedResult = g_walletRepo->storeEncryptedSeed(userId, password, generatedMnemonic);
+      auto seedResult =
+          g_walletRepo->storeEncryptedSeed(userId, password, generatedMnemonic);
       if (seedResult.success) {
         if (logFile.is_open()) {
           logFile << "Database: Encrypted seed stored successfully\n";
@@ -814,11 +827,10 @@ AuthResponse RegisterUser(const std::string &username,
 
     // Create default wallet for user
     auto walletResult = g_walletRepo->createWallet(
-      userId,
-      username + "'s Bitcoin Wallet",
-      "bitcoin",
-      std::optional<std::string>("m/44'/0'/0'"),  // BIP44 Bitcoin derivation path
-      std::nullopt  // Extended public key can be added later
+        userId, username + "'s Bitcoin Wallet", "bitcoin",
+        std::optional<std::string>(
+            "m/44'/0'/0'"), // BIP44 Bitcoin derivation path
+        std::nullopt        // Extended public key can be added later
     );
 
     if (!walletResult.success) {
@@ -845,19 +857,18 @@ AuthResponse RegisterUser(const std::string &username,
       logFile.flush();
     }
 
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     if (logFile.is_open()) {
-      logFile << "Database: EXCEPTION during registration: " << e.what() << "\n";
+      logFile << "Database: EXCEPTION during registration: " << e.what()
+              << "\n";
       logFile.flush();
     }
-    return {AuthResult::SYSTEM_ERROR,
-            "Registration failed. Please try again."};
+    return {AuthResult::SYSTEM_ERROR, "Registration failed. Please try again."};
   }
 
   if (seedOk) {
-    return {AuthResult::SUCCESS,
-            "Account created successfully!\n"
-            "Please backup your seed phrase securely."};
+    return {AuthResult::SUCCESS, "Account created successfully!\n"
+                                 "Please backup your seed phrase securely."};
   } else {
     return {AuthResult::SUCCESS,
             "Account created. (Warning: seed phrase generation failed – try "
@@ -865,10 +876,10 @@ AuthResponse RegisterUser(const std::string &username,
   }
 }
 
-// Overloaded RegisterUser function with email support (simplified - no seed generation)
-// NOTE: This function is deprecated. Use RegisterUserWithMnemonic for full wallet functionality.
-AuthResponse RegisterUser(const std::string &username,
-                          const std::string &email,
+// Overloaded RegisterUser function with email support (simplified - no seed
+// generation) NOTE: This function is deprecated. Use RegisterUserWithMnemonic
+// for full wallet functionality.
+AuthResponse RegisterUser(const std::string &username, const std::string &email,
                           const std::string &password) {
   std::ofstream logFile("registration_debug.log", std::ios::app);
   if (logFile.is_open()) {
@@ -936,13 +947,13 @@ AuthResponse RegisterUser(const std::string &username,
       return {AuthResult::USER_ALREADY_EXISTS,
               "Username already exists. Please choose a different username."};
     }
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     if (logFile.is_open()) {
-      logFile << "Database: Exception checking existing user: " << e.what() << "\n";
+      logFile << "Database: Exception checking existing user: " << e.what()
+              << "\n";
       logFile.flush();
     }
-    return {AuthResult::SYSTEM_ERROR,
-            "Database error. Please try again."};
+    return {AuthResult::SYSTEM_ERROR, "Database error. Please try again."};
   }
 
   // Create user in database
@@ -964,7 +975,7 @@ AuthResponse RegisterUser(const std::string &username,
     cachedUser.username = username;
     cachedUser.email = email;
     cachedUser.passwordHash = createResult.data.passwordHash;
-    cachedUser.privateKey = "";  // No wallet in this simplified registration
+    cachedUser.privateKey = ""; // No wallet in this simplified registration
     cachedUser.walletAddress = "";
     g_users[username] = cachedUser;
 
@@ -973,13 +984,13 @@ AuthResponse RegisterUser(const std::string &username,
       logFile.flush();
     }
 
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     if (logFile.is_open()) {
-      logFile << "Database: EXCEPTION during registration: " << e.what() << "\n";
+      logFile << "Database: EXCEPTION during registration: " << e.what()
+              << "\n";
       logFile.flush();
     }
-    return {AuthResult::SYSTEM_ERROR,
-            "Registration failed. Please try again."};
+    return {AuthResult::SYSTEM_ERROR, "Registration failed. Please try again."};
   }
 
   return {AuthResult::SUCCESS, "Account created successfully."};
@@ -1057,25 +1068,27 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
       return {AuthResult::USER_ALREADY_EXISTS,
               "Username already exists. Please choose a different username."};
     }
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     if (logFile.is_open()) {
-      logFile << "Database: Exception checking existing user: " << e.what() << "\n";
+      logFile << "Database: Exception checking existing user: " << e.what()
+              << "\n";
       logFile.flush();
     }
-    return {AuthResult::SYSTEM_ERROR,
-            "Database error. Please try again."};
+    return {AuthResult::SYSTEM_ERROR, "Database error. Please try again."};
   }
 
   // === BIP-39 seed generation ===
   std::vector<std::string> generatedMnemonic;
-  bool seedOk = GenerateAndActivateSeedForUser(username, generatedMnemonic, &logFile);
+  bool seedOk =
+      GenerateAndActivateSeedForUser(username, generatedMnemonic, &logFile);
 
   // Derive wallet credentials from seed using BIP32
   std::string privateKeyWIF, walletAddress;
   if (seedOk) {
     std::array<uint8_t, 64> seed{};
     if (RetrieveUserSeedDPAPI(username, seed)) {
-      if (!DeriveWalletCredentialsFromSeed(seed, privateKeyWIF, walletAddress, &logFile)) {
+      if (!DeriveWalletCredentialsFromSeed(seed, privateKeyWIF, walletAddress,
+                                           &logFile)) {
         if (logFile.is_open()) {
           logFile << "BIP32: WARNING - Failed to derive keys from seed\n";
           logFile.flush();
@@ -1107,7 +1120,8 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
 
     // Store encrypted seed in database if generation was successful
     if (seedOk && !generatedMnemonic.empty()) {
-      auto seedResult = g_walletRepo->storeEncryptedSeed(userId, password, generatedMnemonic);
+      auto seedResult =
+          g_walletRepo->storeEncryptedSeed(userId, password, generatedMnemonic);
       if (seedResult.success) {
         if (logFile.is_open()) {
           logFile << "Database: Encrypted seed stored successfully\n";
@@ -1122,11 +1136,10 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
 
     // Create default wallet for user
     auto walletResult = g_walletRepo->createWallet(
-      userId,
-      username + "'s Bitcoin Wallet",
-      "bitcoin",
-      std::optional<std::string>("m/44'/0'/0'"),  // BIP44 Bitcoin derivation path
-      std::nullopt  // Extended public key can be added later
+        userId, username + "'s Bitcoin Wallet", "bitcoin",
+        std::optional<std::string>(
+            "m/44'/0'/0'"), // BIP44 Bitcoin derivation path
+        std::nullopt        // Extended public key can be added later
     );
 
     if (!walletResult.success) {
@@ -1153,20 +1166,19 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
       logFile.flush();
     }
 
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     if (logFile.is_open()) {
-      logFile << "Database: EXCEPTION during registration: " << e.what() << "\n";
+      logFile << "Database: EXCEPTION during registration: " << e.what()
+              << "\n";
       logFile.flush();
     }
-    return {AuthResult::SYSTEM_ERROR,
-            "Registration failed. Please try again."};
+    return {AuthResult::SYSTEM_ERROR, "Registration failed. Please try again."};
   }
 
   if (seedOk && !generatedMnemonic.empty()) {
     outMnemonic = generatedMnemonic;
-    return {AuthResult::SUCCESS,
-            "Account created successfully!\n"
-            "Please backup your seed phrase securely."};
+    return {AuthResult::SUCCESS, "Account created successfully!\n"
+                                 "Please backup your seed phrase securely."};
   } else {
     return {AuthResult::SUCCESS,
             "Account created. (Warning: seed phrase generation failed – try "
@@ -1209,7 +1221,8 @@ AuthResponse LoginUser(const std::string &username,
         if (RetrieveUserSeedDPAPI(username, seed)) {
           std::string privateKeyWIF, walletAddress;
           std::ofstream tempLog; // No logging for login
-          if (DeriveWalletCredentialsFromSeed(seed, privateKeyWIF, walletAddress, &tempLog)) {
+          if (DeriveWalletCredentialsFromSeed(seed, privateKeyWIF,
+                                              walletAddress, &tempLog)) {
             cachedUser.privateKey = privateKeyWIF;
             cachedUser.walletAddress = walletAddress;
           }
@@ -1222,11 +1235,12 @@ AuthResponse LoginUser(const std::string &username,
         g_userRepo->updateLastLogin(authResult.data.id);
 
         ClearRateLimit(username);
-        return {AuthResult::SUCCESS, "Login successful. Welcome to CriptoGualet!"};
+        return {AuthResult::SUCCESS,
+                "Login successful. Welcome to CriptoGualet!"};
       } else {
         // Authentication failed via database
         RecordFailedAttempt(username);
-        auto& entry = g_rateLimits[username];
+        auto &entry = g_rateLimits[username];
         int remainingAttempts = MAX_LOGIN_ATTEMPTS - entry.attemptCount;
         if (remainingAttempts > 0) {
           return {AuthResult::INVALID_CREDENTIALS,
@@ -1234,10 +1248,11 @@ AuthResponse LoginUser(const std::string &username,
                       " attempts remaining."};
         } else {
           return {AuthResult::RATE_LIMITED,
-                  "Invalid credentials. Account temporarily locked for 10 minutes."};
+                  "Invalid credentials. Account temporarily locked for 10 "
+                  "minutes."};
         }
       }
-    } catch (const std::exception&) {
+    } catch (const std::exception &) {
       return {AuthResult::SYSTEM_ERROR,
               "Database error during authentication. Please try again."};
     }
@@ -1249,13 +1264,12 @@ AuthResponse LoginUser(const std::string &username,
 }
 
 // REMOVED: SaveUserDatabase() and LoadUserDatabase()
-// These functions stored private keys in PLAINTEXT which is a critical security vulnerability.
-// All user data should be stored through the Repository layer with SQLCipher encryption.
-// If you need to persist user data, use UserRepository and WalletRepository instead.
+// These functions stored private keys in PLAINTEXT which is a critical security
+// vulnerability. All user data should be stored through the Repository layer
+// with SQLCipher encryption. If you need to persist user data, use
+// UserRepository and WalletRepository instead.
 
 // Initialize database and repository layer (public API)
-bool InitializeAuthDatabase() {
-  return InitializeDatabase();
-}
+bool InitializeAuthDatabase() { return InitializeDatabase(); }
 
 } // namespace Auth
