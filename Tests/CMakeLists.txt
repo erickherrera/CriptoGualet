@@ -4,12 +4,13 @@
 add_executable(test_bip39
   "test_bip39.cpp"
 )
-target_link_libraries(test_bip39 PRIVATE Auth SharedSymbols comctl32 crypt32 bcrypt)
+target_link_libraries(test_bip39 PRIVATE Auth Crypto SharedSymbols comctl32 crypt32 bcrypt)
 target_include_directories(test_bip39 PRIVATE
   "${CMAKE_SOURCE_DIR}/backend/core/include"
   "${CMAKE_SOURCE_DIR}/backend/repository/include"
   "${CMAKE_SOURCE_DIR}/backend/database/include"
   "${CMAKE_SOURCE_DIR}/backend/utils/include"
+  "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/include"
 )
 
 # ---- Secure Seed Test Executable ----
@@ -93,13 +94,31 @@ target_include_directories(test_database PRIVATE
   "${CMAKE_SOURCE_DIR}/backend/database/include"
 )
 
-# Copy SQLCipher DLL for test execution
-if(WIN32 AND sqlcipher_FOUND)
+# Copy SQLCipher and dependency DLLs for test execution
+if(WIN32)
   add_custom_command(TARGET test_database POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
     "$<TARGET_FILE_DIR:test_database>"
     COMMENT "Copying SQLCipher DLL for test execution")
+
+  add_custom_command(TARGET test_database POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/sqlite3.dll"
+    "$<TARGET_FILE_DIR:test_database>"
+    COMMENT "Copying SQLite3 DLL for test execution")
+
+  add_custom_command(TARGET test_database POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libcrypto-3-x64.dll"
+    "$<TARGET_FILE_DIR:test_database>"
+    COMMENT "Copying OpenSSL Crypto DLL for test execution")
+
+  add_custom_command(TARGET test_database POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libssl-3-x64.dll"
+    "$<TARGET_FILE_DIR:test_database>"
+    COMMENT "Copying OpenSSL SSL DLL for test execution")
 endif()
 
 # Cross-platform compiler flags with security for test executable
@@ -149,13 +168,31 @@ target_include_directories(test_auth_database_integration PRIVATE
   "${CMAKE_SOURCE_DIR}/backend/utils/include"
 )
 
-# Copy SQLCipher DLL for test execution
-if(WIN32 AND sqlcipher_FOUND)
+# Copy SQLCipher and dependency DLLs for test execution
+if(WIN32)
   add_custom_command(TARGET test_auth_database_integration POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
     "$<TARGET_FILE_DIR:test_auth_database_integration>"
     COMMENT "Copying SQLCipher DLL for test execution")
+
+  add_custom_command(TARGET test_auth_database_integration POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/sqlite3.dll"
+    "$<TARGET_FILE_DIR:test_auth_database_integration>"
+    COMMENT "Copying SQLite3 DLL for test execution")
+
+  add_custom_command(TARGET test_auth_database_integration POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libcrypto-3-x64.dll"
+    "$<TARGET_FILE_DIR:test_auth_database_integration>"
+    COMMENT "Copying OpenSSL Crypto DLL for test execution")
+
+  add_custom_command(TARGET test_auth_database_integration POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libssl-3-x64.dll"
+    "$<TARGET_FILE_DIR:test_auth_database_integration>"
+    COMMENT "Copying OpenSSL SSL DLL for test execution")
 endif()
 
 # Cross-platform compiler flags with security for auth integration test executable
@@ -199,13 +236,31 @@ macro(add_repository_test target_name source_file)
     "${CMAKE_SOURCE_DIR}/backend/core/include"
   )
 
-  # Copy SQLCipher DLL for test execution on Windows
-  if(WIN32 AND sqlcipher_FOUND)
+  # Copy SQLCipher and dependency DLLs for test execution on Windows
+  if(WIN32)
     add_custom_command(TARGET ${target_name} POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
       "$<TARGET_FILE_DIR:${target_name}>"
       COMMENT "Copying SQLCipher DLL for ${target_name}")
+
+    add_custom_command(TARGET ${target_name} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/sqlite3.dll"
+      "$<TARGET_FILE_DIR:${target_name}>"
+      COMMENT "Copying SQLite3 DLL for ${target_name}")
+
+    add_custom_command(TARGET ${target_name} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libcrypto-3-x64.dll"
+      "$<TARGET_FILE_DIR:${target_name}>"
+      COMMENT "Copying OpenSSL Crypto DLL for ${target_name}")
+
+    add_custom_command(TARGET ${target_name} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libssl-3-x64.dll"
+      "$<TARGET_FILE_DIR:${target_name}>"
+      COMMENT "Copying OpenSSL SSL DLL for ${target_name}")
   endif()
 
   # Cross-platform compiler flags

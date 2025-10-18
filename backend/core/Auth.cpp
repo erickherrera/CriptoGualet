@@ -24,9 +24,9 @@
 // Windows headers need to be after project headers to avoid macro conflicts
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
+#include <windows.h>  // Must be included first for type definitions
 #include <bcrypt.h>
 #include <wincrypt.h>
-#include <windows.h>
 
 // No Qt headers needed in Auth library
 

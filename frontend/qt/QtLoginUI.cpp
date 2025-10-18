@@ -5,6 +5,7 @@
 
 #include <QApplication>
 #include <QComboBox>
+#include <QEvent>
 #include <QFont>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -13,6 +14,8 @@
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QSpacerItem>
+#include <QStackedWidget>
+#include <QTabBar>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -45,11 +48,13 @@ QtLoginUI::QtLoginUI(QWidget *parent)
   if (!Auth::InitializeAuthDatabase()) {
     // Database initialization failed - log warning but allow app to continue
     // Users can still be created in-memory for this session
-    qWarning() << "Failed to initialize authentication database. Data will not be persisted.";
+    qWarning() << "Failed to initialize authentication database. Data will not "
+                  "be persisted.";
   }
 
   setupUI();
   applyTheme();
+
   connect(m_themeManager, &QtThemeManager::themeChanged, this,
           &QtLoginUI::onThemeChanged);
 }
@@ -104,23 +109,108 @@ void QtLoginUI::setupUI() {
 void QtLoginUI::createLoginCard() {
   m_loginCard = new QFrame(this);
   m_loginCard->setProperty("class", "card");
-  m_loginCard->setFixedSize(480, 360);
+  m_loginCard->setFixedSize(480, 460);
 
   m_cardLayout = new QVBoxLayout(m_loginCard);
   m_cardLayout->setContentsMargins(24, 24, 24, 16);
   m_cardLayout->setSpacing(12);
 
-  // ------ Inputs ------
-  m_usernameEdit = new QLineEdit(m_loginCard);
+  // Create custom tab system with centered tab bar
+  // Tab bar
+  m_tabBar = new QTabBar(m_loginCard);
+  m_tabBar->setExpanding(false);
+  m_tabBar->setUsesScrollButtons(false);
+  m_tabBar->setDrawBase(false);
+  m_tabBar->setDocumentMode(true);
+
+  // Create centered tab bar container
+  QWidget *tabBarContainer = new QWidget(m_loginCard);
+  QHBoxLayout *tabBarLayout = new QHBoxLayout(tabBarContainer);
+  tabBarLayout->setContentsMargins(0, 0, 0, 0);
+  tabBarLayout->setSpacing(0);
+  tabBarLayout->addStretch();
+  tabBarLayout->addWidget(m_tabBar);
+  tabBarLayout->addStretch();
+
+  m_cardLayout->addWidget(tabBarContainer);
+
+  // Stacked widget for tab content
+  m_stackedWidget = new QStackedWidget(m_loginCard);
+  m_cardLayout->addWidget(m_stackedWidget);
+
+  // Connect tab bar to stacked widget
+  connect(m_tabBar, &QTabBar::currentChanged, m_stackedWidget, &QStackedWidget::setCurrentIndex);
+
+  // ===== Sign In Tab =====
+  QWidget *signInTab = new QWidget();
+  QVBoxLayout *signInLayout = new QVBoxLayout(signInTab);
+  signInLayout->setContentsMargins(32, 24, 32, 24);
+  signInLayout->setSpacing(12);
+  signInLayout->setAlignment(Qt::AlignCenter);
+
+  m_loginUsernameEdit = new QLineEdit(signInTab);
+  m_loginUsernameEdit->setPlaceholderText("Username");
+  m_loginUsernameEdit->setMinimumHeight(44);
+
+  m_loginPasswordEdit = new QLineEdit(signInTab);
+  m_loginPasswordEdit->setPlaceholderText("Password");
+  m_loginPasswordEdit->setEchoMode(QLineEdit::Password);
+  m_loginPasswordEdit->setMinimumHeight(44);
+
+  // Create password toggle button for login
+  m_loginPasswordToggleButton = new QPushButton("Show", m_loginPasswordEdit);
+  m_loginPasswordToggleButton->setMinimumSize(50, 30);
+  m_loginPasswordToggleButton->setMaximumSize(50, 30);
+  m_loginPasswordToggleButton->setCursor(Qt::PointingHandCursor);
+  m_loginPasswordToggleButton->setFlat(true);
+
+  // Position the button inside the password field on the right side
+  auto positionLoginToggle = [this]() {
+    if (!m_loginPasswordToggleButton || !m_loginPasswordEdit)
+      return;
+    const int buttonWidth = m_loginPasswordToggleButton->width();
+    const int padding = 8;
+    m_loginPasswordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
+    const int x = m_loginPasswordEdit->width() - buttonWidth - padding;
+    const int y = (m_loginPasswordEdit->height() -
+                   m_loginPasswordToggleButton->height()) /
+                  2;
+    m_loginPasswordToggleButton->move(x, y);
+  };
+
+  connect(m_loginPasswordEdit, &QLineEdit::textChanged, this,
+          positionLoginToggle);
+  m_loginPasswordEdit->installEventFilter(this);
+  QTimer::singleShot(0, this, positionLoginToggle);
+
+  m_loginButton = new QPushButton("Sign In", signInTab);
+  m_loginButton->setMinimumHeight(44);
+
+  signInLayout->addWidget(m_loginUsernameEdit);
+  signInLayout->addWidget(m_loginPasswordEdit);
+  signInLayout->addSpacing(8);
+  signInLayout->addWidget(m_loginButton);
+  signInLayout->addStretch();
+
+  m_tabBar->addTab("Sign In");
+  m_stackedWidget->addWidget(signInTab);
+
+  // ===== Register Tab =====
+  QWidget *registerTab = new QWidget();
+  QVBoxLayout *registerLayout = new QVBoxLayout(registerTab);
+  registerLayout->setContentsMargins(32, 24, 32, 24);
+  registerLayout->setSpacing(12);
+  registerLayout->setAlignment(Qt::AlignCenter);
+
+  m_usernameEdit = new QLineEdit(registerTab);
   m_usernameEdit->setPlaceholderText("Username");
   m_usernameEdit->setMinimumHeight(44);
 
-  m_emailEdit = new QLineEdit(m_loginCard);
+  m_emailEdit = new QLineEdit(registerTab);
   m_emailEdit->setPlaceholderText("Email Address");
   m_emailEdit->setMinimumHeight(44);
-  m_emailEdit->hide(); // Initially hidden for login mode
 
-  m_passwordEdit = new QLineEdit(m_loginCard);
+  m_passwordEdit = new QLineEdit(registerTab);
   m_passwordEdit->setPlaceholderText(
       "Password (6+ chars with letters and numbers)");
   m_passwordEdit->setEchoMode(QLineEdit::Password);
@@ -130,7 +220,7 @@ void QtLoginUI::createLoginCard() {
       "letter\n• At least one "
       "number");
 
-  // Create password toggle button and position it inside the password field
+  // Create password toggle button for register
   m_passwordToggleButton = new QPushButton("Show", m_passwordEdit);
   m_passwordToggleButton->setMinimumSize(50, 30);
   m_passwordToggleButton->setMaximumSize(50, 30);
@@ -138,7 +228,9 @@ void QtLoginUI::createLoginCard() {
   m_passwordToggleButton->setFlat(true);
 
   // Position the button inside the password field on the right side
-  connect(m_passwordEdit, &QLineEdit::textChanged, this, [this]() {
+  auto positionRegisterToggle = [this]() {
+    if (!m_passwordToggleButton || !m_passwordEdit)
+      return;
     const int buttonWidth = m_passwordToggleButton->width();
     const int padding = 8;
     m_passwordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
@@ -146,13 +238,28 @@ void QtLoginUI::createLoginCard() {
     const int y =
         (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
     m_passwordToggleButton->move(x, y);
-  });
+  };
 
-  m_cardLayout->addWidget(m_usernameEdit);
-  m_cardLayout->addWidget(m_emailEdit);
-  m_cardLayout->addWidget(m_passwordEdit);
+  connect(m_passwordEdit, &QLineEdit::textChanged, this,
+          positionRegisterToggle);
+  m_passwordEdit->installEventFilter(this);
+  QTimer::singleShot(0, this, positionRegisterToggle);
 
-  // Message label
+  m_registerButton = new QPushButton("Register", registerTab);
+  m_registerButton->setMinimumHeight(44);
+  m_registerButton->setEnabled(false); // Disabled until all fields are filled
+
+  registerLayout->addWidget(m_usernameEdit);
+  registerLayout->addWidget(m_emailEdit);
+  registerLayout->addWidget(m_passwordEdit);
+  registerLayout->addSpacing(8);
+  registerLayout->addWidget(m_registerButton);
+  registerLayout->addStretch();
+
+  m_tabBar->addTab("Register");
+  m_stackedWidget->addWidget(registerTab);
+
+  // Message label (shared between tabs)
   m_messageLabel = new QLabel(m_loginCard);
   m_messageLabel->setAlignment(Qt::AlignCenter);
   m_messageLabel->setWordWrap(true);
@@ -162,23 +269,6 @@ void QtLoginUI::createLoginCard() {
   m_cardLayout->addWidget(m_messageLabel);
 
   m_cardLayout->addSpacing(4);
-
-  // ------ Primary buttons ------
-  m_buttonLayout = new QHBoxLayout();
-  m_buttonLayout->setSpacing(12);
-
-  m_loginButton = new QPushButton("Sign In", m_loginCard);
-  m_loginButton->setMinimumHeight(44);
-  m_loginButton->setMinimumWidth(120);
-
-  m_registerButton = new QPushButton("Create Account", m_loginCard);
-  m_registerButton->setMinimumHeight(44);
-  m_registerButton->setMinimumWidth(140);
-  m_registerButton->setCheckable(true); // Make it toggleable for mode switching
-
-  m_buttonLayout->addWidget(m_loginButton);
-  m_buttonLayout->addWidget(m_registerButton);
-  m_cardLayout->addLayout(m_buttonLayout);
 
   // ------ Secondary actions (Reveal / Restore) ------
   QHBoxLayout *secondary = new QHBoxLayout();
@@ -203,26 +293,46 @@ void QtLoginUI::createLoginCard() {
 
   m_mainLayout->addLayout(cardCenterLayout);
 
-  // Signals
+  // Signals - Sign In tab
   connect(m_loginButton, &QPushButton::clicked, this,
           &QtLoginUI::onLoginClicked);
-  connect(m_registerButton, &QPushButton::toggled, this,
-          &QtLoginUI::onRegisterModeToggled);
-  connect(m_usernameEdit, &QLineEdit::returnPressed, this,
+  connect(m_loginUsernameEdit, &QLineEdit::returnPressed, this,
           &QtLoginUI::onLoginClicked);
-  connect(m_emailEdit, &QLineEdit::returnPressed, this,
-          &QtLoginUI::onRegisterClicked);
-  connect(m_passwordEdit, &QLineEdit::returnPressed, this, [this]() {
-    if (m_emailEdit->isVisible()) {
-      onRegisterClicked();
+  connect(m_loginPasswordEdit, &QLineEdit::returnPressed, this,
+          &QtLoginUI::onLoginClicked);
+  connect(m_loginPasswordToggleButton, &QPushButton::clicked, this, [this]() {
+    if (m_loginPasswordEdit->echoMode() == QLineEdit::Password) {
+      m_loginPasswordEdit->setEchoMode(QLineEdit::Normal);
+      m_loginPasswordToggleButton->setText("Hide");
     } else {
-      onLoginClicked();
+      m_loginPasswordEdit->setEchoMode(QLineEdit::Password);
+      m_loginPasswordToggleButton->setText("Show");
     }
   });
+
+  // Signals - Register tab
+  connect(m_registerButton, &QPushButton::clicked, this,
+          &QtLoginUI::onRegisterClicked);
+  connect(m_usernameEdit, &QLineEdit::textChanged, this,
+          &QtLoginUI::validateRegisterForm);
+  connect(m_emailEdit, &QLineEdit::textChanged, this,
+          &QtLoginUI::validateRegisterForm);
+  connect(m_passwordEdit, &QLineEdit::textChanged, this,
+          &QtLoginUI::validateRegisterForm);
+  connect(m_usernameEdit, &QLineEdit::returnPressed, this,
+          &QtLoginUI::onRegisterClicked);
+  connect(m_emailEdit, &QLineEdit::returnPressed, this,
+          &QtLoginUI::onRegisterClicked);
+  connect(m_passwordEdit, &QLineEdit::returnPressed, this,
+          &QtLoginUI::onRegisterClicked);
   connect(m_passwordToggleButton, &QPushButton::clicked, this,
           &QtLoginUI::onPasswordVisibilityToggled);
 
-  // New flows
+  // Tab changed signal - clear messages when switching tabs
+  connect(m_tabBar, &QTabBar::currentChanged, this,
+          [this]() { clearMessage(); });
+
+  // Secondary actions
   connect(m_revealSeedButton, &QPushButton::clicked, this,
           &QtLoginUI::onRevealSeedClicked);
   connect(m_restoreSeedButton, &QPushButton::clicked, this,
@@ -262,8 +372,8 @@ void QtLoginUI::setupThemeSelector() {
 }
 
 void QtLoginUI::onLoginClicked() {
-  const QString username = m_usernameEdit->text().trimmed();
-  const QString password = m_passwordEdit->text();
+  const QString username = m_loginUsernameEdit->text().trimmed();
+  const QString password = m_loginPasswordEdit->text();
 
   clearMessage();
 
@@ -321,17 +431,17 @@ void QtLoginUI::onRegisterModeToggled(bool registerMode) {
   // Reconnect login button based on mode
   disconnect(m_loginButton, &QPushButton::clicked, nullptr, nullptr);
   if (registerMode) {
-    connect(m_loginButton, &QPushButton::clicked, this, [this]() {
-      m_registerButton->setChecked(false);
-    });
+    connect(m_loginButton, &QPushButton::clicked, this,
+            [this]() { m_registerButton->setChecked(false); });
   } else {
-    connect(m_loginButton, &QPushButton::clicked, this, &QtLoginUI::onLoginClicked);
+    connect(m_loginButton, &QPushButton::clicked, this,
+            &QtLoginUI::onLoginClicked);
   }
 }
 
 void QtLoginUI::onLoginResult(bool success, const QString &message) {
   showMessage(message, !success);
-  m_passwordEdit->clear();
+  m_loginPasswordEdit->clear();
 }
 
 void QtLoginUI::onRegisterResult(bool success, const QString &message) {
@@ -519,6 +629,9 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     m_emailEdit->clear();
     m_passwordEdit->clear();
     clearMessage();
+
+    // Switch to Sign In tab so user can log in with their new account
+    m_tabBar->setCurrentIndex(0);
   } else {
     m_emailEdit->clear();
     m_passwordEdit->clear();
@@ -790,6 +903,12 @@ void QtLoginUI::updateStyles() {
                        .arg(win.blue(), 2, 16, QLatin1Char('0'));
 
   QColor baseText = palette().color(QPalette::WindowText);
+  QColor base = palette().color(QPalette::Base);
+  QString baseHex = QString("#%1%2%3")
+                        .arg(base.red(), 2, 16, QLatin1Char('0'))
+                        .arg(base.green(), 2, 16, QLatin1Char('0'))
+                        .arg(base.blue(), 2, 16, QLatin1Char('0'));
+
   QColor subtitleColor =
       (win.value() < 128) ? baseText.lighter(160) : baseText.darker(160);
   QString subtitleHex = QString("#%1%2%3")
@@ -797,78 +916,221 @@ void QtLoginUI::updateStyles() {
                             .arg(subtitleColor.green(), 2, 16, QLatin1Char('0'))
                             .arg(subtitleColor.blue(), 2, 16, QLatin1Char('0'));
 
+  QString textHex = m_themeManager->textColor().name();
+  QString accentHex = m_themeManager->accentColor().name();
+  QString cardBg = m_themeManager->backgroundColor().name();
+  QString borderColor = (win.value() < 128) ? "#404040" : "#d0d0d0";
+
   rootCss += QString(R"(
         QWidget#loginHeader, QWidget#loginHeader * {
             border: none !important;
             outline: none !important;
+            background: transparent;
         }
         QLabel[class="title"] {
             font-size: 40px;
             font-weight: 700;
             letter-spacing: 0.2px;
+            background: transparent;
+            color: %3;
         }
         QLabel[class="subtitle"] {
             color: %2;
             font-size: 20px;
             font-weight: 400;
             margin-top: 4px;
+            background: transparent;
         }
         QLabel#themeLabel {
             background-color: %1 !important;
             border: none !important;
+            color: %3;
         }
     )")
-                 .arg(winHex, subtitleHex);
+                 .arg(winHex, subtitleHex, textHex);
 
   setStyleSheet(rootCss);
 
-  const QString cardCss = m_themeManager->getCardStyleSheet() + R"(
-        QFrame { border-width: 2px; border-style: solid; border-radius: 12px; }
-    )";
+  // Enhanced card styling with proper background
+  const QString cardCss = QString(R"(
+        QFrame[class="card"] {
+            background-color: %1;
+            border: 2px solid %2;
+            border-radius: 12px;
+        }
+    )")
+                              .arg(cardBg, borderColor);
   m_loginCard->setStyleSheet(cardCss);
 
-  QString lineEditStyle = m_themeManager->getLineEditStyleSheet();
-  lineEditStyle += R"(
+  // Tab Bar Styling - Subtle and modern design (centering handled by layout)
+  QString tabBarStyle =
+      QString(R"(
+        QTabBar {
+            background: transparent;
+            border: none;
+        }
+        QTabBar::tab {
+            background: transparent;
+            color: %2;
+            padding: 12px 24px;
+            margin-left: 4px;
+            margin-right: 4px;
+            margin-bottom: 2px;
+            margin-top: 0px;
+            border: none;
+            border-bottom: 2px solid transparent;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        QTabBar::tab:selected {
+            background: transparent;
+            color: %4;
+            border-bottom: 2px solid %4;
+            font-weight: 600;
+        }
+        QTabBar::tab:hover:!selected {
+            color: %4;
+            background: transparent;
+        }
+    )")
+          .arg(baseHex, textHex, borderColor, accentHex, cardBg,
+               (win.value() < 128) ? "#2a2a2a" : "#f0f0f0");
+  m_tabBar->setStyleSheet(tabBarStyle);
+
+  // Enhanced LineEdit styling with proper backgrounds
+  QString lineEditStyle = QString(R"(
         QLineEdit {
+            background-color: %1;
+            color: %2;
+            border: 1px solid %3;
             border-radius: 8px;
             min-height: 44px;
             padding: 0 10px;
             font-size: 14px;
+            selection-background-color: %4;
         }
-    )";
+        QLineEdit:focus {
+            border: 2px solid %4;
+            background-color: %1;
+        }
+        QLineEdit:hover {
+            border: 1px solid %5;
+        }
+        QLineEdit:disabled {
+            background-color: %6;
+            color: %7;
+        }
+    )")
+                              .arg(baseHex, textHex, borderColor, accentHex,
+                                   (win.value() < 128) ? "#505050" : "#b0b0b0",
+                                   (win.value() < 128) ? "#1a1a1a" : "#e8e8e8",
+                                   (win.value() < 128) ? "#808080" : "#909090");
+
+  // Apply to Sign In tab fields
+  m_loginUsernameEdit->setStyleSheet(lineEditStyle);
+  m_loginPasswordEdit->setStyleSheet(lineEditStyle);
+  // Apply to Register tab fields
   m_usernameEdit->setStyleSheet(lineEditStyle);
   m_emailEdit->setStyleSheet(lineEditStyle);
   m_passwordEdit->setStyleSheet(lineEditStyle);
 
-  QString buttonStyle = m_themeManager->getButtonStyleSheet();
-  buttonStyle += R"(
-        QPushButton { font-size: 14px; padding: 0 18px; border-radius: 8px; }
-    )";
+  // Enhanced button styling
+  QString buttonStyle =
+      QString(R"(
+        QPushButton {
+            background-color: %1;
+            color: %2;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 0 18px;
+            min-height: 44px;
+        }
+        QPushButton:hover {
+            background-color: %3;
+        }
+        QPushButton:pressed {
+            background-color: %4;
+        }
+        QPushButton:disabled {
+            background-color: %5;
+            color: %6;
+        }
+    )")
+          .arg(accentHex, cardBg,
+               m_themeManager->accentColor().lighter(110).name(),
+               m_themeManager->accentColor().darker(110).name(),
+               (win.value() < 128) ? "#2a2a2a" : "#d0d0d0",
+               (win.value() < 128) ? "#505050" : "#a0a0a0");
+
   m_loginButton->setStyleSheet(buttonStyle);
   m_registerButton->setStyleSheet(buttonStyle);
-  m_revealSeedButton->setStyleSheet(buttonStyle);
-  m_restoreSeedButton->setStyleSheet(buttonStyle);
 
-  QString toggleButtonStyle = R"(
-        QPushButton { 
-            font-size: 12px; 
-            border: none; 
+  // Secondary buttons (Reveal/Restore) - outlined style
+  QString secondaryButtonStyle =
+      QString(R"(
+        QPushButton {
+            background-color: transparent;
+            color: %1;
+            border: 2px solid %1;
             border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 0 16px;
+            min-height: 36px;
+        }
+        QPushButton:hover {
+            background-color: %2;
+            border-color: %3;
+        }
+        QPushButton:pressed {
+            background-color: %4;
+        }
+    )")
+          .arg(accentHex, (win.value() < 128) ? "#1a2a3a" : "#e8f0ff",
+               m_themeManager->accentColor().lighter(120).name(),
+               (win.value() < 128) ? "#0a1a2a" : "#d0e0ff");
+
+  m_revealSeedButton->setStyleSheet(secondaryButtonStyle);
+  m_restoreSeedButton->setStyleSheet(secondaryButtonStyle);
+
+  // Password toggle buttons
+  QString toggleButtonStyle =
+      QString(R"(
+        QPushButton {
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
             background-color: transparent;
             color: %1;
             font-weight: 500;
+            padding: 4px 8px;
         }
-        QPushButton:hover { 
+        QPushButton:hover {
             color: %2;
-            text-decoration: underline;
+            background-color: %3;
         }
-    )";
-  m_passwordToggleButton->setStyleSheet(
-      toggleButtonStyle.arg(m_themeManager->textColor().name())
-          .arg(m_themeManager->accentColor().name()));
+    )")
+          .arg(textHex, accentHex, (win.value() < 128) ? "#2a2a2a" : "#f0f0f0");
 
-  // Position the toggle button inside the password field
+  m_loginPasswordToggleButton->setStyleSheet(toggleButtonStyle);
+  m_passwordToggleButton->setStyleSheet(toggleButtonStyle);
+
+  // Position the toggle buttons inside their respective password fields
   QTimer::singleShot(0, this, [this]() {
+    // Position login password toggle button
+    if (m_loginPasswordEdit && m_loginPasswordToggleButton) {
+      const int buttonWidth = m_loginPasswordToggleButton->width();
+      const int padding = 8;
+      m_loginPasswordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
+      const int x = m_loginPasswordEdit->width() - buttonWidth - padding;
+      const int y = (m_loginPasswordEdit->height() -
+                     m_loginPasswordToggleButton->height()) /
+                    2;
+      m_loginPasswordToggleButton->move(x, y);
+    }
+    // Position register password toggle button
     if (m_passwordEdit && m_passwordToggleButton) {
       const int buttonWidth = m_passwordToggleButton->width();
       const int padding = 8;
@@ -880,6 +1142,7 @@ void QtLoginUI::updateStyles() {
     }
   });
 
+  // Apply fonts
   QFont titleF = m_themeManager->titleFont();
   titleF.setPointSizeF(titleF.pointSizeF() + 6);
   m_titleLabel->setFont(titleF);
@@ -890,6 +1153,10 @@ void QtLoginUI::updateStyles() {
   m_registerButton->setFont(m_themeManager->buttonFont());
   m_revealSeedButton->setFont(m_themeManager->buttonFont());
   m_restoreSeedButton->setFont(m_themeManager->buttonFont());
+  // Apply fonts to Sign In tab fields
+  m_loginUsernameEdit->setFont(m_themeManager->textFont());
+  m_loginPasswordEdit->setFont(m_themeManager->textFont());
+  // Apply fonts to Register tab fields
   m_usernameEdit->setFont(m_themeManager->textFont());
   m_emailEdit->setFont(m_themeManager->textFont());
   m_passwordEdit->setFont(m_themeManager->textFont());
@@ -922,4 +1189,45 @@ void QtLoginUI::onPasswordVisibilityToggled() {
     m_passwordEdit->setEchoMode(QLineEdit::Password);
     m_passwordToggleButton->setText("Show");
   }
+}
+
+void QtLoginUI::validateRegisterForm() {
+  // Enable Register button only if all fields are filled
+  const bool allFieldsFilled = !m_usernameEdit->text().trimmed().isEmpty() &&
+                               !m_emailEdit->text().trimmed().isEmpty() &&
+                               !m_passwordEdit->text().isEmpty();
+  m_registerButton->setEnabled(allFieldsFilled);
+}
+
+bool QtLoginUI::eventFilter(QObject *watched, QEvent *event) {
+  if (event->type() == QEvent::Resize) {
+    // Reposition password toggle buttons on resize
+    if (watched == m_loginPasswordEdit && m_loginPasswordToggleButton) {
+      QTimer::singleShot(0, this, [this]() {
+        if (!m_loginPasswordToggleButton || !m_loginPasswordEdit)
+          return;
+        const int buttonWidth = m_loginPasswordToggleButton->width();
+        const int padding = 8;
+        m_loginPasswordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
+        const int x = m_loginPasswordEdit->width() - buttonWidth - padding;
+        const int y = (m_loginPasswordEdit->height() -
+                       m_loginPasswordToggleButton->height()) /
+                      2;
+        m_loginPasswordToggleButton->move(x, y);
+      });
+    } else if (watched == m_passwordEdit && m_passwordToggleButton) {
+      QTimer::singleShot(0, this, [this]() {
+        if (!m_passwordToggleButton || !m_passwordEdit)
+          return;
+        const int buttonWidth = m_passwordToggleButton->width();
+        const int padding = 8;
+        m_passwordEdit->setTextMargins(0, 0, buttonWidth + padding, 0);
+        const int x = m_passwordEdit->width() - buttonWidth - padding;
+        const int y =
+            (m_passwordEdit->height() - m_passwordToggleButton->height()) / 2;
+        m_passwordToggleButton->move(x, y);
+      });
+    }
+  }
+  return QWidget::eventFilter(watched, event);
 }

@@ -25,6 +25,9 @@
 #include "Crypto.h"
 #include "SharedTypes.h"
 
+// Include secp256k1 for signature verification tests
+#include <secp256k1.h>
+
 #pragma comment(lib, "Bcrypt.lib")
 #pragma comment(lib, "Crypt32.lib")
 

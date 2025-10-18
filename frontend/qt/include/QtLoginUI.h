@@ -8,6 +8,8 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpacerItem>
+#include <QStackedWidget>
+#include <QTabBar>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -45,6 +47,10 @@ private slots:
   void onPasswordVisibilityToggled();
   void onRevealSeedClicked();
   void onRestoreSeedClicked();
+  void validateRegisterForm();
+
+protected:
+  bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
   void setupUI();
@@ -59,16 +65,27 @@ private:
   QFrame *m_loginCard;
   QVBoxLayout *m_cardLayout;
   QFormLayout *m_formLayout;
+  QTabBar *m_tabBar;
+  QStackedWidget *m_stackedWidget;
 
   QLabel *m_titleLabel;
   QLabel *m_subtitleLabel;
   QLabel *m_messageLabel;
+
+  // Sign In tab widgets
+  QLineEdit *m_loginUsernameEdit;
+  QLineEdit *m_loginPasswordEdit;
+  QPushButton *m_loginPasswordToggleButton;
+  QPushButton *m_loginButton;
+
+  // Register tab widgets
   QLineEdit *m_usernameEdit;
   QLineEdit *m_emailEdit;
   QLineEdit *m_passwordEdit;
   QPushButton *m_passwordToggleButton;
-  QPushButton *m_loginButton;
   QPushButton *m_registerButton;
+
+  // Shared buttons
   QPushButton *m_revealSeedButton;
   QPushButton *m_restoreSeedButton;
   QComboBox *m_themeSelector;

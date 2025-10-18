@@ -116,6 +116,34 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
         "$<TARGET_FILE_DIR:CriptoGualetQt>"
         COMMENT "Copying zlib DLL to output directory")
     endif()
+
+    # Copy SQLCipher DLL for database functionality (use debug version for debug builds)
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>"
+      COMMENT "Copying SQLCipher DLL to output directory")
+
+    # Copy SQLite3 DLL (required by SQLCipher)
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/sqlite3.dll"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>"
+      COMMENT "Copying SQLite3 DLL to output directory")
+
+    # Copy OpenSSL Crypto DLL (required for cryptographic operations)
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/libcrypto-3-x64.dll"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>"
+      COMMENT "Copying OpenSSL Crypto DLL to output directory")
+
+    # Copy OpenSSL SSL DLL (required for network operations)
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/libssl-3-x64.dll"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>"
+      COMMENT "Copying OpenSSL SSL DLL to output directory")
   endif()
 elseif(BUILD_GUI_QT AND NOT Qt6_FOUND)
   message(STATUS "Qt6 not found - install Qt6 from https://qt.io to build the modern Qt GUI")
