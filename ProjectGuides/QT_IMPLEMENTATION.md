@@ -50,12 +50,6 @@ cmake -S . -B build -DBUILD_GUI_QT=ON
 cmake --build build --config Release
 ```
 
-### Fallback Behavior
-If Qt6 is not found:
-- Win32 GUI is automatically enabled as fallback
-- Warning message indicates Qt6 installation instructions
-- Build continues successfully with original UI
-
 ## Theme Customization
 
 ### Adding New Themes

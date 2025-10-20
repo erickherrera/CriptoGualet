@@ -8,6 +8,27 @@
 #include <chrono>
 #include <cassert>
 
+/**
+ * Auth + Database Integration Test Suite
+ *
+ * Tests the production-ready integration between Auth.cpp and DatabaseManager including:
+ * - Automatic encryption key derivation from machine-specific data
+ * - User registration with encrypted seed storage
+ * - Login authentication via database
+ * - Wallet creation and persistence
+ * - Duplicate user prevention
+ * - Conditional debug logging (disabled in Release builds)
+ *
+ * PRODUCTION CHANGES TESTED:
+ * 1. InitializeAuthDatabase() now calls DeriveSecureEncryptionKey() internally
+ * 2. Encryption key derived from: computer name, username, volume serial, app salt
+ * 3. PBKDF2-HMAC-SHA256 with 100,000 iterations for key derivation
+ * 4. Debug logging automatically disabled in Release builds
+ * 5. Database bound to specific machine/user context for security
+ *
+ * NOTE: Tests run against the real wallet.db used by Auth.cpp
+ */
+
 namespace {
     // Auth uses wallet.db hardcoded - we need to clean up that database
     const std::string TEST_DB_PATH = "wallet.db";

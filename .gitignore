@@ -38,6 +38,8 @@ cmake_install.cmake
 Makefile
 *.cmake
 !CMakeLists.txt
+compile_commands.json
+CMakeSettings.json
 
 # Executables and scripts
 *.exe
@@ -101,3 +103,6 @@ vcpkg_installed/
 # Other generated files
 ut
 nul
+
+# Build logs
+build_output.txt

@@ -89,7 +89,10 @@ private:
       // Ignore errors from closing non-existent connection
     }
 
-    // Test with secure encryption key (industry standard 256-bit)
+    // NOTE: Hardcoded encryption key is ACCEPTABLE FOR TESTING ONLY
+    // Production code in Auth.cpp uses DeriveSecureEncryptionKey() which derives
+    // keys from machine-specific data (computer name, username, volume serial).
+    // Tests use hardcoded keys for deterministic, reproducible behavior.
     std::string encryptionKey = "CriptoGualet_SecureKey_2024_256bit_AES!";
     if (encryptionKey.length() < 32) {
       std::cout << "   ❌ Encryption key too short, padding..." << std::endl;

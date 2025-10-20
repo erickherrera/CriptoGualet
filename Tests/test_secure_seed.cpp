@@ -6,6 +6,24 @@
 #include <fstream>
 #include <optional>
 
+/**
+ * Secure Seed Phrase Test Suite
+ *
+ * Tests the production-ready Auth.cpp implementation including:
+ * - RegisterUserWithMnemonic with automatic seed generation
+ * - Database encryption with machine-specific key derivation
+ * - No plain text file storage (security improvement)
+ * - DPAPI-encrypted seed storage on Windows
+ * - Conditional debug logging (disabled in Release builds)
+ *
+ * This test validates that Auth.cpp correctly:
+ * 1. Generates BIP39 mnemonic phrases
+ * 2. Stores seeds securely with DPAPI
+ * 3. Does NOT create insecure plain text files
+ * 4. Integrates with QR code generation
+ * 5. Derives encryption keys from machine-specific data
+ */
+
 int main() {
     std::cout << "=== Testing Secure Seed Phrase Implementation ===" << std::endl;
 

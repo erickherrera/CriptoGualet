@@ -24,8 +24,9 @@
 // Windows headers need to be after project headers to avoid macro conflicts
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>  // Must be included first for type definitions
+#include <windows.h> // Must be included first for type definitions (LONG, ULONG, etc.)
 #include <bcrypt.h>
+#include <lmcons.h> // For UNLEN constant (username max length)
 #include <wincrypt.h>
 
 // No Qt headers needed in Auth library
@@ -40,8 +41,51 @@ static const char *DEFAULT_WORDLIST_PATH = "assets/bip39/english.txt";
 static const char *SEED_VAULT_DIR = "seed_vault";
 static const char *DPAPI_ENTROPY_PREFIX = "CriptoGualet seed v1::";
 
+// Debug logging configuration - DISABLE IN PRODUCTION
+// Set to 0 to disable all debug file logging for production builds
+#ifndef ENABLE_AUTH_DEBUG_LOGGING
+#ifdef _DEBUG
+#define ENABLE_AUTH_DEBUG_LOGGING 1
+#else
+#define ENABLE_AUTH_DEBUG_LOGGING 0
+#endif
+#endif
+
+// Helper macros for conditional debug logging
+#if ENABLE_AUTH_DEBUG_LOGGING
+#define AUTH_DEBUG_LOG_OPEN(logVar)                                            \
+  std::ofstream logVar("registration_debug.log", std::ios::app)
+#define AUTH_DEBUG_LOG_WRITE(logVar, msg)                                      \
+  do {                                                                         \
+    if ((logVar).is_open()) {                                                  \
+      (logVar) << msg;                                                         \
+      (logVar).flush();                                                        \
+    }                                                                          \
+  } while (0)
+#define AUTH_DEBUG_LOG_PTR(ptr) (ptr)
+#define AUTH_DEBUG_LOG_STREAM(logVar)                                          \
+  if ((logVar).is_open())                                                      \
+  (logVar)
+#define AUTH_DEBUG_LOG_FLUSH(logVar)                                           \
+  if ((logVar).is_open())                                                      \
+  (logVar).flush()
+#else
+#define AUTH_DEBUG_LOG_OPEN(logVar)                                            \
+  std::ofstream logVar;                                                        \
+  (void)logVar
+#define AUTH_DEBUG_LOG_WRITE(logVar, msg) (void)0
+#define AUTH_DEBUG_LOG_PTR(ptr) nullptr
+#define AUTH_DEBUG_LOG_STREAM(logVar)                                          \
+  if (false)                                                                   \
+  std::cerr
+#define AUTH_DEBUG_LOG_FLUSH(logVar) (void)0
+#endif
+
 // Use your existing globals (declared in CriptoGualet.cpp)
 extern std::map<std::string, User> g_users;
+
+// ===== Forward Declarations =====
+static bool DeriveSecureEncryptionKey(std::string &outKey);
 
 // ===== Database and Repository Integration =====
 static std::unique_ptr<Repository::UserRepository> g_userRepo = nullptr;
@@ -66,13 +110,19 @@ static bool InitializeDatabase() {
     }
 #pragma warning(pop)
 
-    // Get encryption key - in production, derive from user master password or
-    // secure key For now, use a derived key from machine+user context
-    std::string encryptionKey =
-        "CHANGE_ME_IN_PRODUCTION_USE_SECURE_KEY_DERIVATION";
+    // Derive secure encryption key from machine-specific data
+    // This binds the database to the specific machine/user context
+    std::string encryptionKey;
+    if (!DeriveSecureEncryptionKey(encryptionKey)) {
+      return false;
+    }
 
-    // Initialize database
+    // Initialize database with derived encryption key
     auto result = dbManager.initialize(dbPath, encryptionKey);
+
+    // Securely wipe encryption key from memory
+    std::fill(encryptionKey.begin(), encryptionKey.end(), '\0');
+
     if (!result.success) {
       return false;
     }
@@ -188,6 +238,91 @@ static inline bool EnsureDir(const fs::path &p) {
   if (fs::exists(p, ec))
     return fs::is_directory(p, ec);
   return fs::create_directories(p, ec);
+}
+
+// === Secure encryption key derivation ===
+// Derives a deterministic encryption key from machine-specific data
+//
+// SECURITY CONSIDERATIONS:
+// 1. Database binding: The key is derived from machine/user-specific data,
+// binding
+//    the encrypted database to this specific Windows user account on this
+//    machine.
+// 2. Key components: computer name + username + volume serial + app salt
+// 3. Key derivation: PBKDF2-HMAC-SHA256 with 100,000 iterations for slow
+// derivation
+// 4. Portability: Database CANNOT be moved to different machine/user - this is
+// intentional
+// 5. Recovery: If machine is reimaged or username changes, database will be
+// inaccessible
+//
+// PRODUCTION NOTES:
+// - For multi-device sync, implement separate user-controlled master password
+// - For cloud backup, implement key escrow with user-controlled recovery phrase
+// - For enterprise deployment, consider using Windows DPAPI with machine/user
+// scope
+//
+static bool DeriveSecureEncryptionKey(std::string &outKey) {
+  // Gather machine-specific entropy sources
+  std::vector<uint8_t> entropy;
+
+  // 1. Get Windows computer name
+  char computerName[MAX_COMPUTERNAME_LENGTH + 1];
+  DWORD size = sizeof(computerName);
+  if (GetComputerNameA(computerName, &size)) {
+    entropy.insert(entropy.end(), computerName, computerName + size);
+  }
+
+  // 2. Get Windows username
+  char username[UNLEN + 1];
+  size = sizeof(username);
+  if (GetUserNameA(username, &size)) {
+    entropy.insert(entropy.end(), username, username + size);
+  }
+
+  // 3. Get volume serial number (disk-specific)
+  DWORD volumeSerial = 0;
+  if (GetVolumeInformationA("C:\\", nullptr, 0, &volumeSerial, nullptr, nullptr,
+                            nullptr, 0)) {
+    uint8_t *serialBytes = reinterpret_cast<uint8_t *>(&volumeSerial);
+    entropy.insert(entropy.end(), serialBytes,
+                   serialBytes + sizeof(volumeSerial));
+  }
+
+  // 4. Add application-specific constant salt
+  const char *appSalt = "CriptoGualet-v1.0-DatabaseEncryption";
+  entropy.insert(entropy.end(), appSalt, appSalt + strlen(appSalt));
+
+  // Ensure we have sufficient entropy
+  if (entropy.size() < 32) {
+    return false;
+  }
+
+  // Derive key using PBKDF2-HMAC-SHA256 with high iteration count
+  std::vector<uint8_t> derivedKey;
+  const unsigned int iterations = 100000; // High iteration count for security
+
+  if (!Crypto::PBKDF2_HMAC_SHA256(std::string(entropy.begin(), entropy.end()),
+                                  entropy.data(), entropy.size(), iterations,
+                                  derivedKey,
+                                  32 // 256-bit key
+                                  )) {
+    return false;
+  }
+
+  // Convert to hex string for SQLCipher
+  std::ostringstream hexKey;
+  for (uint8_t byte : derivedKey) {
+    hexKey << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
+  }
+
+  outKey = hexKey.str();
+
+  // Securely wipe entropy and derived key from memory
+  std::fill(entropy.begin(), entropy.end(), uint8_t(0));
+  std::fill(derivedKey.begin(), derivedKey.end(), uint8_t(0));
+
+  return true;
 }
 
 // ===== BIP-39 helpers =====
@@ -694,10 +829,7 @@ GenerateAndActivateSeedForUser(const std::string &username,
 
 AuthResponse RegisterUser(const std::string &username,
                           const std::string &password) {
-  // SECURITY: Debug logging disabled in production to prevent sensitive data
-  // leakage Use proper logging framework with configurable levels and secure
-  // storage instead
-  std::ofstream logFile("registration_debug.log", std::ios::app);
+  AUTH_DEBUG_LOG_OPEN(logFile);
 
   // Basic input validation
   if (username.empty() || password.empty()) {
@@ -707,10 +839,7 @@ AuthResponse RegisterUser(const std::string &username,
 
   // Validate username
   if (!IsValidUsername(username)) {
-    if (logFile.is_open()) {
-      logFile << "Result: Username validation failed\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Username validation failed\n");
     return {AuthResult::INVALID_USERNAME,
             "Username must be 3-50 characters and contain only letters, "
             "numbers, underscore, "
@@ -719,30 +848,22 @@ AuthResponse RegisterUser(const std::string &username,
 
   // Validate password with simplified requirements
   if (password.size() < 6) {
-    if (logFile.is_open()) {
-      logFile << "Result: Password too short\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password too short\n");
     return {AuthResult::WEAK_PASSWORD,
             "Password must be at least 6 characters long."};
   }
 
   if (!IsValidPassword(password)) {
-    if (logFile.is_open()) {
-      logFile
-          << "Result: Password validation failed (missing letter or digit)\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(
+        logFile,
+        "Result: Password validation failed (missing letter or digit)\n");
     return {AuthResult::WEAK_PASSWORD,
             "Password must contain at least one letter and one number."};
   }
 
   // Initialize database and repository layer (single source of truth)
   if (!InitializeDatabase() || !g_userRepo || !g_walletRepo) {
-    if (logFile.is_open()) {
-      logFile << "Result: Database initialization failed\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Database initialization failed\n");
     return {AuthResult::SYSTEM_ERROR,
             "Failed to initialize database. Please try again."};
   }
@@ -751,26 +872,22 @@ AuthResponse RegisterUser(const std::string &username,
   try {
     auto existingUser = g_userRepo->getUserByUsername(username);
     if (existingUser.success) {
-      if (logFile.is_open()) {
-        logFile << "Result: Username already exists in database\n";
-        logFile.flush();
-      }
+      AUTH_DEBUG_LOG_WRITE(logFile,
+                           "Result: Username already exists in database\n");
       return {AuthResult::USER_ALREADY_EXISTS,
               "Username already exists. Please choose a different username."};
     }
   } catch (const std::exception &e) {
-    if (logFile.is_open()) {
-      logFile << "Database: Exception checking existing user: " << e.what()
-              << "\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_STREAM(logFile)
+        << "Database: Exception checking existing user: " << e.what() << "\n";
+    AUTH_DEBUG_LOG_FLUSH(logFile);
     return {AuthResult::SYSTEM_ERROR, "Database error. Please try again."};
   }
 
   // === BIP-39 seed generation ===
   std::vector<std::string> generatedMnemonic;
-  bool seedOk =
-      GenerateAndActivateSeedForUser(username, generatedMnemonic, &logFile);
+  bool seedOk = GenerateAndActivateSeedForUser(username, generatedMnemonic,
+                                               AUTH_DEBUG_LOG_PTR(&logFile));
 
   // Derive wallet credentials from seed using BIP32
   std::string privateKeyWIF, walletAddress;
@@ -778,11 +895,9 @@ AuthResponse RegisterUser(const std::string &username,
     std::array<uint8_t, 64> seed{};
     if (RetrieveUserSeedDPAPI(username, seed)) {
       if (!DeriveWalletCredentialsFromSeed(seed, privateKeyWIF, walletAddress,
-                                           &logFile)) {
-        if (logFile.is_open()) {
-          logFile << "BIP32: WARNING - Failed to derive keys from seed\n";
-          logFile.flush();
-        }
+                                           AUTH_DEBUG_LOG_PTR(&logFile))) {
+        AUTH_DEBUG_LOG_WRITE(
+            logFile, "BIP32: WARNING - Failed to derive keys from seed\n");
       }
       seed.fill(uint8_t(0)); // Securely wipe
     }
@@ -795,33 +910,31 @@ AuthResponse RegisterUser(const std::string &username,
         username, "", password); // Empty email for this overload
 
     if (!createResult.success) {
-      if (logFile.is_open()) {
-        logFile << "Database: ERROR - Failed to create user: "
-                << createResult.errorMessage << "\n";
-        logFile.flush();
-      }
+      AUTH_DEBUG_LOG_STREAM(logFile)
+          << "Database: ERROR - Failed to create user: "
+          << createResult.errorMessage << "\n";
+      AUTH_DEBUG_LOG_FLUSH(logFile);
       return {AuthResult::SYSTEM_ERROR,
               "Failed to create account. Please try again."};
     }
 
     userId = createResult.data.id;
-    if (logFile.is_open()) {
-      logFile << "Database: User created successfully (ID: " << userId << ")\n";
-    }
+    AUTH_DEBUG_LOG_STREAM(logFile)
+        << "Database: User created successfully (ID: " << userId << ")\n";
+    AUTH_DEBUG_LOG_FLUSH(logFile);
 
     // Store encrypted seed in database if generation was successful
     if (seedOk && !generatedMnemonic.empty()) {
       auto seedResult =
           g_walletRepo->storeEncryptedSeed(userId, password, generatedMnemonic);
       if (seedResult.success) {
-        if (logFile.is_open()) {
-          logFile << "Database: Encrypted seed stored successfully\n";
-        }
+        AUTH_DEBUG_LOG_WRITE(logFile,
+                             "Database: Encrypted seed stored successfully\n");
       } else {
-        if (logFile.is_open()) {
-          logFile << "Database: WARNING - Failed to store encrypted seed: "
-                  << seedResult.errorMessage << "\n";
-        }
+        AUTH_DEBUG_LOG_STREAM(logFile)
+            << "Database: WARNING - Failed to store encrypted seed: "
+            << seedResult.errorMessage << "\n";
+        AUTH_DEBUG_LOG_FLUSH(logFile);
       }
     }
 
@@ -834,10 +947,10 @@ AuthResponse RegisterUser(const std::string &username,
     );
 
     if (!walletResult.success) {
-      if (logFile.is_open()) {
-        logFile << "Database: WARNING - Failed to create wallet: "
-                << walletResult.errorMessage << "\n";
-      }
+      AUTH_DEBUG_LOG_STREAM(logFile)
+          << "Database: WARNING - Failed to create wallet: "
+          << walletResult.errorMessage << "\n";
+      AUTH_DEBUG_LOG_FLUSH(logFile);
     }
 
     // Populate in-memory cache for frontend compatibility
@@ -849,20 +962,17 @@ AuthResponse RegisterUser(const std::string &username,
     cachedUser.walletAddress = walletAddress;
     g_users[username] = cachedUser;
 
-    if (logFile.is_open()) {
-      logFile << "Result: SUCCESS - User registered in database and cached\n";
-      if (seedOk) {
-        logFile << "Seed: generated + DPAPI stored + database encrypted\n";
-      }
-      logFile.flush();
+    AUTH_DEBUG_LOG_WRITE(
+        logFile, "Result: SUCCESS - User registered in database and cached\n");
+    if (seedOk) {
+      AUTH_DEBUG_LOG_WRITE(
+          logFile, "Seed: generated + DPAPI stored + database encrypted\n");
     }
 
   } catch (const std::exception &e) {
-    if (logFile.is_open()) {
-      logFile << "Database: EXCEPTION during registration: " << e.what()
-              << "\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_STREAM(logFile)
+        << "Database: EXCEPTION during registration: " << e.what() << "\n";
+    AUTH_DEBUG_LOG_FLUSH(logFile);
     return {AuthResult::SYSTEM_ERROR, "Registration failed. Please try again."};
   }
 
@@ -881,14 +991,13 @@ AuthResponse RegisterUser(const std::string &username,
 // for full wallet functionality.
 AuthResponse RegisterUser(const std::string &username, const std::string &email,
                           const std::string &password) {
-  std::ofstream logFile("registration_debug.log", std::ios::app);
-  if (logFile.is_open()) {
-    logFile << "\n=== Simple Registration Attempt (with email, no seed) ===\n";
-    logFile << "Username: '" << username << "'\n";
-    logFile << "Email: '" << email << "'\n";
-    logFile << "Password length: " << password.length() << "\n";
-    logFile.flush();
-  }
+  AUTH_DEBUG_LOG_OPEN(logFile);
+  AUTH_DEBUG_LOG_STREAM(logFile)
+      << "\n=== Simple Registration Attempt (with email, no seed) ===\n"
+      << "Username: '" << username << "'\n"
+      << "Email: '" << email << "'\n"
+      << "Password length: " << password.length() << "\n";
+  AUTH_DEBUG_LOG_FLUSH(logFile);
 
   // Basic input validation
   if (username.empty() || email.empty() || password.empty()) {
@@ -898,10 +1007,7 @@ AuthResponse RegisterUser(const std::string &username, const std::string &email,
 
   // Validate username
   if (!IsValidUsername(username)) {
-    if (logFile.is_open()) {
-      logFile << "Result: Username validation failed\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Username validation failed\n");
     return {AuthResult::INVALID_USERNAME,
             "Invalid username. Must be 3-50 characters, letters, numbers, and "
             "underscores only."};
@@ -909,29 +1015,20 @@ AuthResponse RegisterUser(const std::string &username, const std::string &email,
 
   // Validate password
   if (password.size() < 6) {
-    if (logFile.is_open()) {
-      logFile << "Result: Password too short\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password too short\n");
     return {AuthResult::WEAK_PASSWORD,
             "Password must be at least 6 characters long."};
   }
 
   if (!IsValidPassword(password)) {
-    if (logFile.is_open()) {
-      logFile << "Result: Password validation failed\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password validation failed\n");
     return {AuthResult::WEAK_PASSWORD,
             "Password must contain at least one letter and one number."};
   }
 
   // Initialize database
   if (!InitializeDatabase() || !g_userRepo) {
-    if (logFile.is_open()) {
-      logFile << "Result: Database initialization failed\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Database initialization failed\n");
     return {AuthResult::SYSTEM_ERROR,
             "Failed to initialize database. Please try again."};
   }
@@ -940,19 +1037,15 @@ AuthResponse RegisterUser(const std::string &username, const std::string &email,
   try {
     auto existingUser = g_userRepo->getUserByUsername(username);
     if (existingUser.success) {
-      if (logFile.is_open()) {
-        logFile << "Result: Username already exists in database\n";
-        logFile.flush();
-      }
+      AUTH_DEBUG_LOG_WRITE(logFile,
+                           "Result: Username already exists in database\n");
       return {AuthResult::USER_ALREADY_EXISTS,
               "Username already exists. Please choose a different username."};
     }
   } catch (const std::exception &e) {
-    if (logFile.is_open()) {
-      logFile << "Database: Exception checking existing user: " << e.what()
-              << "\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_STREAM(logFile)
+        << "Database: Exception checking existing user: " << e.what() << "\n";
+    AUTH_DEBUG_LOG_FLUSH(logFile);
     return {AuthResult::SYSTEM_ERROR, "Database error. Please try again."};
   }
 
@@ -961,11 +1054,10 @@ AuthResponse RegisterUser(const std::string &username, const std::string &email,
     auto createResult = g_userRepo->createUser(username, email, password);
 
     if (!createResult.success) {
-      if (logFile.is_open()) {
-        logFile << "Database: ERROR - Failed to create user: "
-                << createResult.errorMessage << "\n";
-        logFile.flush();
-      }
+      AUTH_DEBUG_LOG_STREAM(logFile)
+          << "Database: ERROR - Failed to create user: "
+          << createResult.errorMessage << "\n";
+      AUTH_DEBUG_LOG_FLUSH(logFile);
       return {AuthResult::SYSTEM_ERROR,
               "Failed to create account. Please try again."};
     }
@@ -979,17 +1071,13 @@ AuthResponse RegisterUser(const std::string &username, const std::string &email,
     cachedUser.walletAddress = "";
     g_users[username] = cachedUser;
 
-    if (logFile.is_open()) {
-      logFile << "Result: SUCCESS - Simple user registered (no wallet)\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(
+        logFile, "Result: SUCCESS - Simple user registered (no wallet)\n");
 
   } catch (const std::exception &e) {
-    if (logFile.is_open()) {
-      logFile << "Database: EXCEPTION during registration: " << e.what()
-              << "\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_STREAM(logFile)
+        << "Database: EXCEPTION during registration: " << e.what() << "\n";
+    AUTH_DEBUG_LOG_FLUSH(logFile);
     return {AuthResult::SYSTEM_ERROR, "Registration failed. Please try again."};
   }
 
@@ -1000,14 +1088,13 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
                                       const std::string &email,
                                       const std::string &password,
                                       std::vector<std::string> &outMnemonic) {
-  std::ofstream logFile("registration_debug.log", std::ios::app);
-  if (logFile.is_open()) {
-    logFile << "\n=== Extended Registration Attempt ===\n";
-    logFile << "Username: '" << username << "'\n";
-    logFile << "Email: '" << email << "'\n";
-    logFile << "Password length: " << password.length() << "\n";
-    logFile.flush();
-  }
+  AUTH_DEBUG_LOG_OPEN(logFile);
+  AUTH_DEBUG_LOG_STREAM(logFile)
+      << "\n=== Extended Registration Attempt ===\n"
+      << "Username: '" << username << "'\n"
+      << "Email: '" << email << "'\n"
+      << "Password length: " << password.length() << "\n";
+  AUTH_DEBUG_LOG_FLUSH(logFile);
 
   // Basic input validation
   if (username.empty() || email.empty() || password.empty()) {
@@ -1017,10 +1104,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
 
   // Validate username
   if (!IsValidUsername(username)) {
-    if (logFile.is_open()) {
-      logFile << "Result: Username validation failed\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Username validation failed\n");
     return {AuthResult::INVALID_USERNAME,
             "Username must be 3-50 characters and contain only letters, "
             "numbers, underscore, "
@@ -1029,30 +1113,22 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
 
   // Validate password with simplified requirements
   if (password.size() < 6) {
-    if (logFile.is_open()) {
-      logFile << "Result: Password too short\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password too short\n");
     return {AuthResult::WEAK_PASSWORD,
             "Password must be at least 6 characters long."};
   }
 
   if (!IsValidPassword(password)) {
-    if (logFile.is_open()) {
-      logFile
-          << "Result: Password validation failed (missing letter or digit)\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(
+        logFile,
+        "Result: Password validation failed (missing letter or digit)\n");
     return {AuthResult::WEAK_PASSWORD,
             "Password must contain at least one letter and one number."};
   }
 
   // Initialize database and repository layer (single source of truth)
   if (!InitializeDatabase() || !g_userRepo || !g_walletRepo) {
-    if (logFile.is_open()) {
-      logFile << "Result: Database initialization failed\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Database initialization failed\n");
     return {AuthResult::SYSTEM_ERROR,
             "Failed to initialize database. Please try again."};
   }
@@ -1061,26 +1137,22 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
   try {
     auto existingUser = g_userRepo->getUserByUsername(username);
     if (existingUser.success) {
-      if (logFile.is_open()) {
-        logFile << "Result: Username already exists in database\n";
-        logFile.flush();
-      }
+      AUTH_DEBUG_LOG_WRITE(logFile,
+                           "Result: Username already exists in database\n");
       return {AuthResult::USER_ALREADY_EXISTS,
               "Username already exists. Please choose a different username."};
     }
   } catch (const std::exception &e) {
-    if (logFile.is_open()) {
-      logFile << "Database: Exception checking existing user: " << e.what()
-              << "\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_STREAM(logFile)
+        << "Database: Exception checking existing user: " << e.what() << "\n";
+    AUTH_DEBUG_LOG_FLUSH(logFile);
     return {AuthResult::SYSTEM_ERROR, "Database error. Please try again."};
   }
 
   // === BIP-39 seed generation ===
   std::vector<std::string> generatedMnemonic;
-  bool seedOk =
-      GenerateAndActivateSeedForUser(username, generatedMnemonic, &logFile);
+  bool seedOk = GenerateAndActivateSeedForUser(username, generatedMnemonic,
+                                               AUTH_DEBUG_LOG_PTR(&logFile));
 
   // Derive wallet credentials from seed using BIP32
   std::string privateKeyWIF, walletAddress;
@@ -1088,11 +1160,9 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
     std::array<uint8_t, 64> seed{};
     if (RetrieveUserSeedDPAPI(username, seed)) {
       if (!DeriveWalletCredentialsFromSeed(seed, privateKeyWIF, walletAddress,
-                                           &logFile)) {
-        if (logFile.is_open()) {
-          logFile << "BIP32: WARNING - Failed to derive keys from seed\n";
-          logFile.flush();
-        }
+                                           AUTH_DEBUG_LOG_PTR(&logFile))) {
+        AUTH_DEBUG_LOG_WRITE(
+            logFile, "BIP32: WARNING - Failed to derive keys from seed\n");
       }
       seed.fill(uint8_t(0)); // Securely wipe
     }
@@ -1104,33 +1174,31 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
     auto createResult = g_userRepo->createUser(username, email, password);
 
     if (!createResult.success) {
-      if (logFile.is_open()) {
-        logFile << "Database: ERROR - Failed to create user: "
-                << createResult.errorMessage << "\n";
-        logFile.flush();
-      }
+      AUTH_DEBUG_LOG_STREAM(logFile)
+          << "Database: ERROR - Failed to create user: "
+          << createResult.errorMessage << "\n";
+      AUTH_DEBUG_LOG_FLUSH(logFile);
       return {AuthResult::SYSTEM_ERROR,
               "Failed to create account. Please try again."};
     }
 
     userId = createResult.data.id;
-    if (logFile.is_open()) {
-      logFile << "Database: User created successfully (ID: " << userId << ")\n";
-    }
+    AUTH_DEBUG_LOG_STREAM(logFile)
+        << "Database: User created successfully (ID: " << userId << ")\n";
+    AUTH_DEBUG_LOG_FLUSH(logFile);
 
     // Store encrypted seed in database if generation was successful
     if (seedOk && !generatedMnemonic.empty()) {
       auto seedResult =
           g_walletRepo->storeEncryptedSeed(userId, password, generatedMnemonic);
       if (seedResult.success) {
-        if (logFile.is_open()) {
-          logFile << "Database: Encrypted seed stored successfully\n";
-        }
+        AUTH_DEBUG_LOG_WRITE(logFile,
+                             "Database: Encrypted seed stored successfully\n");
       } else {
-        if (logFile.is_open()) {
-          logFile << "Database: WARNING - Failed to store encrypted seed: "
-                  << seedResult.errorMessage << "\n";
-        }
+        AUTH_DEBUG_LOG_STREAM(logFile)
+            << "Database: WARNING - Failed to store encrypted seed: "
+            << seedResult.errorMessage << "\n";
+        AUTH_DEBUG_LOG_FLUSH(logFile);
       }
     }
 
@@ -1143,10 +1211,10 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
     );
 
     if (!walletResult.success) {
-      if (logFile.is_open()) {
-        logFile << "Database: WARNING - Failed to create wallet: "
-                << walletResult.errorMessage << "\n";
-      }
+      AUTH_DEBUG_LOG_STREAM(logFile)
+          << "Database: WARNING - Failed to create wallet: "
+          << walletResult.errorMessage << "\n";
+      AUTH_DEBUG_LOG_FLUSH(logFile);
     }
 
     // Populate in-memory cache for frontend compatibility
@@ -1158,20 +1226,17 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
     cachedUser.walletAddress = walletAddress;
     g_users[username] = cachedUser;
 
-    if (logFile.is_open()) {
-      logFile << "Result: SUCCESS - User registered in database and cached\n";
-      if (seedOk) {
-        logFile << "Seed: generated + DPAPI stored + database encrypted\n";
-      }
-      logFile.flush();
+    AUTH_DEBUG_LOG_WRITE(
+        logFile, "Result: SUCCESS - User registered in database and cached\n");
+    if (seedOk) {
+      AUTH_DEBUG_LOG_WRITE(
+          logFile, "Seed: generated + DPAPI stored + database encrypted\n");
     }
 
   } catch (const std::exception &e) {
-    if (logFile.is_open()) {
-      logFile << "Database: EXCEPTION during registration: " << e.what()
-              << "\n";
-      logFile.flush();
-    }
+    AUTH_DEBUG_LOG_STREAM(logFile)
+        << "Database: EXCEPTION during registration: " << e.what() << "\n";
+    AUTH_DEBUG_LOG_FLUSH(logFile);
     return {AuthResult::SYSTEM_ERROR, "Registration failed. Please try again."};
   }
 
