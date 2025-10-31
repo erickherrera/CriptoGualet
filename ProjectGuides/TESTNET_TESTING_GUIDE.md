@@ -1,7 +1,5 @@
 # CriptoGualet Testnet Testing Guide
 
-## You're Not Dumb - Here's How to Test Safely! 🎓
-
 Good news: **Your application is already configured for Bitcoin Testnet**, which means all funds are FAKE and worthless. You can test freely without risking real money!
 
 ## What is Bitcoin Testnet?
