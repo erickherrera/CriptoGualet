@@ -51,10 +51,11 @@ if(BLOCKCYPHER_AVAILABLE)
   add_executable(test_blockcypher_api
     "test_blockcypher_api.cpp"
   )
-  target_link_libraries(test_blockcypher_api PRIVATE WalletAPI BlockCypher SharedSymbols comctl32 crypt32 bcrypt)
+  target_link_libraries(test_blockcypher_api PRIVATE WalletAPI BlockCypher Crypto SharedSymbols comctl32 crypt32 bcrypt cpr::cpr)
   target_include_directories(test_blockcypher_api PRIVATE
     "${CMAKE_SOURCE_DIR}/backend/core/include"
     "${CMAKE_SOURCE_DIR}/backend/blockchain/include"
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/include"
   )
 
   # Copy CPR and curl DLLs for test executable on Windows

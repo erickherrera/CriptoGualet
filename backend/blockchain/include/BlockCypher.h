@@ -84,6 +84,7 @@ public:
     // Transaction operations
     std::optional<Transaction> GetTransaction(const std::string& tx_hash);
     std::optional<CreateTransactionResponse> CreateTransaction(const CreateTransactionRequest& request);
+    std::optional<std::string> SendSignedTransaction(const CreateTransactionResponse& signed_tx);
     std::optional<std::string> SendRawTransaction(const std::string& hex);
 
     // Utility

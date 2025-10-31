@@ -246,6 +246,50 @@ std::optional<CreateTransactionResponse> BlockCypherClient::CreateTransaction(co
     }
 }
 
+std::optional<std::string> BlockCypherClient::SendSignedTransaction(const CreateTransactionResponse& signed_tx) {
+    try {
+        json payload;
+
+        // Build the payload with signatures and public keys
+        payload["tosign"] = json::array();
+        for (const auto& tosign_item : signed_tx.tosign) {
+            payload["tosign"].push_back(tosign_item);
+        }
+
+        payload["signatures"] = json::array();
+        for (const auto& sig : signed_tx.signatures) {
+            payload["signatures"].push_back(sig);
+        }
+
+        payload["pubkeys"] = json::array();
+        for (const auto& pubkey : signed_tx.pubkeys) {
+            payload["pubkeys"].push_back(pubkey);
+        }
+
+        std::string response = MakeRequest("txs/send", "POST", payload.dump());
+        if (response.empty()) {
+            return std::nullopt;
+        }
+
+        json j = json::parse(response);
+
+        // Check for errors
+        if (j.contains("errors") && j["errors"].is_array() && !j["errors"].empty()) {
+            std::cerr << "BlockCypher error: " << j["errors"][0].value("error", "Unknown error") << std::endl;
+            return std::nullopt;
+        }
+
+        if (j.contains("tx") && j["tx"].contains("hash")) {
+            return j["tx"]["hash"];
+        }
+
+        return std::nullopt;
+    } catch (const std::exception& e) {
+        std::cerr << "Error sending signed transaction: " << e.what() << std::endl;
+        return std::nullopt;
+    }
+}
+
 std::optional<std::string> BlockCypherClient::SendRawTransaction(const std::string& hex) {
     try {
         json payload;

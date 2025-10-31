@@ -115,7 +115,7 @@ bool BIP32_DerivePath(const BIP32ExtendedKey &master, const std::string &path,
                       BIP32ExtendedKey &derived);
 
 // Generate Bitcoin address from extended public key
-bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &address);
+bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &address, bool testnet = false);
 
 // Get WIF (Wallet Import Format) private key
 bool BIP32_GetWIF(const BIP32ExtendedKey &extKey, std::string &wif, bool testnet = false);
@@ -136,6 +136,9 @@ bool SignHash(const std::vector<uint8_t> &private_key, const std::array<uint8_t,
 // Verify a signature against a public key and hash
 bool VerifySignature(const std::vector<uint8_t> &public_key, const std::array<uint8_t, 32> &hash,
                      const ECDSASignature &signature);
+
+// Derive public key from private key (compressed format, 33 bytes)
+bool DerivePublicKey(const std::vector<uint8_t> &private_key, std::vector<uint8_t> &public_key);
 
 // === Bitcoin Transaction Helper Functions ===
 

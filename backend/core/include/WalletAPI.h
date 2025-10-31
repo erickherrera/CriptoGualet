@@ -1,8 +1,10 @@
 #pragma once
 
 #include "../../blockchain/include/BlockCypher.h"
+#include "Crypto.h"
 #include <functional>
 #include <memory>
+#include <map>
 
 namespace WalletAPI {
 
@@ -44,6 +46,7 @@ public:
   SendTransactionResult
   SendFunds(const std::vector<std::string> &from_addresses,
             const std::string &to_address, uint64_t amount_satoshis,
+            const std::map<std::string, std::vector<uint8_t>> &private_keys,
             uint64_t fee_satoshis = 0);
 
   // Utility functions

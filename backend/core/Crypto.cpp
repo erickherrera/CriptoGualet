@@ -11,6 +11,7 @@
 #include <cctype>
 #include <cstring>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -1017,18 +1018,26 @@ static std::string EncodeBase58(const std::vector<uint8_t>& data) {
     }
   }
 
+  // Find the last non-zero element (actual end of data)
+  // This is the FIX: the allocated array may have trailing zeros that shouldn't be encoded
+  size_t b58_end = b58.size();
+  while (b58_end > 0 && b58[b58_end - 1] == 0) {
+    --b58_end;
+  }
+
   // Skip leading zeros in base58 result
   size_t b58_leading_zeros = 0;
-  for (size_t i = 0; i < b58.size() && b58[i] == 0; ++i) {
+  for (size_t i = 0; i < b58_end && b58[i] == 0; ++i) {
     ++b58_leading_zeros;
   }
 
   // Translate the result into a string
   std::string result;
-  result.reserve(leading_zeros + (b58.size() - b58_leading_zeros));
+  result.reserve(leading_zeros + (b58_end - b58_leading_zeros));
   result.assign(leading_zeros, '1');
-  for (size_t i = b58_leading_zeros; i < b58.size(); ++i) {
-    result += BASE58_ALPHABET[b58[b58.size() - 1 - i]];
+
+  for (size_t i = b58_leading_zeros; i < b58_end; ++i) {
+    result += BASE58_ALPHABET[b58[b58_end - 1 - i]];
   }
 
   return result;
@@ -1252,12 +1261,12 @@ bool BIP32_DerivePath(const BIP32ExtendedKey &master, const std::string &path,
   return true;
 }
 
-bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &address) {
+bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &address, bool testnet) {
   // Bitcoin address generation:
   // 1. Start with public key (33 bytes compressed or 65 bytes uncompressed)
   // 2. SHA256 hash
-  // 3. RIPEMD-160 hash (TODO: not available, using SHA256 as placeholder)
-  // 4. Add version byte (0x00 for mainnet P2PKH)
+  // 3. RIPEMD-160 hash
+  // 4. Add version byte (0x00 for mainnet P2PKH, 0x6F for testnet P2PKH)
   // 5. Base58Check encode
 
   std::vector<uint8_t> pubkey;
@@ -1294,10 +1303,10 @@ bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &addres
     return false;
   }
 
-  // Add version byte (0x00 for mainnet P2PKH)
+  // Add version byte (0x00 for mainnet P2PKH, 0x6F for testnet P2PKH)
   std::vector<uint8_t> versioned_hash;
   versioned_hash.reserve(21);
-  versioned_hash.push_back(0x00);
+  versioned_hash.push_back(testnet ? 0x6F : 0x00);
   versioned_hash.insert(versioned_hash.end(), pubkey_hash.begin(), pubkey_hash.end());
 
   // Base58Check encode
@@ -1390,6 +1399,31 @@ bool VerifySignature(const std::vector<uint8_t> &public_key, const std::array<ui
 
   // Verify signature
   return secp256k1_ecdsa_verify(ctx, &sig, hash.data(), &pubkey) == 1;
+}
+
+bool DerivePublicKey(const std::vector<uint8_t> &private_key, std::vector<uint8_t> &public_key) {
+  if (private_key.size() != 32) {
+    return false;
+  }
+
+  secp256k1_context* ctx = GetSecp256k1Context();
+
+  // Create public key from private key
+  secp256k1_pubkey pubkey;
+  if (!secp256k1_ec_pubkey_create(ctx, &pubkey, private_key.data())) {
+    return false;
+  }
+
+  // Serialize public key (compressed format)
+  unsigned char pubkey_serialized[33];
+  size_t pubkey_len = 33;
+  secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkey_len, &pubkey,
+                                 SECP256K1_EC_COMPRESSED);
+
+  // Copy to output vector
+  public_key.assign(pubkey_serialized, pubkey_serialized + pubkey_len);
+
+  return true;
 }
 
 // === Bitcoin Transaction Helper Functions ===
@@ -1681,7 +1715,7 @@ bool BIP44_GetAddress(const BIP32ExtendedKey &master, uint32_t account,
     return false;
   }
 
-  return BIP32_GetBitcoinAddress(address_key, address);
+  return BIP32_GetBitcoinAddress(address_key, address, testnet);
 }
 
 bool BIP44_GenerateAddresses(const BIP32ExtendedKey &master, uint32_t account,
