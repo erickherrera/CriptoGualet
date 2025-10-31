@@ -16,6 +16,7 @@ The project follows a **backend/frontend separation** for better organization an
 
 #### Blockchain (`backend/blockchain/`)
 - **BlockCypher** - BlockCypher API integration for Bitcoin network interaction
+- **PriceService** - Cryptocurrency price service for market data
 
 #### Database (`backend/database/`)
 - **DatabaseManager** - Encrypted SQLCipher-based storage for wallet data
@@ -23,33 +24,38 @@ The project follows a **backend/frontend separation** for better organization an
 #### Repository (`backend/repository/`)
 - **UserRepository** - User data access layer
 - **WalletRepository** - Wallet data access layer
-- **TransactionRepository** - Transaction data access layer
+- **TransactionRepository** - Transaction data access layer with extensions
 - **Logger** - Application logging
 
 #### Utils (`backend/utils/`)
 - **QRGenerator** - QR code generation with libqrencode
 - **SharedSymbols** - Shared symbols and utilities
+- **SharedTypes** - Shared type definitions across modules
 
 ### Frontend Components
 
 #### Qt GUI (`frontend/qt/`) - Primary Interface
 Modern cross-platform interface using Qt6:
 - `CriptoGualetQt.cpp` - Main Qt application
-- `QtLoginUI.cpp` - Qt login interface
+- `QtLoginUI.cpp` - Qt login and registration interface
 - `QtWalletUI.cpp` - Qt wallet interface
+- `QtSidebar.cpp` - Sidebar navigation component
+- `QtTopCryptosPage.cpp` - Top cryptocurrencies display page
+- `QtSettingsUI.cpp` - Settings interface
 - `QtThemeManager.cpp` - Theme management
 - `QtSeedDisplayDialog.cpp` - Seed phrase display dialog
 - `QtExpandableWalletCard.cpp` - Wallet card UI component
 
-#### Win32 GUI (`frontend/win32/`) - Windows Native
-- `CriptoGualet.cpp` - Main Win32 application (legacy)
-
 ### Test Suite (`Tests/`)
-- `test_basic_auth.cpp` - Basic authentication tests
+- `TestUtils.cpp/h` - Test utilities and helpers
+- `test_auth_database_integration.cpp` - Authentication and database integration tests
 - `test_bip39.cpp` - BIP39 seed phrase tests
 - `test_secure_seed.cpp` - Secure seed generation tests
 - `test_database.cpp` - Database functionality tests
-- `test_repository.cpp` - Repository layer tests
+- `test_user_repository.cpp` - User repository tests
+- `test_wallet_repository.cpp` - Wallet repository tests
+- `test_transaction_repository.cpp` - Transaction repository tests
+- `test_repository_integration.cpp` - Repository integration tests
 - `test_security_enhancements.cpp` - Security feature tests
 - `test_blockcypher_api.cpp` - Blockchain API tests
 
@@ -66,7 +72,6 @@ Modern cross-platform interface using Qt6:
   - `backend/utils/CMakeLists.txt` - Utilities (QRGenerator, SharedSymbols)
 - **Frontend Modules**:
   - `frontend/qt/CMakeLists.txt` - Qt GUI application
-  - `frontend/win32/CMakeLists.txt` - Win32 GUI application
 - **Tests**: `Tests/CMakeLists.txt` - Test executables
 - **Presets**: `CMakePresets.json` - Build configuration presets
 - **Settings**: `CMakeSettings.json` - Visual Studio CMake settings
@@ -83,6 +88,7 @@ Modern cross-platform interface using Qt6:
 - **SQLCipher/SQLite3** - Encrypted database storage
 - **CPR** - HTTP requests library (for BlockCypher API)
 - **nlohmann-json** - JSON parsing library
+- **secp256k1** - Elliptic curve cryptography library
 - **Windows CryptoAPI** - Native cryptographic functions (bcrypt, crypt32)
 
 ## Build Commands
@@ -129,9 +135,18 @@ CriptoGualet/
 ├── CMakeLists.txt              # Root build configuration
 ├── CMakePresets.json           # Build presets
 ├── CMakeSettings.json          # VS CMake settings
+├── CppProperties.json          # IntelliSense configuration
+├── launch.vs.json              # Visual Studio launch settings
 ├── vcpkg.json                  # Dependency management
 ├── .clang-format              # Code formatting rules
 ├── .clang-tidy                # Static analysis rules
+├── .claude/                    # Claude Code settings
+│   └── settings.local.json
+├── assets/                     # Root-level assets
+│   └── bip39/
+│       └── english.txt         # BIP39 English wordlist
+├── examples/                   # Example code
+│   └── wallet_integration_example.cpp
 ├── backend/                    # Backend components
 │   ├── core/                   # Core business logic
 │   │   ├── CMakeLists.txt
@@ -145,8 +160,10 @@ CriptoGualet/
 │   ├── blockchain/             # Blockchain integration
 │   │   ├── CMakeLists.txt
 │   │   ├── BlockCypher.cpp
+│   │   ├── PriceService.cpp
 │   │   └── include/
-│   │       └── BlockCypher.h
+│   │       ├── BlockCypher.h
+│   │       └── PriceService.h
 │   ├── database/               # Database layer
 │   │   ├── CMakeLists.txt
 │   │   ├── src/
@@ -161,6 +178,7 @@ CriptoGualet/
 │   │   │   ├── UserRepository.cpp
 │   │   │   ├── WalletRepository.cpp
 │   │   │   ├── TransactionRepository.cpp
+│   │   │   ├── TransactionRepositoryExtensions.cpp
 │   │   │   └── Logger.cpp
 │   │   └── include/
 │   │       └── Repository/
@@ -174,42 +192,60 @@ CriptoGualet/
 │       ├── QRGenerator.cpp
 │       ├── SharedSymbols.cpp
 │       └── include/
-│           └── QRGenerator.h
+│           ├── QRGenerator.h
+│           └── SharedTypes.h
 ├── frontend/                   # Frontend components
-│   ├── qt/                     # Qt GUI (primary)
-│   │   ├── CMakeLists.txt
-│   │   ├── CriptoGualetQt.cpp
-│   │   ├── QtLoginUI.cpp
-│   │   ├── QtWalletUI.cpp
-│   │   ├── QtThemeManager.cpp
-│   │   ├── QtSeedDisplayDialog.cpp
-│   │   ├── QtExpandableWalletCard.cpp
-│   │   ├── assets/             # Qt resources
-│   │   └── include/
-│   │       ├── CriptoGualetQt.h
-│   │       ├── QtLoginUI.h
-│   │       ├── QtWalletUI.h
-│   │       ├── QtThemeManager.h
-│   │       ├── QtSeedDisplayDialog.h
-│   │       └── QtExpandableWalletCard.h
-│   └── win32/                  # Win32 GUI (legacy)
+│   └── qt/                     # Qt GUI (primary)
 │       ├── CMakeLists.txt
-│       ├── CriptoGualet.cpp
+│       ├── CriptoGualetQt.cpp
+│       ├── QtLoginUI.cpp
+│       ├── QtWalletUI.cpp
+│       ├── QtSidebar.cpp
+│       ├── QtTopCryptosPage.cpp
+│       ├── QtSettingsUI.cpp
+│       ├── QtThemeManager.cpp
+│       ├── QtSeedDisplayDialog.cpp
+│       ├── QtExpandableWalletCard.cpp
+│       ├── assets/             # Qt resources
+│       │   └── bip39/
+│       │       └── english.txt
 │       └── include/
-│           └── CriptoGualet.h
+│           ├── CriptoGualetQt.h
+│           ├── QtLoginUI.h
+│           ├── QtWalletUI.h
+│           ├── QtSidebar.h
+│           ├── QtTopCryptosPage.h
+│           ├── QtSettingsUI.h
+│           ├── QtThemeManager.h
+│           ├── QtSeedDisplayDialog.h
+│           └── QtExpandableWalletCard.h
 ├── Tests/                      # Test suite
 │   ├── CMakeLists.txt
-│   ├── test_basic_auth.cpp
+│   ├── include/
+│   │   └── TestUtils.h
+│   ├── src/
+│   │   └── TestUtils.cpp
+│   ├── test_auth_database_integration.cpp
 │   ├── test_bip39.cpp
 │   ├── test_secure_seed.cpp
 │   ├── test_database.cpp
-│   ├── test_repository.cpp
+│   ├── test_user_repository.cpp
+│   ├── test_wallet_repository.cpp
+│   ├── test_transaction_repository.cpp
+│   ├── test_repository_integration.cpp
 │   ├── test_security_enhancements.cpp
 │   └── test_blockcypher_api.cpp
 ├── src/                        # Build orchestration
 │   └── CMakeLists.txt
 ├── resources/                  # Application resources
-│   └── resources.qrc
+│   ├── resources.qrc
+│   └── icons/
+│       ├── chart.svg
+│       ├── eye-closed.svg
+│       ├── eye-open.svg
+│       ├── menu.svg
+│       ├── settings.svg
+│       └── wallet.svg
 ├── out/                        # Build output directory
 │   └── build/
 │       └── win-clang-x64-debug/
@@ -218,25 +254,28 @@ CriptoGualet/
 
 ## Key Features
 - **Non-custodial** - Users control their private keys
-- **Cross-platform** - Windows, macOS, Linux support via Qt
-- **Secure** - Windows CryptoAPI integration, security compiler flags, encrypted database
-- **Modern UI** - Qt6 with theme management
+- **Cross-platform** - Windows, macOS, Linux support via Qt6
+- **Secure** - Windows CryptoAPI integration, secp256k1 elliptic curve cryptography, security compiler flags, encrypted database
+- **Modern UI** - Qt6 with theme management, sidebar navigation, and settings interface
+- **Price Service** - Real-time cryptocurrency market data and pricing
+- **Top Cryptocurrencies** - View and track top performing cryptocurrencies
 - **QR Codes** - Generate QR codes for addresses and seed phrases
 - **BIP39** - Standard seed phrase generation and management
 - **Blockchain Integration** - BlockCypher API for Bitcoin network interaction
 - **Database Persistence** - SQLCipher encrypted storage for wallet data
 - **Modular Architecture** - Separated backend/frontend for maintainability
-- **Multiple Builds** - Both Qt and Win32 GUI options
+- **Comprehensive Testing** - Individual repository tests and integration tests
 
 ## Development Notes
 - **Modular Structure** - Backend and frontend components are cleanly separated
-- **Primary startup project**: `CriptoGualetQt` (Qt GUI)
-- **Fallback startup project**: `CriptoGualet` (Win32 GUI - legacy)
+- **Startup project**: `CriptoGualetQt` (Qt6 GUI application)
 - **All libraries built as static** for security
 - **Automatic Qt DLL deployment** on Windows
 - **Cross-platform security flags** enabled
-- **Export compile commands** for IntelliSense support
+- **Export compile commands** for IntelliSense support (CppProperties.json)
 - **CMake modularity** - Each component has its own CMakeLists.txt
+- **Enhanced UI Components** - Sidebar navigation, settings panel, top cryptocurrencies view
+- **Test Utilities** - Shared test helpers for consistent testing across modules
 
 ## MCP Integration
 - GitHub MCP server configured for enhanced context and repository operations
