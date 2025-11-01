@@ -736,7 +736,8 @@ static bool DeriveWalletCredentialsFromSeed(const std::array<uint8_t, 64> &seed,
   }
 
   // 3. Get Bitcoin address from derived key
-  if (!Crypto::BIP32_GetBitcoinAddress(derivedKey, outWalletAddress)) {
+  // IMPORTANT: Using testnet=true to generate testnet addresses (m/n/2) instead of mainnet (1/3)
+  if (!Crypto::BIP32_GetBitcoinAddress(derivedKey, outWalletAddress, true)) {
     if (logFile && logFile->is_open()) {
       *logFile << "BIP32: Failed to generate Bitcoin address\n";
       logFile->flush();
@@ -745,7 +746,8 @@ static bool DeriveWalletCredentialsFromSeed(const std::array<uint8_t, 64> &seed,
   }
 
   // 4. Get WIF private key from derived key
-  if (!Crypto::BIP32_GetWIF(derivedKey, outPrivateKeyWIF, false)) {
+  // IMPORTANT: Using testnet=true to generate testnet WIF private keys
+  if (!Crypto::BIP32_GetWIF(derivedKey, outPrivateKeyWIF, true)) {
     if (logFile && logFile->is_open()) {
       *logFile << "BIP32: Failed to export private key to WIF\n";
       logFile->flush();

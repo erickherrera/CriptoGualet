@@ -16,6 +16,7 @@
 #include <QTimer>
 #include <memory>
 #include "PriceService.h"
+#include "WalletAPI.h"
 
 // Forward declarations
 class QtThemeManager;
@@ -48,6 +49,10 @@ public:
   void setUserInfo(const QString &username, const QString &address);
   void applyTheme();
 
+  // Real wallet integration
+  void setWallet(WalletAPI::SimpleWallet *wallet);
+  void fetchRealBalance();
+
   // Mock user system
   bool authenticateMockUser(const QString &username, const QString &password);
   void setMockUser(const QString &username);
@@ -68,6 +73,7 @@ private slots:
   void onThemeChanged();
   void onToggleBalanceClicked();
   void onPriceUpdateTimer();
+  void onBalanceUpdateTimer();
 
 protected:
   void resizeEvent(QResizeEvent *event) override;
@@ -117,6 +123,11 @@ private:
   void updateMockTransactionHistory();
   QMap<QString, MockUserData> m_mockUsers;
   MockUserData *m_currentMockUser;
+
+  // Real wallet integration
+  WalletAPI::SimpleWallet *m_wallet;
+  QTimer *m_balanceUpdateTimer;
+  double m_realBalanceBTC;
 
   // Price service
   std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;

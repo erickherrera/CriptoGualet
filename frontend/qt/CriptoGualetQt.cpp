@@ -84,6 +84,9 @@ void CriptoGualetQt::setupUI() {
   m_settingsUI = new QtSettingsUI(this);
   m_topCryptosPage = new QtTopCryptosPage(this);
 
+  // Pass wallet instance to wallet UI for real balance fetching
+  m_walletUI->setWallet(m_wallet.get());
+
   m_stackedWidget->addWidget(m_loginUI);
   m_stackedWidget->addWidget(m_walletUI);
   m_stackedWidget->addWidget(m_settingsUI);

@@ -33,7 +33,8 @@ QtWalletUI::QtWalletUI(QWidget *parent)
       m_headerSection(nullptr), m_headerTitle(nullptr),
       m_balanceTitle(nullptr), m_balanceLabel(nullptr),
       m_toggleBalanceButton(nullptr), m_bitcoinWalletCard(nullptr),
-      m_currentMockUser(nullptr), m_priceFetcher(nullptr),
+      m_currentMockUser(nullptr), m_wallet(nullptr), m_balanceUpdateTimer(nullptr),
+      m_realBalanceBTC(0.0), m_priceFetcher(nullptr),
       m_priceUpdateTimer(nullptr), m_currentBTCPrice(43000.0),
       m_balanceVisible(true), m_mockMode(false) {
 
@@ -55,6 +56,11 @@ QtWalletUI::QtWalletUI(QWidget *parent)
     m_priceUpdateTimer = new QTimer(this);
     connect(m_priceUpdateTimer, &QTimer::timeout, this, &QtWalletUI::onPriceUpdateTimer);
     m_priceUpdateTimer->start(60000); // 60 seconds
+
+    // Setup balance update timer (refresh every 30 seconds)
+    m_balanceUpdateTimer = new QTimer(this);
+    connect(m_balanceUpdateTimer, &QTimer::timeout, this, &QtWalletUI::onBalanceUpdateTimer);
+    m_balanceUpdateTimer->start(30000); // 30 seconds
 
     // Apply theme
     if (m_themeManager) {
@@ -188,6 +194,11 @@ void QtWalletUI::createActionButtons() {
 void QtWalletUI::setUserInfo(const QString &username, const QString &address) {
   m_currentUsername = username;
   m_currentAddress = address;
+
+  // Fetch real balance when address is set
+  if (m_wallet && !address.isEmpty()) {
+    fetchRealBalance();
+  }
 }
 
 void QtWalletUI::onViewBalanceClicked() {
@@ -754,19 +765,84 @@ void QtWalletUI::updateUSDBalance() {
     return;
   }
 
-  // Only show actual balance if user is logged in
-  if (!m_currentMockUser) {
-    m_balanceLabel->setText("$0.00 USD");
-    return;
-  }
-
   // Use fallback price if current price is not available
   double priceToUse = (m_currentBTCPrice > 0.0) ? m_currentBTCPrice : 43000.0;
-  double usdBalance = m_currentMockUser->balance * priceToUse;
+  double btcBalance = 0.0;
+
+  // Use real balance if not in mock mode
+  if (!m_mockMode) {
+    btcBalance = m_realBalanceBTC;
+  } else if (m_currentMockUser) {
+    // Use mock balance if in mock mode
+    btcBalance = m_currentMockUser->balance;
+  }
+
+  // Calculate and display USD balance
+  double usdBalance = btcBalance * priceToUse;
   m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
 }
 
 void QtWalletUI::onPriceUpdateTimer() {
   // This runs every 60 seconds to refresh the BTC price
   fetchBTCPrice();
+}
+
+// === Real Wallet Integration Methods ===
+
+void QtWalletUI::setWallet(WalletAPI::SimpleWallet *wallet) {
+  m_wallet = wallet;
+  // Fetch initial balance when wallet is set
+  if (m_wallet && !m_currentAddress.isEmpty()) {
+    fetchRealBalance();
+  }
+}
+
+void QtWalletUI::fetchRealBalance() {
+  if (!m_wallet || m_currentAddress.isEmpty()) {
+    return;
+  }
+
+  // Disable mock mode when fetching real balance
+  m_mockMode = false;
+
+  // Fetch balance from blockchain
+  std::string address = m_currentAddress.toStdString();
+  uint64_t balanceSatoshis = m_wallet->GetBalance(address);
+
+  // Convert satoshis to BTC
+  m_realBalanceBTC = m_wallet->ConvertSatoshisToBTC(balanceSatoshis);
+
+  // Update UI
+  updateUSDBalance();
+
+  // Update Bitcoin wallet card
+  if (m_bitcoinWalletCard) {
+    m_bitcoinWalletCard->setBalance(QString("%1 BTC").arg(m_realBalanceBTC, 0, 'f', 8));
+  }
+
+  // Fetch and display transaction history
+  auto txHistory = m_wallet->GetTransactionHistory(address, 10);
+  if (!txHistory.empty()) {
+    QString historyHtml;
+    for (const auto& txHash : txHistory) {
+      // In production, you'd fetch full transaction details for each hash
+      historyHtml += QString("<b>Transaction:</b> %1<br><br>")
+                         .arg(QString::fromStdString(txHash));
+    }
+    if (m_bitcoinWalletCard) {
+      m_bitcoinWalletCard->setTransactionHistory(historyHtml);
+    }
+  } else {
+    if (m_bitcoinWalletCard) {
+      m_bitcoinWalletCard->setTransactionHistory(
+          "No transactions yet.<br><br>Send testnet Bitcoin to your address to see it appear here!");
+    }
+  }
+}
+
+void QtWalletUI::onBalanceUpdateTimer() {
+  // Periodically refresh balance if we're in real wallet mode
+  if (!m_mockMode && m_wallet && !m_currentAddress.isEmpty()) {
+    fetchRealBalance();
+  }
 }
