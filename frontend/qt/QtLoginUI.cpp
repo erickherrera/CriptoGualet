@@ -946,12 +946,14 @@ void QtLoginUI::updateStyles() {
       ? m_themeManager->textColor().darker(130).name()  // Slightly dimmed but readable on dark
       : m_themeManager->textColor().lighter(130).name(); // Slightly lighter but readable on light
 
+  QString selectedTabColor = m_themeManager->textColor().name(); // Always use theme text color for selected tab
+
   QString tabBarStyle =
       QString(R"(
         QTabBar {
             background: transparent;
             border: none;
-            border-bottom: 1px solid %5;
+            border-bottom: 1px solid %3;
         }
         QTabBar::tab {
             background: transparent;
@@ -968,23 +970,24 @@ void QtLoginUI::updateStyles() {
         }
         QTabBar::tab:selected {
             background: transparent;
-            color: %2 !important;
+            color: %7;
             border-bottom: 2px solid %4;
             font-weight: 600;
         }
         QTabBar::tab:selected:hover {
             background: transparent;
-            color: %2 !important;
+            color: %7;
             border-bottom: 2px solid %4;
             font-weight: 600;
         }
         QTabBar::tab:hover:!selected {
+            background: transparent;
             color: %4;
             border-bottom: 2px solid transparent;
         }
     )")
           .arg(baseHex, textHex, borderColor, accentHex, cardBg,
-               inactiveTabColor);  // %6 - inactive tab, %2 - active tab, %4 - accent
+               inactiveTabColor, selectedTabColor);  // %7 - explicit selected color
   m_tabBar->setStyleSheet(tabBarStyle);
 
   // Enhanced LineEdit styling with proper backgrounds and contrast
