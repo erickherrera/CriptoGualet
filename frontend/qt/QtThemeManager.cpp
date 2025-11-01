@@ -46,15 +46,15 @@ void QtThemeManager::applyTheme(const QString &themeName) {
 }
 
 void QtThemeManager::setupDarkTheme() {
-  m_primaryColor = QColor(45, 55, 72);
-  m_secondaryColor = QColor(68, 80, 102);
-  m_backgroundColor = QColor(26, 32, 44);
-  m_surfaceColor = QColor(45, 55, 72);
-  m_textColor = QColor(248, 250, 252);
-  m_accentColor = QColor(66, 153, 225);
-  m_errorColor = QColor(245, 101, 101);
-  m_successColor = QColor(72, 187, 120);
-  m_warningColor = QColor(237, 137, 54);
+  m_primaryColor = QColor(51, 65, 85);      // Slate-700
+  m_secondaryColor = QColor(71, 85, 105);   // Slate-600 - better contrast
+  m_backgroundColor = QColor(15, 23, 42);   // Slate-900
+  m_surfaceColor = QColor(30, 41, 59);      // Slate-800 - distinct from primary
+  m_textColor = QColor(248, 250, 252);      // Slate-50
+  m_accentColor = QColor(59, 130, 246);     // Blue-500 - more vibrant
+  m_errorColor = QColor(239, 68, 68);       // Red-500
+  m_successColor = QColor(34, 197, 94);     // Green-500
+  m_warningColor = QColor(245, 158, 11);    // Amber-500
 
   m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
@@ -62,22 +62,22 @@ void QtThemeManager::setupDarkTheme() {
   m_monoFont = QFont("Consolas", 10);
 
   // Dynamic, theme-aware subtitle color (slightly dimmer than main text)
-  m_subtitleColor = m_textColor.darker(170);
+  m_subtitleColor = QColor(148, 163, 184); // Slate-400 - consistent subtle text
 
-  // Focus border color - use success color for focus indication
-  m_focusBorderColor = m_successColor;
+  // Focus border color - use accent color for consistency
+  m_focusBorderColor = m_accentColor;
 }
 
 void QtThemeManager::setupLightTheme() {
-  m_primaryColor = QColor(255, 255, 255);
-  m_secondaryColor = QColor(237, 242, 247);
-  m_backgroundColor = QColor(248, 250, 252);
-  m_surfaceColor = QColor(230, 230, 245);
-  m_textColor = QColor(25, 25, 25);
-  m_accentColor = QColor(66, 153, 225);
-  m_errorColor = QColor(229, 62, 62);
-  m_successColor = QColor(56, 161, 105);
-  m_warningColor = QColor(221, 107, 32);
+  m_primaryColor = QColor(255, 255, 255);   // White
+  m_secondaryColor = QColor(226, 232, 240); // Slate-200 - subtle borders
+  m_backgroundColor = QColor(248, 250, 252);// Slate-50
+  m_surfaceColor = QColor(241, 245, 249);   // Slate-100 - distinct from white
+  m_textColor = QColor(15, 23, 42);         // Slate-900 - better contrast
+  m_accentColor = QColor(59, 130, 246);     // Blue-500 - matches dark theme
+  m_errorColor = QColor(239, 68, 68);       // Red-500 - matches dark theme
+  m_successColor = QColor(34, 197, 94);     // Green-500 - matches dark theme
+  m_warningColor = QColor(245, 158, 11);    // Amber-500 - matches dark theme
 
   m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
@@ -85,22 +85,22 @@ void QtThemeManager::setupLightTheme() {
   m_monoFont = QFont("Consolas", 10);
 
   // Dynamic subtitle on light backgrounds: subtle neutral gray
-  m_subtitleColor = QColor(107, 114, 128); // ~ Tailwind gray-500
+  m_subtitleColor = QColor(100, 116, 139); // Slate-500 - consistent with dark
 
-  // Focus border color - use success color for focus indication
-  m_focusBorderColor = m_successColor;
+  // Focus border color - use accent color for consistency
+  m_focusBorderColor = m_accentColor;
 }
 
 void QtThemeManager::setupCryptoDarkTheme() {
-  m_primaryColor = QColor(18, 18, 18);
-  m_secondaryColor = QColor(30, 30, 30);
-  m_backgroundColor = QColor(13, 13, 13);
-  m_surfaceColor = QColor(25, 25, 25);
-  m_textColor = QColor(255, 255, 255);
-  m_accentColor = QColor(80, 20, 60); // Deep wine/purple burgundy
-  m_errorColor = QColor(220, 38, 38);
-  m_successColor = QColor(34, 197, 94);
-  m_warningColor = QColor(150, 90, 45); // Warmer brown-orange
+  m_primaryColor = QColor(24, 24, 27);      // Zinc-900
+  m_secondaryColor = QColor(39, 39, 42);    // Zinc-800 - better layering
+  m_backgroundColor = QColor(9, 9, 11);     // Zinc-950 - true black
+  m_surfaceColor = QColor(24, 24, 27);      // Zinc-900 - distinct layer
+  m_textColor = QColor(250, 250, 250);      // Zinc-50
+  m_accentColor = QColor(168, 85, 247);     // Purple-500 - vibrant accent
+  m_errorColor = QColor(239, 68, 68);       // Red-500 - matches other themes
+  m_successColor = QColor(34, 197, 94);     // Green-500 - matches other themes
+  m_warningColor = QColor(245, 158, 11);    // Amber-500 - matches other themes
 
   m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
@@ -108,24 +108,23 @@ void QtThemeManager::setupCryptoDarkTheme() {
   m_monoFont = QFont("JetBrains Mono", 10);
 
   // Dynamic subtitle on dark backgrounds: slightly dimmer
-  m_subtitleColor = m_textColor.darker(170);
+  m_subtitleColor = QColor(161, 161, 170); // Zinc-400 - consistent subtle text
 
-  // Focus border color - use success color for focus indication
-  m_focusBorderColor = m_successColor;
+  // Focus border color - use accent color for consistency
+  m_focusBorderColor = m_accentColor;
 }
 
 void QtThemeManager::setupCryptoLightTheme() {
   // Light version of CryptoDark theme with improved contrast
-  m_primaryColor = QColor(248, 250, 252);    // Very light gray/white
-  m_secondaryColor = QColor(148, 163, 184);  // Medium gray for better contrast
-  m_backgroundColor = QColor(255, 255, 255); // Pure white background
-  m_surfaceColor =
-      QColor(241, 245, 249);             // Slightly darker surface for contrast
-  m_textColor = QColor(15, 23, 42);      // Dark text for contrast
-  m_accentColor = QColor(120, 40, 80);   // Wine/purple burgundy (lighter)
-  m_errorColor = QColor(239, 68, 68);    // Red for errors
-  m_successColor = QColor(34, 197, 94);  // Green for success
-  m_warningColor = QColor(245, 158, 11); // Amber for warnings
+  m_primaryColor = QColor(255, 255, 255);   // White
+  m_secondaryColor = QColor(228, 228, 231); // Zinc-200 - subtle borders
+  m_backgroundColor = QColor(250, 250, 250);// Zinc-50
+  m_surfaceColor = QColor(244, 244, 245);   // Zinc-100 - distinct layer
+  m_textColor = QColor(9, 9, 11);           // Zinc-950 - high contrast
+  m_accentColor = QColor(168, 85, 247);     // Purple-500 - matches crypto dark
+  m_errorColor = QColor(239, 68, 68);       // Red-500 - matches other themes
+  m_successColor = QColor(34, 197, 94);     // Green-500 - matches other themes
+  m_warningColor = QColor(245, 158, 11);    // Amber-500 - matches other themes
 
   m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
@@ -133,9 +132,9 @@ void QtThemeManager::setupCryptoLightTheme() {
   m_monoFont = QFont("JetBrains Mono", 10);
 
   // Dynamic subtitle on light background: subtle neutral gray
-  m_subtitleColor = QColor(107, 114, 128); // ~ Tailwind gray-500
+  m_subtitleColor = QColor(113, 113, 122); // Zinc-500 - consistent with crypto dark
 
-  // Focus border color - use accent color for focus indication
+  // Focus border color - use accent color for consistency
   m_focusBorderColor = m_accentColor;
 }
 
@@ -285,9 +284,8 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
             background-color: %1;
             color: %2;
         }
-        QWidget {
+        QMainWindow > QWidget#contentContainer {
             background-color: %3;
-            color: %4;
         }
         QFrame[class="card"] {
             background-color: %5;
@@ -299,7 +297,7 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
         QFrame[class="navbar"] {
             background-color: %7;
             border-bottom: 2px solid %8;
-            border-radius: 0px;
+            border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         }
         QLabel[class="navbar-title"] {
@@ -323,8 +321,8 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
     )")
       .arg(m_backgroundColor.name()) // %1 - main background
       .arg(m_textColor.name())       // %2 - main text color
-      .arg(m_backgroundColor.name()) // %3 - widget background
-      .arg(m_textColor.name())       // %4 - widget text color
+      .arg(m_backgroundColor.name()) // %3 - content container background
+      .arg(m_textColor.name())       // %4 - widget text color (unused now)
       .arg(m_surfaceColor.name())    // %5 - card background
       .arg(m_secondaryColor.name())  // %6 - card border
       .arg(m_backgroundColor.name()) // %7 - navbar background

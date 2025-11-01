@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QComboBox>
 #include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -54,7 +53,6 @@ protected:
 
 private:
   void setupUI();
-  void setupThemeSelector();
   void createLoginCard();
   void updateStyles();
   void showMessage(const QString &message, bool isError = false);
@@ -88,9 +86,7 @@ private:
   // Shared buttons
   QPushButton *m_revealSeedButton;
   QPushButton *m_restoreSeedButton;
-  QComboBox *m_themeSelector;
   QTimer *m_messageTimer;
 
   QHBoxLayout *m_buttonLayout;
-  QHBoxLayout *m_themeLayout;
 };

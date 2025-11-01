@@ -289,3 +289,55 @@ add_repository_test(test_transaction_repository "test_transaction_repository.cpp
 
 # ---- Repository Integration Tests ----
 add_repository_test(test_repository_integration "test_repository_integration.cpp")
+
+# ---- Password Verification Test Tool ----
+add_executable(test_password_verification
+  "test_password_verification.cpp"
+)
+target_link_libraries(test_password_verification PRIVATE Auth Repository Database Crypto SharedSymbols comctl32 crypt32 bcrypt)
+target_include_directories(test_password_verification PRIVATE
+  "${CMAKE_SOURCE_DIR}/backend/core/include"
+  "${CMAKE_SOURCE_DIR}/backend/repository/include"
+  "${CMAKE_SOURCE_DIR}/backend/database/include"
+  "${CMAKE_SOURCE_DIR}/backend/utils/include"
+)
+
+# Copy SQLCipher and dependency DLLs for test execution
+if(WIN32)
+  add_custom_command(TARGET test_password_verification POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
+    "$<TARGET_FILE_DIR:test_password_verification>"
+    COMMENT "Copying SQLCipher DLL for test execution")
+
+  add_custom_command(TARGET test_password_verification POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/sqlite3.dll"
+    "$<TARGET_FILE_DIR:test_password_verification>"
+    COMMENT "Copying SQLite3 DLL for test execution")
+
+  add_custom_command(TARGET test_password_verification POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libcrypto-3-x64.dll"
+    "$<TARGET_FILE_DIR:test_password_verification>"
+    COMMENT "Copying OpenSSL Crypto DLL for test execution")
+
+  add_custom_command(TARGET test_password_verification POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin/libssl-3-x64.dll"
+    "$<TARGET_FILE_DIR:test_password_verification>"
+    COMMENT "Copying OpenSSL SSL DLL for test execution")
+endif()
+
+# Cross-platform compiler flags with security for password verification test
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
+  target_compile_options(test_password_verification PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
+  target_link_options(test_password_verification PRIVATE -fPIE -pie)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  target_compile_options(test_password_verification PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  target_compile_options(test_password_verification PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
+else()
+  target_compile_options(test_password_verification PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+  target_link_options(test_password_verification PRIVATE -fPIE -pie)
+endif()

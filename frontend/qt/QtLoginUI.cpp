@@ -62,8 +62,8 @@ QtLoginUI::QtLoginUI(QWidget *parent)
 void QtLoginUI::setupUI() {
   // Root layout
   m_mainLayout = new QVBoxLayout(this);
-  m_mainLayout->setContentsMargins(40, 40, 40, 40);
-  m_mainLayout->setSpacing(16);
+  m_mainLayout->setContentsMargins(20, 30, 20, 30);
+  m_mainLayout->setSpacing(12);
 
   // ------ Header (Title + Subtitle) OUTSIDE the card ------
   {
@@ -102,18 +102,18 @@ void QtLoginUI::setupUI() {
 
   m_mainLayout->addItem(
       new QSpacerItem(20, 12, QSizePolicy::Minimum, QSizePolicy::Expanding));
-
-  setupThemeSelector();
 }
 
 void QtLoginUI::createLoginCard() {
   m_loginCard = new QFrame(this);
   m_loginCard->setProperty("class", "card");
-  m_loginCard->setFixedSize(480, 460);
+  m_loginCard->setMinimumSize(380, 420);
+  m_loginCard->setMaximumSize(520, 500);
+  m_loginCard->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
   m_cardLayout = new QVBoxLayout(m_loginCard);
-  m_cardLayout->setContentsMargins(24, 24, 24, 16);
-  m_cardLayout->setSpacing(12);
+  m_cardLayout->setContentsMargins(20, 20, 20, 16);
+  m_cardLayout->setSpacing(0); // No spacing for unified look
 
   // Create custom tab system with centered tab bar
   // Tab bar
@@ -126,7 +126,7 @@ void QtLoginUI::createLoginCard() {
   // Create centered tab bar container
   QWidget *tabBarContainer = new QWidget(m_loginCard);
   QHBoxLayout *tabBarLayout = new QHBoxLayout(tabBarContainer);
-  tabBarLayout->setContentsMargins(0, 0, 0, 0);
+  tabBarLayout->setContentsMargins(0, 0, 0, 25);
   tabBarLayout->setSpacing(0);
   tabBarLayout->addStretch();
   tabBarLayout->addWidget(m_tabBar);
@@ -134,9 +134,10 @@ void QtLoginUI::createLoginCard() {
 
   m_cardLayout->addWidget(tabBarContainer);
 
-  // Stacked widget for tab content
+  // Stacked widget for tab content - no margins for unified look
   m_stackedWidget = new QStackedWidget(m_loginCard);
-  m_cardLayout->addWidget(m_stackedWidget);
+  m_stackedWidget->setContentsMargins(0, 0, 0, 0);
+  m_cardLayout->addWidget(m_stackedWidget, 1); // Stretch to fill available space
 
   // Connect tab bar to stacked widget
   connect(m_tabBar, &QTabBar::currentChanged, m_stackedWidget, &QStackedWidget::setCurrentIndex);
@@ -144,8 +145,8 @@ void QtLoginUI::createLoginCard() {
   // ===== Sign In Tab =====
   QWidget *signInTab = new QWidget();
   QVBoxLayout *signInLayout = new QVBoxLayout(signInTab);
-  signInLayout->setContentsMargins(32, 24, 32, 24);
-  signInLayout->setSpacing(12);
+  signInLayout->setContentsMargins(24, 4, 24, 20); // Reduced top margin for unified look
+  signInLayout->setSpacing(10);
   signInLayout->setAlignment(Qt::AlignCenter);
 
   m_loginUsernameEdit = new QLineEdit(signInTab);
@@ -198,8 +199,8 @@ void QtLoginUI::createLoginCard() {
   // ===== Register Tab =====
   QWidget *registerTab = new QWidget();
   QVBoxLayout *registerLayout = new QVBoxLayout(registerTab);
-  registerLayout->setContentsMargins(32, 24, 32, 24);
-  registerLayout->setSpacing(12);
+  registerLayout->setContentsMargins(24, 4, 24, 20); // Reduced top margin for unified look
+  registerLayout->setSpacing(10);
   registerLayout->setAlignment(Qt::AlignCenter);
 
   m_usernameEdit = new QLineEdit(registerTab);
@@ -259,6 +260,8 @@ void QtLoginUI::createLoginCard() {
   m_tabBar->addTab("Register");
   m_stackedWidget->addWidget(registerTab);
 
+  m_cardLayout->addSpacing(8); // Small space between tabs and message
+
   // Message label (shared between tabs)
   m_messageLabel = new QLabel(m_loginCard);
   m_messageLabel->setAlignment(Qt::AlignCenter);
@@ -268,7 +271,7 @@ void QtLoginUI::createLoginCard() {
   m_messageLabel->hide();
   m_cardLayout->addWidget(m_messageLabel);
 
-  m_cardLayout->addSpacing(4);
+  m_cardLayout->addSpacing(8); // Small space between message and secondary buttons
 
   // ------ Secondary actions (Reveal / Restore) ------
   QHBoxLayout *secondary = new QHBoxLayout();
@@ -337,38 +340,6 @@ void QtLoginUI::createLoginCard() {
           &QtLoginUI::onRevealSeedClicked);
   connect(m_restoreSeedButton, &QPushButton::clicked, this,
           &QtLoginUI::onRestoreSeedClicked);
-}
-
-void QtLoginUI::setupThemeSelector() {
-  m_themeLayout = new QHBoxLayout();
-  m_themeLayout->setSpacing(8);
-  m_themeLayout->addItem(
-      new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
-
-  QLabel *themeLabel = new QLabel("Theme:");
-  themeLabel->setObjectName("themeLabel");
-  m_themeLayout->addWidget(themeLabel);
-
-  m_themeSelector = new QComboBox();
-  m_themeSelector->addItem("Crypto Dark",
-                           static_cast<int>(ThemeType::CRYPTO_DARK));
-  m_themeSelector->addItem("Crypto Light",
-                           static_cast<int>(ThemeType::CRYPTO_LIGHT));
-  m_themeSelector->addItem("Dark", static_cast<int>(ThemeType::DARK));
-  m_themeSelector->addItem("Light", static_cast<int>(ThemeType::LIGHT));
-  m_themeSelector->setCurrentIndex(0);
-  m_themeLayout->addWidget(m_themeSelector);
-
-  m_themeLayout->addItem(
-      new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
-  m_mainLayout->addLayout(m_themeLayout);
-
-  connect(m_themeSelector, QOverload<int>::of(&QComboBox::currentIndexChanged),
-          [this](int index) {
-            ThemeType theme = static_cast<ThemeType>(
-                m_themeSelector->itemData(index).toInt());
-            m_themeManager->applyTheme(theme);
-          });
 }
 
 void QtLoginUI::onLoginClicked() {
@@ -894,34 +865,28 @@ void QtLoginUI::onThemeChanged() { applyTheme(); }
 void QtLoginUI::applyTheme() { updateStyles(); }
 
 void QtLoginUI::updateStyles() {
-  QString rootCss = m_themeManager->getMainWindowStyleSheet();
-
-  QColor win = palette().color(QPalette::Window);
-  QString winHex = QString("#%1%2%3")
-                       .arg(win.red(), 2, 16, QLatin1Char('0'))
-                       .arg(win.green(), 2, 16, QLatin1Char('0'))
-                       .arg(win.blue(), 2, 16, QLatin1Char('0'));
-
-  QColor baseText = palette().color(QPalette::WindowText);
-  QColor base = palette().color(QPalette::Base);
-  QString baseHex = QString("#%1%2%3")
-                        .arg(base.red(), 2, 16, QLatin1Char('0'))
-                        .arg(base.green(), 2, 16, QLatin1Char('0'))
-                        .arg(base.blue(), 2, 16, QLatin1Char('0'));
-
-  QColor subtitleColor =
-      (win.value() < 128) ? baseText.lighter(160) : baseText.darker(160);
-  QString subtitleHex = QString("#%1%2%3")
-                            .arg(subtitleColor.red(), 2, 16, QLatin1Char('0'))
-                            .arg(subtitleColor.green(), 2, 16, QLatin1Char('0'))
-                            .arg(subtitleColor.blue(), 2, 16, QLatin1Char('0'));
-
+  QString appBg = m_themeManager->backgroundColor().name(); // Use background for main window
+  QString cardBg = m_themeManager->surfaceColor().name(); // Use surface color for cards
   QString textHex = m_themeManager->textColor().name();
   QString accentHex = m_themeManager->accentColor().name();
-  QString cardBg = m_themeManager->backgroundColor().name();
-  QString borderColor = (win.value() < 128) ? "#404040" : "#d0d0d0";
 
-  rootCss += QString(R"(
+  QColor win = m_themeManager->backgroundColor();
+  QString winHex = win.name();
+
+  QColor baseText = m_themeManager->textColor();
+  QColor base = m_themeManager->surfaceColor();
+  QString baseHex = base.name();
+
+  QColor subtitleColor = m_themeManager->subtitleColor();
+  QString subtitleHex = subtitleColor.name();
+
+  QString borderColor = m_themeManager->secondaryColor().name();
+
+  // Set main widget background explicitly - be specific to avoid overriding children
+  QString rootCss = QString(R"(
+        QtLoginUI {
+            background-color: %1;
+        }
         QWidget#loginHeader, QWidget#loginHeader * {
             border: none !important;
             outline: none !important;
@@ -941,41 +906,60 @@ void QtLoginUI::updateStyles() {
             margin-top: 4px;
             background: transparent;
         }
-        QLabel#themeLabel {
-            background-color: %1 !important;
-            border: none !important;
-            color: %3;
-        }
     )")
-                 .arg(winHex, subtitleHex, textHex);
+                 .arg(appBg, subtitleHex, textHex);
 
   setStyleSheet(rootCss);
 
+  // Set widget palette to ensure background color is applied
+  QPalette pal = palette();
+  pal.setColor(QPalette::Window, m_themeManager->backgroundColor());
+  pal.setColor(QPalette::Base, m_themeManager->surfaceColor());
+  pal.setColor(QPalette::WindowText, m_themeManager->textColor());
+  setPalette(pal);
+  setAutoFillBackground(true);
+
   // Enhanced card styling with proper background
+  // IMPORTANT: All children must be transparent so card background shows through
   const QString cardCss = QString(R"(
         QFrame[class="card"] {
             background-color: %1;
             border: 2px solid %2;
             border-radius: 12px;
         }
+        QFrame[class="card"] > QWidget {
+            background-color: transparent;
+        }
+        QFrame[class="card"] QStackedWidget {
+            background-color: transparent;
+        }
+        QFrame[class="card"] QStackedWidget > QWidget {
+            background-color: transparent;
+        }
     )")
                               .arg(cardBg, borderColor);
   m_loginCard->setStyleSheet(cardCss);
 
-  // Tab Bar Styling - Subtle and modern design (centering handled by layout)
+  // Tab Bar Styling - Unified with content below, no gap
+  // Both tabs are fully readable, bottom border indicates selection
+  QString inactiveTabColor = (win.value() < 128)
+      ? m_themeManager->textColor().darker(130).name()  // Slightly dimmed but readable on dark
+      : m_themeManager->textColor().lighter(130).name(); // Slightly lighter but readable on light
+
   QString tabBarStyle =
       QString(R"(
         QTabBar {
             background: transparent;
             border: none;
+            border-bottom: 1px solid %5;
         }
         QTabBar::tab {
             background: transparent;
-            color: %2;
-            padding: 12px 24px;
+            color: %6;
+            padding: 10px 24px;
             margin-left: 4px;
             margin-right: 4px;
-            margin-bottom: 2px;
+            margin-bottom: 0px;
             margin-top: 0px;
             border: none;
             border-bottom: 2px solid transparent;
@@ -984,20 +968,31 @@ void QtLoginUI::updateStyles() {
         }
         QTabBar::tab:selected {
             background: transparent;
-            color: %4;
+            color: %2 !important;
+            border-bottom: 2px solid %4;
+            font-weight: 600;
+        }
+        QTabBar::tab:selected:hover {
+            background: transparent;
+            color: %2 !important;
             border-bottom: 2px solid %4;
             font-weight: 600;
         }
         QTabBar::tab:hover:!selected {
             color: %4;
-            background: transparent;
+            border-bottom: 2px solid transparent;
         }
     )")
           .arg(baseHex, textHex, borderColor, accentHex, cardBg,
-               (win.value() < 128) ? "#2a2a2a" : "#f0f0f0");
+               inactiveTabColor);  // %6 - inactive tab, %2 - active tab, %4 - accent
   m_tabBar->setStyleSheet(tabBarStyle);
 
-  // Enhanced LineEdit styling with proper backgrounds
+  // Enhanced LineEdit styling with proper backgrounds and contrast
+  // Input fields should be darker than card background in dark mode, lighter in light mode
+  QString inputBg = (win.value() < 128)
+      ? m_themeManager->backgroundColor().lighter(120).name()  // Lighter than background on dark theme
+      : m_themeManager->primaryColor().name(); // Use primary (white) on light theme
+
   QString lineEditStyle = QString(R"(
         QLineEdit {
             background-color: %1;
@@ -1008,6 +1003,9 @@ void QtLoginUI::updateStyles() {
             padding: 0 10px;
             font-size: 14px;
             selection-background-color: %4;
+        }
+        QLineEdit::placeholder {
+            color: %8;
         }
         QLineEdit:focus {
             border: 2px solid %4;
@@ -1021,10 +1019,11 @@ void QtLoginUI::updateStyles() {
             color: %7;
         }
     )")
-                              .arg(baseHex, textHex, borderColor, accentHex,
-                                   (win.value() < 128) ? "#505050" : "#b0b0b0",
-                                   (win.value() < 128) ? "#1a1a1a" : "#e8e8e8",
-                                   (win.value() < 128) ? "#808080" : "#909090");
+                              .arg(inputBg, textHex, borderColor, accentHex,
+                                   m_themeManager->accentColor().lighter(140).name(),  // hover border
+                                   m_themeManager->backgroundColor().name(),          // disabled bg
+                                   m_themeManager->subtitleColor().name(),            // disabled text
+                                   m_themeManager->subtitleColor().name());           // placeholder
 
   // Apply to Sign In tab fields
   m_loginUsernameEdit->setStyleSheet(lineEditStyle);
@@ -1034,12 +1033,12 @@ void QtLoginUI::updateStyles() {
   m_emailEdit->setStyleSheet(lineEditStyle);
   m_passwordEdit->setStyleSheet(lineEditStyle);
 
-  // Enhanced button styling
+  // Enhanced button styling with proper contrast
   QString buttonStyle =
       QString(R"(
         QPushButton {
             background-color: %1;
-            color: %2;
+            color: #ffffff;
             border: none;
             border-radius: 8px;
             font-size: 14px;
@@ -1048,26 +1047,28 @@ void QtLoginUI::updateStyles() {
             min-height: 44px;
         }
         QPushButton:hover {
-            background-color: %3;
+            background-color: %2;
+            color: #ffffff;
         }
         QPushButton:pressed {
-            background-color: %4;
+            background-color: %3;
+            color: #ffffff;
         }
         QPushButton:disabled {
-            background-color: %5;
-            color: %6;
+            background-color: %4;
+            color: %5;
         }
     )")
-          .arg(accentHex, cardBg,
+          .arg(accentHex,
                m_themeManager->accentColor().lighter(110).name(),
                m_themeManager->accentColor().darker(110).name(),
-               (win.value() < 128) ? "#2a2a2a" : "#d0d0d0",
-               (win.value() < 128) ? "#505050" : "#a0a0a0");
+               m_themeManager->secondaryColor().name(),     // disabled bg
+               m_themeManager->subtitleColor().name());     // disabled text
 
   m_loginButton->setStyleSheet(buttonStyle);
   m_registerButton->setStyleSheet(buttonStyle);
 
-  // Secondary buttons (Reveal/Restore) - outlined style
+  // Secondary buttons (Reveal/Restore) - outlined style with proper contrast
   QString secondaryButtonStyle =
       QString(R"(
         QPushButton {
@@ -1083,19 +1084,22 @@ void QtLoginUI::updateStyles() {
         QPushButton:hover {
             background-color: %2;
             border-color: %3;
+            color: %1;
         }
         QPushButton:pressed {
             background-color: %4;
+            color: %1;
         }
     )")
-          .arg(accentHex, (win.value() < 128) ? "#1a2a3a" : "#e8f0ff",
-               m_themeManager->accentColor().lighter(120).name(),
-               (win.value() < 128) ? "#0a1a2a" : "#d0e0ff");
+          .arg(accentHex,
+               m_themeManager->accentColor().lighter(180).name(),  // hover bg (very light)
+               m_themeManager->accentColor().lighter(120).name(),  // hover border
+               m_themeManager->accentColor().lighter(160).name()); // pressed bg
 
   m_revealSeedButton->setStyleSheet(secondaryButtonStyle);
   m_restoreSeedButton->setStyleSheet(secondaryButtonStyle);
 
-  // Password toggle buttons
+  // Password toggle buttons with proper hover text color transition
   QString toggleButtonStyle =
       QString(R"(
         QPushButton {
@@ -1111,8 +1115,14 @@ void QtLoginUI::updateStyles() {
             color: %2;
             background-color: %3;
         }
+        QPushButton:pressed {
+            color: %2;
+            background-color: %4;
+        }
     )")
-          .arg(textHex, accentHex, (win.value() < 128) ? "#2a2a2a" : "#f0f0f0");
+          .arg(textHex, accentHex,
+               m_themeManager->secondaryColor().name(),        // hover bg
+               m_themeManager->secondaryColor().darker(110).name()); // pressed bg
 
   m_loginPasswordToggleButton->setStyleSheet(toggleButtonStyle);
   m_passwordToggleButton->setStyleSheet(toggleButtonStyle);

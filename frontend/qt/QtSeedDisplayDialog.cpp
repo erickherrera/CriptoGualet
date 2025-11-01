@@ -7,21 +7,47 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QGuiApplication>
 #include <QMessageBox>
 #include <QPalette>
+#include <QScreen>
 #include <QScrollArea>
 #include <QStyle>
 #include <QTimer>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 QtSeedDisplayDialog::QtSeedDisplayDialog(
     const std::vector<std::string> &seedWords, QWidget *parent)
     : QDialog(parent), m_seedWords(seedWords) {
   setWindowTitle("Backup Your Seed Phrase");
   setModal(true);
-  setMinimumSize(500, 600); // Optimized for laptop screens - taller than wide
-  resize(500, 700);         // Default size for laptops
+
+  // Calculate responsive size based on screen dimensions
+  QScreen *screen = QGuiApplication::primaryScreen();
+  QRect screenGeometry = screen->availableGeometry();
+  int screenHeight = screenGeometry.height();
+  int screenWidth = screenGeometry.width();
+
+  // Adaptive sizing for different screen sizes
+  int dialogWidth = std::min(480, static_cast<int>(screenWidth * 0.85));
+  int dialogHeight = std::min(650, static_cast<int>(screenHeight * 0.85));
+
+  // Minimum size for very small screens
+  setMinimumSize(std::max(360, dialogWidth - 100),
+                 std::max(450, dialogHeight - 150));
+  resize(dialogWidth, dialogHeight);
+
+  // Center dialog on screen
+  setGeometry(
+      QStyle::alignedRect(
+          Qt::LeftToRight,
+          Qt::AlignCenter,
+          size(),
+          screenGeometry
+      )
+  );
 
   // Apply theme styling to the dialog
   QtThemeManager &theme = QtThemeManager::instance();
@@ -35,57 +61,67 @@ QtSeedDisplayDialog::QtSeedDisplayDialog(
 }
 
 void QtSeedDisplayDialog::setupUI() {
-  m_mainLayout = new QVBoxLayout(this);
-  m_mainLayout->setSpacing(5);
-  m_mainLayout->setContentsMargins(10, 10, 10, 10);
+  // Create main scroll area that wraps entire dialog content
+  QScrollArea *mainScrollArea = new QScrollArea(this);
+  mainScrollArea->setWidgetResizable(true);
+  mainScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  mainScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+  mainScrollArea->setFrameShape(QFrame::NoFrame);
+
+  QWidget *mainContentWidget = new QWidget();
+  m_mainLayout = new QVBoxLayout(mainContentWidget);
+  m_mainLayout->setSpacing(8);
+  m_mainLayout->setContentsMargins(12, 12, 12, 12);
 
   // Title - compact
   QtThemeManager &theme = QtThemeManager::instance();
   QLabel *titleLabel = new QLabel("🔐 BACKUP YOUR SEED PHRASE");
   titleLabel->setAlignment(Qt::AlignCenter);
   QFont compactTitleFont = theme.titleFont();
-  compactTitleFont.setPointSize(12); // Smaller font size for compact height
+  compactTitleFont.setPointSize(11); // Smaller font size for compact height
   titleLabel->setFont(compactTitleFont);
-  titleLabel->setStyleSheet(QString("color: %1; padding: 2px; margin: 0px;")
+  titleLabel->setStyleSheet(QString("color: %1; padding: 4px; margin: 0px;")
                                 .arg(theme.errorColor().name()));
-  titleLabel->setMaximumHeight(30); // Limit height to make it more compact
+  titleLabel->setMaximumHeight(35); // Limit height to make it more compact
   m_mainLayout->addWidget(titleLabel);
 
-  // QR Code Section - Main Component
+  // QR Code Section - Responsive sizing
   QGroupBox *qrGroup = new QGroupBox("QR Code - Scan to backup on mobile");
-  qrGroup->setStyleSheet(QString("QGroupBox { font-weight: bold; color: %1; }")
+  qrGroup->setStyleSheet(QString("QGroupBox { font-weight: bold; color: %1; font-size: 10px; }")
                              .arg(theme.accentColor().name()));
   QVBoxLayout *qrLayout = new QVBoxLayout(qrGroup);
-  qrLayout->setContentsMargins(8, 8, 8, 5); // Reduced margins for compactness
+  qrLayout->setContentsMargins(8, 10, 8, 8);
+
+  // Calculate responsive QR code size
+  int dialogWidth = width();
+  int qrSize = std::min(160, std::max(120, dialogWidth / 3));
 
   m_qrLabel = new QLabel();
   m_qrLabel->setAlignment(Qt::AlignCenter);
-  m_qrLabel->setMinimumSize(160, 160); // Larger for better scanning
-  m_qrLabel->setMaximumSize(180, 180); // Larger for better scanning
+  m_qrLabel->setMinimumSize(qrSize, qrSize);
+  m_qrLabel->setMaximumSize(qrSize + 30, qrSize + 30);
   m_qrLabel->setStyleSheet(QString("border: 2px solid %1; background-color: "
-                                   "white; border-radius: 6px; padding: 6px;")
+                                   "white; border-radius: 6px; padding: 4px;")
                                .arg(theme.accentColor().name()));
-  m_qrLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+  m_qrLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
   // Center the QR code in the layout
   qrLayout->addWidget(m_qrLabel, 0, Qt::AlignHCenter);
 
-  // Set maximum height for the entire QR group
-  qrGroup->setMaximumHeight(220); // Increased for larger QR code
-
   m_mainLayout->addWidget(qrGroup);
 
-  // Create scroll area for the word list
+  // Create scroll area for the word list - flexible height
   m_scrollArea = new QScrollArea();
   m_scrollArea->setWidgetResizable(true);
   m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  m_scrollArea->setMaximumHeight(200); // Limit height to force scrolling
   m_scrollArea->setStyleSheet("QScrollArea { border: none; }");
+  m_scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
   m_scrollContent = new QWidget();
   m_scrollLayout = new QVBoxLayout(m_scrollContent);
-  m_scrollLayout->setContentsMargins(5, 5, 5, 5);
+  m_scrollLayout->setContentsMargins(4, 4, 4, 4);
+  m_scrollLayout->setSpacing(8);
 
   // Warning - compact
   QLabel *warningLabel =
@@ -93,11 +129,12 @@ void QtSeedDisplayDialog::setupUI() {
   warningLabel->setWordWrap(true);
   warningLabel->setAlignment(Qt::AlignCenter);
   warningLabel->setStyleSheet(
-      QString("background-color: %1; color: %2; padding: 8px; border: 1px "
-              "solid %3; border-radius: 4px; font-size: 11px;")
+      QString("background-color: %1; color: %2; padding: 6px; border: 1px "
+              "solid %3; border-radius: 4px; font-size: 10px;")
           .arg(theme.warningColor().lighter(180).name())
           .arg(theme.warningColor().darker(200).name())
           .arg(theme.warningColor().name()));
+  warningLabel->setMaximumHeight(40);
   m_scrollLayout->addWidget(warningLabel);
 
   // Word Grid Section
@@ -113,11 +150,14 @@ void QtSeedDisplayDialog::setupUI() {
   // Full text version for easy copying
   m_seedTextEdit = new QTextEdit();
   m_seedTextEdit->setReadOnly(true);
-  m_seedTextEdit->setMaximumHeight(60); // Compact
-  m_seedTextEdit->setFont(theme.monoFont());
+  m_seedTextEdit->setMaximumHeight(50); // More compact
+  m_seedTextEdit->setMinimumHeight(45);
+  QFont monoFont = theme.monoFont();
+  monoFont.setPointSize(std::max(8, monoFont.pointSize() - 1));
+  m_seedTextEdit->setFont(monoFont);
   m_seedTextEdit->setStyleSheet(
       QString("background-color: %1; color: %2; border: 1px solid %3; padding: "
-              "5px; border-radius: 4px;")
+              "4px; border-radius: 4px; font-size: 9px;")
           .arg(theme.surfaceColor().darker(120).name())
           .arg(theme.textColor().name())
           .arg(theme.secondaryColor().name()));
@@ -125,10 +165,13 @@ void QtSeedDisplayDialog::setupUI() {
 
   // Copy button for easy clipboard access
   m_copyButton = new QPushButton("Copy All Words");
-  m_copyButton->setFont(theme.buttonFont());
+  QFont buttonFont = theme.buttonFont();
+  buttonFont.setPointSize(std::max(8, buttonFont.pointSize() - 1));
+  m_copyButton->setFont(buttonFont);
+  m_copyButton->setMinimumHeight(32);
   m_copyButton->setStyleSheet(
-      QString("QPushButton { background-color: %1; color: white; padding: 8px "
-              "12px; border: none; border-radius: 4px; font-weight: bold; } "
+      QString("QPushButton { background-color: %1; color: white; padding: 6px "
+              "10px; border: none; border-radius: 4px; font-weight: bold; font-size: 10px; } "
               "QPushButton:hover { background-color: %2; }")
           .arg(theme.accentColor().name())
           .arg(theme.accentColor().darker(120).name()));
@@ -148,9 +191,11 @@ void QtSeedDisplayDialog::setupUI() {
   m_mainLayout->addWidget(line);
 
   m_confirmCheckbox = new QCheckBox("I have safely stored my seed phrase");
-  m_confirmCheckbox->setFont(theme.textFont());
+  QFont checkboxFont = theme.textFont();
+  checkboxFont.setPointSize(std::max(8, checkboxFont.pointSize() - 1));
+  m_confirmCheckbox->setFont(checkboxFont);
   m_confirmCheckbox->setStyleSheet(
-      QString("QCheckBox { font-weight: bold; padding: 5px; color: %1; }")
+      QString("QCheckBox { font-weight: bold; padding: 4px; color: %1; font-size: 10px; }")
           .arg(theme.textColor().name()));
   m_mainLayout->addWidget(m_confirmCheckbox);
 
@@ -158,10 +203,13 @@ void QtSeedDisplayDialog::setupUI() {
 
   m_confirmButton = new QPushButton("Continue");
   m_confirmButton->setEnabled(false);
-  m_confirmButton->setFont(theme.buttonFont());
+  QFont confirmButtonFont = theme.buttonFont();
+  confirmButtonFont.setPointSize(std::max(9, confirmButtonFont.pointSize() - 1));
+  m_confirmButton->setFont(confirmButtonFont);
+  m_confirmButton->setMinimumHeight(36);
   m_confirmButton->setStyleSheet(
-      QString("QPushButton { background-color: %1; color: white; padding: 10px "
-              "16px; border: none; border-radius: 5px; font-weight: bold; } "
+      QString("QPushButton { background-color: %1; color: white; padding: 8px "
+              "14px; border: none; border-radius: 5px; font-weight: bold; font-size: 11px; } "
               "QPushButton:hover:enabled { background-color: %2; } "
               "QPushButton:disabled { background-color: %3; }")
           .arg(theme.accentColor().name())
@@ -173,10 +221,11 @@ void QtSeedDisplayDialog::setupUI() {
           &QPushButton::setEnabled);
 
   QPushButton *cancelButton = new QPushButton("Cancel");
-  cancelButton->setFont(theme.buttonFont());
+  cancelButton->setFont(confirmButtonFont);
+  cancelButton->setMinimumHeight(36);
   cancelButton->setStyleSheet(
-      QString("QPushButton { background-color: %1; color: white; padding: 10px "
-              "16px; border: none; border-radius: 5px; } QPushButton:hover { "
+      QString("QPushButton { background-color: %1; color: white; padding: 8px "
+              "14px; border: none; border-radius: 5px; font-size: 11px; } QPushButton:hover { "
               "background-color: %2; }")
           .arg(theme.secondaryColor().darker(110).name())
           .arg(theme.secondaryColor().darker(130).name()));
@@ -187,14 +236,26 @@ void QtSeedDisplayDialog::setupUI() {
   buttonLayout->addWidget(m_confirmButton);
 
   m_mainLayout->addLayout(buttonLayout);
+
+  // Set the main content widget to the scroll area
+  mainScrollArea->setWidget(mainContentWidget);
+
+  // Create a layout for the dialog itself
+  QVBoxLayout *dialogLayout = new QVBoxLayout(this);
+  dialogLayout->setContentsMargins(0, 0, 0, 0);
+  dialogLayout->setSpacing(0);
+  dialogLayout->addWidget(mainScrollArea);
+  setLayout(dialogLayout);
 }
 
 void QtSeedDisplayDialog::createWordGrid() {
   m_wordGrid = new QGridLayout();
-  m_wordGrid->setSpacing(8);
+  m_wordGrid->setSpacing(6);
 
-  // Create a nice grid layout with numbered words
-  int cols = 3; // 3 columns for compact layout
+  // Responsive column layout based on dialog width
+  int dialogWidth = width();
+  int cols = (dialogWidth < 400) ? 2 : 3; // 2 columns for small screens, 3 for larger
+
   for (size_t i = 0; i < m_seedWords.size(); ++i) {
     int row = static_cast<int>(i) / cols;
     int col = static_cast<int>(i) % cols;
@@ -205,15 +266,18 @@ void QtSeedDisplayDialog::createWordGrid() {
                        .arg(QString::fromStdString(m_seedWords[i])));
 
     QtThemeManager &theme = QtThemeManager::instance();
-    wordLabel->setFont(theme.monoFont());
+    QFont wordFont = theme.monoFont();
+    wordFont.setPointSize(std::max(8, wordFont.pointSize() - 1));
+    wordLabel->setFont(wordFont);
     wordLabel->setStyleSheet(
         QString("QLabel { background-color: %1; color: %2; border: 1px solid "
-                "%3; border-radius: 4px; padding: 8px; font-weight: bold; }")
+                "%3; border-radius: 4px; padding: 6px; font-weight: bold; font-size: 10px; }")
             .arg(theme.surfaceColor().darker(120).name())
             .arg(theme.textColor().name())
             .arg(theme.secondaryColor().name()));
     wordLabel->setAlignment(Qt::AlignCenter);
-    wordLabel->setMinimumHeight(30);
+    wordLabel->setMinimumHeight(28);
+    wordLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     m_wordGrid->addWidget(wordLabel, row, col);
   }
