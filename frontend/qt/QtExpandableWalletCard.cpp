@@ -271,40 +271,46 @@ void QtExpandableWalletCard::updateStyles() {
   if (!m_themeManager)
     return;
 
-  QString surface = m_themeManager->surfaceColor().name();
-  QString accent = m_themeManager->accentColor().name();
+  // Get QColor objects for manipulation
+  QColor surfaceColor = m_themeManager->surfaceColor();
+  QColor accentColor = m_themeManager->accentColor();
+  QColor backgroundColor = m_themeManager->backgroundColor();
+
+  // Get QString color names for direct use
+  QString surface = surfaceColor.name();
+  QString accent = accentColor.name();
   QString text = m_themeManager->textColor().name();
   QString textSecondary = m_themeManager->subtitleColor().name();
   QString primary = m_themeManager->primaryColor().name();
-  QString background = m_themeManager->backgroundColor().name();
+  QString background = backgroundColor.name();
 
   // Determine if dark theme for better contrast
-  bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
+  bool isDarkTheme = surfaceColor.lightness() < 128;
 
-  // Card styling with rounded corners
+  // Card styling with rounded corners and subtle shadow
   QString walletCardCss = QString(R"(
     QFrame#expandableWalletCard {
       background-color: %1;
       border: 1px solid %2;
-      border-radius: 12px;
+      border-radius: 16px;
     }
     QWidget#walletButton {
-      background-color: %2;
+      background-color: transparent;
       border: none;
-      border-top-left-radius: 12px;
-      border-top-right-radius: 12px;
+      border-radius: 16px;
+      padding: 8px;
     }
     QWidget#walletButton:hover {
       background-color: %3;
     }
     QWidget#expandedCard {
       background-color: %1;
-      border-top: 1px solid %2;
-      border-bottom-left-radius: 12px;
-      border-bottom-right-radius: 12px;
+      border: none;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
     }
     QWidget#logoContainer {
-      background-color: transparent;
+      background-color: %4;
       border: none;
       border-radius: 24px;
     }
@@ -313,16 +319,18 @@ void QtExpandableWalletCard::updateStyles() {
       border: none;
     }
     QWidget#historySection {
-      background-color: %4;
-      border: 1px solid %5;
+      background-color: %5;
+      border: 1px solid %6;
       border-radius: 12px;
+      padding: 8px;
     }
   )")
-                              .arg(surface)                                             // %1 - card background
-                              .arg(accent)                                              // %2 - header/border
-                              .arg(m_themeManager->accentColor().lighter(110).name())   // %3 - hover
-                              .arg(primary)                                             // %4 - history section bg
-                              .arg(m_themeManager->secondaryColor().name());            // %5 - history section border
+                              .arg(surface)                                                                    // %1 - card background
+                              .arg(m_themeManager->secondaryColor().name())                                    // %2 - outer border (subtle)
+                              .arg(isDarkTheme ? surfaceColor.lighter(110).name() : surfaceColor.darker(105).name())      // %3 - hover (very subtle)
+                              .arg(isDarkTheme ? accentColor.lighter(150).name() : accentColor.lighter(180).name())       // %4 - logo container background
+                              .arg(isDarkTheme ? backgroundColor.lighter(105).name() : backgroundColor.darker(102).name()) // %5 - history section bg (subtle contrast)
+                              .arg(m_themeManager->secondaryColor().name());                                   // %6 - history section border
 
   setStyleSheet(walletCardCss);
 
@@ -379,14 +387,18 @@ void QtExpandableWalletCard::updateStyles() {
   )").arg(accent);
   m_expandIndicator->setStyleSheet(indicatorStyle);
 
-  // Action button styling with rounded corners
+  // Action button styling with rounded corners and modern look
+  QString buttonTextColor = isDarkTheme
+      ? m_themeManager->backgroundColor().name()
+      : m_themeManager->surfaceColor().name();
+
   QString buttonStyle = QString(R"(
     QPushButton#actionButton {
       background-color: %1;
       color: %2;
       border: none;
-      border-radius: 8px;
-      padding: 12px 24px;
+      border-radius: 10px;
+      padding: 14px 28px;
       font-size: 14px;
       font-weight: 600;
       text-align: center;
@@ -394,10 +406,14 @@ void QtExpandableWalletCard::updateStyles() {
     QPushButton#actionButton:hover {
       background-color: %3;
     }
+    QPushButton#actionButton:pressed {
+      background-color: %4;
+    }
   )")
-                          .arg(accent)
-                          .arg(text)
-                          .arg(m_themeManager->accentColor().lighter(110).name());
+                          .arg(accent)                                               // normal state
+                          .arg(buttonTextColor)                                      // text color
+                          .arg(m_themeManager->accentColor().lighter(115).name())    // hover state
+                          .arg(m_themeManager->accentColor().darker(110).name());    // pressed state
   m_sendButton->setStyleSheet(buttonStyle);
   m_receiveButton->setStyleSheet(buttonStyle);
 
@@ -412,22 +428,58 @@ void QtExpandableWalletCard::updateStyles() {
   )").arg(text);
   m_historyTitleLabel->setStyleSheet(historyTitleStyle);
 
-  // History text area styling - use theme colors for consistency
+  // History text area styling - modern and clean
+  QString historyBgColor = isDarkTheme
+      ? m_themeManager->backgroundColor().lighter(108).name()
+      : m_themeManager->backgroundColor().darker(102).name();
+
+  QString historyBorderColor = isDarkTheme
+      ? m_themeManager->secondaryColor().lighter(120).name()
+      : m_themeManager->secondaryColor().darker(110).name();
+
   QString textEditStyle = QString(R"(
     QTextEdit#historyText {
       background-color: %1;
       color: %2;
       border: 1px solid %3;
-      border-radius: 8px;
-      padding: 12px;
+      border-radius: 10px;
+      padding: 16px;
       font-family: %4;
       font-size: %5px;
+      selection-background-color: %6;
+      selection-color: %7;
+    }
+    QTextEdit#historyText:focus {
+      border: 1px solid %8;
+    }
+    QScrollBar:vertical {
+      background: %1;
+      width: 10px;
+      border-radius: 5px;
+      margin: 2px;
+    }
+    QScrollBar::handle:vertical {
+      background: %3;
+      border-radius: 5px;
+      min-height: 20px;
+    }
+    QScrollBar::handle:vertical:hover {
+      background: %8;
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+      height: 0px;
+    }
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+      background: none;
     }
   )")
-                            .arg(background)                                // background color
-                            .arg(text)                                      // text color
-                            .arg(m_themeManager->secondaryColor().name())   // border using secondary
-                            .arg(m_themeManager->textFont().family())
-                            .arg(m_themeManager->textFont().pointSize());
+                            .arg(historyBgColor)                                  // %1 - background color
+                            .arg(text)                                            // %2 - text color
+                            .arg(historyBorderColor)                              // %3 - border
+                            .arg(m_themeManager->textFont().family())             // %4 - font family
+                            .arg(m_themeManager->textFont().pointSize())          // %5 - font size
+                            .arg(accent)                                          // %6 - selection bg
+                            .arg(surface)                                         // %7 - selection text
+                            .arg(accent);                                         // %8 - focus border
   m_historyText->setStyleSheet(textEditStyle);
 }

@@ -28,26 +28,48 @@
 #include <QVBoxLayout>
 
 QtWalletUI::QtWalletUI(QWidget *parent)
-    : QWidget(parent), m_themeManager(&QtThemeManager::instance()),
-      m_currentMockUser(nullptr), m_balanceVisible(true), m_mockMode(false),
-      m_currentBTCPrice(0.0) {
-  // Initialize price fetcher
-  m_priceFetcher = std::make_unique<PriceService::PriceFetcher>();
+    : QWidget(parent), m_themeManager(nullptr),
+      m_centeringLayout(nullptr), m_leftSpacer(nullptr), m_rightSpacer(nullptr),
+      m_headerSection(nullptr), m_headerTitle(nullptr),
+      m_balanceTitle(nullptr), m_balanceLabel(nullptr),
+      m_toggleBalanceButton(nullptr), m_bitcoinWalletCard(nullptr),
+      m_currentMockUser(nullptr), m_priceFetcher(nullptr),
+      m_priceUpdateTimer(nullptr), m_currentBTCPrice(43000.0),
+      m_balanceVisible(true), m_mockMode(false) {
 
-  // Setup price update timer (refresh every 60 seconds)
-  m_priceUpdateTimer = new QTimer(this);
-  connect(m_priceUpdateTimer, &QTimer::timeout, this, &QtWalletUI::onPriceUpdateTimer);
-  m_priceUpdateTimer->start(60000); // 60 seconds
+  // Get theme manager SAFELY
+  m_themeManager = &QtThemeManager::instance();
 
-  // Fetch initial price
-  fetchBTCPrice();
-
+  // Initialize mock users first (doesn't touch UI)
   initializeMockUsers();
-  setupUI();
-  applyTheme();
 
-  connect(m_themeManager, &QtThemeManager::themeChanged, this,
-          &QtWalletUI::onThemeChanged);
+  // Create all UI widgets
+  setupUI();
+
+  // Defer all complex initialization to after event loop starts
+  QTimer::singleShot(100, this, [this]() {
+    // Initialize price fetcher
+    m_priceFetcher = std::make_unique<PriceService::PriceFetcher>();
+
+    // Setup price update timer
+    m_priceUpdateTimer = new QTimer(this);
+    connect(m_priceUpdateTimer, &QTimer::timeout, this, &QtWalletUI::onPriceUpdateTimer);
+    m_priceUpdateTimer->start(60000); // 60 seconds
+
+    // Apply theme
+    if (m_themeManager) {
+      applyTheme();
+    }
+
+    // Fetch initial price
+    fetchBTCPrice();
+  });
+
+  // Connect theme changed signal
+  if (m_themeManager) {
+    connect(m_themeManager, &QtThemeManager::themeChanged, this,
+            &QtWalletUI::onThemeChanged);
+  }
 }
 
 void QtWalletUI::setupUI() {
@@ -56,11 +78,11 @@ void QtWalletUI::setupUI() {
   m_mainLayout->setSpacing(20);
 
   // Create a horizontal layout to center content with max width
-  QHBoxLayout *centeringLayout = new QHBoxLayout();
+  m_centeringLayout = new QHBoxLayout();
 
-  // Add left spacer
-  centeringLayout->addItem(
-      new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
+  // Add left spacer (will be dynamically controlled for full-width on laptops)
+  m_leftSpacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+  m_centeringLayout->addItem(m_leftSpacer);
 
   m_scrollArea = new QScrollArea(this);
   m_scrollArea->setWidgetResizable(true);
@@ -80,13 +102,13 @@ void QtWalletUI::setupUI() {
   m_scrollArea->setWidget(m_scrollContent);
 
   // Add scroll area to centering layout
-  centeringLayout->addWidget(m_scrollArea);
+  m_centeringLayout->addWidget(m_scrollArea);
 
-  // Add right spacer
-  centeringLayout->addItem(
-      new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
+  // Add right spacer (will be dynamically controlled for full-width on laptops)
+  m_rightSpacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+  m_centeringLayout->addItem(m_rightSpacer);
 
-  m_mainLayout->addLayout(centeringLayout);
+  m_mainLayout->addLayout(m_centeringLayout);
 
   // Initialize responsive layout after UI setup
   QTimer::singleShot(0, this, [this]() {
@@ -105,53 +127,36 @@ void QtWalletUI::createHeaderSection() {
 
   // Digital Wallets title
   m_headerTitle = new QLabel("Digital Wallets", m_headerSection);
-  m_headerTitle->setProperty("class", "header-title");
   m_headerTitle->setAlignment(Qt::AlignCenter);
   headerLayout->addWidget(m_headerTitle);
 
-  // Balance section with hide button
-  // Vertical layout for title above amount
+  // Balance section
   QVBoxLayout *balanceVerticalLayout = new QVBoxLayout();
   balanceVerticalLayout->setSpacing(5);
 
-  m_balanceTitle = new QLabel("Total Balance:", m_headerSection);
-  m_balanceTitle->setProperty("class", "balance-title");
+  m_balanceTitle = new QLabel("Total Balance", m_headerSection);
   m_balanceTitle->setAlignment(Qt::AlignCenter);
   balanceVerticalLayout->addWidget(m_balanceTitle);
 
   // Horizontal layout for amount and toggle button
   QHBoxLayout *balanceRowLayout = new QHBoxLayout();
-  balanceRowLayout->setSpacing(0);
-
-  // Left spacer to offset the icon width (centers the text)
-  balanceRowLayout->addSpacing(20); // Half of icon width (32/2 + spacing)
-
-  // Left stretch
-  balanceRowLayout->addStretch();
+  balanceRowLayout->setSpacing(10);
+  balanceRowLayout->setAlignment(Qt::AlignCenter);
 
   // Balance amount
   m_balanceLabel = new QLabel("$0.00 USD", m_headerSection);
-  m_balanceLabel->setProperty("class", "balance-amount");
   m_balanceLabel->setAlignment(Qt::AlignCenter);
   balanceRowLayout->addWidget(m_balanceLabel);
-
-  // Small spacing between amount and icon
-  balanceRowLayout->addSpacing(8);
 
   // Toggle button
   m_toggleBalanceButton = new QPushButton(m_headerSection);
   m_toggleBalanceButton->setIconSize(QSize(20, 20));
-  m_toggleBalanceButton->setMaximumWidth(32);
-  m_toggleBalanceButton->setMaximumHeight(32);
-  m_toggleBalanceButton->setProperty("class", "toggle-balance");
+  m_toggleBalanceButton->setFixedSize(32, 32);
   m_toggleBalanceButton->setToolTip("Hide/Show Balance");
+  m_toggleBalanceButton->setCursor(Qt::PointingHandCursor);
   balanceRowLayout->addWidget(m_toggleBalanceButton);
 
-  // Right stretch
-  balanceRowLayout->addStretch();
-
   balanceVerticalLayout->addLayout(balanceRowLayout);
-
   headerLayout->addLayout(balanceVerticalLayout);
 
   connect(m_toggleBalanceButton, &QPushButton::clicked, this,
@@ -250,6 +255,12 @@ void QtWalletUI::applyTheme() { updateStyles(); }
 QIcon QtWalletUI::createColoredIcon(const QString &svgPath,
                                     const QColor &color) {
   QSvgRenderer renderer(svgPath);
+
+  // Check if SVG is valid
+  if (!renderer.isValid()) {
+    return QIcon(); // Return empty icon if SVG can't be loaded
+  }
+
   QPixmap pixmap(24, 24);
   pixmap.fill(Qt::transparent);
 
@@ -272,141 +283,170 @@ QIcon QtWalletUI::createColoredIcon(const QString &svgPath,
 }
 
 void QtWalletUI::updateStyles() {
-  setStyleSheet(m_themeManager->getMainWindowStyleSheet());
-
-  const QString accent = m_themeManager->accentColor().name();
-  const QString text = m_themeManager->textColor().name();
-
-  // Header section styling
-  QString headerTitleStyle = QString(R"(
-        QLabel {
-            color: %1;
-            font-size: 42px;
-            font-weight: 700;
-            letter-spacing: -1px;
-            background-color: transparent;
-            padding: 0px;
-            margin: 0px;
-        }
-    )")
-                                 .arg(text);
-
-  QString balanceTitleStyle = QString(R"(
-        QLabel {
-            color: %1;
-            font-size: 21px;
-            font-weight: 700;
-            background-color: transparent;
-            padding: 5px 10px;
-            margin: 0px;
-        }
-    )")
-                                  .arg(text);
-
-  // Better contrast for balance amount
-  bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
-  QString balanceTextColor = isDarkTheme ? m_themeManager->textColor().lighter(115).name() : text;
-
-  QString balanceAmountStyle = QString(R"(
-        QLabel {
-            color: %1;
-            font-size: 21px;
-            font-weight: 600;
-            background-color: transparent;
-            padding: 5px 15px;
-            margin: 0px;
-        }
-    )")
-                                   .arg(balanceTextColor);
-
-  // Toggle button uses theme colors with better contrast
-  QString iconColor = isDarkTheme ? m_themeManager->accentColor().lighter(110).name() : text;
-
-  QString toggleButtonStyle =
-      QString(R"(
-        QPushButton {
-            background-color: transparent;
-            color: %1;
-            border: none;
-            border-radius: 16px;
-            padding: 0px;
-            min-width: 32px;
-            max-width: 32px;
-            min-height: 32px;
-            max-height: 32px;
-        }
-        QPushButton:hover {
-            background-color: %2;
-        }
-        QPushButton:pressed {
-            background-color: %3;
-        }
-    )")
-          .arg(iconColor)
-          .arg(m_themeManager->surfaceColor().lighter(120).name())
-          .arg(m_themeManager->accentColor().lighter(160).name());
-
-  m_headerTitle->setStyleSheet(headerTitleStyle);
-  m_balanceTitle->setStyleSheet(balanceTitleStyle);
-  m_balanceLabel->setStyleSheet(balanceAmountStyle);
-  m_toggleBalanceButton->setStyleSheet(toggleButtonStyle);
-
-  // Set the icon color based on theme with better contrast
-  QColor iconColorValue = isDarkTheme
-      ? m_themeManager->accentColor().lighter(110)
-      : m_themeManager->textColor();
-  QIcon eyeOpenIcon =
-      createColoredIcon(":/icons/icons/eye-open.svg", iconColorValue);
-
-  // Update the icon if balance is visible
-  if (m_balanceVisible) {
-    m_toggleBalanceButton->setIcon(eyeOpenIcon);
-  } else {
-    QIcon eyeClosedIcon =
-        createColoredIcon(":/icons/icons/eye-closed.svg", iconColorValue);
-    m_toggleBalanceButton->setIcon(eyeClosedIcon);
+  // Early return if theme manager or widgets haven't been created yet
+  if (!m_themeManager || !m_headerSection || !m_headerTitle || !m_balanceLabel) {
+    return;
   }
 
-  // Set fonts for header section
-  QFont headerFont = m_themeManager->titleFont();
-  headerFont.setPointSize(42);
-  headerFont.setBold(true);
-  m_headerTitle->setFont(headerFont);
+  try {
+    setStyleSheet(m_themeManager->getMainWindowStyleSheet());
+  } catch (...) {
+    // Ignore any stylesheet errors during initialization
+    return;
+  }
 
-  QFont balanceTitleFont = m_themeManager->titleFont();
-  balanceTitleFont.setPointSize(21);
-  balanceTitleFont.setBold(true);
-  m_balanceTitle->setFont(balanceTitleFont);
+  const QString text = m_themeManager->textColor().name();
+  const QString accent = m_themeManager->accentColor().name();
+  bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
 
-  QFont balanceAmountFont = m_themeManager->textFont();
-  balanceAmountFont.setPointSize(21);
-  balanceAmountFont.setBold(false);
-  m_balanceLabel->setFont(balanceAmountFont);
+  // Calculate responsive font sizes based on window width
+  int windowWidth = this->width();
+  int headerTitleSize, balanceTitleSize, balanceAmountSize, toggleButtonSize;
+
+  if (windowWidth <= 480) {
+    // Very small screens
+    headerTitleSize = 24;
+    balanceTitleSize = 12;
+    balanceAmountSize = 20;
+    toggleButtonSize = 22;
+  } else if (windowWidth <= 768) {
+    // Small screens
+    headerTitleSize = 28;
+    balanceTitleSize = 13;
+    balanceAmountSize = 22;
+    toggleButtonSize = 24;
+  } else if (windowWidth <= 1024) {
+    // Tablets and small laptops
+    headerTitleSize = 32;
+    balanceTitleSize = 14;
+    balanceAmountSize = 24;
+    toggleButtonSize = 26;
+  } else if (windowWidth <= 1366) {
+    // Common laptop screens
+    headerTitleSize = 36;
+    balanceTitleSize = 15;
+    balanceAmountSize = 26;
+    toggleButtonSize = 28;
+  } else if (windowWidth <= 1600) {
+    // Medium laptop/desktop screens
+    headerTitleSize = 38;
+    balanceTitleSize = 16;
+    balanceAmountSize = 28;
+    toggleButtonSize = 28;
+  } else if (windowWidth <= 1920) {
+    // Full HD screens
+    headerTitleSize = 40;
+    balanceTitleSize = 16;
+    balanceAmountSize = 30;
+    toggleButtonSize = 30;
+  } else if (windowWidth <= 2560) {
+    // QHD screens
+    headerTitleSize = 44;
+    balanceTitleSize = 18;
+    balanceAmountSize = 34;
+    toggleButtonSize = 32;
+  } else {
+    // 4K and larger
+    headerTitleSize = 48;
+    balanceTitleSize = 20;
+    balanceAmountSize = 38;
+    toggleButtonSize = 34;
+  }
+
+  // Header title styling - responsive and bold
+  if (m_headerTitle) {
+    QString headerTitleStyle = QString(R"(
+        QLabel {
+            color: %1;
+            font-size: %2px;
+            font-weight: 700;
+            background-color: transparent;
+        }
+    )").arg(text).arg(headerTitleSize);
+    m_headerTitle->setStyleSheet(headerTitleStyle);
+
+    QFont headerFont = m_themeManager->titleFont();
+    headerFont.setPointSize(headerTitleSize);
+    headerFont.setBold(true);
+    m_headerTitle->setFont(headerFont);
+  }
+
+  // Balance title - subtle and smaller
+  if (m_balanceTitle) {
+    QString balanceTitleStyle = QString(R"(
+        QLabel {
+            color: %1;
+            font-size: %2px;
+            font-weight: 600;
+            background-color: transparent;
+        }
+    )").arg(isDarkTheme ? m_themeManager->textColor().darker(120).name() : text)
+       .arg(balanceTitleSize);
+    m_balanceTitle->setStyleSheet(balanceTitleStyle);
+
+    QFont balanceTitleFont = m_themeManager->textFont();
+    balanceTitleFont.setPointSize(balanceTitleSize);
+    balanceTitleFont.setBold(true);
+    m_balanceTitle->setFont(balanceTitleFont);
+  }
+
+  // Balance amount - large and prominent with accent color
+  if (m_balanceLabel) {
+    QString balanceColor = isDarkTheme
+        ? m_themeManager->accentColor().lighter(120).name()
+        : m_themeManager->accentColor().darker(105).name();
+
+    QString balanceAmountStyle = QString(R"(
+        QLabel {
+            color: %1;
+            font-size: %2px;
+            font-weight: 700;
+            background-color: transparent;
+        }
+    )").arg(balanceColor).arg(balanceAmountSize);
+    m_balanceLabel->setStyleSheet(balanceAmountStyle);
+
+    QFont balanceAmountFont = m_themeManager->titleFont();
+    balanceAmountFont.setPointSize(balanceAmountSize);
+    balanceAmountFont.setBold(true);
+    m_balanceLabel->setFont(balanceAmountFont);
+  }
+
+  // Toggle button - simple and clean with responsive icon size
+  if (m_toggleBalanceButton) {
+    QString toggleButtonStyle = QString(R"(
+        QPushButton {
+            background-color: transparent;
+            border: none;
+            border-radius: 16px;
+            font-size: %2px;
+        }
+        QPushButton:hover {
+            background-color: %1;
+        }
+    )").arg(m_themeManager->surfaceColor().lighter(isDarkTheme ? 120 : 95).name())
+       .arg(toggleButtonSize);
+    m_toggleBalanceButton->setStyleSheet(toggleButtonStyle);
+
+    // Use emoji icons (SVG loading disabled for stability)
+    m_toggleBalanceButton->setText(m_balanceVisible ? "👁" : "🚫");
+  }
 }
 
 void QtWalletUI::onLogoutClicked() { emit logoutRequested(); }
 
 void QtWalletUI::onToggleBalanceClicked() {
+  if (!m_toggleBalanceButton) {
+    return;
+  }
+
   m_balanceVisible = !m_balanceVisible;
 
-  // Determine icon color based on theme with better contrast
-  bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
-  QColor iconColor = isDarkTheme
-      ? m_themeManager->accentColor().lighter(110)
-      : m_themeManager->textColor();
+  // Update button text (no icons for now)
+  m_toggleBalanceButton->setText(m_balanceVisible ? "👁" : "🚫");
 
-  if (m_balanceVisible) {
-    // Show balance - open eye icon
-    m_toggleBalanceButton->setIcon(
-        createColoredIcon(":/icons/icons/eye-open.svg", iconColor));
-    // Restore the actual balance value with real-time price
-    updateUSDBalance();
-  } else {
-    // Hide balance - closed/crossed eye icon
-    m_toggleBalanceButton->setIcon(
-        createColoredIcon(":/icons/icons/eye-closed.svg", iconColor));
-    m_balanceLabel->setText("••••••");
-  }
+  // Update balance display
+  updateUSDBalance();
 }
 
 void QtWalletUI::resizeEvent(QResizeEvent *event) {
@@ -418,32 +458,86 @@ void QtWalletUI::resizeEvent(QResizeEvent *event) {
 }
 
 void QtWalletUI::updateScrollAreaWidth() {
-  if (m_scrollArea) {
-    int windowWidth = this->width();
-    int windowHeight = this->height();
-    double aspectRatio = static_cast<double>(windowWidth) / windowHeight;
+  if (!m_scrollArea || !m_leftSpacer || !m_rightSpacer) {
+    return;
+  }
 
-    // Enhanced responsive width calculation
-    if (windowWidth > 2560 || aspectRatio > 2.4) {
-      // Ultra-wide screens
-      int targetWidth = static_cast<int>(windowWidth * 0.575);
-      m_scrollArea->setFixedWidth(targetWidth);
-    } else if (windowWidth > 1920) {
-      // Large screens
-      int targetWidth = static_cast<int>(windowWidth * 0.65);
-      m_scrollArea->setMaximumWidth(targetWidth);
-      m_scrollArea->setMinimumWidth(800);
-    } else if (windowWidth > 1200) {
-      // Medium screens
-      int targetWidth = static_cast<int>(windowWidth * 0.75);
-      m_scrollArea->setMaximumWidth(targetWidth);
-      m_scrollArea->setMinimumWidth(600);
-    } else {
-      // Small screens - use 100% of the width
-      m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
-      m_scrollArea->setMinimumWidth(windowWidth);
-      m_scrollArea->setFixedWidth(windowWidth);
-    }
+  int windowWidth = this->width();
+  int windowHeight = this->height();
+  double aspectRatio = static_cast<double>(windowWidth) / windowHeight;
+
+  // Sidebar collapsed width - this is always present as an overlay
+  const int SIDEBAR_WIDTH = 70;
+
+  // Reset constraints first
+  m_scrollArea->setMinimumWidth(0);
+  m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
+
+  // Optimized responsive width calculation for multiple screen sizes
+  // Laptop screens typically have aspect ratios between 1.5 and 1.8
+  bool isLaptopScreen = (aspectRatio >= 1.5 && aspectRatio <= 1.8);
+  bool useFullWidth = false;
+
+  if (windowWidth <= 768) {
+    // Mobile/Small tablets (portrait) - Full width
+    useFullWidth = true;
+  } else if (windowWidth <= 1024) {
+    // Tablets (landscape) / Small laptops - Full width
+    useFullWidth = true;
+  } else if (windowWidth <= 1366) {
+    // Common laptop size (1366x768) - Full width
+    useFullWidth = true;
+  } else if (windowWidth <= 1600 && isLaptopScreen) {
+    // Medium laptops (1440p, 1536p, 1600p) - Full width
+    useFullWidth = true;
+  } else if (windowWidth <= 1920 && isLaptopScreen) {
+    // Full HD laptops - Full width for optimal use of space
+    useFullWidth = true;
+  } else if (windowWidth <= 1920) {
+    // Desktop monitors (16:9, 16:10) - Constrained for readability
+    // Subtract sidebar width from available width
+    int availableWidth = windowWidth - SIDEBAR_WIDTH;
+    int targetWidth = static_cast<int>(availableWidth * 0.70);
+    m_scrollArea->setMaximumWidth(targetWidth);
+    m_scrollArea->setMinimumWidth(900);
+    useFullWidth = false;
+  } else if (windowWidth <= 2560) {
+    // Large desktop monitors (1440p, QHD) - More constraint
+    int availableWidth = windowWidth - SIDEBAR_WIDTH;
+    int targetWidth = static_cast<int>(availableWidth * 0.65);
+    m_scrollArea->setMaximumWidth(targetWidth);
+    m_scrollArea->setMinimumWidth(1000);
+    useFullWidth = false;
+  } else if (aspectRatio > 2.2) {
+    // Ultra-wide monitors (21:9, 32:9) - Significant constraint
+    int availableWidth = windowWidth - SIDEBAR_WIDTH;
+    int targetWidth = static_cast<int>(availableWidth * 0.55);
+    m_scrollArea->setMaximumWidth(targetWidth);
+    m_scrollArea->setMinimumWidth(1200);
+    useFullWidth = false;
+  } else {
+    // 4K and larger desktop monitors - Moderate constraint
+    int availableWidth = windowWidth - SIDEBAR_WIDTH;
+    int targetWidth = static_cast<int>(availableWidth * 0.60);
+    m_scrollArea->setMaximumWidth(targetWidth);
+    m_scrollArea->setMinimumWidth(1200);
+    useFullWidth = false;
+  }
+
+  // Control spacers based on whether we want full width or centered
+  if (useFullWidth) {
+    // Disable spacers for full width - set to fixed size 0
+    m_leftSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    m_rightSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+  } else {
+    // Enable spacers for centered content - set to expanding
+    m_leftSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+    m_rightSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+  }
+
+  // Invalidate the layout to apply spacer changes
+  if (m_centeringLayout) {
+    m_centeringLayout->invalidate();
   }
 }
 
@@ -534,30 +628,91 @@ void QtWalletUI::updateMockTransactionHistory() {
 }
 
 void QtWalletUI::updateResponsiveLayout() {
-  if (!m_mainLayout)
+  if (!m_mainLayout || !m_contentLayout) {
     return;
-
-  int windowWidth = this->width();
-
-  // Adjust main layout margins based on screen size
-  if (windowWidth < 600) {
-    // Mobile/small screens - minimal margins for 100% usage
-    m_mainLayout->setContentsMargins(0, 0, 0, 0);
-    m_contentLayout->setContentsMargins(5, 5, 5, 5);
-  } else if (windowWidth < 1200) {
-    // Tablet/medium screens - standard margins
-    m_mainLayout->setContentsMargins(15, 15, 15, 15);
-    m_contentLayout->setContentsMargins(15, 15, 15, 15);
-  } else {
-    // Desktop/large screens - larger margins
-    m_mainLayout->setContentsMargins(20, 20, 20, 20);
-    m_contentLayout->setContentsMargins(20, 20, 20, 20);
   }
 
-  // Adjust spacing between elements
-  int spacing = windowWidth < 600 ? 15 : (windowWidth < 1200 ? 18 : 20);
+  int windowWidth = this->width();
+  int windowHeight = this->height();
+  double aspectRatio = static_cast<double>(windowWidth) / windowHeight;
+
+  // Determine if this is a laptop screen
+  bool isLaptopScreen = (aspectRatio >= 1.5 && aspectRatio <= 1.8);
+
+  // Sidebar collapsed width that we need to account for
+  const int SIDEBAR_WIDTH = 70;
+
+  // Responsive margins and spacing based on screen size
+  int topMargin, rightMargin, bottomMargin, leftMargin;
+  int contentMargin, spacing;
+
+  if (windowWidth <= 480) {
+    // Very small screens (phones portrait)
+    topMargin = rightMargin = bottomMargin = 5;
+    leftMargin = SIDEBAR_WIDTH + 5; // Account for sidebar + margin
+    contentMargin = 8;
+    spacing = 12;
+  } else if (windowWidth <= 768) {
+    // Small screens (phones landscape, small tablets)
+    topMargin = rightMargin = bottomMargin = 8;
+    leftMargin = SIDEBAR_WIDTH + 8;
+    contentMargin = 12;
+    spacing = 15;
+  } else if (windowWidth <= 1024) {
+    // Tablets and small laptops
+    topMargin = rightMargin = bottomMargin = 12;
+    leftMargin = SIDEBAR_WIDTH + 12;
+    contentMargin = 16;
+    spacing = 18;
+  } else if (windowWidth <= 1366 && isLaptopScreen) {
+    // Common laptop screens (1366x768)
+    topMargin = rightMargin = bottomMargin = 15;
+    leftMargin = SIDEBAR_WIDTH + 15;
+    contentMargin = 20;
+    spacing = 20;
+  } else if (windowWidth <= 1600 && isLaptopScreen) {
+    // Medium laptop screens (1440p, 1536p, 1600p)
+    topMargin = rightMargin = bottomMargin = 18;
+    leftMargin = SIDEBAR_WIDTH + 18;
+    contentMargin = 22;
+    spacing = 22;
+  } else if (windowWidth <= 1920 && isLaptopScreen) {
+    // Full HD laptops
+    topMargin = rightMargin = bottomMargin = 20;
+    leftMargin = SIDEBAR_WIDTH + 20;
+    contentMargin = 24;
+    spacing = 24;
+  } else if (windowWidth <= 1920) {
+    // Desktop monitors up to Full HD
+    topMargin = rightMargin = bottomMargin = 25;
+    leftMargin = SIDEBAR_WIDTH + 25;
+    contentMargin = 28;
+    spacing = 24;
+  } else if (windowWidth <= 2560) {
+    // Large desktop monitors (1440p, QHD)
+    topMargin = rightMargin = bottomMargin = 30;
+    leftMargin = SIDEBAR_WIDTH + 30;
+    contentMargin = 32;
+    spacing = 26;
+  } else {
+    // 4K and ultra-wide monitors
+    topMargin = rightMargin = bottomMargin = 35;
+    leftMargin = SIDEBAR_WIDTH + 35;
+    contentMargin = 36;
+    spacing = 28;
+  }
+
+  // Apply calculated margins with sidebar offset on the left
+  m_mainLayout->setContentsMargins(leftMargin, topMargin, rightMargin, bottomMargin);
+  m_contentLayout->setContentsMargins(contentMargin, contentMargin, contentMargin, contentMargin);
   m_mainLayout->setSpacing(spacing);
   m_contentLayout->setSpacing(spacing);
+
+  // Adjust header and card sizing for better proportions
+  if (m_headerSection) {
+    int headerVerticalPadding = windowWidth <= 768 ? 15 : (windowWidth <= 1366 ? 20 : 25);
+    m_headerSection->setContentsMargins(0, headerVerticalPadding, 0, headerVerticalPadding);
+  }
 }
 
 void QtWalletUI::adjustButtonLayout() {
@@ -588,14 +743,27 @@ void QtWalletUI::fetchBTCPrice() {
 }
 
 void QtWalletUI::updateUSDBalance() {
-  if (!m_currentMockUser || m_currentBTCPrice == 0.0) {
+  // Early return if balance label doesn't exist yet
+  if (!m_balanceLabel) {
     return;
   }
 
-  double usdBalance = m_currentMockUser->balance * m_currentBTCPrice;
-  if (m_balanceVisible) {
-    m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
+  // Always respect the visibility toggle, regardless of user state
+  if (!m_balanceVisible) {
+    m_balanceLabel->setText("••••••");
+    return;
   }
+
+  // Only show actual balance if user is logged in
+  if (!m_currentMockUser) {
+    m_balanceLabel->setText("$0.00 USD");
+    return;
+  }
+
+  // Use fallback price if current price is not available
+  double priceToUse = (m_currentBTCPrice > 0.0) ? m_currentBTCPrice : 43000.0;
+  double usdBalance = m_currentMockUser->balance * priceToUse;
+  m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
 }
 
 void QtWalletUI::onPriceUpdateTimer() {
