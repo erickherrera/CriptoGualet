@@ -44,6 +44,7 @@ Modern cross-platform interface using Qt6:
 - `QtSettingsUI.cpp` - Settings interface
 - `QtThemeManager.cpp` - Theme management
 - `QtSeedDisplayDialog.cpp` - Seed phrase display dialog
+- `QtSendDialog.cpp` - Bitcoin transaction send dialog
 - `QtExpandableWalletCard.cpp` - Wallet card UI component
 
 ### Test Suite (`Tests/`)
@@ -57,6 +58,7 @@ Modern cross-platform interface using Qt6:
 - `test_transaction_repository.cpp` - Transaction repository tests
 - `test_repository_integration.cpp` - Repository integration tests
 - `test_security_enhancements.cpp` - Security feature tests
+- `test_password_verification.cpp` - Password verification tests
 - `test_blockcypher_api.cpp` - Blockchain API tests
 
 ## Build System
@@ -141,7 +143,17 @@ CriptoGualet/
 ├── .clang-format              # Code formatting rules
 ├── .clang-tidy                # Static analysis rules
 ├── .claude/                    # Claude Code settings
-│   └── settings.local.json
+│   ├── settings.local.json
+│   ├── CLAUDE.md              # Project documentation
+│   └── agents/                # Specialized AI agents
+│       ├── architecture-documentation-expert.md
+│       ├── database-architect.md
+│       ├── debug-specialist.md
+│       ├── macos-crypto-wallet-integration.md
+│       ├── security-auditor.md
+│       ├── system-design-agent.md
+│       ├── ui-designer-crypto-wallet.md
+│       └── wallet-core-developer.md
 ├── assets/                     # Root-level assets
 │   └── bip39/
 │       └── english.txt         # BIP39 English wordlist
@@ -205,6 +217,7 @@ CriptoGualet/
 │       ├── QtSettingsUI.cpp
 │       ├── QtThemeManager.cpp
 │       ├── QtSeedDisplayDialog.cpp
+│       ├── QtSendDialog.cpp
 │       ├── QtExpandableWalletCard.cpp
 │       ├── assets/             # Qt resources
 │       │   └── bip39/
@@ -218,6 +231,7 @@ CriptoGualet/
 │           ├── QtSettingsUI.h
 │           ├── QtThemeManager.h
 │           ├── QtSeedDisplayDialog.h
+│           ├── QtSendDialog.h
 │           └── QtExpandableWalletCard.h
 ├── Tests/                      # Test suite
 │   ├── CMakeLists.txt
@@ -234,6 +248,7 @@ CriptoGualet/
 │   ├── test_transaction_repository.cpp
 │   ├── test_repository_integration.cpp
 │   ├── test_security_enhancements.cpp
+│   ├── test_password_verification.cpp
 │   └── test_blockcypher_api.cpp
 ├── src/                        # Build orchestration
 │   └── CMakeLists.txt
@@ -257,6 +272,7 @@ CriptoGualet/
 - **Cross-platform** - Windows, macOS, Linux support via Qt6
 - **Secure** - Windows CryptoAPI integration, secp256k1 elliptic curve cryptography, security compiler flags, encrypted database
 - **Modern UI** - Qt6 with theme management, sidebar navigation, and settings interface
+- **Transaction Management** - Send Bitcoin with fee estimation and transaction confirmation dialog
 - **Price Service** - Real-time cryptocurrency market data and pricing
 - **Top Cryptocurrencies** - View and track top performing cryptocurrencies
 - **QR Codes** - Generate QR codes for addresses and seed phrases
@@ -274,8 +290,19 @@ CriptoGualet/
 - **Cross-platform security flags** enabled
 - **Export compile commands** for IntelliSense support (CppProperties.json)
 - **CMake modularity** - Each component has its own CMakeLists.txt
-- **Enhanced UI Components** - Sidebar navigation, settings panel, top cryptocurrencies view
+- **Enhanced UI Components** - Sidebar navigation, settings panel, top cryptocurrencies view, send transaction dialog
 - **Test Utilities** - Shared test helpers for consistent testing across modules
+
+## AI Development Assistance
+The project includes specialized Claude Code agents in `.claude/agents/` for streamlined development:
+- **architecture-documentation-expert** - System architecture documentation and diagrams
+- **database-architect** - Database schema design and optimization
+- **debug-specialist** - Systematic debugging and issue resolution
+- **macos-crypto-wallet-integration** - macOS-specific features and deployment
+- **security-auditor** - Security vulnerability analysis and cryptographic review
+- **system-design-agent** - System design and architectural planning
+- **ui-designer-crypto-wallet** - UI/UX design for cryptocurrency wallet interfaces
+- **wallet-core-developer** - Core wallet functionality implementation
 
 ## MCP Integration
 - GitHub MCP server configured for enhanced context and repository operations
