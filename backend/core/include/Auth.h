@@ -80,4 +80,9 @@ bool IsValidPassword(const std::string &password);
 // Should be called once at application startup
 bool InitializeAuthDatabase();
 
+// Derive a secure machine-specific encryption key for database encryption
+// Uses machine identifiers (computer name, username, volume serial) with PBKDF2
+// Returns true on success with 64-character hex key in outKey
+bool DeriveSecureEncryptionKey(std::string &outKey);
+
 } // namespace Auth

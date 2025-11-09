@@ -42,8 +42,27 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   // Initialize database and repositories
   try {
     auto& dbManager = Database::DatabaseManager::getInstance();
-    if (!dbManager.initialize("criptogualet.db", "")) {
-      QMessageBox::critical(this, "Database Error", "Failed to initialize database");
+
+    // Derive secure machine-specific encryption key
+    std::string encryptionKey;
+    if (!Auth::DeriveSecureEncryptionKey(encryptionKey)) {
+      QMessageBox::critical(this, "Security Error",
+        "Failed to derive secure encryption key. Cannot initialize database.");
+      qCritical() << "Failed to derive encryption key for database";
+      return;
+    }
+
+    auto dbResult = dbManager.initialize("criptogualet.db", encryptionKey);
+
+    // Securely wipe the key from memory after use
+    std::fill(encryptionKey.begin(), encryptionKey.end(), '\0');
+
+    if (!dbResult) {
+      QString errorMsg = QString("Failed to initialize database: %1")
+                         .arg(QString::fromStdString(dbResult.message));
+      QMessageBox::critical(this, "Database Error", errorMsg);
+      qCritical() << "Database initialization failed:" << dbResult.message.c_str()
+                  << "Error code:" << dbResult.errorCode;
     } else {
       m_userRepository = std::make_unique<Repository::UserRepository>(dbManager);
       m_walletRepository = std::make_unique<Repository::WalletRepository>(dbManager);

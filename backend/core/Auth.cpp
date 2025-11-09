@@ -85,7 +85,7 @@ static const char *DPAPI_ENTROPY_PREFIX = "CriptoGualet seed v1::";
 extern std::map<std::string, User> g_users;
 
 // ===== Forward Declarations =====
-static bool DeriveSecureEncryptionKey(std::string &outKey);
+// DeriveSecureEncryptionKey is now a public function in Auth namespace
 
 // ===== Database and Repository Integration =====
 static std::unique_ptr<Repository::UserRepository> g_userRepo = nullptr;
@@ -113,7 +113,7 @@ static bool InitializeDatabase() {
     // Derive secure encryption key from machine-specific data
     // This binds the database to the specific machine/user context
     std::string encryptionKey;
-    if (!DeriveSecureEncryptionKey(encryptionKey)) {
+    if (!Auth::DeriveSecureEncryptionKey(encryptionKey)) {
       return false;
     }
 
@@ -262,7 +262,7 @@ static inline bool EnsureDir(const fs::path &p) {
 // - For enterprise deployment, consider using Windows DPAPI with machine/user
 // scope
 //
-static bool DeriveSecureEncryptionKey(std::string &outKey) {
+bool Auth::DeriveSecureEncryptionKey(std::string &outKey) {
   // Gather machine-specific entropy sources
   std::vector<uint8_t> entropy;
 
