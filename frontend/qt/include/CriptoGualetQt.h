@@ -1,6 +1,9 @@
 #pragma once
 
 #include "../../../backend/core/include/WalletAPI.h"
+#include "../../../backend/database/include/Database/DatabaseManager.h"
+#include "../../../backend/repository/include/Repository/UserRepository.h"
+#include "../../../backend/repository/include/Repository/WalletRepository.h"
 #include <QApplication>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -59,4 +62,6 @@ private:
   QtSidebar *m_sidebar;
   QtThemeManager *m_themeManager;
   std::unique_ptr<WalletAPI::SimpleWallet> m_wallet;
+  std::unique_ptr<Repository::UserRepository> m_userRepository;
+  std::unique_ptr<Repository::WalletRepository> m_walletRepository;
 };

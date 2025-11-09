@@ -39,6 +39,20 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   setWindowFlags(Qt::Window);
   setAttribute(Qt::WA_ShowWithoutActivating, false);
 
+  // Initialize database and repositories
+  try {
+    auto& dbManager = Database::DatabaseManager::getInstance();
+    if (!dbManager.initialize("criptogualet.db", "")) {
+      QMessageBox::critical(this, "Database Error", "Failed to initialize database");
+    } else {
+      m_userRepository = std::make_unique<Repository::UserRepository>(dbManager);
+      m_walletRepository = std::make_unique<Repository::WalletRepository>(dbManager);
+    }
+  } catch (const std::exception& e) {
+    QMessageBox::critical(this, "Initialization Error",
+      QString("Failed to initialize database: %1").arg(e.what()));
+  }
+
   // Initialize wallet
   m_wallet = std::make_unique<WalletAPI::SimpleWallet>("btc/test3");
 
@@ -84,8 +98,11 @@ void CriptoGualetQt::setupUI() {
   m_settingsUI = new QtSettingsUI(this);
   m_topCryptosPage = new QtTopCryptosPage(this);
 
-  // Pass wallet instance to wallet UI for real balance fetching
+  // Pass wallet instance and repositories to wallet UI
   m_walletUI->setWallet(m_wallet.get());
+  if (m_userRepository && m_walletRepository) {
+    m_walletUI->setRepositories(m_userRepository.get(), m_walletRepository.get());
+  }
 
   m_stackedWidget->addWidget(m_loginUI);
   m_stackedWidget->addWidget(m_walletUI);
@@ -126,6 +143,16 @@ void CriptoGualetQt::setupUI() {
 
         if (response.success()) {
           g_currentUser = stdUsername;
+
+          // Get user ID from repository
+          if (m_userRepository) {
+            auto userResult = m_userRepository->getUserByUsername(stdUsername);
+            if (userResult.success) {
+              int userId = userResult.data.id;
+              m_walletUI->setCurrentUserId(userId);
+            }
+          }
+
           m_walletUI->setUserInfo(
               username,
               QString::fromStdString(g_users[stdUsername].walletAddress));

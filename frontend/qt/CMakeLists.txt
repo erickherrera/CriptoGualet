@@ -14,6 +14,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "QtSeedDisplayDialog.cpp"
     "QtExpandableWalletCard.cpp"
     "QtTopCryptosPage.cpp"
+    "QtSendDialog.cpp"
     "include/QtLoginUI.h"
     "include/QtWalletUI.h"
     "include/QtSettingsUI.h"
@@ -22,12 +23,14 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "include/QtSeedDisplayDialog.h"
     "include/QtExpandableWalletCard.h"
     "include/QtTopCryptosPage.h"
+    "include/QtSendDialog.h"
     "include/CriptoGualetQt.h"
     "../../resources/resources.qrc"
   )
 
   set(QT_LINK_LIBRARIES
     Auth
+    Crypto
     Repository
     Database
     QRGenerator

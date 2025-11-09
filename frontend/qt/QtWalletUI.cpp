@@ -2,7 +2,9 @@
 #include "QtWalletUI.h"
 #include "QtExpandableWalletCard.h"
 #include "QtThemeManager.h"
+#include "QtSendDialog.h"
 #include "PriceService.h"
+#include "Crypto.h"
 
 #include <QApplication>
 #include <QClipboard>
@@ -34,7 +36,8 @@ QtWalletUI::QtWalletUI(QWidget *parent)
       m_balanceTitle(nullptr), m_balanceLabel(nullptr),
       m_toggleBalanceButton(nullptr), m_bitcoinWalletCard(nullptr),
       m_currentMockUser(nullptr), m_wallet(nullptr), m_balanceUpdateTimer(nullptr),
-      m_realBalanceBTC(0.0), m_priceFetcher(nullptr),
+      m_realBalanceBTC(0.0), m_userRepository(nullptr), m_walletRepository(nullptr),
+      m_currentUserId(-1), m_priceFetcher(nullptr),
       m_priceUpdateTimer(nullptr), m_currentBTCPrice(43000.0),
       m_balanceVisible(true), m_mockMode(false) {
 
@@ -220,31 +223,68 @@ void QtWalletUI::onViewBalanceClicked() {
 }
 
 void QtWalletUI::onSendBitcoinClicked() {
-  // Mock send bitcoin dialog for testing
-  bool ok;
-  QString recipient = QInputDialog::getText(
-      this, "Send Bitcoin", "Enter recipient address:", QLineEdit::Normal, "",
-      &ok);
+  // Determine current balance to use
+  double currentBalance = m_mockMode ? (m_currentMockUser ? m_currentMockUser->balance : 0.0)
+                                     : m_realBalanceBTC;
 
-  if (ok && !recipient.isEmpty()) {
-    QString amount = QInputDialog::getText(
-        this, "Send Bitcoin", "Enter amount (BTC):", QLineEdit::Normal, "0.001",
-        &ok);
+  // Create and show send dialog
+  QtSendDialog dialog(currentBalance, m_currentBTCPrice, this);
+  if (dialog.exec() == QDialog::Accepted) {
+    auto txDataOpt = dialog.getTransactionData();
+    if (!txDataOpt.has_value()) {
+      return;
+    }
 
-    if (ok && !amount.isEmpty()) {
-      QMessageBox::StandardButton reply = QMessageBox::question(
-          this, "Confirm Transaction",
-          QString("Send %1 BTC to:\n%2\n\nThis is a mock transaction for "
-                  "testing. No actual Bitcoin will be sent.\n\nConfirm?")
-              .arg(amount, recipient),
-          QMessageBox::Yes | QMessageBox::No);
+    auto txData = txDataOpt.value();
 
-      if (reply == QMessageBox::Yes) {
-        QMessageBox::information(
-            this, "Transaction Sent",
-            QString("Mock transaction of %1 BTC sent "
-                    "successfully!\n\nIn a real implementation, this would be added to the transaction history.")
-                .arg(amount));
+    // Handle mock mode differently
+    if (m_mockMode) {
+      // Mock transaction - just update the UI
+      QMessageBox::information(
+          this, "Mock Transaction Sent",
+          QString("Mock transaction of %1 BTC sent to:\n%2\n\n"
+                  "This is a demo transaction. In real mode, actual Bitcoin would be sent.")
+              .arg(txData.amountBTC, 0, 'f', 8)
+              .arg(txData.recipientAddress));
+
+      // Update mock balance
+      if (m_currentMockUser) {
+        double feeBTC = txData.estimatedFeeSatoshis / 100000000.0;
+        m_currentMockUser->balance -= (txData.amountBTC + feeBTC);
+        updateUSDBalance();
+        if (m_bitcoinWalletCard) {
+          m_bitcoinWalletCard->setBalance(QString("%1 BTC").arg(m_currentMockUser->balance, 0, 'f', 8));
+        }
+      }
+    } else {
+      // Real transaction mode
+      if (!m_wallet) {
+        QMessageBox::critical(this, "Error", "Wallet not initialized");
+        return;
+      }
+
+      try {
+        // Show progress indicator
+        QMessageBox* progressBox = new QMessageBox(this);
+        progressBox->setWindowTitle("Sending Transaction");
+        progressBox->setText("Broadcasting transaction to the network...\nPlease wait.");
+        progressBox->setStandardButtons(QMessageBox::NoButton);
+        progressBox->setModal(true);
+        progressBox->show();
+        QApplication::processEvents();
+
+        // Send the real transaction
+        sendRealTransaction(txData.recipientAddress, txData.amountSatoshis,
+                           txData.estimatedFeeSatoshis, txData.password);
+
+        progressBox->close();
+        delete progressBox;
+
+        // Refresh balance after sending
+        fetchRealBalance();
+      } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Transaction Failed",
+            QString("Failed to send transaction:\n%1").arg(e.what()));
       }
     }
   }
@@ -845,4 +885,95 @@ void QtWalletUI::onBalanceUpdateTimer() {
   if (!m_mockMode && m_wallet && !m_currentAddress.isEmpty()) {
     fetchRealBalance();
   }
+}
+
+void QtWalletUI::setRepositories(Repository::UserRepository* userRepo, Repository::WalletRepository* walletRepo) {
+  m_userRepository = userRepo;
+  m_walletRepository = walletRepo;
+}
+
+void QtWalletUI::setCurrentUserId(int userId) {
+  m_currentUserId = userId;
+}
+
+void QtWalletUI::sendRealTransaction(const QString& recipientAddress, uint64_t amountSatoshis,
+                                     uint64_t feeSatoshis, const QString& password) {
+  if (!m_wallet || !m_walletRepository || m_currentUserId < 0) {
+    throw std::runtime_error("Wallet or repositories not properly initialized");
+  }
+
+  // Step 1: Retrieve and decrypt the user's seed phrase
+  auto seedResult = m_walletRepository->retrieveDecryptedSeed(m_currentUserId, password.toStdString());
+  if (!seedResult.success) {
+    throw std::runtime_error("Failed to decrypt seed: " + seedResult.errorMessage);
+  }
+
+  std::vector<std::string> mnemonic = seedResult.data;
+
+  // Step 2: Derive master key from seed
+  std::array<uint8_t, 64> seed;
+  if (!Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed)) {
+    throw std::runtime_error("Failed to derive seed from mnemonic");
+  }
+
+  Crypto::BIP32ExtendedKey masterKey;
+  if (!Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
+    throw std::runtime_error("Failed to derive master key");
+  }
+
+  // Step 3: Derive the private key for the current address (testnet BIP44 path: m/44'/1'/0'/0/0)
+  Crypto::BIP32ExtendedKey addressKey;
+  if (!Crypto::BIP44_DeriveAddressKey(masterKey, 0, false, 0, addressKey, true)) {
+    throw std::runtime_error("Failed to derive address key");
+  }
+
+  // Step 4: Get WIF private key
+  std::string wifPrivateKey;
+  if (!Crypto::BIP32_GetWIF(addressKey, wifPrivateKey, true)) {
+    throw std::runtime_error("Failed to get WIF private key");
+  }
+
+  // Step 5: Create private keys map for WalletAPI
+  std::map<std::string, std::vector<uint8_t>> privateKeysMap;
+  std::string fromAddress = m_currentAddress.toStdString();
+
+  // Convert WIF to raw private key bytes (WIF is base58 encoded, we need raw bytes)
+  // For simplicity, we'll use the key directly from the extended key
+  std::vector<uint8_t> privateKeyBytes(addressKey.key.begin(), addressKey.key.end());
+  privateKeysMap[fromAddress] = privateKeyBytes;
+
+  // Step 6: Prepare addresses
+  std::vector<std::string> fromAddresses = { fromAddress };
+  std::string toAddress = recipientAddress.toStdString();
+
+  // Step 7: Send the transaction using WalletAPI
+  WalletAPI::SendTransactionResult result = m_wallet->SendFunds(
+      fromAddresses,
+      toAddress,
+      amountSatoshis,
+      privateKeysMap,
+      feeSatoshis
+  );
+
+  // Step 8: Handle result
+  if (!result.success) {
+    throw std::runtime_error("Transaction failed: " + result.error_message);
+  }
+
+  // Step 9: Show success message
+  QMessageBox::information(this, "Transaction Sent",
+      QString("Transaction broadcast successfully!\n\n"
+              "Transaction Hash:\n%1\n\n"
+              "Amount: %2 BTC\n"
+              "Fee: %3 BTC\n\n"
+              "The transaction will appear in your history once confirmed.")
+          .arg(QString::fromStdString(result.transaction_hash))
+          .arg(amountSatoshis / 100000000.0, 0, 'f', 8)
+          .arg(result.total_fees / 100000000.0, 0, 'f', 8));
+
+  // Step 10: Clean up sensitive data
+  // TODO: Re-enable secure memory cleanup after fixing linkage
+  // Crypto::SecureWipeVector(privateKeyBytes);
+  // Crypto::SecureZeroMemory(seed.data(), seed.size());
+  privateKeyBytes.clear();
 }

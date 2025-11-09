@@ -17,6 +17,8 @@
 #include <memory>
 #include "PriceService.h"
 #include "WalletAPI.h"
+#include "Repository/UserRepository.h"
+#include "Repository/WalletRepository.h"
 
 // Forward declarations
 class QtThemeManager;
@@ -52,6 +54,8 @@ public:
   // Real wallet integration
   void setWallet(WalletAPI::SimpleWallet *wallet);
   void fetchRealBalance();
+  void setRepositories(Repository::UserRepository* userRepo, Repository::WalletRepository* walletRepo);
+  void setCurrentUserId(int userId);
 
   // Mock user system
   bool authenticateMockUser(const QString &username, const QString &password);
@@ -128,6 +132,14 @@ private:
   WalletAPI::SimpleWallet *m_wallet;
   QTimer *m_balanceUpdateTimer;
   double m_realBalanceBTC;
+  Repository::UserRepository* m_userRepository;
+  Repository::WalletRepository* m_walletRepository;
+  int m_currentUserId;
+
+  // Transaction handling
+  void sendRealTransaction(const QString& recipientAddress, uint64_t amountSatoshis,
+                          uint64_t feeSatoshis, const QString& password);
+  std::vector<uint8_t> derivePrivateKeyForAddress(const QString& address, const QString& password);
 
   // Price service
   std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;
