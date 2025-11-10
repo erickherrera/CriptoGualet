@@ -46,6 +46,7 @@ private:
     QtThemeManager *m_themeManager;
     QNetworkAccessManager *m_networkManager;
     QString m_currentSymbol;
+    QString m_currentImageUrl;
     bool m_iconLoaded;
 
 private slots:

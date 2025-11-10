@@ -94,9 +94,8 @@ std::optional<CryptoPriceData> PriceFetcher::ParsePriceResponse(const std::strin
 
 std::vector<CryptoPriceData> PriceFetcher::GetTopCryptosByMarketCap(int count) {
     // CoinGecko endpoint for market data with pagination
-    // Fetch extra to account for stablecoins we'll filter out
     std::string endpoint = "/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=" +
-                          std::to_string(count * 2) + // Fetch extra to account for stablecoins
+                          std::to_string(count) +
                           "&page=1&sparkline=false&price_change_percentage=24h";
 
     std::string response = MakeRequest(endpoint);
@@ -122,27 +121,7 @@ std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::st
 
         std::cout << "[PriceService] Array size: " << parsed.size() << std::endl;
 
-        // List of common stablecoins to exclude
-        std::vector<std::string> stablecoins = {
-            "tether", "usd-coin", "binance-usd", "dai", "true-usd",
-            "paxos-standard", "usdd", "frax", "tusd", "gemini-dollar"
-        };
-
         for (const auto& coin : parsed) {
-            // Skip stablecoins
-            std::string coin_id = coin.value("id", "");
-            bool is_stablecoin = false;
-            for (const auto& stable : stablecoins) {
-                if (coin_id == stable) {
-                    is_stablecoin = true;
-                    break;
-                }
-            }
-            if (is_stablecoin) {
-                std::cout << "[PriceService] Skipping stablecoin: " << coin_id << std::endl;
-                continue;
-            }
-
             CryptoPriceData data;
             data.symbol = coin.value("symbol", "");
             data.name = coin.value("name", "");
@@ -150,6 +129,7 @@ std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::st
             data.price_change_24h = coin.value("price_change_percentage_24h", 0.0);
             data.market_cap = coin.value("market_cap", 0.0);
             data.last_updated = coin.value("last_updated", "");
+            data.image_url = coin.value("image", "");
 
             // Convert symbol to uppercase
             for (char& c : data.symbol) {
@@ -160,7 +140,7 @@ std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::st
 
             results.push_back(data);
 
-            // Stop when we have enough non-stablecoin results
+            // Stop when we have enough results
             if (static_cast<int>(results.size()) >= count) {
                 break;
             }

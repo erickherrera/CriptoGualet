@@ -104,6 +104,7 @@ void QtCryptoCard::setupUI() {
 void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &data, int rank) {
     QString symbol = QString::fromStdString(data.symbol);
     m_currentSymbol = symbol;
+    m_currentImageUrl = QString::fromStdString(data.image_url);
 
     // Set placeholder while loading
     m_iconLabel->clear();
@@ -173,7 +174,15 @@ void QtCryptoCard::loadIcon(const QString &symbol) {
         return; // Already loaded
     }
 
-    QString iconUrl = getCryptoIconUrl(symbol);
+    // Use the image URL from the API data, or fallback to static mapping
+    QString iconUrl;
+    if (!m_currentImageUrl.isEmpty()) {
+        iconUrl = m_currentImageUrl;
+        qDebug() << "Using API image URL for" << symbol << ":" << iconUrl;
+    } else {
+        iconUrl = getCryptoIconUrl(symbol);
+        qDebug() << "Using fallback static mapping for" << symbol << ":" << iconUrl;
+    }
 
     // Trigger icon download with proper headers
     QNetworkRequest request(iconUrl);

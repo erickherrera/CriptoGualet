@@ -15,6 +15,7 @@ struct CryptoPriceData {
     double price_change_24h;   // 24h price change percentage
     double market_cap;         // Market capitalization in USD
     std::string last_updated;  // Last update timestamp
+    std::string image_url;     // Icon/logo image URL from CoinGecko
 };
 
 class PriceFetcher {
