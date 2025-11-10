@@ -18,6 +18,7 @@ std::vector<uint8_t> B64Decode(const std::string &s);
 // === Hash Functions ===
 bool SHA256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out);
 bool RIPEMD160(const uint8_t *data, size_t len, std::array<uint8_t, 20> &out);
+bool Keccak256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out);
 bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data, size_t data_len, std::vector<uint8_t> &out);
 bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data, size_t data_len, std::vector<uint8_t> &out);
 
@@ -256,5 +257,55 @@ bool CreateUnsignedTransaction(const std::vector<UTXO> &inputs,
                                 const std::string &change_address,
                                 uint64_t change_amount,
                                 BitcoinTransaction &tx);
+
+// === Ethereum Functions ===
+
+// Generate Ethereum address from extended public key
+// Ethereum addresses are 20 bytes (40 hex chars) with 0x prefix
+// Format: 0x + last 20 bytes of Keccak256(public_key)
+bool BIP32_GetEthereumAddress(const BIP32ExtendedKey &extKey, std::string &address);
+
+// Derive Ethereum address key from BIP44 path
+// Ethereum BIP44 path: m/44'/60'/0'/0/0 (coin_type = 60)
+bool BIP44_DeriveEthereumAddressKey(const BIP32ExtendedKey &master, uint32_t account,
+                                     bool change, uint32_t address_index,
+                                     BIP32ExtendedKey &address_key);
+
+// Derive Ethereum address from BIP44 path
+bool BIP44_GetEthereumAddress(const BIP32ExtendedKey &master, uint32_t account,
+                               bool change, uint32_t address_index,
+                               std::string &address);
+
+// Generate multiple Ethereum addresses for an account
+bool BIP44_GenerateEthereumAddresses(const BIP32ExtendedKey &master, uint32_t account,
+                                      bool change, uint32_t start_index, uint32_t count,
+                                      std::vector<std::string> &addresses);
+
+// === Multi-Chain Helper Functions ===
+
+// Chain type enumeration
+enum class ChainType {
+  BITCOIN,
+  BITCOIN_TESTNET,
+  ETHEREUM,
+  ETHEREUM_TESTNET,  // Sepolia, Goerli
+  BNB_CHAIN,
+  POLYGON,
+  AVALANCHE,
+  ARBITRUM,
+  OPTIMISM,
+  BASE
+};
+
+// Get BIP44 coin type for a chain
+uint32_t GetCoinType(ChainType chain);
+
+// Get chain name as string
+std::string GetChainName(ChainType chain);
+
+// Derive address for any supported chain
+bool DeriveChainAddress(const BIP32ExtendedKey &master, ChainType chain,
+                         uint32_t account, bool change, uint32_t address_index,
+                         std::string &address);
 
 } // namespace Crypto

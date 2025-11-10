@@ -13,6 +13,19 @@ target_include_directories(test_bip39 PRIVATE
   "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/include"
 )
 
+# ---- Ethereum Wallet Test Executable ----
+add_executable(test_ethereum_wallet
+  "test_ethereum_wallet.cpp"
+)
+target_link_libraries(test_ethereum_wallet PRIVATE Auth Crypto SharedSymbols comctl32 crypt32 bcrypt)
+target_include_directories(test_ethereum_wallet PRIVATE
+  "${CMAKE_SOURCE_DIR}/backend/core/include"
+  "${CMAKE_SOURCE_DIR}/backend/repository/include"
+  "${CMAKE_SOURCE_DIR}/backend/database/include"
+  "${CMAKE_SOURCE_DIR}/backend/utils/include"
+  "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/include"
+)
+
 # ---- Secure Seed Test Executable ----
 add_executable(test_secure_seed
   "test_secure_seed.cpp"
