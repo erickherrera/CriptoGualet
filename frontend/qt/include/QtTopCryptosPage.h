@@ -11,6 +11,8 @@
 #include <QResizeEvent>
 #include <QNetworkAccessManager>
 #include <QMap>
+#include <QLineEdit>
+#include <QComboBox>
 #include <memory>
 #include "PriceService.h"
 
@@ -24,6 +26,8 @@ public:
     explicit QtCryptoCard(QWidget *parent = nullptr);
     void setCryptoData(const PriceService::CryptoPriceData &data, int rank);
     void applyTheme();
+    void loadIcon(const QString &symbol);
+    bool isIconLoaded() const { return m_iconLoaded; }
 
 private:
     void setupUI();
@@ -41,6 +45,8 @@ private:
 
     QtThemeManager *m_themeManager;
     QNetworkAccessManager *m_networkManager;
+    QString m_currentSymbol;
+    bool m_iconLoaded;
 
 private slots:
     void onIconDownloaded(QNetworkReply *reply);
@@ -65,14 +71,24 @@ private slots:
     void onRefreshClicked();
     void onBackClicked();
     void onAutoRefreshTimer();
+    void onSearchTextChanged(const QString &text);
+    void onSortChanged(int index);
+    void onSearchDebounceTimer();
 
 private:
     void setupUI();
     void createHeader();
+    void createSearchBar();
+    void createSortDropdown();
     void createCryptoCards();
     void fetchTopCryptos();
     void updateCards();
     void updateScrollAreaWidth();
+    void filterAndSortData();
+    void applySearchFilter();
+    void applySorting();
+    void updateResultCounter();
+    void loadVisibleIcons();
 
     QtThemeManager *m_themeManager;
 
@@ -89,6 +105,12 @@ private:
     QPushButton *m_refreshButton;
     QPushButton *m_backButton;
 
+    // Search and filter controls
+    QLineEdit *m_searchBox;
+    QPushButton *m_clearSearchButton;
+    QComboBox *m_sortDropdown;
+    QLabel *m_resultCounterLabel;
+
     // Crypto cards
     QVector<QtCryptoCard*> m_cryptoCards;
     QWidget *m_cardsContainer;
@@ -97,6 +119,12 @@ private:
     // Price service
     std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;
     std::vector<PriceService::CryptoPriceData> m_cryptoData;
+    std::vector<PriceService::CryptoPriceData> m_filteredData;
+
+    // Search and sort state
+    QString m_searchText;
+    int m_currentSortIndex;
+    QTimer *m_searchDebounceTimer;
 
     // Auto-refresh timer
     QTimer *m_refreshTimer;

@@ -43,7 +43,7 @@ public:
 private:
     std::string MakeRequest(const std::string& endpoint);
     std::optional<CryptoPriceData> ParsePriceResponse(const std::string& json_response);
-    std::vector<CryptoPriceData> ParseTopCryptosResponse(const std::string& json_response);
+    std::vector<CryptoPriceData> ParseTopCryptosResponse(const std::string& json_response, int count);
 };
 
 } // namespace PriceService

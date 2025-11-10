@@ -96,7 +96,7 @@ std::vector<CryptoPriceData> PriceFetcher::GetTopCryptosByMarketCap(int count) {
     // CoinGecko endpoint for market data with pagination
     // Fetch extra to account for stablecoins we'll filter out
     std::string endpoint = "/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=" +
-                          std::to_string(count * 3) + // Fetch extra to account for stablecoins
+                          std::to_string(count * 2) + // Fetch extra to account for stablecoins
                           "&page=1&sparkline=false&price_change_percentage=24h";
 
     std::string response = MakeRequest(endpoint);
@@ -104,10 +104,10 @@ std::vector<CryptoPriceData> PriceFetcher::GetTopCryptosByMarketCap(int count) {
         return {};
     }
 
-    return ParseTopCryptosResponse(response);
+    return ParseTopCryptosResponse(response, count);
 }
 
-std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::string& json_response) {
+std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::string& json_response, int count) {
     std::vector<CryptoPriceData> results;
 
     try {
@@ -161,7 +161,7 @@ std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::st
             results.push_back(data);
 
             // Stop when we have enough non-stablecoin results
-            if (results.size() >= 5) {
+            if (static_cast<int>(results.size()) >= count) {
                 break;
             }
         }
