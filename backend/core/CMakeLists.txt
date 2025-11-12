@@ -61,5 +61,5 @@ if(BLOCKCYPHER_AVAILABLE)
   target_include_directories(WalletAPI PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
   )
-  target_link_libraries(WalletAPI PRIVATE BlockCypher)
+  target_link_libraries(WalletAPI PRIVATE BlockCypher EthereumService)
 endif()

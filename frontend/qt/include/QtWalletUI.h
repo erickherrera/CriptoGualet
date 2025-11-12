@@ -53,6 +53,8 @@ public:
 
   // Real wallet integration
   void setWallet(WalletAPI::SimpleWallet *wallet);
+  void setEthereumWallet(WalletAPI::EthereumWallet *ethWallet);  // PHASE 1 FIX
+  void setEthereumAddress(const QString &address);  // PHASE 1 FIX
   void fetchRealBalance();
   void setRepositories(Repository::UserRepository* userRepo, Repository::WalletRepository* walletRepo);
   void setCurrentUserId(int userId);
@@ -117,6 +119,7 @@ private:
 
   // Reusable wallet cards
   class QtExpandableWalletCard *m_bitcoinWalletCard;
+  class QtExpandableWalletCard *m_ethereumWalletCard;
 
   // User data
   QString m_currentUsername;
@@ -130,8 +133,11 @@ private:
 
   // Real wallet integration
   WalletAPI::SimpleWallet *m_wallet;
+  WalletAPI::EthereumWallet *m_ethereumWallet;
   QTimer *m_balanceUpdateTimer;
   double m_realBalanceBTC;
+  double m_realBalanceETH;
+  QString m_ethereumAddress;
   Repository::UserRepository* m_userRepository;
   Repository::WalletRepository* m_walletRepository;
   int m_currentUserId;

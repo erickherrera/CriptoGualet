@@ -266,4 +266,83 @@ std::string SimpleWallet::GetNetworkInfo() {
     return "Connected to BlockCypher API - Network: " + current_network;
 }
 
+// ===== Ethereum Wallet Implementation =====
+
+EthereumWallet::EthereumWallet(const std::string& network)
+    : current_network(network) {
+    client = std::make_unique<EthereumService::EthereumClient>(network);
+}
+
+void EthereumWallet::SetApiToken(const std::string& token) {
+    if (client) {
+        client->SetApiToken(token);
+    }
+}
+
+void EthereumWallet::SetNetwork(const std::string& network) {
+    current_network = network;
+    if (client) {
+        client->SetNetwork(network);
+    }
+}
+
+std::optional<EthereumService::AddressBalance> EthereumWallet::GetAddressInfo(const std::string& address) {
+    if (!client) {
+        return std::nullopt;
+    }
+    return client->GetAddressBalance(address);
+}
+
+double EthereumWallet::GetBalance(const std::string& address) {
+    if (!client) {
+        return 0.0;
+    }
+
+    auto balance_result = client->GetAddressBalance(address);
+    if (balance_result) {
+        return balance_result->balance_eth;
+    }
+
+    return 0.0;
+}
+
+std::vector<EthereumService::Transaction> EthereumWallet::GetTransactionHistory(const std::string& address, uint32_t limit) {
+    if (!client) {
+        return {};
+    }
+
+    auto tx_result = client->GetTransactionHistory(address, limit);
+    if (tx_result) {
+        return tx_result.value();
+    }
+
+    return {};
+}
+
+std::optional<EthereumService::GasPrice> EthereumWallet::GetGasPrice() {
+    if (!client) {
+        return std::nullopt;
+    }
+    return client->GetGasPrice();
+}
+
+bool EthereumWallet::ValidateAddress(const std::string& address) {
+    if (!client) {
+        return false;
+    }
+    return client->IsValidAddress(address);
+}
+
+double EthereumWallet::ConvertWeiToEth(const std::string& wei_str) {
+    return EthereumService::EthereumClient::WeiToEth(wei_str);
+}
+
+std::string EthereumWallet::ConvertEthToWei(double eth) {
+    return EthereumService::EthereumClient::EthToWei(eth);
+}
+
+std::string EthereumWallet::GetNetworkInfo() {
+    return "Connected to Etherscan API - Network: " + current_network;
+}
+
 } // namespace WalletAPI

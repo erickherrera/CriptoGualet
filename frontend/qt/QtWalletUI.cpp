@@ -35,9 +35,10 @@ QtWalletUI::QtWalletUI(QWidget *parent)
       m_headerSection(nullptr), m_headerTitle(nullptr),
       m_balanceTitle(nullptr), m_balanceLabel(nullptr),
       m_toggleBalanceButton(nullptr), m_bitcoinWalletCard(nullptr),
-      m_currentMockUser(nullptr), m_wallet(nullptr), m_balanceUpdateTimer(nullptr),
-      m_realBalanceBTC(0.0), m_userRepository(nullptr), m_walletRepository(nullptr),
-      m_currentUserId(-1), m_priceFetcher(nullptr),
+      m_ethereumWalletCard(nullptr), m_currentMockUser(nullptr), m_wallet(nullptr),
+      m_ethereumWallet(nullptr), m_balanceUpdateTimer(nullptr),
+      m_realBalanceBTC(0.0), m_realBalanceETH(0.0), m_userRepository(nullptr),
+      m_walletRepository(nullptr), m_currentUserId(-1), m_priceFetcher(nullptr),
       m_priceUpdateTimer(nullptr), m_currentBTCPrice(43000.0),
       m_balanceVisible(true), m_mockMode(false) {
 
@@ -191,6 +192,23 @@ void QtWalletUI::createActionButtons() {
           &QtWalletUI::onReceiveBitcoinClicked);
 
   m_contentLayout->addWidget(m_bitcoinWalletCard);
+
+  // Create Ethereum wallet card
+  m_ethereumWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+  m_ethereumWalletCard->setCryptocurrency("Ethereum", "ETH", "Ξ");
+  m_ethereumWalletCard->setBalance("0.00000000 ETH");
+  m_ethereumWalletCard->setTransactionHistory(
+      "No transactions yet.<br><br>This wallet supports Ethereum network. "
+      "Transaction history will be displayed here.");
+
+  // For now, Ethereum send/receive can use similar handlers
+  // (We'll create separate handlers later if needed)
+  connect(m_ethereumWalletCard, &QtExpandableWalletCard::sendRequested, this,
+          [this]() { QMessageBox::information(this, "Ethereum Send", "Ethereum send functionality coming soon!"); });
+  connect(m_ethereumWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+          &QtWalletUI::onReceiveBitcoinClicked);  // Temporarily reuse receive handler
+
+  m_contentLayout->addWidget(m_ethereumWalletCard);
 }
 
 
@@ -837,6 +855,23 @@ void QtWalletUI::setWallet(WalletAPI::SimpleWallet *wallet) {
   }
 }
 
+// PHASE 1 FIX: Ethereum wallet initialization
+void QtWalletUI::setEthereumWallet(WalletAPI::EthereumWallet *ethWallet) {
+  m_ethereumWallet = ethWallet;
+  // Fetch initial balance when wallet is set
+  if (m_ethereumWallet && !m_ethereumAddress.isEmpty()) {
+    fetchRealBalance();
+  }
+}
+
+void QtWalletUI::setEthereumAddress(const QString &address) {
+  m_ethereumAddress = address;
+  // Fetch balance if wallet is already set
+  if (m_ethereumWallet && !m_ethereumAddress.isEmpty()) {
+    fetchRealBalance();
+  }
+}
+
 void QtWalletUI::fetchRealBalance() {
   if (!m_wallet || m_currentAddress.isEmpty()) {
     return;
@@ -845,7 +880,7 @@ void QtWalletUI::fetchRealBalance() {
   // Disable mock mode when fetching real balance
   m_mockMode = false;
 
-  // Fetch balance from blockchain
+  // Fetch Bitcoin balance from blockchain
   std::string address = m_currentAddress.toStdString();
   uint64_t balanceSatoshis = m_wallet->GetBalance(address);
 
@@ -860,7 +895,7 @@ void QtWalletUI::fetchRealBalance() {
     m_bitcoinWalletCard->setBalance(QString("%1 BTC").arg(m_realBalanceBTC, 0, 'f', 8));
   }
 
-  // Fetch and display transaction history
+  // Fetch and display Bitcoin transaction history
   auto txHistory = m_wallet->GetTransactionHistory(address, 10);
   if (!txHistory.empty()) {
     QString historyHtml;
@@ -876,6 +911,41 @@ void QtWalletUI::fetchRealBalance() {
     if (m_bitcoinWalletCard) {
       m_bitcoinWalletCard->setTransactionHistory(
           "No transactions yet.<br><br>Send testnet Bitcoin to your address to see it appear here!");
+    }
+  }
+
+  // Fetch Ethereum balance if we have an Ethereum wallet and address
+  if (m_ethereumWallet && !m_ethereumAddress.isEmpty()) {
+    std::string ethAddress = m_ethereumAddress.toStdString();
+    m_realBalanceETH = m_ethereumWallet->GetBalance(ethAddress);
+
+    // Update Ethereum wallet card
+    if (m_ethereumWalletCard) {
+      m_ethereumWalletCard->setBalance(QString("%1 ETH").arg(m_realBalanceETH, 0, 'f', 8));
+    }
+
+    // Fetch and display Ethereum transaction history
+    auto ethTxHistory = m_ethereumWallet->GetTransactionHistory(ethAddress, 10);
+    if (!ethTxHistory.empty()) {
+      QString ethHistoryHtml;
+      for (const auto& tx : ethTxHistory) {
+        QString type = (tx.to == ethAddress) ? "Received" : "Sent";
+        ethHistoryHtml += QString("<b>%1:</b> %2 ETH<br>")
+                             .arg(type)
+                             .arg(tx.value_eth, 0, 'f', 8);
+        ethHistoryHtml += QString("Hash: %1<br>")
+                             .arg(QString::fromStdString(tx.hash).left(16) + "...");
+        ethHistoryHtml += QString("Status: %1<br><br>")
+                             .arg(tx.is_error ? "Failed" : "Success");
+      }
+      if (m_ethereumWalletCard) {
+        m_ethereumWalletCard->setTransactionHistory(ethHistoryHtml);
+      }
+    } else {
+      if (m_ethereumWalletCard) {
+        m_ethereumWalletCard->setTransactionHistory(
+            "No transactions yet.<br><br>Send Ethereum to your address to see it appear here!");
+      }
     }
   }
 }

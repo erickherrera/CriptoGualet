@@ -72,8 +72,11 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
       QString("Failed to initialize database: %1").arg(e.what()));
   }
 
-  // Initialize wallet
+  // Initialize Bitcoin wallet
   m_wallet = std::make_unique<WalletAPI::SimpleWallet>("btc/test3");
+
+  // Initialize Ethereum wallet (PHASE 1 FIX: Multi-chain support)
+  m_ethereumWallet = std::make_unique<WalletAPI::EthereumWallet>("mainnet");
 
   setupUI();
   setupMenuBar();
@@ -117,8 +120,9 @@ void CriptoGualetQt::setupUI() {
   m_settingsUI = new QtSettingsUI(this);
   m_topCryptosPage = new QtTopCryptosPage(this);
 
-  // Pass wallet instance and repositories to wallet UI
+  // Pass wallet instances and repositories to wallet UI
   m_walletUI->setWallet(m_wallet.get());
+  m_walletUI->setEthereumWallet(m_ethereumWallet.get());  // PHASE 1 FIX
   if (m_userRepository && m_walletRepository) {
     m_walletUI->setRepositories(m_userRepository.get(), m_walletRepository.get());
   }
@@ -169,6 +173,27 @@ void CriptoGualetQt::setupUI() {
             if (userResult.success) {
               int userId = userResult.data.id;
               m_walletUI->setCurrentUserId(userId);
+
+              // PHASE 1 FIX: Derive Ethereum address from seed
+              if (m_walletRepository) {
+                auto seedResult = m_walletRepository->retrieveDecryptedSeed(userId, stdPassword);
+                if (seedResult.success && !seedResult.data.empty()) {
+                  // Convert mnemonic to seed
+                  std::array<uint8_t, 64> seed{};
+                  if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "", seed)) {
+                    // Derive master key
+                    Crypto::BIP32ExtendedKey masterKey;
+                    if (Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
+                      // Derive Ethereum address
+                      std::string ethAddress;
+                      if (Crypto::BIP44_GetEthereumAddress(masterKey, 0, false, 0, ethAddress)) {
+                        m_walletUI->setEthereumAddress(QString::fromStdString(ethAddress));
+                      }
+                    }
+                    seed.fill(uint8_t(0)); // Securely wipe
+                  }
+                }
+              }
             }
           }
 

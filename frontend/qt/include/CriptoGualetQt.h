@@ -62,6 +62,7 @@ private:
   QtSidebar *m_sidebar;
   QtThemeManager *m_themeManager;
   std::unique_ptr<WalletAPI::SimpleWallet> m_wallet;
+  std::unique_ptr<WalletAPI::EthereumWallet> m_ethereumWallet;  // PHASE 1 FIX
   std::unique_ptr<Repository::UserRepository> m_userRepository;
   std::unique_ptr<Repository::WalletRepository> m_walletRepository;
 };

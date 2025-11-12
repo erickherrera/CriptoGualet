@@ -764,6 +764,39 @@ static bool DeriveWalletCredentialsFromSeed(const std::array<uint8_t, 64> &seed,
   return true;
 }
 
+// Derive Ethereum wallet address from seed
+static bool DeriveEthereumAddressFromSeed(const std::array<uint8_t, 64> &seed,
+                                          std::string &outEthereumAddress,
+                                          std::ofstream *logFile) {
+  // 1. Derive master key from BIP39 seed
+  Crypto::BIP32ExtendedKey masterKey;
+  if (!Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
+    if (logFile && logFile->is_open()) {
+      *logFile << "BIP32: Failed to derive master key from seed for Ethereum\n";
+      logFile->flush();
+    }
+    return false;
+  }
+
+  // 2. Derive Ethereum address using BIP44 path: m/44'/60'/0'/0/0
+  //    44' = BIP44, 60' = Ethereum, 0' = Account #0, 0 = external chain, 0 = first address
+  if (!Crypto::BIP44_GetEthereumAddress(masterKey, 0, false, 0, outEthereumAddress)) {
+    if (logFile && logFile->is_open()) {
+      *logFile << "BIP44: Failed to derive Ethereum address\n";
+      logFile->flush();
+    }
+    return false;
+  }
+
+  if (logFile && logFile->is_open()) {
+    *logFile << "BIP44: Successfully derived Ethereum address\n";
+    *logFile << "BIP44: Ethereum Address: " << outEthereumAddress << "\n";
+    logFile->flush();
+  }
+
+  return true;
+}
+
 // === NEW: generate + store seed (called during registration) ===
 static bool
 GenerateAndActivateSeedForUser(const std::string &username,
@@ -1157,15 +1190,24 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
                                                AUTH_DEBUG_LOG_PTR(&logFile));
 
   // Derive wallet credentials from seed using BIP32
-  std::string privateKeyWIF, walletAddress;
+  std::string privateKeyWIF, walletAddress, ethereumAddress;
   if (seedOk) {
     std::array<uint8_t, 64> seed{};
     if (RetrieveUserSeedDPAPI(username, seed)) {
+      // Derive Bitcoin credentials
       if (!DeriveWalletCredentialsFromSeed(seed, privateKeyWIF, walletAddress,
                                            AUTH_DEBUG_LOG_PTR(&logFile))) {
         AUTH_DEBUG_LOG_WRITE(
-            logFile, "BIP32: WARNING - Failed to derive keys from seed\n");
+            logFile, "BIP32: WARNING - Failed to derive Bitcoin keys from seed\n");
       }
+
+      // Derive Ethereum address (PHASE 1 FIX: Multi-chain support)
+      if (!DeriveEthereumAddressFromSeed(seed, ethereumAddress,
+                                         AUTH_DEBUG_LOG_PTR(&logFile))) {
+        AUTH_DEBUG_LOG_WRITE(
+            logFile, "BIP44: WARNING - Failed to derive Ethereum address from seed\n");
+      }
+
       seed.fill(uint8_t(0)); // Securely wipe
     }
   }
@@ -1204,7 +1246,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
       }
     }
 
-    // Create default wallet for user
+    // Create default Bitcoin wallet for user
     auto walletResult = g_walletRepo->createWallet(
         userId, username + "'s Bitcoin Wallet", "bitcoin",
         std::optional<std::string>(
@@ -1214,9 +1256,35 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
 
     if (!walletResult.success) {
       AUTH_DEBUG_LOG_STREAM(logFile)
-          << "Database: WARNING - Failed to create wallet: "
+          << "Database: WARNING - Failed to create Bitcoin wallet: "
           << walletResult.errorMessage << "\n";
       AUTH_DEBUG_LOG_FLUSH(logFile);
+    } else {
+      AUTH_DEBUG_LOG_WRITE(logFile,
+                           "Database: Bitcoin wallet created successfully\n");
+    }
+
+    // Create Ethereum wallet for user (PHASE 1 FIX: Multi-chain support)
+    auto ethWalletResult = g_walletRepo->createWallet(
+        userId, username + "'s Ethereum Wallet", "ethereum",
+        std::optional<std::string>(
+            "m/44'/60'/0'"), // BIP44 Ethereum derivation path
+        std::nullopt         // Extended public key can be added later
+    );
+
+    if (!ethWalletResult.success) {
+      AUTH_DEBUG_LOG_STREAM(logFile)
+          << "Database: WARNING - Failed to create Ethereum wallet: "
+          << ethWalletResult.errorMessage << "\n";
+      AUTH_DEBUG_LOG_FLUSH(logFile);
+    } else {
+      AUTH_DEBUG_LOG_WRITE(logFile,
+                           "Database: Ethereum wallet created successfully\n");
+      if (!ethereumAddress.empty()) {
+        AUTH_DEBUG_LOG_STREAM(logFile)
+            << "Database: Ethereum Address: " << ethereumAddress << "\n";
+        AUTH_DEBUG_LOG_FLUSH(logFile);
+      }
     }
 
     // Populate in-memory cache for frontend compatibility

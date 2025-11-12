@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../blockchain/include/BlockCypher.h"
+#include "../../blockchain/include/EthereumService.h"
 #include "Crypto.h"
 #include <functional>
 #include <memory>
@@ -54,6 +55,37 @@ public:
   uint64_t EstimateTransactionFee();
   uint64_t ConvertBTCToSatoshis(double btc_amount);
   double ConvertSatoshisToBTC(uint64_t satoshis);
+
+  // For testing/demo purposes
+  std::string GetNetworkInfo();
+};
+
+// Ethereum Wallet class
+class EthereumWallet {
+private:
+  std::unique_ptr<EthereumService::EthereumClient> client;
+  std::string current_network;
+
+public:
+  explicit EthereumWallet(const std::string &network = "mainnet");
+  ~EthereumWallet() = default;
+
+  // Configuration
+  void SetApiToken(const std::string &token);
+  void SetNetwork(const std::string &network);
+
+  // Receive functionality
+  std::optional<EthereumService::AddressBalance> GetAddressInfo(const std::string &address);
+  double GetBalance(const std::string &address); // Returns ETH balance
+  std::vector<EthereumService::Transaction> GetTransactionHistory(const std::string &address, uint32_t limit = 10);
+
+  // Gas price estimation
+  std::optional<EthereumService::GasPrice> GetGasPrice();
+
+  // Utility functions
+  bool ValidateAddress(const std::string &address);
+  double ConvertWeiToEth(const std::string &wei_str);
+  std::string ConvertEthToWei(double eth);
 
   // For testing/demo purposes
   std::string GetNetworkInfo();
