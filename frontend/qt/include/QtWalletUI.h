@@ -69,20 +69,24 @@ signals:
   void viewBalanceRequested();
   void sendBitcoinRequested();
   void receiveBitcoinRequested();
+  void receiveEthereumRequested();  // PHASE 2: Separate Ethereum receive handler
   void logoutRequested();
 
 private slots:
   void onViewBalanceClicked();
   void onSendBitcoinClicked();
   void onReceiveBitcoinClicked();
+  void onReceiveEthereumClicked();  // PHASE 2: Separate Ethereum receive handler
   void onLogoutClicked();
   void onThemeChanged();
   void onToggleBalanceClicked();
+  void onRefreshClicked();  // PHASE 3: Manual refresh handler
   void onPriceUpdateTimer();
   void onBalanceUpdateTimer();
 
 protected:
   void resizeEvent(QResizeEvent *event) override;
+  void keyPressEvent(QKeyEvent *event) override;  // PHASE 3: Keyboard shortcuts
 
 private:
   void setupUI();
@@ -116,6 +120,7 @@ private:
   QLabel *m_balanceTitle;
   QLabel *m_balanceLabel;
   QPushButton *m_toggleBalanceButton;
+  QPushButton *m_refreshButton;  // PHASE 3: Manual refresh button
 
   // Reusable wallet cards
   class QtExpandableWalletCard *m_bitcoinWalletCard;
@@ -147,12 +152,29 @@ private:
                           uint64_t feeSatoshis, const QString& password);
   std::vector<uint8_t> derivePrivateKeyForAddress(const QString& address, const QString& password);
 
+  // PHASE 3: Transaction history formatting
+  QString formatBitcoinTransactionHistory(const std::vector<std::string>& txHashes);
+  QString formatEthereumTransactionHistory(const std::vector<WalletAPI::EthereumTransaction>& txs, const std::string& userAddress);
+
   // Price service
   std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;
   QTimer *m_priceUpdateTimer;
   double m_currentBTCPrice;
+  double m_currentETHPrice;  // PHASE 2: ETH price for total balance
   void updateUSDBalance();
   void fetchBTCPrice();
+  void fetchETHPrice();  // PHASE 2: Fetch Ethereum price
+  void fetchAllPrices();  // PHASE 2: Fetch both BTC and ETH prices
+
+  // PHASE 2: Loading and error state management
+  bool m_isLoadingBTC;
+  bool m_isLoadingETH;
+  QString m_lastErrorMessage;
+  QLabel *m_statusLabel;
+  void setLoadingState(bool loading, const QString& chain);
+  void setErrorState(const QString& errorMessage);
+  void clearErrorState();
+  void updateStatusLabel();
 
   // Flags
   bool m_balanceVisible;

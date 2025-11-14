@@ -198,12 +198,25 @@ static bool InitializeDatabase() {
         FOREIGN KEY (user_id) REFERENCES users(id)
       );
 
+      -- Basic indexes
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
       CREATE INDEX IF NOT EXISTS idx_addresses_wallet_id ON addresses(wallet_id);
       CREATE INDEX IF NOT EXISTS idx_addresses_address ON addresses(address);
       CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id);
       CREATE INDEX IF NOT EXISTS idx_transactions_txid ON transactions(txid);
+
+      -- Phase 3: Composite indexes for query optimization
+      CREATE INDEX IF NOT EXISTS idx_wallets_user_type ON wallets(user_id, wallet_type);
+      CREATE INDEX IF NOT EXISTS idx_wallets_user_active ON wallets(user_id, is_active);
+      CREATE INDEX IF NOT EXISTS idx_transactions_wallet_date ON transactions(wallet_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_transactions_wallet_confirmed ON transactions(wallet_id, is_confirmed);
+      CREATE INDEX IF NOT EXISTS idx_transactions_wallet_direction_date ON transactions(wallet_id, direction, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_addresses_wallet_change ON addresses(wallet_id, is_change);
+      CREATE INDEX IF NOT EXISTS idx_addresses_wallet_balance ON addresses(wallet_id, balance_satoshis DESC);
+      CREATE INDEX IF NOT EXISTS idx_tx_outputs_address_spent ON transaction_outputs(address, is_spent);
+      CREATE INDEX IF NOT EXISTS idx_tx_outputs_tx_spent ON transaction_outputs(transaction_id, is_spent);
+      CREATE INDEX IF NOT EXISTS idx_address_book_user_type ON address_book(user_id, address_type);
     )";
 
     auto schemaResult = dbManager.executeQuery(schemaSQL);

@@ -15,6 +15,7 @@
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QInputDialog>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -34,12 +35,13 @@ QtWalletUI::QtWalletUI(QWidget *parent)
       m_centeringLayout(nullptr), m_leftSpacer(nullptr), m_rightSpacer(nullptr),
       m_headerSection(nullptr), m_headerTitle(nullptr),
       m_balanceTitle(nullptr), m_balanceLabel(nullptr),
-      m_toggleBalanceButton(nullptr), m_bitcoinWalletCard(nullptr),
+      m_toggleBalanceButton(nullptr), m_refreshButton(nullptr), m_bitcoinWalletCard(nullptr),
       m_ethereumWalletCard(nullptr), m_currentMockUser(nullptr), m_wallet(nullptr),
       m_ethereumWallet(nullptr), m_balanceUpdateTimer(nullptr),
       m_realBalanceBTC(0.0), m_realBalanceETH(0.0), m_userRepository(nullptr),
       m_walletRepository(nullptr), m_currentUserId(-1), m_priceFetcher(nullptr),
-      m_priceUpdateTimer(nullptr), m_currentBTCPrice(43000.0),
+      m_priceUpdateTimer(nullptr), m_currentBTCPrice(43000.0), m_currentETHPrice(2500.0),
+      m_isLoadingBTC(false), m_isLoadingETH(false), m_statusLabel(nullptr),
       m_balanceVisible(true), m_mockMode(false) {
 
   // Get theme manager SAFELY
@@ -71,8 +73,8 @@ QtWalletUI::QtWalletUI(QWidget *parent)
       applyTheme();
     }
 
-    // Fetch initial price
-    fetchBTCPrice();
+    // PHASE 2: Fetch initial prices for both BTC and ETH
+    fetchAllPrices();
   });
 
   // Connect theme changed signal
@@ -162,15 +164,36 @@ void QtWalletUI::createHeaderSection() {
   m_toggleBalanceButton = new QPushButton(m_headerSection);
   m_toggleBalanceButton->setIconSize(QSize(20, 20));
   m_toggleBalanceButton->setFixedSize(32, 32);
-  m_toggleBalanceButton->setToolTip("Hide/Show Balance");
+  m_toggleBalanceButton->setToolTip("Hide/Show Balance (Ctrl+H)");  // PHASE 3: Accessibility tooltip
   m_toggleBalanceButton->setCursor(Qt::PointingHandCursor);
+  m_toggleBalanceButton->setAccessibleName("Toggle Balance Visibility");  // PHASE 3: Screen reader support
+  m_toggleBalanceButton->setAccessibleDescription("Press to toggle balance visibility");
   balanceRowLayout->addWidget(m_toggleBalanceButton);
+
+  // PHASE 3: Manual refresh button
+  m_refreshButton = new QPushButton(m_headerSection);
+  m_refreshButton->setText("🔄");
+  m_refreshButton->setFixedSize(32, 32);
+  m_refreshButton->setToolTip("Refresh balances and prices (F5 or Ctrl+R)");  // PHASE 3: Accessibility tooltip
+  m_refreshButton->setCursor(Qt::PointingHandCursor);
+  m_refreshButton->setAccessibleName("Refresh Balances");  // PHASE 3: Screen reader support
+  m_refreshButton->setAccessibleDescription("Press to refresh wallet balances and cryptocurrency prices");
+  balanceRowLayout->addWidget(m_refreshButton);
 
   balanceVerticalLayout->addLayout(balanceRowLayout);
   headerLayout->addLayout(balanceVerticalLayout);
 
+  // PHASE 2: Status label for loading/error messages
+  m_statusLabel = new QLabel("", m_headerSection);
+  m_statusLabel->setAlignment(Qt::AlignCenter);
+  m_statusLabel->setWordWrap(true);
+  m_statusLabel->setVisible(false);  // Hidden by default
+  headerLayout->addWidget(m_statusLabel);
+
   connect(m_toggleBalanceButton, &QPushButton::clicked, this,
           &QtWalletUI::onToggleBalanceClicked);
+  connect(m_refreshButton, &QPushButton::clicked, this,
+          &QtWalletUI::onRefreshClicked);  // PHASE 3: Connect refresh button
 
   m_contentLayout->addWidget(m_headerSection);
 }
@@ -201,12 +224,11 @@ void QtWalletUI::createActionButtons() {
       "No transactions yet.<br><br>This wallet supports Ethereum network. "
       "Transaction history will be displayed here.");
 
-  // For now, Ethereum send/receive can use similar handlers
-  // (We'll create separate handlers later if needed)
+  // PHASE 2: Connect Ethereum handlers
   connect(m_ethereumWalletCard, &QtExpandableWalletCard::sendRequested, this,
           [this]() { QMessageBox::information(this, "Ethereum Send", "Ethereum send functionality coming soon!"); });
   connect(m_ethereumWalletCard, &QtExpandableWalletCard::receiveRequested, this,
-          &QtWalletUI::onReceiveBitcoinClicked);  // Temporarily reuse receive handler
+          &QtWalletUI::onReceiveEthereumClicked);  // PHASE 2: Separate Ethereum receive handler
 
   m_contentLayout->addWidget(m_ethereumWalletCard);
 }
@@ -311,6 +333,9 @@ void QtWalletUI::onSendBitcoinClicked() {
 }
 
 void QtWalletUI::onReceiveBitcoinClicked() { emit receiveBitcoinRequested(); }
+
+// PHASE 2: Separate Ethereum receive handler
+void QtWalletUI::onReceiveEthereumClicked() { emit receiveEthereumRequested(); }
 
 void QtWalletUI::onThemeChanged() {
   applyTheme();
@@ -518,12 +543,91 @@ void QtWalletUI::onToggleBalanceClicked() {
   updateUSDBalance();
 }
 
+// PHASE 3: Manual refresh handler
+void QtWalletUI::onRefreshClicked() {
+  if (!m_refreshButton) {
+    return;
+  }
+
+  // Refresh both balances and prices
+  fetchAllPrices();
+
+  // Refresh wallet balances if in real mode
+  if (!m_mockMode && m_wallet && !m_currentAddress.isEmpty()) {
+    fetchRealBalance();
+  }
+
+  // Visual feedback: briefly disable button
+  m_refreshButton->setEnabled(false);
+  m_refreshButton->setText("⏳");
+
+  // Re-enable after 2 seconds
+  QTimer::singleShot(2000, this, [this]() {
+    if (m_refreshButton) {
+      m_refreshButton->setEnabled(true);
+      m_refreshButton->setText("🔄");
+    }
+  });
+}
+
 void QtWalletUI::resizeEvent(QResizeEvent *event) {
   QWidget::resizeEvent(event);
   updateScrollAreaWidth();
   updateResponsiveLayout();
   adjustButtonLayout();
   updateCardSizes();
+}
+
+// PHASE 3: Keyboard shortcuts and accessibility
+void QtWalletUI::keyPressEvent(QKeyEvent *event) {
+  // F5 or Ctrl+R: Refresh balances and prices
+  if (event->key() == Qt::Key_F5 ||
+      (event->key() == Qt::Key_R && event->modifiers() & Qt::ControlModifier)) {
+    onRefreshClicked();
+    event->accept();
+    return;
+  }
+
+  // Ctrl+H: Toggle balance visibility
+  if (event->key() == Qt::Key_H && event->modifiers() & Qt::ControlModifier) {
+    onToggleBalanceClicked();
+    event->accept();
+    return;
+  }
+
+  // Ctrl+S: Send Bitcoin (focus on Bitcoin wallet card send button)
+  if (event->key() == Qt::Key_S && event->modifiers() & Qt::ControlModifier) {
+    onSendBitcoinClicked();
+    event->accept();
+    return;
+  }
+
+  // Ctrl+C: Copy Bitcoin address (when not in a text field)
+  if (event->key() == Qt::Key_C && event->modifiers() & Qt::ControlModifier) {
+    if (!qApp->focusWidget() || !qobject_cast<QLineEdit*>(qApp->focusWidget())) {
+      if (!m_currentAddress.isEmpty()) {
+        QApplication::clipboard()->setText(m_currentAddress);
+        // Show brief notification
+        if (m_statusLabel) {
+          QString oldText = m_statusLabel->text();
+          bool wasVisible = m_statusLabel->isVisible();
+          m_statusLabel->setText("✅ Bitcoin address copied to clipboard");
+          m_statusLabel->setVisible(true);
+          QTimer::singleShot(2000, this, [this, oldText, wasVisible]() {
+            if (m_statusLabel) {
+              m_statusLabel->setText(oldText);
+              m_statusLabel->setVisible(wasVisible);
+            }
+          });
+        }
+      }
+      event->accept();
+      return;
+    }
+  }
+
+  // Pass to base class
+  QWidget::keyPressEvent(event);
 }
 
 void QtWalletUI::updateScrollAreaWidth() {
@@ -811,6 +915,32 @@ void QtWalletUI::fetchBTCPrice() {
   }
 }
 
+// PHASE 2: Fetch Ethereum price
+void QtWalletUI::fetchETHPrice() {
+  if (!m_priceFetcher) {
+    return;
+  }
+
+  // Fetch ETH price using the generic GetCryptoPrice method
+  auto priceDataOpt = m_priceFetcher->GetCryptoPrice("ethereum");
+  if (priceDataOpt.has_value()) {
+    m_currentETHPrice = priceDataOpt.value().usd_price;
+    updateUSDBalance();
+  } else {
+    // If fetch fails, keep using the last known price
+    // or set a default fallback price
+    if (m_currentETHPrice == 0.0) {
+      m_currentETHPrice = 2500.0; // Fallback price
+    }
+  }
+}
+
+// PHASE 2: Fetch both BTC and ETH prices
+void QtWalletUI::fetchAllPrices() {
+  fetchBTCPrice();
+  fetchETHPrice();
+}
+
 void QtWalletUI::updateUSDBalance() {
   // Early return if balance label doesn't exist yet
   if (!m_balanceLabel) {
@@ -823,26 +953,38 @@ void QtWalletUI::updateUSDBalance() {
     return;
   }
 
-  // Use fallback price if current price is not available
-  double priceToUse = (m_currentBTCPrice > 0.0) ? m_currentBTCPrice : 43000.0;
+  // PHASE 2: Calculate total balance including both BTC and ETH
+
+  // Use fallback prices if current prices are not available
+  double btcPriceToUse = (m_currentBTCPrice > 0.0) ? m_currentBTCPrice : 43000.0;
+  double ethPriceToUse = (m_currentETHPrice > 0.0) ? m_currentETHPrice : 2500.0;
+
   double btcBalance = 0.0;
+  double ethBalance = 0.0;
 
   // Use real balance if not in mock mode
   if (!m_mockMode) {
     btcBalance = m_realBalanceBTC;
+    ethBalance = m_realBalanceETH;
   } else if (m_currentMockUser) {
-    // Use mock balance if in mock mode
+    // Use mock balance if in mock mode (only BTC for now)
     btcBalance = m_currentMockUser->balance;
+    ethBalance = 0.0;  // Mock mode doesn't have ETH yet
   }
 
-  // Calculate and display USD balance
-  double usdBalance = btcBalance * priceToUse;
-  m_balanceLabel->setText(QString("$%L1 USD").arg(usdBalance, 0, 'f', 2));
+  // Calculate USD value for each currency
+  double btcUsdValue = btcBalance * btcPriceToUse;
+  double ethUsdValue = ethBalance * ethPriceToUse;
+
+  // Calculate total USD balance
+  double totalUsdBalance = btcUsdValue + ethUsdValue;
+
+  m_balanceLabel->setText(QString("$%L1 USD").arg(totalUsdBalance, 0, 'f', 2));
 }
 
 void QtWalletUI::onPriceUpdateTimer() {
-  // This runs every 60 seconds to refresh the BTC price
-  fetchBTCPrice();
+  // PHASE 2: This runs every 60 seconds to refresh both BTC and ETH prices
+  fetchAllPrices();
 }
 
 // === Real Wallet Integration Methods ===
@@ -880,72 +1022,66 @@ void QtWalletUI::fetchRealBalance() {
   // Disable mock mode when fetching real balance
   m_mockMode = false;
 
-  // Fetch Bitcoin balance from blockchain
-  std::string address = m_currentAddress.toStdString();
-  uint64_t balanceSatoshis = m_wallet->GetBalance(address);
+  // PHASE 2: Set loading state for Bitcoin
+  setLoadingState(true, "Bitcoin");
 
-  // Convert satoshis to BTC
-  m_realBalanceBTC = m_wallet->ConvertSatoshisToBTC(balanceSatoshis);
+  try {
+    // Fetch Bitcoin balance from blockchain
+    std::string address = m_currentAddress.toStdString();
+    uint64_t balanceSatoshis = m_wallet->GetBalance(address);
 
-  // Update UI
-  updateUSDBalance();
+    // Convert satoshis to BTC
+    m_realBalanceBTC = m_wallet->ConvertSatoshisToBTC(balanceSatoshis);
 
-  // Update Bitcoin wallet card
-  if (m_bitcoinWalletCard) {
-    m_bitcoinWalletCard->setBalance(QString("%1 BTC").arg(m_realBalanceBTC, 0, 'f', 8));
-  }
+    // Update UI
+    updateUSDBalance();
 
-  // Fetch and display Bitcoin transaction history
-  auto txHistory = m_wallet->GetTransactionHistory(address, 10);
-  if (!txHistory.empty()) {
-    QString historyHtml;
-    for (const auto& txHash : txHistory) {
-      // In production, you'd fetch full transaction details for each hash
-      historyHtml += QString("<b>Transaction:</b> %1<br><br>")
-                         .arg(QString::fromStdString(txHash));
-    }
+    // Update Bitcoin wallet card
     if (m_bitcoinWalletCard) {
-      m_bitcoinWalletCard->setTransactionHistory(historyHtml);
+      m_bitcoinWalletCard->setBalance(QString("%1 BTC").arg(m_realBalanceBTC, 0, 'f', 8));
     }
-  } else {
+
+    // PHASE 3: Fetch and display Bitcoin transaction history with improved formatting
+    auto txHistory = m_wallet->GetTransactionHistory(address, 10);
     if (m_bitcoinWalletCard) {
-      m_bitcoinWalletCard->setTransactionHistory(
-          "No transactions yet.<br><br>Send testnet Bitcoin to your address to see it appear here!");
+      m_bitcoinWalletCard->setTransactionHistory(formatBitcoinTransactionHistory(txHistory));
     }
+
+    // PHASE 2: Clear loading state for Bitcoin
+    setLoadingState(false, "Bitcoin");
+
+  } catch (const std::exception& e) {
+    setErrorState(QString("Failed to fetch Bitcoin balance: %1").arg(e.what()));
+    return;
   }
 
   // Fetch Ethereum balance if we have an Ethereum wallet and address
   if (m_ethereumWallet && !m_ethereumAddress.isEmpty()) {
-    std::string ethAddress = m_ethereumAddress.toStdString();
-    m_realBalanceETH = m_ethereumWallet->GetBalance(ethAddress);
+    // PHASE 2: Set loading state for Ethereum
+    setLoadingState(true, "Ethereum");
 
-    // Update Ethereum wallet card
-    if (m_ethereumWalletCard) {
-      m_ethereumWalletCard->setBalance(QString("%1 ETH").arg(m_realBalanceETH, 0, 'f', 8));
-    }
+    try {
+      std::string ethAddress = m_ethereumAddress.toStdString();
+      m_realBalanceETH = m_ethereumWallet->GetBalance(ethAddress);
 
-    // Fetch and display Ethereum transaction history
-    auto ethTxHistory = m_ethereumWallet->GetTransactionHistory(ethAddress, 10);
-    if (!ethTxHistory.empty()) {
-      QString ethHistoryHtml;
-      for (const auto& tx : ethTxHistory) {
-        QString type = (tx.to == ethAddress) ? "Received" : "Sent";
-        ethHistoryHtml += QString("<b>%1:</b> %2 ETH<br>")
-                             .arg(type)
-                             .arg(tx.value_eth, 0, 'f', 8);
-        ethHistoryHtml += QString("Hash: %1<br>")
-                             .arg(QString::fromStdString(tx.hash).left(16) + "...");
-        ethHistoryHtml += QString("Status: %1<br><br>")
-                             .arg(tx.is_error ? "Failed" : "Success");
-      }
+      // Update Ethereum wallet card
       if (m_ethereumWalletCard) {
-        m_ethereumWalletCard->setTransactionHistory(ethHistoryHtml);
+        m_ethereumWalletCard->setBalance(QString("%1 ETH").arg(m_realBalanceETH, 0, 'f', 8));
       }
-    } else {
+
+      // PHASE 3: Fetch and display Ethereum transaction history with improved formatting
+      auto ethTxHistory = m_ethereumWallet->GetTransactionHistory(ethAddress, 10);
       if (m_ethereumWalletCard) {
         m_ethereumWalletCard->setTransactionHistory(
-            "No transactions yet.<br><br>Send Ethereum to your address to see it appear here!");
+          formatEthereumTransactionHistory(ethTxHistory, ethAddress)
+        );
       }
+
+      // PHASE 2: Clear loading state for Ethereum
+      setLoadingState(false, "Ethereum");
+
+    } catch (const std::exception& e) {
+      setErrorState(QString("Failed to fetch Ethereum balance: %1").arg(e.what()));
     }
   }
 }
@@ -1046,4 +1182,167 @@ void QtWalletUI::sendRealTransaction(const QString& recipientAddress, uint64_t a
   // Crypto::SecureWipeVector(privateKeyBytes);
   // Crypto::SecureZeroMemory(seed.data(), seed.size());
   privateKeyBytes.clear();
+}
+
+// PHASE 2: Loading and error state management
+
+void QtWalletUI::setLoadingState(bool loading, const QString& chain) {
+  if (chain.toLower() == "bitcoin" || chain.toLower() == "btc") {
+    m_isLoadingBTC = loading;
+  } else if (chain.toLower() == "ethereum" || chain.toLower() == "eth") {
+    m_isLoadingETH = loading;
+  }
+
+  clearErrorState();
+  updateStatusLabel();
+}
+
+void QtWalletUI::setErrorState(const QString& errorMessage) {
+  m_lastErrorMessage = errorMessage;
+  m_isLoadingBTC = false;
+  m_isLoadingETH = false;
+  updateStatusLabel();
+}
+
+void QtWalletUI::clearErrorState() {
+  m_lastErrorMessage.clear();
+  updateStatusLabel();
+}
+
+void QtWalletUI::updateStatusLabel() {
+  if (!m_statusLabel) {
+    return;
+  }
+
+  QString statusText;
+  QString styleClass;
+
+  // Check for errors first
+  if (!m_lastErrorMessage.isEmpty()) {
+    statusText = "⚠️ " + m_lastErrorMessage;
+    styleClass = "error";
+    m_statusLabel->setVisible(true);
+  }
+  // Check for loading states
+  else if (m_isLoadingBTC && m_isLoadingETH) {
+    statusText = "Loading Bitcoin and Ethereum balances...";
+    styleClass = "loading";
+    m_statusLabel->setVisible(true);
+  }
+  else if (m_isLoadingBTC) {
+    statusText = "Loading Bitcoin balance...";
+    styleClass = "loading";
+    m_statusLabel->setVisible(true);
+  }
+  else if (m_isLoadingETH) {
+    statusText = "Loading Ethereum balance...";
+    styleClass = "loading";
+    m_statusLabel->setVisible(true);
+  }
+  // No status to show
+  else {
+    m_statusLabel->setVisible(false);
+    return;
+  }
+
+  m_statusLabel->setText(statusText);
+
+  // Apply styling based on state
+  if (m_themeManager) {
+    QColor textColor, bgColor;
+    if (styleClass == "error") {
+      textColor = QColor("#d32f2f");  // Red
+      bgColor = QColor("#ffebee");    // Light red background
+    } else {
+      textColor = m_themeManager->getForegroundColor();
+      bgColor = m_themeManager->getBackgroundColor();
+    }
+
+    m_statusLabel->setStyleSheet(QString(
+      "QLabel {"
+      "  color: %1;"
+      "  background-color: %2;"
+      "  padding: 8px;"
+      "  border-radius: 4px;"
+      "  font-size: 12px;"
+      "}"
+    ).arg(textColor.name()).arg(bgColor.name()));
+  }
+}
+
+// PHASE 3: Transaction history formatting helpers
+
+QString QtWalletUI::formatBitcoinTransactionHistory(const std::vector<std::string>& txHashes) {
+  if (txHashes.empty()) {
+    return "No transactions yet.<br><br>Send testnet Bitcoin to your address to see it appear here!";
+  }
+
+  QString historyHtml;
+  historyHtml += "<div style='font-size: 12px;'>";
+  historyHtml += QString("<b>Recent Transactions</b> (%1 total)<br><br>").arg(txHashes.size());
+
+  int count = 0;
+  for (const auto& txHash : txHashes) {
+    if (count >= 5) break; // Show only first 5 transactions
+
+    QString shortHash = QString::fromStdString(txHash).left(16) + "...";
+    historyHtml += QString(
+      "<div style='margin-bottom: 12px; padding: 8px; background: rgba(128,128,128,0.1); border-radius: 4px;'>"
+      "<b>TX:</b> <span style='font-family: monospace;'>%1</span><br>"
+      "<span style='font-size: 10px; color: #666;'>Tap to view on block explorer</span>"
+      "</div>"
+    ).arg(shortHash);
+
+    count++;
+  }
+
+  if (txHashes.size() > 5) {
+    historyHtml += QString("<br><i>... and %1 more transactions</i>").arg(txHashes.size() - 5);
+  }
+
+  historyHtml += "</div>";
+  return historyHtml;
+}
+
+QString QtWalletUI::formatEthereumTransactionHistory(const std::vector<WalletAPI::EthereumTransaction>& txs,
+                                                      const std::string& userAddress) {
+  if (txs.empty()) {
+    return "No transactions yet.<br><br>Send Ethereum to your address to see it appear here!";
+  }
+
+  QString historyHtml;
+  historyHtml += "<div style='font-size: 12px;'>";
+  historyHtml += QString("<b>Recent Transactions</b> (%1 total)<br><br>").arg(txs.size());
+
+  int count = 0;
+  for (const auto& tx : txs) {
+    if (count >= 5) break; // Show only first 5 transactions
+
+    QString type = (tx.to == userAddress) ? "Received" : "Sent";
+    QString typeColor = (tx.to == userAddress) ? "#4caf50" : "#f44336";  // Green for received, red for sent
+    QString statusIcon = tx.is_error ? "❌" : "✅";
+    QString shortHash = QString::fromStdString(tx.hash).left(16) + "...";
+
+    historyHtml += QString(
+      "<div style='margin-bottom: 12px; padding: 8px; background: rgba(128,128,128,0.1); border-radius: 4px;'>"
+      "<b style='color: %1;'>%2:</b> %3 ETH %4<br>"
+      "<span style='font-family: monospace; font-size: 10px;'>%5</span><br>"
+      "<span style='font-size: 10px; color: #666;'>Block: %6</span>"
+      "</div>"
+    ).arg(typeColor)
+     .arg(type)
+     .arg(tx.value_eth, 0, 'f', 6)
+     .arg(statusIcon)
+     .arg(shortHash)
+     .arg(QString::fromStdString(tx.block_number));
+
+    count++;
+  }
+
+  if (txs.size() > 5) {
+    historyHtml += QString("<br><i>... and %1 more transactions</i>").arg(txs.size() - 5);
+  }
+
+  historyHtml += "</div>";
+  return historyHtml;
 }

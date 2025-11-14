@@ -260,9 +260,22 @@ bool CreateUnsignedTransaction(const std::vector<UTXO> &inputs,
 
 // === Ethereum Functions ===
 
+// === EIP-55 Checksum Functions ===
+
+// Convert Ethereum address to EIP-55 checksum format
+// Input: "0x..." or raw hex address (with or without 0x prefix)
+// Output: EIP-55 checksummed address with 0x prefix
+bool EIP55_ToChecksumAddress(const std::string &address, std::string &checksummed);
+
+// Validate that an Ethereum address has correct EIP-55 checksum
+// Returns true if address has valid checksum or is all lowercase/uppercase
+// Returns false if checksum is invalid
+bool EIP55_ValidateChecksumAddress(const std::string &address);
+
 // Generate Ethereum address from extended public key
 // Ethereum addresses are 20 bytes (40 hex chars) with 0x prefix
 // Format: 0x + last 20 bytes of Keccak256(public_key)
+// Returns address in EIP-55 checksum format
 bool BIP32_GetEthereumAddress(const BIP32ExtendedKey &extKey, std::string &address);
 
 // Derive Ethereum address key from BIP44 path
@@ -307,5 +320,20 @@ std::string GetChainName(ChainType chain);
 bool DeriveChainAddress(const BIP32ExtendedKey &master, ChainType chain,
                          uint32_t account, bool change, uint32_t address_index,
                          std::string &address);
+
+// === Chain-Aware Address Validation ===
+
+// Check if an address format is valid for a specific chain
+bool IsValidAddressFormat(const std::string &address, ChainType chain);
+
+// Try to detect which chain type an address belongs to
+// Returns std::nullopt if address format cannot be determined
+std::optional<ChainType> DetectAddressChain(const std::string &address);
+
+// Check if a chain uses EVM-compatible addresses
+bool IsEVMChain(ChainType chain);
+
+// Check if a chain uses Bitcoin-style addresses
+bool IsBitcoinChain(ChainType chain);
 
 } // namespace Crypto

@@ -385,6 +385,55 @@ void CriptoGualetQt::setupUI() {
     QMessageBox::information(this, "Receive Bitcoin", receiveText);
   });
 
+  // PHASE 2: Connect Ethereum receive handler
+  connect(m_walletUI, &QtWalletUI::receiveEthereumRequested, [this]() {
+    if (!m_ethereumWallet || g_currentUser.empty() ||
+        g_users.find(g_currentUser) == g_users.end()) {
+      QMessageBox::warning(this, "Error",
+                           "Ethereum wallet not initialized or user not logged in");
+      return;
+    }
+
+    const User &user = g_users[g_currentUser];
+
+    // Get Ethereum address (with EIP-55 checksum)
+    QString ethAddress;
+    if (m_walletRepository) {
+      auto seedResult = m_walletRepository->retrieveDecryptedSeed(user.userId, user.passwordHash);
+      if (seedResult.success && !seedResult.data.empty()) {
+        std::array<uint8_t, 64> seed{};
+        if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "", seed)) {
+          Crypto::BIP32ExtendedKey masterKey;
+          if (Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
+            std::string ethAddr;
+            if (Crypto::BIP44_GetEthereumAddress(masterKey, 0, false, 0, ethAddr)) {
+              ethAddress = QString::fromStdString(ethAddr);
+            }
+          }
+          seed.fill(uint8_t(0)); // Securely wipe
+        }
+      }
+    }
+
+    if (ethAddress.isEmpty()) {
+      QMessageBox::warning(this, "Error", "Failed to retrieve Ethereum address");
+      return;
+    }
+
+    QString receiveText =
+        QString("Your Ethereum Address:\n%1\n\n"
+                "Share this address to receive Ethereum payments.\n\n"
+                "Note: This address is in EIP-55 checksum format for extra safety.\n"
+                "You can use this address on Ethereum mainnet.")
+            .arg(ethAddress);
+
+    // Copy address to clipboard
+    QApplication::clipboard()->setText(ethAddress);
+    receiveText += "\n\nAddress copied to clipboard!";
+
+    QMessageBox::information(this, "Receive Ethereum", receiveText);
+  });
+
   // Connect top cryptos page back button
   connect(m_topCryptosPage, &QtTopCryptosPage::backRequested, this,
           &CriptoGualetQt::showWalletScreen);
