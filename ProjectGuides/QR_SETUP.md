@@ -1,6 +1,43 @@
 # QR Code Library Setup Guide
 
-This project includes QR code functionality for displaying seed phrases. While the application works without libqrencode (using a fallback pattern), installing it provides real QR code generation.
+This project includes QR code functionality for displaying seed phrases and cryptocurrency addresses. While the application works without libqrencode (using a fallback pattern), installing it provides real QR code generation.
+
+## QR Code Architecture
+
+```mermaid
+graph TB
+    subgraph "Frontend UI"
+        SeedDialog[QtSeedDisplayDialog]
+        WalletUI[QtWalletUI Receive Function]
+    end
+
+    subgraph "QR Generator Module"
+        QRGen[QRGenerator::GenerateQRCode]
+        LibDetect{libqrencode<br/>available?}
+    end
+
+    subgraph "Backend Libraries"
+        LibQREncode[libqrencode Library]
+        Fallback[Fallback Pattern Generator]
+    end
+
+    subgraph "Output"
+        QRData[QRData Structure<br/>width, height, data]
+        QImage[Qt QImage Display]
+    end
+
+    SeedDialog --> QRGen
+    WalletUI --> QRGen
+    QRGen --> LibDetect
+
+    LibDetect -->|Yes| LibQREncode
+    LibDetect -->|No| Fallback
+
+    LibQREncode --> QRData
+    Fallback --> QRData
+
+    QRData --> QImage
+```
 
 ## Option 1: vcpkg (Recommended)
 
@@ -123,7 +160,7 @@ The QRGenerator library is built with or without libqrencode support, ensuring t
 To add QR functionality to other parts of the application:
 
 ```cpp
-#include "include/QRGenerator.h"
+#include "QRGenerator.h"
 
 QR::QRData qrData;
 bool success = QR::GenerateQRCode("your text here", qrData);
@@ -136,3 +173,35 @@ if (qrData.width > 0) {
 ```
 
 The function returns `true` for real QR codes, `false` for fallback patterns, but always provides displayable data when `qrData.width > 0`.
+
+## QR Code Generation Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as Qt UI Component
+    participant QRGen as QRGenerator
+    participant LibQR as libqrencode
+    participant Display as QImage Display
+
+    UI->>QRGen: GenerateQRCode(text, qrData)
+    QRGen->>QRGen: Check if libqrencode available
+
+    alt libqrencode available
+        QRGen->>LibQR: QRcode_encodeString(text, ...)
+        LibQR-->>QRGen: QRcode structure
+        QRGen->>QRGen: Convert to QRData format
+        QRGen-->>UI: Return true + QRData
+    else libqrencode not available
+        QRGen->>QRGen: Generate fallback pattern
+        QRGen-->>UI: Return false + Fallback QRData
+    end
+
+    UI->>UI: Create QImage from QRData
+    UI->>Display: Display QR code image
+```
+
+## File Locations
+
+- **Header**: `backend/utils/include/QRGenerator.h`
+- **Implementation**: `backend/utils/QRGenerator.cpp`
+- **Usage Example**: `frontend/qt/QtSeedDisplayDialog.cpp`
