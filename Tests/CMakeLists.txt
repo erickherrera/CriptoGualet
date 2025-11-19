@@ -303,6 +303,9 @@ add_repository_test(test_transaction_repository "test_transaction_repository.cpp
 # ---- Repository Integration Tests ----
 add_repository_test(test_repository_integration "test_repository_integration.cpp")
 
+# ---- Multi-Chain Wallet Tests ----
+add_repository_test(test_multichain_wallets "test_multichain_wallets.cpp")
+
 # ---- Password Verification Test Tool ----
 add_executable(test_password_verification
   "test_password_verification.cpp"

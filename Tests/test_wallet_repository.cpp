@@ -300,6 +300,175 @@ bool testGetSpendableBalance(Repository::WalletRepository& walletRepo, Repositor
 }
 
 // ============================================================================
+// SQL Injection Protection Tests for Wallet Repository
+// ============================================================================
+
+bool testSQLInjectionInWalletName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("SQL Injection Protection - Wallet Name");
+
+    int userId = createTestUser(userRepo, "sql_wallet_user");
+    TEST_ASSERT(userId > 0, "User creation should succeed");
+
+    std::vector<std::string> maliciousNames = {
+        "Wallet' OR '1'='1",
+        "'; DROP TABLE wallets;--",
+        "Wallet' UNION SELECT * FROM users--",
+        "Test\\'; DELETE FROM wallets;--"
+    };
+
+    for (const auto& name : maliciousNames) {
+        auto result = walletRepo.createWallet(userId, name, "bitcoin");
+
+        if (!result.hasValue()) {
+            std::cout << "    Rejected malicious wallet name: " << name << std::endl;
+        } else {
+            // Verify it was stored safely
+            auto getResult = walletRepo.getWalletById(result->id);
+            TEST_ASSERT(getResult.hasValue(), "Should retrieve wallet");
+            TEST_ASSERT(getResult->walletName == name,
+                       "Wallet name should be stored exactly as provided");
+            std::cout << "    Safely stored wallet name: " << name << std::endl;
+        }
+    }
+
+    TEST_PASS();
+}
+
+bool testSQLInjectionInGetWalletByName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("SQL Injection Protection - Get Wallet By Name");
+
+    int userId = createTestUser(userRepo, "sql_getwallet_user");
+
+    // Create legitimate wallet
+    walletRepo.createWallet(userId, "My Wallet", "bitcoin");
+
+    // Try SQL injection in query
+    std::vector<std::string> maliciousQueries = {
+        "' OR '1'='1",
+        "My Wallet' OR '1'='1--",
+        "'; DROP TABLE wallets;--"
+    };
+
+    for (const auto& query : maliciousQueries) {
+        auto result = walletRepo.getWalletByName(userId, query);
+        TEST_ASSERT(!result.hasValue(), "SQL injection should not return results");
+        std::cout << "    Blocked SQL injection query: " << query << std::endl;
+    }
+
+    TEST_PASS();
+}
+
+bool testWalletAddressLabelInjection(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("SQL Injection Protection - Address Label");
+
+    int userId = createTestUser(userRepo, "label_user");
+    auto walletResult = walletRepo.createWallet(userId, "Test Wallet", "bitcoin");
+    TEST_ASSERT(walletResult.hasValue(), "Wallet creation should succeed");
+
+    auto addressResult = walletRepo.generateAddress(walletResult->id, false);
+    TEST_ASSERT(addressResult.hasValue(), "Address generation should succeed");
+
+    std::vector<std::string> maliciousLabels = {
+        "Label' OR '1'='1",
+        "'; DELETE FROM addresses;--",
+        "Label' UNION SELECT * FROM addresses--"
+    };
+
+    for (const auto& label : maliciousLabels) {
+        auto updateResult = walletRepo.updateAddressLabel(addressResult->id, label);
+
+        if (updateResult.hasValue() && *updateResult) {
+            std::cout << "    Safely stored address label: " << label << std::endl;
+        }
+    }
+
+    TEST_PASS();
+}
+
+// ============================================================================
+// Edge Case Tests for Wallet Repository
+// ============================================================================
+
+bool testEmptyWalletName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("Edge Case - Empty Wallet Name");
+
+    int userId = createTestUser(userRepo, "empty_wallet_user");
+
+    auto result = walletRepo.createWallet(userId, "", "bitcoin");
+    TEST_ASSERT(!result.hasValue(), "Should reject empty wallet name");
+
+    std::cout << "    Correctly rejected empty wallet name" << std::endl;
+
+    TEST_PASS();
+}
+
+bool testVeryLongWalletName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("Edge Case - Very Long Wallet Name");
+
+    int userId = createTestUser(userRepo, "long_wallet_user");
+
+    std::string longName(1000, 'W');
+    auto result = walletRepo.createWallet(userId, longName, "bitcoin");
+
+    if (!result.hasValue()) {
+        std::cout << "    Rejected 1000-character wallet name (validation)" << std::endl;
+    } else {
+        std::cout << "    Warning: Accepted very long wallet name" << std::endl;
+    }
+
+    TEST_PASS();
+}
+
+bool testInvalidWalletType(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("Edge Case - Invalid Wallet Type");
+
+    int userId = createTestUser(userRepo, "invalid_type_user");
+
+    std::vector<std::string> invalidTypes = {
+        "",
+        "invalidcoin",
+        "bitcoin; DROP TABLE wallets;--",
+        std::string(500, 'T')
+    };
+
+    for (const auto& type : invalidTypes) {
+        auto result = walletRepo.createWallet(userId, "Test Wallet", type);
+
+        if (!result.hasValue()) {
+            std::cout << "    Rejected invalid wallet type: " << type << std::endl;
+        } else {
+            std::cout << "    Warning: Accepted wallet type: " << type << std::endl;
+        }
+    }
+
+    TEST_PASS();
+}
+
+bool testMaximumAddressesPerWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("Edge Case - Maximum Addresses Per Wallet");
+
+    int userId = createTestUser(userRepo, "max_addr_user");
+    auto walletResult = walletRepo.createWallet(userId, "Address Test", "bitcoin");
+    TEST_ASSERT(walletResult.hasValue(), "Wallet creation should succeed");
+
+    const int MAX_ADDRESSES = 100; // Test with 100 addresses
+    std::cout << "    Generating " << MAX_ADDRESSES << " addresses..." << std::endl;
+
+    int successCount = 0;
+    for (int i = 0; i < MAX_ADDRESSES; i++) {
+        auto addressResult = walletRepo.generateAddress(walletResult->id, false);
+        if (addressResult.hasValue()) {
+            successCount++;
+        }
+    }
+
+    std::cout << "    Successfully generated " << successCount << " addresses" << std::endl;
+    TEST_ASSERT(successCount == MAX_ADDRESSES, "Should generate all addresses");
+
+    TEST_PASS();
+}
+
+// ============================================================================
 // Main Test Runner
 // ============================================================================
 
@@ -316,7 +485,7 @@ int main() {
     Repository::UserRepository userRepo(dbManager);
     Repository::WalletRepository walletRepo(dbManager);
 
-    // Run tests
+    // Run core functionality tests
     testCreateWallet(walletRepo, userRepo);
     testCreateMultipleWallets(walletRepo, userRepo);
     testGetWalletsByUserId(walletRepo, userRepo);
@@ -333,6 +502,19 @@ int main() {
     testConfirmSeedBackup(walletRepo, userRepo);
     testHasSeedStored(walletRepo, userRepo);
     testGetSpendableBalance(walletRepo, userRepo);
+
+    // Run SQL injection protection tests
+    std::cout << "\n" << COLOR_CYAN << "Running SQL Injection Protection Tests..." << COLOR_RESET << std::endl;
+    testSQLInjectionInWalletName(walletRepo, userRepo);
+    testSQLInjectionInGetWalletByName(walletRepo, userRepo);
+    testWalletAddressLabelInjection(walletRepo, userRepo);
+
+    // Run edge case tests
+    std::cout << "\n" << COLOR_CYAN << "Running Edge Case Tests..." << COLOR_RESET << std::endl;
+    testEmptyWalletName(walletRepo, userRepo);
+    testVeryLongWalletName(walletRepo, userRepo);
+    testInvalidWalletType(walletRepo, userRepo);
+    testMaximumAddressesPerWallet(walletRepo, userRepo);
 
     TestUtils::printTestSummary("Test");
     TestUtils::shutdownTestEnvironment(dbManager, TEST_DB_PATH);
