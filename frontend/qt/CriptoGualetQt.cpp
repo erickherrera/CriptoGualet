@@ -394,12 +394,20 @@ void CriptoGualetQt::setupUI() {
       return;
     }
 
-    const User &user = g_users[g_currentUser];
+    const User &legacyUser = g_users[g_currentUser];
 
     // Get Ethereum address (with EIP-55 checksum)
     QString ethAddress;
-    if (m_walletRepository) {
-      auto seedResult = m_walletRepository->retrieveDecryptedSeed(user.userId, user.passwordHash);
+    if (m_walletRepository && m_userRepository) {
+      // Get proper user from repository to access user ID
+      auto userResult = m_userRepository->getUserByUsername(g_currentUser);
+      if (!userResult.hasValue()) {
+        QMessageBox::warning(this, "Error", "Failed to retrieve user information");
+        return;
+      }
+
+      // Note: Using passwordHash as password - this may need proper password handling
+      auto seedResult = m_walletRepository->retrieveDecryptedSeed(userResult->id, legacyUser.passwordHash);
       if (seedResult.success && !seedResult.data.empty()) {
         std::array<uint8_t, 64> seed{};
         if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "", seed)) {

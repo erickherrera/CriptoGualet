@@ -1254,8 +1254,8 @@ void QtWalletUI::updateStatusLabel() {
       textColor = QColor("#d32f2f");  // Red
       bgColor = QColor("#ffebee");    // Light red background
     } else {
-      textColor = m_themeManager->getForegroundColor();
-      bgColor = m_themeManager->getBackgroundColor();
+      textColor = m_themeManager->textColor();
+      bgColor = m_themeManager->backgroundColor();
     }
 
     m_statusLabel->setStyleSheet(QString(
@@ -1304,7 +1304,7 @@ QString QtWalletUI::formatBitcoinTransactionHistory(const std::vector<std::strin
   return historyHtml;
 }
 
-QString QtWalletUI::formatEthereumTransactionHistory(const std::vector<WalletAPI::EthereumTransaction>& txs,
+QString QtWalletUI::formatEthereumTransactionHistory(const std::vector<EthereumService::Transaction>& txs,
                                                       const std::string& userAddress) {
   if (txs.empty()) {
     return "No transactions yet.<br><br>Send Ethereum to your address to see it appear here!";

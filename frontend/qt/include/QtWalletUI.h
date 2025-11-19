@@ -17,6 +17,7 @@
 #include <memory>
 #include "PriceService.h"
 #include "WalletAPI.h"
+#include "EthereumService.h"
 #include "Repository/UserRepository.h"
 #include "Repository/WalletRepository.h"
 
@@ -154,7 +155,7 @@ private:
 
   // PHASE 3: Transaction history formatting
   QString formatBitcoinTransactionHistory(const std::vector<std::string>& txHashes);
-  QString formatEthereumTransactionHistory(const std::vector<WalletAPI::EthereumTransaction>& txs, const std::string& userAddress);
+  QString formatEthereumTransactionHistory(const std::vector<EthereumService::Transaction>& txs, const std::string& userAddress);
 
   // Price service
   std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;

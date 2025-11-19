@@ -384,7 +384,7 @@ bool testExtremelyLongInputs(Repository::UserRepository& userRepo) {
     std::cout << "    Rejected 1000-char username" << std::endl;
 
     // Test extremely long password
-    std::string longPassword(10000, 'P') + "123!Aa";
+    std::string longPassword = std::string(10000, 'P') + "123!Aa";
     auto result2 = userRepo.createUser("longpassuser", "test@example.com", longPassword);
     if (!result2.hasValue()) {
         std::cout << "    Rejected 10000-char password (validation)" << std::endl;
@@ -393,7 +393,7 @@ bool testExtremelyLongInputs(Repository::UserRepository& userRepo) {
     }
 
     // Test extremely long email
-    std::string longEmail(500, 'a') + "@example.com";
+    std::string longEmail = std::string(500, 'a') + "@example.com";
     auto result3 = userRepo.createUser("longemailuser", longEmail, "SecurePass123!");
     if (!result3.hasValue()) {
         std::cout << "    Rejected 500+ char email" << std::endl;
