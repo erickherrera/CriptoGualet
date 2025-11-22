@@ -17,6 +17,7 @@
 #include <memory>
 #include "PriceService.h"
 #include "WalletAPI.h"
+#include "EthereumService.h"
 #include "Repository/UserRepository.h"
 #include "Repository/WalletRepository.h"
 

@@ -12,6 +12,7 @@
 #include "Repository/UserRepository.h"
 #include "Crypto.h"
 #include <iostream>
+#include <set>
 
 constexpr const char* TEST_DB_PATH = "test_multichain.db";
 
