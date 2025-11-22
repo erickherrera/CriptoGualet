@@ -27,7 +27,7 @@ class CriptoGualetQt : public QMainWindow {
 
 public:
   explicit CriptoGualetQt(QWidget *parent = nullptr);
-  ~CriptoGualetQt() = default;
+  ~CriptoGualetQt() override = default;
 
 public slots:
   void showLoginScreen();

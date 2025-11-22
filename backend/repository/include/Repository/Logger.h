@@ -153,6 +153,12 @@ private:
 } // namespace Repository
 
 // Convenience macros for logging
+// Suppress warning about GNU extension for variadic macros (this is intentional and safe)
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+
 #define REPO_LOG_DEBUG(component, message, ...) \
     Repository::Logger::getInstance().debug(component, message, ##__VA_ARGS__)
 
@@ -167,6 +173,10 @@ private:
 
 #define REPO_LOG_CRITICAL(component, message, ...) \
     Repository::Logger::getInstance().critical(component, message, ##__VA_ARGS__)
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 #define REPO_SCOPED_LOG(component, operation) \
     Repository::ScopedLogger _scopedLogger(component, operation)

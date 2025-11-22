@@ -214,9 +214,6 @@ static bool InitializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_transactions_wallet_direction_date ON transactions(wallet_id, direction, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_addresses_wallet_change ON addresses(wallet_id, is_change);
       CREATE INDEX IF NOT EXISTS idx_addresses_wallet_balance ON addresses(wallet_id, balance_satoshis DESC);
-      CREATE INDEX IF NOT EXISTS idx_tx_outputs_address_spent ON transaction_outputs(address, is_spent);
-      CREATE INDEX IF NOT EXISTS idx_tx_outputs_tx_spent ON transaction_outputs(transaction_id, is_spent);
-      CREATE INDEX IF NOT EXISTS idx_address_book_user_type ON address_book(user_id, address_type);
     )";
 
     auto schemaResult = dbManager.executeQuery(schemaSQL);

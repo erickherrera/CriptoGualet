@@ -54,14 +54,16 @@ void QtCryptoCard::setupUI() {
     m_symbolLabel->setStyleSheet("font-size: 20px; font-weight: bold;");
 
     m_nameLabel = new QLabel(this);
-    m_nameLabel->setStyleSheet("font-size: 14px; opacity: 0.7;");
+    m_nameLabel->setStyleSheet(QString("font-size: 14px; color: %1;")
+        .arg(m_themeManager->dimmedTextColor().name()));
 
     topRow->addWidget(m_symbolLabel);
     topRow->addWidget(m_nameLabel);
     topRow->addStretch();
 
     m_marketCapLabel = new QLabel(this);
-    m_marketCapLabel->setStyleSheet("font-size: 12px; opacity: 0.6;");
+    m_marketCapLabel->setStyleSheet(QString("font-size: 12px; color: %1;")
+        .arg(m_themeManager->dimmedTextColor().name()));
 
     infoLayout->addLayout(topRow);
     infoLayout->addWidget(m_marketCapLabel);
@@ -108,7 +110,10 @@ void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &data, int 
 
     // Set placeholder while loading
     m_iconLabel->clear();
-    m_iconLabel->setStyleSheet("border-radius: 24px; background-color: rgba(100, 116, 139, 0.1);");
+    QColor placeholderBg = m_themeManager->secondaryColor();
+    placeholderBg.setAlphaF(0.1);  // 10% opacity
+    m_iconLabel->setStyleSheet(QString("border-radius: 24px; background-color: %1;")
+        .arg(placeholderBg.name(QColor::HexArgb)));
     m_iconLoaded = false;
 
     // Add rank prefix to symbol
@@ -127,23 +132,25 @@ void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &data, int 
 
     // Apply color based on change
     if (data.price_change_24h >= 0) {
-        m_changeLabel->setStyleSheet(
+        m_changeLabel->setStyleSheet(QString(
             "font-size: 14px;"
             "font-weight: 600;"
             "padding: 4px 12px;"
             "border-radius: 12px;"
-            "background-color: rgba(34, 197, 94, 0.15);"
-            "color: #22c55e;"
-        );
+            "background-color: %1;"
+            "color: %2;"
+        ).arg(m_themeManager->lightPositive().name(QColor::HexArgb))
+         .arg(m_themeManager->positiveColor().name()));
     } else {
-        m_changeLabel->setStyleSheet(
+        m_changeLabel->setStyleSheet(QString(
             "font-size: 14px;"
             "font-weight: 600;"
             "padding: 4px 12px;"
             "border-radius: 12px;"
-            "background-color: rgba(239, 68, 68, 0.15);"
-            "color: #ef4444;"
-        );
+            "background-color: %1;"
+            "color: %2;"
+        ).arg(m_themeManager->lightNegative().name(QColor::HexArgb))
+         .arg(m_themeManager->negativeColor().name()));
     }
 }
 
@@ -454,7 +461,12 @@ QtTopCryptosPage::QtTopCryptosPage(QWidget *parent)
 
 void QtTopCryptosPage::setupUI() {
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(20, 20, 20, 20);
+    m_mainLayout->setContentsMargins(
+        m_themeManager->standardMargin(),
+        m_themeManager->standardMargin(),
+        m_themeManager->standardMargin(),
+        m_themeManager->standardMargin()
+    );
     m_mainLayout->setSpacing(0);
 
     // Create a horizontal layout to center content with max width
@@ -472,8 +484,13 @@ void QtTopCryptosPage::setupUI() {
 
     m_scrollContent = new QWidget();
     m_contentLayout = new QVBoxLayout(m_scrollContent);
-    m_contentLayout->setContentsMargins(32, 24, 32, 24);
-    m_contentLayout->setSpacing(16);
+    m_contentLayout->setContentsMargins(
+        m_themeManager->spacing(8),      // 32px
+        m_themeManager->standardSpacing(),  // 16px (was 24)
+        m_themeManager->spacing(8),      // 32px
+        m_themeManager->standardSpacing()   // 16px (was 24)
+    );
+    m_contentLayout->setSpacing(m_themeManager->standardSpacing());
 
     // Create header inside scroll area
     createHeader();
@@ -573,7 +590,8 @@ void QtTopCryptosPage::createHeader() {
     // Result counter row
     QHBoxLayout *counterRow = new QHBoxLayout();
     m_resultCounterLabel = new QLabel("Loading...", m_headerWidget);
-    m_resultCounterLabel->setStyleSheet("font-size: 13px; font-weight: 500; opacity: 0.7;");
+    m_resultCounterLabel->setStyleSheet(QString("font-size: 13px; font-weight: 500; color: %1;")
+        .arg(m_themeManager->dimmedTextColor().name()));
     counterRow->addWidget(m_resultCounterLabel);
     counterRow->addStretch();
 

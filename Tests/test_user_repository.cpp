@@ -7,13 +7,13 @@
 
 #include "TestUtils.h"
 
-const std::string TEST_DB_PATH = "test_user_repo.db";
+constexpr const char* TEST_DB_PATH = "test_user_repo.db";
 
 // ============================================================================
 // Test Cases
 // ============================================================================
 
-bool testCreateUser(Repository::UserRepository& userRepo) {
+static bool testCreateUser(Repository::UserRepository& userRepo) {
     TEST_START("Create User - Valid Input");
 
     auto result = userRepo.createUser("alice", "alice@example.com", "SecurePass123!");
@@ -26,7 +26,7 @@ bool testCreateUser(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testCreateUserDuplicateUsername(Repository::UserRepository& userRepo) {
+static bool testCreateUserDuplicateUsername(Repository::UserRepository& userRepo) {
     TEST_START("Create User - Duplicate Username");
 
     auto result1 = userRepo.createUser("bob", "bob@example.com", "SecurePass123!");
@@ -39,7 +39,7 @@ bool testCreateUserDuplicateUsername(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testCreateUserInvalidUsername(Repository::UserRepository& userRepo) {
+static bool testCreateUserInvalidUsername(Repository::UserRepository& userRepo) {
     TEST_START("Create User - Invalid Username");
 
     auto result1 = userRepo.createUser("ab", "test@example.com", "SecurePass123!");
@@ -56,7 +56,7 @@ bool testCreateUserInvalidUsername(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testCreateUserInvalidPassword(Repository::UserRepository& userRepo) {
+static bool testCreateUserInvalidPassword(Repository::UserRepository& userRepo) {
     TEST_START("Create User - Invalid Password");
 
     auto result1 = userRepo.createUser("charlie", "charlie@example.com", "Pass1!");
@@ -78,7 +78,7 @@ bool testCreateUserInvalidPassword(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testAuthenticateUserSuccess(Repository::UserRepository& userRepo) {
+static bool testAuthenticateUserSuccess(Repository::UserRepository& userRepo) {
     TEST_START("Authenticate User - Success");
 
     const std::string password = "SecurePass123!";
@@ -93,7 +93,7 @@ bool testAuthenticateUserSuccess(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testAuthenticateUserWrongPassword(Repository::UserRepository& userRepo) {
+static bool testAuthenticateUserWrongPassword(Repository::UserRepository& userRepo) {
     TEST_START("Authenticate User - Wrong Password");
 
     auto createResult = userRepo.createUser("eve", "eve@example.com", "SecurePass123!");
@@ -106,7 +106,7 @@ bool testAuthenticateUserWrongPassword(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testAuthenticateUserNotFound(Repository::UserRepository& userRepo) {
+static bool testAuthenticateUserNotFound(Repository::UserRepository& userRepo) {
     TEST_START("Authenticate User - User Not Found");
 
     auto authResult = userRepo.authenticateUser("nonexistent", "SecurePass123!");
@@ -116,7 +116,7 @@ bool testAuthenticateUserNotFound(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testGetUserByUsername(Repository::UserRepository& userRepo) {
+static bool testGetUserByUsername(Repository::UserRepository& userRepo) {
     TEST_START("Get User By Username");
 
     auto createResult = userRepo.createUser("frank", "frank@example.com", "SecurePass123!");
@@ -130,7 +130,7 @@ bool testGetUserByUsername(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testGetUserById(Repository::UserRepository& userRepo) {
+static bool testGetUserById(Repository::UserRepository& userRepo) {
     TEST_START("Get User By ID");
 
     auto createResult = userRepo.createUser("grace", "grace@example.com", "SecurePass123!");
@@ -144,7 +144,7 @@ bool testGetUserById(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testChangePassword(Repository::UserRepository& userRepo) {
+static bool testChangePassword(Repository::UserRepository& userRepo) {
     TEST_START("Change Password");
 
     const std::string oldPassword = "OldPass123!";
@@ -165,7 +165,7 @@ bool testChangePassword(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testChangePasswordWrongCurrent(Repository::UserRepository& userRepo) {
+static bool testChangePasswordWrongCurrent(Repository::UserRepository& userRepo) {
     TEST_START("Change Password - Wrong Current Password");
 
     auto createResult = userRepo.createUser("iris", "iris@example.com", "SecurePass123!");
@@ -178,7 +178,7 @@ bool testChangePasswordWrongCurrent(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testIsUsernameAvailable(Repository::UserRepository& userRepo) {
+static bool testIsUsernameAvailable(Repository::UserRepository& userRepo) {
     TEST_START("Is Username Available");
 
     auto createResult = userRepo.createUser("jack", "jack@example.com", "SecurePass123!");
@@ -195,7 +195,7 @@ bool testIsUsernameAvailable(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testPasswordHashingUniqueness(Repository::UserRepository& userRepo) {
+static bool testPasswordHashingUniqueness(Repository::UserRepository& userRepo) {
     TEST_START("Password Hashing - Uniqueness");
 
     const std::string password = "SecurePass123!";
@@ -209,7 +209,7 @@ bool testPasswordHashingUniqueness(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testUpdateLastLogin(Repository::UserRepository& userRepo) {
+static bool testUpdateLastLogin(Repository::UserRepository& userRepo) {
     TEST_START("Update Last Login");
 
     auto createResult = userRepo.createUser("karen", "karen@example.com", "SecurePass123!");
@@ -226,7 +226,7 @@ bool testUpdateLastLogin(Repository::UserRepository& userRepo) {
 // SQL Injection Protection Tests (High Priority Security)
 // ============================================================================
 
-bool testSQLInjectionInUsername(Repository::UserRepository& userRepo) {
+static bool testSQLInjectionInUsername(Repository::UserRepository& userRepo) {
     TEST_START("SQL Injection Protection - Username");
 
     std::vector<std::string> maliciousUsernames = {
@@ -260,7 +260,7 @@ bool testSQLInjectionInUsername(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testSQLInjectionInPassword(Repository::UserRepository& userRepo) {
+static bool testSQLInjectionInPassword(Repository::UserRepository& userRepo) {
     TEST_START("SQL Injection Protection - Password");
 
     std::string username = "sqlinjtest1";
@@ -288,7 +288,7 @@ bool testSQLInjectionInPassword(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testSQLInjectionInEmail(Repository::UserRepository& userRepo) {
+static bool testSQLInjectionInEmail(Repository::UserRepository& userRepo) {
     TEST_START("SQL Injection Protection - Email");
 
     std::vector<std::string> maliciousEmails = {
@@ -314,7 +314,7 @@ bool testSQLInjectionInEmail(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testSQLInjectionInAuthenticateUser(Repository::UserRepository& userRepo) {
+static bool testSQLInjectionInAuthenticateUser(Repository::UserRepository& userRepo) {
     TEST_START("SQL Injection Protection - Authenticate User");
 
     // Create a legitimate user
@@ -343,7 +343,7 @@ bool testSQLInjectionInAuthenticateUser(Repository::UserRepository& userRepo) {
 // Unicode and Special Character Edge Cases
 // ============================================================================
 
-bool testUnicodeCharactersInUsername(Repository::UserRepository& userRepo) {
+static bool testUnicodeCharactersInUsername(Repository::UserRepository& userRepo) {
     TEST_START("Unicode Characters in Username");
 
     std::vector<std::string> unicodeUsernames = {
@@ -374,7 +374,7 @@ bool testUnicodeCharactersInUsername(Repository::UserRepository& userRepo) {
     TEST_PASS();
 }
 
-bool testExtremelyLongInputs(Repository::UserRepository& userRepo) {
+static bool testExtremelyLongInputs(Repository::UserRepository& userRepo) {
     TEST_START("Extremely Long Inputs - Buffer Overflow Protection");
 
     // Test extremely long username (beyond reasonable limits)
@@ -384,7 +384,7 @@ bool testExtremelyLongInputs(Repository::UserRepository& userRepo) {
     std::cout << "    Rejected 1000-char username" << std::endl;
 
     // Test extremely long password
-    std::string longPassword(10000, 'P') + "123!Aa";
+    std::string longPassword = std::string(10000, 'P') + "123!Aa";
     auto result2 = userRepo.createUser("longpassuser", "test@example.com", longPassword);
     if (!result2.hasValue()) {
         std::cout << "    Rejected 10000-char password (validation)" << std::endl;
@@ -393,7 +393,7 @@ bool testExtremelyLongInputs(Repository::UserRepository& userRepo) {
     }
 
     // Test extremely long email
-    std::string longEmail(500, 'a') + "@example.com";
+    std::string longEmail = std::string(500, 'a') + "@example.com";
     auto result3 = userRepo.createUser("longemailuser", longEmail, "SecurePass123!");
     if (!result3.hasValue()) {
         std::cout << "    Rejected 500+ char email" << std::endl;

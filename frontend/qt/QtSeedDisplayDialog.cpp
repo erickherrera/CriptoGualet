@@ -70,11 +70,18 @@ void QtSeedDisplayDialog::setupUI() {
 
   QWidget *mainContentWidget = new QWidget();
   m_mainLayout = new QVBoxLayout(mainContentWidget);
-  m_mainLayout->setSpacing(8);
-  m_mainLayout->setContentsMargins(12, 12, 12, 12);
+
+  // Get theme instance for spacing
+  QtThemeManager &theme = QtThemeManager::instance();
+  m_mainLayout->setSpacing(theme.spacing(2));  // 8px
+  m_mainLayout->setContentsMargins(
+      theme.compactSpacing(),  // 12px
+      theme.compactSpacing(),  // 12px
+      theme.compactSpacing(),  // 12px
+      theme.compactSpacing()   // 12px
+  );
 
   // Title - compact
-  QtThemeManager &theme = QtThemeManager::instance();
   QLabel *titleLabel = new QLabel("🔐 BACKUP YOUR SEED PHRASE");
   titleLabel->setAlignment(Qt::AlignCenter);
   QFont compactTitleFont = theme.titleFont();
@@ -170,11 +177,12 @@ void QtSeedDisplayDialog::setupUI() {
   m_copyButton->setFont(buttonFont);
   m_copyButton->setMinimumHeight(32);
   m_copyButton->setStyleSheet(
-      QString("QPushButton { background-color: %1; color: white; padding: 6px "
+      QString("QPushButton { background-color: %1; color: %3; padding: 6px "
               "10px; border: none; border-radius: 4px; font-weight: bold; font-size: 10px; } "
               "QPushButton:hover { background-color: %2; }")
           .arg(theme.accentColor().name())
-          .arg(theme.accentColor().darker(120).name()));
+          .arg(theme.accentColor().darker(120).name())
+          .arg(QColor(Qt::white).name()));
   connect(m_copyButton, &QPushButton::clicked, this,
           &QtSeedDisplayDialog::onCopyToClipboard);
   wordLayout->addWidget(m_copyButton);
@@ -208,13 +216,14 @@ void QtSeedDisplayDialog::setupUI() {
   m_confirmButton->setFont(confirmButtonFont);
   m_confirmButton->setMinimumHeight(36);
   m_confirmButton->setStyleSheet(
-      QString("QPushButton { background-color: %1; color: white; padding: 8px "
+      QString("QPushButton { background-color: %1; color: %4; padding: 8px "
               "14px; border: none; border-radius: 5px; font-weight: bold; font-size: 11px; } "
               "QPushButton:hover:enabled { background-color: %2; } "
               "QPushButton:disabled { background-color: %3; }")
           .arg(theme.accentColor().name())
           .arg(theme.accentColor().darker(120).name())
-          .arg(theme.secondaryColor().name()));
+          .arg(theme.secondaryColor().name())
+          .arg(QColor(Qt::white).name()));
   connect(m_confirmButton, &QPushButton::clicked, this,
           &QtSeedDisplayDialog::onConfirmBackup);
   connect(m_confirmCheckbox, &QCheckBox::toggled, m_confirmButton,
@@ -224,11 +233,12 @@ void QtSeedDisplayDialog::setupUI() {
   cancelButton->setFont(confirmButtonFont);
   cancelButton->setMinimumHeight(36);
   cancelButton->setStyleSheet(
-      QString("QPushButton { background-color: %1; color: white; padding: 8px "
+      QString("QPushButton { background-color: %1; color: %3; padding: 8px "
               "14px; border: none; border-radius: 5px; font-size: 11px; } QPushButton:hover { "
               "background-color: %2; }")
           .arg(theme.secondaryColor().darker(110).name())
-          .arg(theme.secondaryColor().darker(130).name()));
+          .arg(theme.secondaryColor().darker(130).name())
+          .arg(theme.textColor().name()));
   connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
 
   buttonLayout->addStretch();
@@ -440,20 +450,22 @@ void QtSeedDisplayDialog::onCopyToClipboard() {
   QtThemeManager &theme = QtThemeManager::instance();
   m_copyButton->setText("✅ Copied!");
   m_copyButton->setStyleSheet(
-      QString("QPushButton { background-color: %1; color: white; padding: 8px "
+      QString("QPushButton { background-color: %1; color: %2; padding: 8px "
               "12px; border: none; border-radius: 4px; font-weight: bold; }")
-          .arg(theme.successColor().name()));
+          .arg(theme.successColor().name())
+          .arg(QColor(Qt::white).name()));
 
   // Reset button after 2 seconds
   QTimer::singleShot(2000, [this]() {
     QtThemeManager &theme = QtThemeManager::instance();
     m_copyButton->setText("Copy All Words");
     m_copyButton->setStyleSheet(
-        QString("QPushButton { background-color: %1; color: white; padding: "
+        QString("QPushButton { background-color: %1; color: %3; padding: "
                 "8px 12px; border: none; border-radius: 4px; font-weight: "
                 "bold; } QPushButton:hover { background-color: %2; }")
             .arg(theme.accentColor().name())
-            .arg(theme.accentColor().darker(120).name()));
+            .arg(theme.accentColor().darker(120).name())
+            .arg(QColor(Qt::white).name()));
   });
 }
 

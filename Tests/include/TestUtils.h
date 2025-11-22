@@ -44,29 +44,37 @@ namespace TestGlobals {
 // ============================================================================
 
 #define TEST_START(name) \
-    std::cout << COLOR_BLUE << "[TEST] " << name << COLOR_RESET << std::endl; \
-    TestGlobals::g_testsRun++;
+    do { \
+        std::cout << COLOR_BLUE << "[TEST] " << name << COLOR_RESET << std::endl; \
+        TestGlobals::g_testsRun++; \
+    } while(0)
 
 #define TEST_ASSERT(condition, message) \
-    if (!(condition)) { \
-        std::cout << COLOR_RED << "  ✗ FAILED: " << message << COLOR_RESET << std::endl; \
-        TestGlobals::g_testsFailed++; \
-        return false; \
-    }
+    do { \
+        if (!(condition)) { \
+            std::cout << COLOR_RED << "  ✗ FAILED: " << message << COLOR_RESET << std::endl; \
+            TestGlobals::g_testsFailed++; \
+            return false; \
+        } \
+    } while(0)
 
 #define TEST_PASS() \
-    std::cout << COLOR_GREEN << "  ✓ PASSED" << COLOR_RESET << std::endl; \
-    TestGlobals::g_testsPassed++; \
-    return true;
+    do { \
+        std::cout << COLOR_GREEN << "  ✓ PASSED" << COLOR_RESET << std::endl; \
+        TestGlobals::g_testsPassed++; \
+        return true; \
+    } while(0)
 
 #define TEST_STEP(message) \
-    std::cout << "  → " << message << std::endl;
+    do { \
+        std::cout << "  → " << message << std::endl; \
+    } while(0)
 
 // ============================================================================
 // Standard Test Encryption Key
 // ============================================================================
 
-const std::string STANDARD_TEST_ENCRYPTION_KEY = "test-encryption-key-32-chars!!##";
+constexpr const char* STANDARD_TEST_ENCRYPTION_KEY = "test-encryption-key-32-chars!!##";
 
 // ============================================================================
 // Database Schema Creation Functions

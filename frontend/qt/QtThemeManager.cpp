@@ -11,6 +11,25 @@ QtThemeManager::QtThemeManager(QObject *parent) : QObject(parent) {
   setupCryptoDarkTheme();
 }
 
+int QtThemeManager::spacing(int scale) const {
+  static const QMap<int, int> spacingScale = {
+    {0, 0},    // 0px
+    {1, 4},    // 4px
+    {2, 8},    // 8px
+    {3, 12},   // 12px
+    {4, 16},   // 16px
+    {5, 20},   // 20px
+    {6, 24},   // 24px
+    {8, 32},   // 32px
+    {10, 40},  // 40px
+    {12, 48},  // 48px
+    {16, 64},  // 64px
+    {20, 80},  // 80px
+    {24, 96}   // 96px
+  };
+  return spacingScale.value(scale, 16); // Default to 16px
+}
+
 void QtThemeManager::applyTheme(ThemeType theme) {
   m_currentTheme = theme;
 
@@ -47,7 +66,7 @@ void QtThemeManager::applyTheme(const QString &themeName) {
 
 void QtThemeManager::setupDarkTheme() {
   m_primaryColor = QColor(51, 65, 85);      // Slate-700
-  m_secondaryColor = QColor(71, 85, 105);   // Slate-600 - better contrast
+  m_secondaryColor = QColor(100, 116, 139); // Slate-500 - FIXED: better contrast (was 71,85,105)
   m_backgroundColor = QColor(15, 23, 42);   // Slate-900
   m_surfaceColor = QColor(30, 41, 59);      // Slate-800 - distinct from primary
   m_textColor = QColor(248, 250, 252);      // Slate-50
@@ -55,6 +74,27 @@ void QtThemeManager::setupDarkTheme() {
   m_errorColor = QColor(239, 68, 68);       // Red-500
   m_successColor = QColor(34, 197, 94);     // Green-500
   m_warningColor = QColor(245, 158, 11);    // Amber-500
+
+  // Semantic colors
+  m_positiveColor = QColor(34, 197, 94);    // Green-500 (same as success)
+  m_negativeColor = QColor(239, 68, 68);    // Red-500 (same as error)
+  m_infoColor = QColor(59, 130, 246);       // Blue-500 (same as accent)
+
+  // Tinted backgrounds (15% opacity)
+  m_lightPositiveColor = QColor(34, 197, 94, 38);   // Green with 15% alpha
+  m_lightNegativeColor = QColor(239, 68, 68, 38);   // Red with 15% alpha
+  m_lightWarningColor = QColor(245, 158, 11, 38);   // Amber with 15% alpha
+  m_lightErrorColor = QColor(239, 68, 68, 38);      // Red with 15% alpha
+  m_lightInfoColor = QColor(59, 130, 246, 38);      // Blue with 15% alpha
+
+  // Dimmed text variants
+  m_dimmedTextColor = QColor(148, 163, 184);        // Slate-400
+  m_disabledTextColor = QColor(71, 85, 105);        // Slate-600
+
+  // Border colors
+  m_defaultBorderColor = QColor(100, 116, 139);     // Slate-500
+  m_errorBorderColor = QColor(239, 68, 68);         // Red-500
+  m_successBorderColor = QColor(34, 197, 94);       // Green-500
 
   m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
@@ -70,7 +110,7 @@ void QtThemeManager::setupDarkTheme() {
 
 void QtThemeManager::setupLightTheme() {
   m_primaryColor = QColor(255, 255, 255);   // White
-  m_secondaryColor = QColor(226, 232, 240); // Slate-200 - subtle borders
+  m_secondaryColor = QColor(148, 163, 184); // Slate-400 - FIXED: better contrast (was 226,232,240)
   m_backgroundColor = QColor(248, 250, 252);// Slate-50
   m_surfaceColor = QColor(241, 245, 249);   // Slate-100 - distinct from white
   m_textColor = QColor(15, 23, 42);         // Slate-900 - better contrast
@@ -78,6 +118,27 @@ void QtThemeManager::setupLightTheme() {
   m_errorColor = QColor(239, 68, 68);       // Red-500 - matches dark theme
   m_successColor = QColor(34, 197, 94);     // Green-500 - matches dark theme
   m_warningColor = QColor(245, 158, 11);    // Amber-500 - matches dark theme
+
+  // Semantic colors
+  m_positiveColor = QColor(34, 197, 94);    // Green-500 (same as success)
+  m_negativeColor = QColor(239, 68, 68);    // Red-500 (same as error)
+  m_infoColor = QColor(59, 130, 246);       // Blue-500 (same as accent)
+
+  // Tinted backgrounds (15% opacity)
+  m_lightPositiveColor = QColor(34, 197, 94, 38);   // Green with 15% alpha
+  m_lightNegativeColor = QColor(239, 68, 68, 38);   // Red with 15% alpha
+  m_lightWarningColor = QColor(245, 158, 11, 38);   // Amber with 15% alpha
+  m_lightErrorColor = QColor(239, 68, 68, 38);      // Red with 15% alpha
+  m_lightInfoColor = QColor(59, 130, 246, 38);      // Blue with 15% alpha
+
+  // Dimmed text variants
+  m_dimmedTextColor = QColor(100, 116, 139);        // Slate-500
+  m_disabledTextColor = QColor(148, 163, 184);      // Slate-400
+
+  // Border colors
+  m_defaultBorderColor = QColor(148, 163, 184);     // Slate-400
+  m_errorBorderColor = QColor(239, 68, 68);         // Red-500
+  m_successBorderColor = QColor(34, 197, 94);       // Green-500
 
   m_titleFont = QFont("Segoe UI", 16, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 10, QFont::Medium);
@@ -93,7 +154,7 @@ void QtThemeManager::setupLightTheme() {
 
 void QtThemeManager::setupCryptoDarkTheme() {
   m_primaryColor = QColor(24, 24, 27);      // Zinc-900
-  m_secondaryColor = QColor(39, 39, 42);    // Zinc-800 - better layering
+  m_secondaryColor = QColor(63, 63, 70);    // Zinc-700 - FIXED: much better contrast (was 39,39,42)
   m_backgroundColor = QColor(9, 9, 11);     // Zinc-950 - true black
   m_surfaceColor = QColor(24, 24, 27);      // Zinc-900 - distinct layer
   m_textColor = QColor(250, 250, 250);      // Zinc-50
@@ -101,6 +162,27 @@ void QtThemeManager::setupCryptoDarkTheme() {
   m_errorColor = QColor(239, 68, 68);       // Red-500 - matches other themes
   m_successColor = QColor(34, 197, 94);     // Green-500 - matches other themes
   m_warningColor = QColor(245, 158, 11);    // Amber-500 - matches other themes
+
+  // Semantic colors
+  m_positiveColor = QColor(34, 197, 94);    // Green-500 (same as success)
+  m_negativeColor = QColor(239, 68, 68);    // Red-500 (same as error)
+  m_infoColor = QColor(168, 85, 247);       // Purple-500 (same as accent)
+
+  // Tinted backgrounds (15% opacity)
+  m_lightPositiveColor = QColor(34, 197, 94, 38);   // Green with 15% alpha
+  m_lightNegativeColor = QColor(239, 68, 68, 38);   // Red with 15% alpha
+  m_lightWarningColor = QColor(245, 158, 11, 38);   // Amber with 15% alpha
+  m_lightErrorColor = QColor(239, 68, 68, 38);      // Red with 15% alpha
+  m_lightInfoColor = QColor(168, 85, 247, 38);      // Purple with 15% alpha
+
+  // Dimmed text variants
+  m_dimmedTextColor = QColor(161, 161, 170);        // Zinc-400
+  m_disabledTextColor = QColor(63, 63, 70);         // Zinc-700
+
+  // Border colors
+  m_defaultBorderColor = QColor(63, 63, 70);        // Zinc-700
+  m_errorBorderColor = QColor(239, 68, 68);         // Red-500
+  m_successBorderColor = QColor(34, 197, 94);       // Green-500
 
   m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);
@@ -117,7 +199,7 @@ void QtThemeManager::setupCryptoDarkTheme() {
 void QtThemeManager::setupCryptoLightTheme() {
   // Light version of CryptoDark theme with improved contrast
   m_primaryColor = QColor(255, 255, 255);   // White
-  m_secondaryColor = QColor(228, 228, 231); // Zinc-200 - subtle borders
+  m_secondaryColor = QColor(161, 161, 170); // Zinc-400 - FIXED: better contrast (was 228,228,231)
   m_backgroundColor = QColor(250, 250, 250);// Zinc-50
   m_surfaceColor = QColor(244, 244, 245);   // Zinc-100 - distinct layer
   m_textColor = QColor(9, 9, 11);           // Zinc-950 - high contrast
@@ -125,6 +207,27 @@ void QtThemeManager::setupCryptoLightTheme() {
   m_errorColor = QColor(239, 68, 68);       // Red-500 - matches other themes
   m_successColor = QColor(34, 197, 94);     // Green-500 - matches other themes
   m_warningColor = QColor(245, 158, 11);    // Amber-500 - matches other themes
+
+  // Semantic colors
+  m_positiveColor = QColor(34, 197, 94);    // Green-500 (same as success)
+  m_negativeColor = QColor(239, 68, 68);    // Red-500 (same as error)
+  m_infoColor = QColor(168, 85, 247);       // Purple-500 (same as accent)
+
+  // Tinted backgrounds (15% opacity)
+  m_lightPositiveColor = QColor(34, 197, 94, 38);   // Green with 15% alpha
+  m_lightNegativeColor = QColor(239, 68, 68, 38);   // Red with 15% alpha
+  m_lightWarningColor = QColor(245, 158, 11, 38);   // Amber with 15% alpha
+  m_lightErrorColor = QColor(239, 68, 68, 38);      // Red with 15% alpha
+  m_lightInfoColor = QColor(168, 85, 247, 38);      // Purple with 15% alpha
+
+  // Dimmed text variants
+  m_dimmedTextColor = QColor(113, 113, 122);        // Zinc-500
+  m_disabledTextColor = QColor(161, 161, 170);      // Zinc-400
+
+  // Border colors
+  m_defaultBorderColor = QColor(161, 161, 170);     // Zinc-400
+  m_errorBorderColor = QColor(239, 68, 68);         // Red-500
+  m_successBorderColor = QColor(34, 197, 94);       // Green-500
 
   m_titleFont = QFont("Segoe UI", 18, QFont::Bold);
   m_buttonFont = QFont("Segoe UI", 11, QFont::Medium);

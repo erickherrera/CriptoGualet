@@ -262,43 +262,14 @@ void QtSidebar::applyTheme() {
     // Define gray tones for each theme
     QString sidebarBg, borderColor, textColor;
     QColor iconColor;
+    // Use theme manager colors directly - works across all themes
+    sidebarBg = m_themeManager->secondaryColor().name();
+    borderColor = m_themeManager->accentColor().name();
+    textColor = m_themeManager->textColor().name();
+    iconColor = m_themeManager->textColor();
     QColor accentColor = m_themeManager->accentColor();
     QString hoverColor = accentColor.name();
-    QString pressedColor = accentColor.darker(120).name();
-
-    switch (themeType) {
-        case ThemeType::DARK:
-            // Distinct blue-tinted gray for dark theme (contrasts with #1a202c background)
-            sidebarBg = "#374151";  // Lighter than background for clear separation
-            borderColor = "#4b5563";
-            textColor = "#f3f4f6";
-            iconColor = QColor(243, 244, 246);
-            break;
-
-        case ThemeType::LIGHT:
-            // Darker gray-blue for light theme (contrasts with #f8fafc background)
-            sidebarBg = "#475569";  // Darker to stand out against light background
-            borderColor = "#64748b";
-            textColor = "#f8fafc";
-            iconColor = QColor(248, 250, 252);
-            break;
-
-        case ThemeType::CRYPTO_DARK:
-            // Medium-dark for crypto dark theme (contrasts with #0d0d0d background)
-            sidebarBg = "#27272a";  // Noticeably lighter than near-black background
-            borderColor = "#3f3f46";
-            textColor = "#fafafa";
-            iconColor = QColor(250, 250, 250);
-            break;
-
-        case ThemeType::CRYPTO_LIGHT:
-            // Slate gray for crypto light theme (contrasts with #ffffff background)
-            sidebarBg = "#52525b";  // Medium gray to stand out against white
-            borderColor = "#71717a";
-            textColor = "#fafafa";
-            iconColor = QColor(250, 250, 250);
-            break;
-    }
+    QString pressedColor = accentColor.darker(110).name();  // Slight darken for pressed state
 
     QString sidebarStyle = QString(R"(
         QtSidebar {

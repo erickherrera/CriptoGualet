@@ -37,6 +37,7 @@ signals:
 private slots:
   void toggleExpanded();
   void onIconDownloaded(QNetworkReply *reply);
+  void onThemeChanged();
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;

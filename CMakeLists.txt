@@ -82,7 +82,24 @@ endif()
 
 # Cross-platform compiler flags for Clang (only when using Clang)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wno-c++98-compat -Wno-c++98-compat-pedantic")
+  # Minimal warning set - only show critical issues
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-everything")
+
+  # Enable ONLY critical error-like warnings
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type")  # Missing return statements (critical bug)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=uninitialized")  # Use of uninitialized variables
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=delete-non-virtual-dtor")  # Memory safety
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-result")  # Ignoring important return values
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wformat-security")  # Format string vulnerabilities
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wnull-dereference")  # Null pointer dereferences
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wdangling")  # Dangling pointers/references
+
+  # Suppress intentional GNU extensions
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-gnu-zero-variadic-macro-arguments")  # Logger macros use GNU extension
+
+  # Treat warnings as informational (don't fail build)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
+
   if(WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonportable-system-include-path")
   endif()

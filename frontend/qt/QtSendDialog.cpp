@@ -29,8 +29,13 @@ QtSendDialog::QtSendDialog(double currentBalance, double btcPrice, QWidget* pare
 
 void QtSendDialog::setupUI() {
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setSpacing(20);
-    m_mainLayout->setContentsMargins(30, 30, 30, 30);
+    m_mainLayout->setSpacing(m_themeManager->standardSpacing());  // 16px (was 20)
+    m_mainLayout->setContentsMargins(
+        m_themeManager->generousMargin(),  // 32px (was 30)
+        m_themeManager->generousMargin(),  // 32px (was 30)
+        m_themeManager->generousMargin(),  // 32px (was 30)
+        m_themeManager->generousMargin()   // 32px (was 30)
+    );
 
     // === Recipient Section ===
     QGroupBox* recipientGroup = new QGroupBox("Recipient");
@@ -44,7 +49,7 @@ void QtSendDialog::setupUI() {
     recipientLayout->addWidget(m_recipientInput);
 
     m_recipientError = new QLabel();
-    m_recipientError->setStyleSheet("color: #ff4444;");
+    m_recipientError->setStyleSheet(QString("color: %1;").arg(m_themeManager->errorColor().name()));
     m_recipientError->setWordWrap(true);
     m_recipientError->hide();
     recipientLayout->addWidget(m_recipientError);
@@ -75,11 +80,11 @@ void QtSendDialog::setupUI() {
     amountLayout->addLayout(amountInputLayout);
 
     m_amountUSD = new QLabel();
-    m_amountUSD->setStyleSheet("color: #888888; font-size: 12px;");
+    m_amountUSD->setStyleSheet(QString("color: %1; font-size: 12px;").arg(m_themeManager->dimmedTextColor().name()));
     amountLayout->addWidget(m_amountUSD);
 
     m_amountError = new QLabel();
-    m_amountError->setStyleSheet("color: #ff4444;");
+    m_amountError->setStyleSheet(QString("color: %1;").arg(m_themeManager->errorColor().name()));
     m_amountError->setWordWrap(true);
     m_amountError->hide();
     amountLayout->addWidget(m_amountError);

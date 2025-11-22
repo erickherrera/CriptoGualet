@@ -7,18 +7,19 @@
  */
 
 #include "TestUtils.h"
+#include <set>
 #include "Repository/WalletRepository.h"
 #include "Repository/UserRepository.h"
 #include "Crypto.h"
 #include <iostream>
 
-const std::string TEST_DB_PATH = "test_multichain.db";
+constexpr const char* TEST_DB_PATH = "test_multichain.db";
 
 // ============================================================================
 // Multi-Chain Wallet Creation Tests
 // ============================================================================
 
-bool testCreateEthereumWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testCreateEthereumWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Create Ethereum Wallet");
 
     int userId = TestUtils::createTestUser(userRepo, "eth_user");
@@ -34,7 +35,7 @@ bool testCreateEthereumWallet(Repository::WalletRepository& walletRepo, Reposito
     TEST_PASS();
 }
 
-bool testCreateLitecoinWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testCreateLitecoinWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Create Litecoin Wallet");
 
     int userId = TestUtils::createTestUser(userRepo, "ltc_user");
@@ -49,7 +50,7 @@ bool testCreateLitecoinWallet(Repository::WalletRepository& walletRepo, Reposito
     TEST_PASS();
 }
 
-bool testMultipleWalletTypesPerUser(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testMultipleWalletTypesPerUser(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Multiple Wallet Types Per User");
 
     int userId = TestUtils::createTestUser(userRepo, "multi_chain_user");
@@ -91,7 +92,7 @@ bool testMultipleWalletTypesPerUser(Repository::WalletRepository& walletRepo, Re
 // Chain-Specific Address Generation Tests
 // ============================================================================
 
-bool testBitcoinAddressGeneration(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testBitcoinAddressGeneration(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Bitcoin Address Generation");
 
     int userId = TestUtils::createTestUser(userRepo, "btc_addr_user");
@@ -115,7 +116,7 @@ bool testBitcoinAddressGeneration(Repository::WalletRepository& walletRepo, Repo
     TEST_PASS();
 }
 
-bool testEthereumAddressGeneration(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testEthereumAddressGeneration(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Ethereum Address Generation");
 
     int userId = TestUtils::createTestUser(userRepo, "eth_addr_user");
@@ -145,7 +146,7 @@ bool testEthereumAddressGeneration(Repository::WalletRepository& walletRepo, Rep
 // Chain Isolation Tests
 // ============================================================================
 
-bool testWalletChainIsolation(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testWalletChainIsolation(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Wallet Chain Isolation");
 
     int userId = TestUtils::createTestUser(userRepo, "isolation_user");
@@ -176,7 +177,7 @@ bool testWalletChainIsolation(Repository::WalletRepository& walletRepo, Reposito
 // Unsupported Chain Tests
 // ============================================================================
 
-bool testUnsupportedChainRejection(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testUnsupportedChainRejection(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Unsupported Chain Rejection");
 
     int userId = TestUtils::createTestUser(userRepo, "unsupported_user");
@@ -215,7 +216,7 @@ bool testUnsupportedChainRejection(Repository::WalletRepository& walletRepo, Rep
 // Derivation Path Tests
 // ============================================================================
 
-bool testBIP44DerivationPathsForDifferentChains(Repository::WalletRepository& walletRepo,
+static bool testBIP44DerivationPathsForDifferentChains(Repository::WalletRepository& walletRepo,
                                                  Repository::UserRepository& userRepo) {
     TEST_START("BIP44 Derivation Paths for Different Chains");
 

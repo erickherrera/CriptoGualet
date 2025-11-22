@@ -86,8 +86,13 @@ QtWalletUI::QtWalletUI(QWidget *parent)
 
 void QtWalletUI::setupUI() {
   m_mainLayout = new QVBoxLayout(this);
-  m_mainLayout->setContentsMargins(20, 20, 20, 20);
-  m_mainLayout->setSpacing(20);
+  m_mainLayout->setContentsMargins(
+      m_themeManager->standardMargin(),
+      m_themeManager->standardMargin(),
+      m_themeManager->standardMargin(),
+      m_themeManager->standardMargin()
+  );
+  m_mainLayout->setSpacing(m_themeManager->standardSpacing());
 
   // Create a horizontal layout to center content with max width
   m_centeringLayout = new QHBoxLayout();
@@ -289,7 +294,7 @@ void QtWalletUI::onSendBitcoinClicked() {
 
       // Update mock balance
       if (m_currentMockUser) {
-        double feeBTC = txData.estimatedFeeSatoshis / 100000000.0;
+        double feeBTC = static_cast<double>(txData.estimatedFeeSatoshis) / 100000000.0;
         m_currentMockUser->balance -= (txData.amountBTC + feeBTC);
         updateUSDBalance();
         if (m_bitcoinWalletCard) {
@@ -342,6 +347,9 @@ void QtWalletUI::onThemeChanged() {
   if (m_bitcoinWalletCard) {
     m_bitcoinWalletCard->applyTheme();
   }
+  if (m_ethereumWalletCard) {
+    m_ethereumWalletCard->applyTheme();
+  }
 }
 
 void QtWalletUI::applyTheme() { updateStyles(); }
@@ -391,7 +399,57 @@ void QtWalletUI::updateStyles() {
 
   const QString text = m_themeManager->textColor().name();
   const QString accent = m_themeManager->accentColor().name();
+  const QString background = m_themeManager->backgroundColor().name();
+  const QString surface = m_themeManager->surfaceColor().name();
   bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
+
+  // Apply proper background colors to scroll area and content
+  if (m_scrollArea) {
+    m_scrollArea->setStyleSheet(QString(R"(
+      QScrollArea {
+        background-color: %1;
+        border: none;
+      }
+      QScrollBar:vertical {
+        background: %1;
+        width: 10px;
+        border-radius: 5px;
+        margin: 2px;
+      }
+      QScrollBar::handle:vertical {
+        background: %2;
+        border-radius: 5px;
+        min-height: 20px;
+      }
+      QScrollBar::handle:vertical:hover {
+        background: %3;
+      }
+      QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        height: 0px;
+      }
+      QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+        background: none;
+      }
+    )").arg(background)
+       .arg(m_themeManager->secondaryColor().name())
+       .arg(m_themeManager->accentColor().name()));
+  }
+
+  if (m_scrollContent) {
+    m_scrollContent->setStyleSheet(QString(R"(
+      QWidget {
+        background-color: %1;
+      }
+    )").arg(background));
+  }
+
+  if (m_headerSection) {
+    m_headerSection->setStyleSheet(QString(R"(
+      QWidget {
+        background-color: transparent;
+      }
+    )"));
+  }
 
   // Calculate responsive font sizes based on window width
   int windowWidth = this->width();
@@ -474,7 +532,7 @@ void QtWalletUI::updateStyles() {
             font-weight: 600;
             background-color: transparent;
         }
-    )").arg(isDarkTheme ? m_themeManager->textColor().darker(120).name() : text)
+    )").arg(m_themeManager->dimmedTextColor().name())  // Theme-aware dimmed text
        .arg(balanceTitleSize);
     m_balanceTitle->setStyleSheet(balanceTitleStyle);
 
@@ -486,9 +544,7 @@ void QtWalletUI::updateStyles() {
 
   // Balance amount - large and prominent with accent color
   if (m_balanceLabel) {
-    QString balanceColor = isDarkTheme
-        ? m_themeManager->accentColor().lighter(120).name()
-        : m_themeManager->accentColor().darker(105).name();
+    QString balanceColor = m_themeManager->accentColor().name();  // Theme provides proper contrast
 
     QString balanceAmountStyle = QString(R"(
         QLabel {
@@ -518,12 +574,37 @@ void QtWalletUI::updateStyles() {
         QPushButton:hover {
             background-color: %1;
         }
-    )").arg(m_themeManager->surfaceColor().lighter(isDarkTheme ? 120 : 95).name())
+    )").arg(m_themeManager->secondaryColor().name())  // Theme-aware hover background
        .arg(toggleButtonSize);
     m_toggleBalanceButton->setStyleSheet(toggleButtonStyle);
 
     // Use emoji icons (SVG loading disabled for stability)
     m_toggleBalanceButton->setText(m_balanceVisible ? "👁" : "🚫");
+  }
+
+  // Refresh button styling - match toggle button style
+  if (m_refreshButton) {
+    QString refreshButtonStyle = QString(R"(
+        QPushButton {
+            background-color: transparent;
+            border: none;
+            border-radius: 16px;
+            font-size: %2px;
+        }
+        QPushButton:hover {
+            background-color: %1;
+        }
+        QPushButton:disabled {
+            opacity: 0.5;
+        }
+    )").arg(m_themeManager->secondaryColor().name())
+       .arg(toggleButtonSize);
+    m_refreshButton->setStyleSheet(refreshButtonStyle);
+  }
+
+  // Status label styling - ensure proper contrast
+  if (m_statusLabel && m_statusLabel->isVisible()) {
+    updateStatusLabel();
   }
 }
 
@@ -1174,8 +1255,8 @@ void QtWalletUI::sendRealTransaction(const QString& recipientAddress, uint64_t a
               "Fee: %3 BTC\n\n"
               "The transaction will appear in your history once confirmed.")
           .arg(QString::fromStdString(result.transaction_hash))
-          .arg(amountSatoshis / 100000000.0, 0, 'f', 8)
-          .arg(result.total_fees / 100000000.0, 0, 'f', 8));
+          .arg(static_cast<double>(amountSatoshis) / 100000000.0, 0, 'f', 8)
+          .arg(static_cast<double>(result.total_fees) / 100000000.0, 0, 'f', 8));
 
   // Step 10: Clean up sensitive data
   // TODO: Re-enable secure memory cleanup after fixing linkage
@@ -1251,11 +1332,11 @@ void QtWalletUI::updateStatusLabel() {
   if (m_themeManager) {
     QColor textColor, bgColor;
     if (styleClass == "error") {
-      textColor = QColor("#d32f2f");  // Red
-      bgColor = QColor("#ffebee");    // Light red background
+      textColor = m_themeManager->errorColor();
+      bgColor = m_themeManager->lightError();
     } else {
-      textColor = m_themeManager->getForegroundColor();
-      bgColor = m_themeManager->getBackgroundColor();
+      textColor = m_themeManager->textColor();
+      bgColor = m_themeManager->backgroundColor();
     }
 
     m_statusLabel->setStyleSheet(QString(
@@ -1304,7 +1385,7 @@ QString QtWalletUI::formatBitcoinTransactionHistory(const std::vector<std::strin
   return historyHtml;
 }
 
-QString QtWalletUI::formatEthereumTransactionHistory(const std::vector<WalletAPI::EthereumTransaction>& txs,
+QString QtWalletUI::formatEthereumTransactionHistory(const std::vector<EthereumService::Transaction>& txs,
                                                       const std::string& userAddress) {
   if (txs.empty()) {
     return "No transactions yet.<br><br>Send Ethereum to your address to see it appear here!";
@@ -1319,7 +1400,9 @@ QString QtWalletUI::formatEthereumTransactionHistory(const std::vector<WalletAPI
     if (count >= 5) break; // Show only first 5 transactions
 
     QString type = (tx.to == userAddress) ? "Received" : "Sent";
-    QString typeColor = (tx.to == userAddress) ? "#4caf50" : "#f44336";  // Green for received, red for sent
+    QString typeColor = (tx.to == userAddress)
+        ? m_themeManager->positiveColor().name()  // Green for received
+        : m_themeManager->negativeColor().name(); // Red for sent
     QString statusIcon = tx.is_error ? "❌" : "✅";
     QString shortHash = QString::fromStdString(tx.hash).left(16) + "...";
 
