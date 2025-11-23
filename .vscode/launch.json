@@ -2,36 +2,41 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug CriptoGualet Qt (MSVC)",
-            "type": "cppvsdbg",
+            "name": "Debug CriptoGualet Qt (Visual Studio Build)",
+            "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/build-simple/bin/Debug/CriptoGualetQt.exe",
             "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/Debug",
-            "environment": [
-                {
-                    "name": "PATH",
-                    "value": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
-                }
-            ],
-            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/build-simple/bin/Debug",
+            "env": {
+                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+            },
             "preLaunchTask": "CMake: build"
         },
         {
-            "name": "Debug CriptoGualet Qt (LLDB)",
+            "name": "Debug CriptoGualet Qt (Ninja Build)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/clangd-ninja/bin/CriptoGualetQt.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/build/Debug",
-            "environment": [
-                {
-                    "name": "PATH",
-                    "value": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
-                }
-            ],
-            "preLaunchTask": "CMake: build"
+            "cwd": "${workspaceFolder}/out/build/clangd-ninja/bin",
+            "env": {
+                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+            },
+            "preLaunchTask": "CMake: build (Ninja)"
+        },
+        {
+            "name": "Debug CriptoGualet Qt (No Build)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-simple/bin/Debug/CriptoGualetQt.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/build-simple/bin/Debug",
+            "env": {
+                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+            }
         }
     ]
+}
+
 }

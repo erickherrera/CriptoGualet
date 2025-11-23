@@ -15,6 +15,10 @@ bld/
 [Ll]og/
 [Ll]ogs/
 build/
+build-*/
+build-simple/
+build-clang/
+build-test/
 
 # Visual Studio files
 .vs/
@@ -106,3 +110,11 @@ nul
 
 # Build logs
 build_output.txt
+
+# Additional build directories (catch-all)
+build-*/
+build-simple/
+
+# Machine-specific helper scripts (not needed in repo)
+configure-cmake.ps1
+regenerate-clangd-config.ps1
