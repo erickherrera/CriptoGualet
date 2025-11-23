@@ -11,7 +11,7 @@
       "stopOnEntry": false,
       "console": "internalConsole",
       "env": {
-        "PATH": "${workspaceRoot}\\out\\build\\win-clang-x64-debug\\bin\\Debug;${env:PATH}"
+        "PATH": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${env:PATH}"
       }
     }
   ]
