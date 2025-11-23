@@ -391,7 +391,7 @@ void QtWalletUI::onSendEthereumClicked() {
         "This action cannot be undone. Continue?")
         .arg(QString::number(txData.amountETH, 'f', 8))
         .arg(txData.recipientAddress)
-        .arg(QString::number(txData.gasPriceGwei, 'f', 2))
+        .arg(txData.gasPriceGwei)
         .arg(txData.gasLimit)
         .arg(QString::number(txData.totalCostETH, 'f', 8));
 
@@ -425,7 +425,7 @@ void QtWalletUI::onSendEthereumClicked() {
             txData.recipientAddress.toStdString(),
             txData.amountETH,
             privateKeyHex.toStdString(),
-            QString::number(txData.gasPriceGwei).toStdString(),
+            txData.gasPriceGwei.toStdString(),
             txData.gasLimit
         );
 
@@ -1379,6 +1379,52 @@ void QtWalletUI::sendRealTransaction(const QString& recipientAddress, uint64_t a
   // Crypto::SecureWipeVector(privateKeyBytes);
   // Crypto::SecureZeroMemory(seed.data(), seed.size());
   privateKeyBytes.clear();
+}
+
+std::vector<uint8_t> QtWalletUI::derivePrivateKeyForAddress(const QString& address, const QString& password) {
+  if (!m_walletRepository || m_currentUserId < 0) {
+    throw std::runtime_error("Wallet repository not properly initialized");
+  }
+
+  // Step 1: Retrieve and decrypt the user's seed phrase
+  auto seedResult = m_walletRepository->retrieveDecryptedSeed(m_currentUserId, password.toStdString());
+  if (!seedResult.success) {
+    throw std::runtime_error("Failed to decrypt seed: " + seedResult.errorMessage);
+  }
+
+  std::vector<std::string> mnemonic = seedResult.data;
+
+  // Step 2: Derive master key from seed
+  std::array<uint8_t, 64> seed;
+  if (!Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed)) {
+    throw std::runtime_error("Failed to derive seed from mnemonic");
+  }
+
+  Crypto::BIP32ExtendedKey masterKey;
+  if (!Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
+    throw std::runtime_error("Failed to derive master key");
+  }
+
+  // Step 3: Determine if this is Bitcoin or Ethereum address and derive accordingly
+  bool isEthereum = address.startsWith("0x");
+
+  Crypto::BIP32ExtendedKey addressKey;
+  if (isEthereum) {
+    // Ethereum BIP44 path: m/44'/60'/0'/0/0
+    if (!Crypto::BIP44_DeriveEthereumAddressKey(masterKey, 0, false, 0, addressKey)) {
+      throw std::runtime_error("Failed to derive Ethereum address key");
+    }
+  } else {
+    // Bitcoin BIP44 path: m/44'/0'/0'/0/0 (mainnet) or m/44'/1'/0'/0/0 (testnet)
+    if (!Crypto::BIP44_DeriveAddressKey(masterKey, 0, false, 0, addressKey, true)) {
+      throw std::runtime_error("Failed to derive Bitcoin address key");
+    }
+  }
+
+  // Step 4: Extract private key bytes
+  std::vector<uint8_t> privateKeyBytes(addressKey.key.begin(), addressKey.key.end());
+
+  return privateKeyBytes;
 }
 
 // PHASE 2: Loading and error state management

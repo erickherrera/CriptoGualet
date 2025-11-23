@@ -1,10 +1,13 @@
 # Test Executables
 
+# Find secp256k1 library (required for crypto operations)
+find_package(unofficial-secp256k1 CONFIG REQUIRED)
+
 # ---- BIP39 Test Executable ----
 add_executable(test_bip39
   "test_bip39.cpp"
 )
-target_link_libraries(test_bip39 PRIVATE Auth Crypto SharedSymbols comctl32 crypt32 bcrypt)
+target_link_libraries(test_bip39 PRIVATE Auth Crypto SharedSymbols unofficial::secp256k1 unofficial::secp256k1_precomputed comctl32 crypt32 bcrypt)
 target_include_directories(test_bip39 PRIVATE
   "${CMAKE_SOURCE_DIR}/backend/core/include"
   "${CMAKE_SOURCE_DIR}/backend/repository/include"
@@ -17,7 +20,7 @@ target_include_directories(test_bip39 PRIVATE
 add_executable(test_ethereum_wallet
   "test_ethereum_wallet.cpp"
 )
-target_link_libraries(test_ethereum_wallet PRIVATE Auth Crypto SharedSymbols comctl32 crypt32 bcrypt)
+target_link_libraries(test_ethereum_wallet PRIVATE Auth Crypto SharedSymbols unofficial::secp256k1 unofficial::secp256k1_precomputed comctl32 crypt32 bcrypt)
 target_include_directories(test_ethereum_wallet PRIVATE
   "${CMAKE_SOURCE_DIR}/backend/core/include"
   "${CMAKE_SOURCE_DIR}/backend/repository/include"
