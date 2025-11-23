@@ -2,17 +2,28 @@
   "version": "0.2.1",
   "configurations": [
     {
-      "type": "cppvsdbg",
+      "type": "cppdbg",
       "name": "CriptoGualet Qt Application (Debug)",
-      "project": "CMakeLists.txt",
-      "projectTarget": "CriptoGualetQt (exe)",
-      "currentDir": "${workspaceRoot}",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug/CriptoGualetQt.exe",
       "args": [],
-      "stopOnEntry": false,
-      "console": "internalConsole",
-      "env": {
-        "PATH": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${env:PATH}"
-      }
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug",
+      "environment": [
+        {
+          "name": "PATH",
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${env:PATH}"
+        }
+      ],
+      "externalConsole": false,
+      "MIMode": "lldb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
     }
   ]
 }
