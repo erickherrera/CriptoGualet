@@ -341,6 +341,127 @@ std::string EthereumWallet::ConvertEthToWei(double eth) {
     return EthereumService::EthereumClient::EthToWei(eth);
 }
 
+EthereumSendResult EthereumWallet::SendFunds(
+    const std::string& from_address,
+    const std::string& to_address,
+    double amount_eth,
+    const std::string& private_key_hex,
+    const std::string& gas_price_gwei,
+    uint64_t gas_limit
+) {
+    EthereumSendResult result;
+    result.success = false;
+    result.total_cost_eth = 0.0;
+
+    if (!client) {
+        result.error_message = "Ethereum client not initialized";
+        return result;
+    }
+
+    // Validate addresses
+    if (!client->IsValidAddress(from_address)) {
+        result.error_message = "Invalid source address";
+        return result;
+    }
+
+    if (!client->IsValidAddress(to_address)) {
+        result.error_message = "Invalid destination address";
+        return result;
+    }
+
+    // Validate private key format
+    if (private_key_hex.empty()) {
+        result.error_message = "Private key is required";
+        return result;
+    }
+
+    // Check balance
+    auto balance_info = client->GetAddressBalance(from_address);
+    if (!balance_info.has_value()) {
+        result.error_message = "Failed to retrieve balance for source address";
+        return result;
+    }
+
+    // Convert amount to Wei
+    std::string value_wei = EthereumService::EthereumClient::EthToWei(amount_eth);
+
+    // Get or estimate gas price
+    std::string gas_price_wei;
+    if (gas_price_gwei.empty()) {
+        // Auto-estimate using "propose" (average) gas price
+        auto gas_price_result = client->GetGasPrice();
+        if (!gas_price_result.has_value()) {
+            result.error_message = "Failed to estimate gas price";
+            return result;
+        }
+
+        // Use proposed gas price (convert Gwei to Wei)
+        double propose_gwei = std::stod(gas_price_result->propose_gas_price);
+        gas_price_wei = EthereumService::EthereumClient::GweiToWei(propose_gwei);
+    } else {
+        // Use provided gas price (convert Gwei to Wei)
+        double gwei = std::stod(gas_price_gwei);
+        gas_price_wei = EthereumService::EthereumClient::GweiToWei(gwei);
+    }
+
+    // Calculate total cost (value + gas fees)
+    // Gas cost = gas_price * gas_limit
+    double gas_price_wei_double = std::stod(gas_price_wei);
+    double total_gas_cost_wei = gas_price_wei_double * gas_limit;
+    double value_wei_double = std::stod(value_wei);
+    double total_cost_wei_double = value_wei_double + total_gas_cost_wei;
+
+    // Check if balance is sufficient
+    double balance_wei_double = std::stod(balance_info->balance_wei);
+    if (balance_wei_double < total_cost_wei_double) {
+        result.error_message = "Insufficient funds. Balance: " +
+                              std::to_string(balance_info->balance_eth) +
+                              " ETH, Required: " +
+                              std::to_string(EthereumService::EthereumClient::WeiToEth(std::to_string(static_cast<uint64_t>(total_cost_wei_double)))) +
+                              " ETH (including gas)";
+        return result;
+    }
+
+    // Determine chain ID based on network
+    uint64_t chain_id = 1;  // Mainnet
+    if (current_network == "sepolia") {
+        chain_id = 11155111;
+    } else if (current_network == "goerli") {
+        chain_id = 5;
+    }
+
+    // Create and sign transaction
+    auto signed_tx = client->CreateSignedTransaction(
+        from_address,
+        to_address,
+        value_wei,
+        gas_price_wei,
+        gas_limit,
+        private_key_hex,
+        chain_id
+    );
+
+    if (!signed_tx.has_value()) {
+        result.error_message = "Failed to create signed transaction";
+        return result;
+    }
+
+    // Broadcast transaction
+    auto tx_hash_result = client->BroadcastTransaction(signed_tx.value());
+    if (!tx_hash_result.has_value()) {
+        result.error_message = "Failed to broadcast transaction to network";
+        return result;
+    }
+
+    // Success!
+    result.success = true;
+    result.transaction_hash = tx_hash_result.value();
+    result.total_cost_wei = std::to_string(static_cast<uint64_t>(total_cost_wei_double));
+    result.total_cost_eth = EthereumService::EthereumClient::WeiToEth(result.total_cost_wei);
+
+    return result;
+}
+
 std::string EthereumWallet::GetNetworkInfo() {
     return "Connected to Etherscan API - Network: " + current_network;
 }

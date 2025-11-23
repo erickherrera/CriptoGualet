@@ -76,6 +76,7 @@ signals:
 private slots:
   void onViewBalanceClicked();
   void onSendBitcoinClicked();
+  void onSendEthereumClicked();  // Ethereum send handler
   void onReceiveBitcoinClicked();
   void onReceiveEthereumClicked();  // PHASE 2: Separate Ethereum receive handler
   void onLogoutClicked();

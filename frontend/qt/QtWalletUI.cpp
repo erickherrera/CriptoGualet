@@ -3,6 +3,7 @@
 #include "QtExpandableWalletCard.h"
 #include "QtThemeManager.h"
 #include "QtSendDialog.h"
+#include "QtReceiveDialog.h"
 #include "PriceService.h"
 #include "Crypto.h"
 
@@ -231,9 +232,9 @@ void QtWalletUI::createActionButtons() {
 
   // PHASE 2: Connect Ethereum handlers
   connect(m_ethereumWalletCard, &QtExpandableWalletCard::sendRequested, this,
-          [this]() { QMessageBox::information(this, "Ethereum Send", "Ethereum send functionality coming soon!"); });
+          &QtWalletUI::onSendEthereumClicked);
   connect(m_ethereumWalletCard, &QtExpandableWalletCard::receiveRequested, this,
-          &QtWalletUI::onReceiveEthereumClicked);  // PHASE 2: Separate Ethereum receive handler
+          &QtWalletUI::onReceiveEthereumClicked);
 
   m_contentLayout->addWidget(m_ethereumWalletCard);
 }
@@ -273,7 +274,7 @@ void QtWalletUI::onSendBitcoinClicked() {
                                      : m_realBalanceBTC;
 
   // Create and show send dialog
-  QtSendDialog dialog(currentBalance, m_currentBTCPrice, this);
+  QtSendDialog dialog(QtSendDialog::ChainType::BITCOIN, currentBalance, m_currentBTCPrice, this);
   if (dialog.exec() == QDialog::Accepted) {
     auto txDataOpt = dialog.getTransactionData();
     if (!txDataOpt.has_value()) {
@@ -337,10 +338,125 @@ void QtWalletUI::onSendBitcoinClicked() {
   emit sendBitcoinRequested();
 }
 
-void QtWalletUI::onReceiveBitcoinClicked() { emit receiveBitcoinRequested(); }
+void QtWalletUI::onReceiveBitcoinClicked() {
+  // Show Bitcoin receive dialog with current address
+  QtReceiveDialog dialog(QtReceiveDialog::ChainType::BITCOIN, m_currentAddress, this);
+  dialog.exec();
+
+  emit receiveBitcoinRequested();
+}
 
 // PHASE 2: Separate Ethereum receive handler
-void QtWalletUI::onReceiveEthereumClicked() { emit receiveEthereumRequested(); }
+void QtWalletUI::onReceiveEthereumClicked() {
+  // Show Ethereum receive dialog with Ethereum address
+  if (m_ethereumAddress.isEmpty()) {
+    QMessageBox::warning(this, "No Ethereum Address",
+                        "Ethereum address not available. Please ensure your wallet is set up correctly.");
+    return;
+  }
+
+  QtReceiveDialog dialog(QtReceiveDialog::ChainType::ETHEREUM, m_ethereumAddress, this);
+  dialog.exec();
+
+  emit receiveEthereumRequested();
+}
+
+void QtWalletUI::onSendEthereumClicked() {
+  // Check if Ethereum wallet is available
+  if (!m_ethereumWallet) {
+    QMessageBox::warning(this, "Ethereum Wallet Not Available",
+                        "Ethereum wallet is not initialized. Please restart the application.");
+    return;
+  }
+
+  // Determine current balance
+  double currentBalance = m_realBalanceETH;
+
+  // Create and show send dialog for Ethereum
+  QtSendDialog dialog(QtSendDialog::ChainType::ETHEREUM, currentBalance, m_currentETHPrice, this);
+  if (dialog.exec() == QDialog::Accepted) {
+    auto txDataOpt = dialog.getTransactionData();
+    if (!txDataOpt.has_value()) {
+      return;
+    }
+
+    auto txData = txDataOpt.value();
+
+    // Show confirmation
+    QString confirmMsg = QString(
+        "You are about to send %1 ETH to:\n%2\n\n"
+        "Gas Price: %3 Gwei\n"
+        "Gas Limit: %4\n"
+        "Total Cost: %5 ETH\n\n"
+        "This action cannot be undone. Continue?")
+        .arg(QString::number(txData.amountETH, 'f', 8))
+        .arg(txData.recipientAddress)
+        .arg(QString::number(txData.gasPriceGwei, 'f', 2))
+        .arg(txData.gasLimit)
+        .arg(QString::number(txData.totalCostETH, 'f', 8));
+
+    int response = QMessageBox::question(this, "Confirm Ethereum Transaction",
+                                         confirmMsg,
+                                         QMessageBox::Yes | QMessageBox::No);
+
+    if (response == QMessageBox::Yes) {
+      try {
+        // Show progress indicator
+        QMessageBox* progressBox = new QMessageBox(this);
+        progressBox->setWindowTitle("Sending Ethereum Transaction");
+        progressBox->setText("Broadcasting transaction to the Ethereum network...\nPlease wait.");
+        progressBox->setStandardButtons(QMessageBox::NoButton);
+        progressBox->setModal(true);
+        progressBox->show();
+        QApplication::processEvents();
+
+        // Derive private key for the Ethereum address
+        std::vector<uint8_t> privateKeyBytes = derivePrivateKeyForAddress(m_ethereumAddress, txData.password);
+
+        // Convert private key to hex string
+        QString privateKeyHex;
+        for (uint8_t byte : privateKeyBytes) {
+          privateKeyHex += QString("%1").arg(byte, 2, 16, QChar('0'));
+        }
+
+        // Send the Ethereum transaction
+        auto result = m_ethereumWallet->SendFunds(
+            m_ethereumAddress.toStdString(),
+            txData.recipientAddress.toStdString(),
+            txData.amountETH,
+            privateKeyHex.toStdString(),
+            QString::number(txData.gasPriceGwei).toStdString(),
+            txData.gasLimit
+        );
+
+        progressBox->close();
+        delete progressBox;
+
+        if (result.success) {
+          QMessageBox::information(
+              this, "Transaction Sent",
+              QString("Transaction sent successfully!\n\n"
+                      "Transaction Hash:\n%1\n\n"
+                      "Total Cost: %2 ETH ($%3)\n\n"
+                      "You can track your transaction on Etherscan.")
+                  .arg(QString::fromStdString(result.transaction_hash))
+                  .arg(QString::number(result.total_cost_eth, 'f', 8))
+                  .arg(QString::number(result.total_cost_eth * m_currentETHPrice, 'f', 2)));
+
+          // Refresh balance after sending
+          fetchRealBalance();
+        } else {
+          QMessageBox::critical(this, "Transaction Failed",
+              QString("Failed to send transaction:\n%1")
+                  .arg(QString::fromStdString(result.error_message)));
+        }
+      } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Transaction Failed",
+            QString("Failed to send transaction:\n%1").arg(e.what()));
+      }
+    }
+  }
+}
 
 void QtWalletUI::onThemeChanged() {
   applyTheme();

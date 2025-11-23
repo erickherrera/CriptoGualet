@@ -11,7 +11,7 @@ add_library(Crypto STATIC
 target_include_directories(Crypto PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
-target_link_libraries(Crypto PRIVATE unofficial::secp256k1 unofficial::secp256k1_precomputed)
+target_link_libraries(Crypto PUBLIC unofficial::secp256k1 unofficial::secp256k1_precomputed)
 
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)

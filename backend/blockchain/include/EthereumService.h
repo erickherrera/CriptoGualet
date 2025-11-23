@@ -107,6 +107,34 @@ public:
     std::optional<uint64_t> GetTransactionCount(const std::string& address);
 
     /**
+     * @brief Send raw signed transaction to the network
+     * @param signed_tx_hex Signed transaction in hex format (0x...)
+     * @return Optional transaction hash if successful
+     */
+    std::optional<std::string> BroadcastTransaction(const std::string& signed_tx_hex);
+
+    /**
+     * @brief Create and sign an Ethereum transaction
+     * @param from_address Sender address
+     * @param to_address Recipient address
+     * @param value_wei Amount in Wei
+     * @param gas_price_wei Gas price in Wei
+     * @param gas_limit Gas limit (21000 for simple transfer)
+     * @param private_key_hex Private key in hex format
+     * @param chain_id Chain ID (1=mainnet, 11155111=sepolia)
+     * @return Optional signed transaction hex if successful
+     */
+    std::optional<std::string> CreateSignedTransaction(
+        const std::string& from_address,
+        const std::string& to_address,
+        const std::string& value_wei,
+        const std::string& gas_price_wei,
+        uint64_t gas_limit,
+        const std::string& private_key_hex,
+        uint64_t chain_id
+    );
+
+    /**
      * @brief Validate Ethereum address format
      * @param address Address to validate
      * @return true if valid Ethereum address format

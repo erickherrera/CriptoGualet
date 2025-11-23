@@ -32,7 +32,7 @@ if(BLOCKCYPHER_AVAILABLE)
   target_include_directories(EthereumService PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
   )
-  target_link_libraries(EthereumService PRIVATE cpr::cpr nlohmann_json::nlohmann_json)
+  target_link_libraries(EthereumService PRIVATE cpr::cpr nlohmann_json::nlohmann_json RLPEncoder Crypto)
 else()
   message(STATUS "BlockCypher API will not be built - dependencies not found")
   message(STATUS "Run 'vcpkg install' to install dependencies: cpr, nlohmann-json")

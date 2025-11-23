@@ -1,4 +1,6 @@
 #include "EthereumService.h"
+#include "../utils/include/RLPEncoder.h"
+#include "../core/include/Crypto.h"
 #include <cpr/cpr.h>
 #include <nlohmann/json.hpp>
 #include <regex>
@@ -344,6 +346,129 @@ std::string EthereumClient::GweiToWei(double gwei) {
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(0) << wei;
     return oss.str();
+}
+
+std::optional<std::string> EthereumClient::BroadcastTransaction(const std::string& signed_tx_hex) {
+    if (signed_tx_hex.empty()) {
+        return std::nullopt;
+    }
+
+    // Ensure 0x prefix
+    std::string hex_data = signed_tx_hex;
+    if (hex_data.substr(0, 2) != "0x") {
+        hex_data = "0x" + hex_data;
+    }
+
+    // Etherscan API: Send raw transaction
+    std::string endpoint = "?module=proxy&action=eth_sendRawTransaction&hex=" + hex_data;
+    std::string response = makeRequest(endpoint);
+
+    if (response.empty()) {
+        return std::nullopt;
+    }
+
+    try {
+        json data = json::parse(response);
+
+        if (data.contains("result") && !data["result"].is_null()) {
+            std::string tx_hash = data["result"].get<std::string>();
+            return tx_hash;
+        } else if (data.contains("error")) {
+            // Transaction failed
+            return std::nullopt;
+        }
+    } catch (const json::exception& e) {
+        return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<std::string> EthereumClient::CreateSignedTransaction(
+    const std::string& from_address,
+    const std::string& to_address,
+    const std::string& value_wei,
+    const std::string& gas_price_wei,
+    uint64_t gas_limit,
+    const std::string& private_key_hex,
+    uint64_t chain_id
+) {
+    // Validate addresses
+    if (!IsValidAddress(from_address) || !IsValidAddress(to_address)) {
+        return std::nullopt;
+    }
+
+    // Get nonce (transaction count)
+    auto nonce_opt = GetTransactionCount(from_address);
+    if (!nonce_opt.has_value()) {
+        return std::nullopt;
+    }
+    uint64_t nonce = nonce_opt.value();
+
+    // Convert private key from hex to bytes
+    std::vector<uint8_t> private_key_bytes = RLP::Encoder::HexToBytes(private_key_hex);
+    if (private_key_bytes.size() != 32) {
+        return std::nullopt;  // Invalid private key
+    }
+
+    // Build unsigned transaction (EIP-155 format)
+    // [nonce, gasPrice, gasLimit, to, value, data, chainId, 0, 0]
+    std::vector<std::vector<uint8_t>> tx_fields;
+    tx_fields.push_back(RLP::Encoder::EncodeUInt(nonce));
+    tx_fields.push_back(RLP::Encoder::EncodeHex(gas_price_wei));
+    tx_fields.push_back(RLP::Encoder::EncodeUInt(gas_limit));
+    tx_fields.push_back(RLP::Encoder::EncodeHex(to_address));
+    tx_fields.push_back(RLP::Encoder::EncodeHex(value_wei));
+    tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // Empty data for simple transfer
+    tx_fields.push_back(RLP::Encoder::EncodeUInt(chain_id));  // Chain ID for EIP-155
+    tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // r = 0 for unsigned
+    tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // s = 0 for unsigned
+
+    // RLP encode the transaction
+    std::vector<uint8_t> rlp_encoded = RLP::Encoder::EncodeList(tx_fields);
+
+    // Keccak256 hash the encoded transaction
+    std::array<uint8_t, 32> tx_hash;
+    if (!Crypto::Keccak256(rlp_encoded.data(), rlp_encoded.size(), tx_hash)) {
+        return std::nullopt;
+    }
+
+    // Sign the transaction hash
+    Crypto::ECDSASignature signature;
+    if (!Crypto::SignHash(private_key_bytes, tx_hash, signature)) {
+        return std::nullopt;
+    }
+
+    // Ensure low-s value (EIP-2) - normalize signature
+    // For Ethereum, we need raw r and s values, not DER encoding
+    if (signature.r.size() != 32 || signature.s.size() != 32) {
+        return std::nullopt;
+    }
+
+    // Calculate recovery ID (v value)
+    // For EIP-155: v = chain_id * 2 + 35 + recovery_id (0 or 1)
+    // We'll try recovery_id = 0 first (typically works)
+    uint64_t v = chain_id * 2 + 35;
+
+    // Rebuild transaction with signature
+    std::vector<std::vector<uint8_t>> signed_tx_fields;
+    signed_tx_fields.push_back(RLP::Encoder::EncodeUInt(nonce));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeHex(gas_price_wei));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeUInt(gas_limit));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeHex(to_address));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeHex(value_wei));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // Empty data
+    signed_tx_fields.push_back(RLP::Encoder::EncodeUInt(v));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeBytes(signature.r));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeBytes(signature.s));
+
+    // RLP encode the signed transaction
+    std::vector<uint8_t> signed_rlp = RLP::Encoder::EncodeList(signed_tx_fields);
+
+    // Convert to hex string
+    std::string signed_tx_hex = RLP::Encoder::BytesToHex(signed_rlp);
+
+    return signed_tx_hex;
 }
 
 } // namespace EthereumService

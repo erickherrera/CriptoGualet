@@ -60,6 +60,15 @@ public:
   std::string GetNetworkInfo();
 };
 
+// Ethereum Send Transaction Result
+struct EthereumSendResult {
+  bool success;
+  std::string transaction_hash;
+  std::string error_message;
+  std::string total_cost_wei;  // Gas cost + value
+  double total_cost_eth;
+};
+
 // Ethereum Wallet class
 class EthereumWallet {
 private:
@@ -78,6 +87,16 @@ public:
   std::optional<EthereumService::AddressBalance> GetAddressInfo(const std::string &address);
   double GetBalance(const std::string &address); // Returns ETH balance
   std::vector<EthereumService::Transaction> GetTransactionHistory(const std::string &address, uint32_t limit = 10);
+
+  // Send functionality
+  EthereumSendResult SendFunds(
+    const std::string &from_address,
+    const std::string &to_address,
+    double amount_eth,
+    const std::string &private_key_hex,
+    const std::string &gas_price_gwei = "",  // Empty = auto-estimate
+    uint64_t gas_limit = 21000  // 21000 for simple ETH transfer
+  );
 
   // Gas price estimation
   std::optional<EthereumService::GasPrice> GetGasPrice();
