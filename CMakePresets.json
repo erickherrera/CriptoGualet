@@ -21,7 +21,7 @@
     },
     {
       "name": "win-ninja-x64-debug",
-      "displayName": "Windows Ninja x64 Debug (Best for IntelliSense)",
+      "displayName": "Windows Ninja x64 Debug (Advanced - Requires Developer Command Prompt)",
       "inherits": "base",
       "generator": "Ninja",
       "condition": {
@@ -32,18 +32,30 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "BUILD_GUI_WIN32": "OFF",
-        "CMAKE_C_COMPILER": "clang-cl",
-        "CMAKE_CXX_COMPILER": "clang-cl",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
-      }
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_MAKE_PROGRAM": {
+          "type": "FILEPATH",
+          "value": "C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe"
+        },
+        "CMAKE_C_COMPILER": {
+          "type": "FILEPATH",
+          "value": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/x64/bin/clang-cl.exe"
+        },
+        "CMAKE_CXX_COMPILER": {
+          "type": "FILEPATH",
+          "value": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/x64/bin/clang-cl.exe"
+        }
+      },
+      "description": "Advanced: Ninja generator with ClangCL. Use win-vs2022-x64-debug preset instead for easier setup."
     },
     {
       "name": "win-ninja-x64-release",
-      "displayName": "Windows Ninja x64 Release",
+      "displayName": "Windows Ninja x64 Release (Advanced)",
       "inherits": "win-ninja-x64-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
-      }
+      },
+      "description": "Advanced: Release build with Ninja. Use win-vs2022-x64-release instead for easier setup."
     },
     {
       "name": "linux-clang-debug",
@@ -73,7 +85,7 @@
     },
     {
       "name": "win-vs2022-x64-debug",
-      "displayName": "Windows VS2022 x64 Debug (IDE)",
+      "displayName": "Windows VS2022 x64 Debug (Visual Studio IDE & Cursor)",
       "inherits": "base",
       "generator": "Visual Studio 17 2022",
       "architecture": {
@@ -92,13 +104,15 @@
       "cacheVariables": {
         "BUILD_GUI_WIN32": "OFF",
         "VCPKG_TARGET_TRIPLET": "x64-windows"
-      }
+      },
+      "description": "Compatible with both Visual Studio 2022 IDE and Cursor IDE. Uses ClangCL toolset."
     },
     {
       "name": "win-vs2022-x64-release",
-      "displayName": "Windows VS2022 x64 Release (IDE)",
+      "displayName": "Windows VS2022 x64 Release (Visual Studio IDE & Cursor)",
       "inherits": "win-vs2022-x64-debug",
-      "cacheVariables": {}
+      "cacheVariables": {},
+      "description": "Release build compatible with both Visual Studio 2022 IDE and Cursor IDE."
     }
   ],
   "buildPresets": [

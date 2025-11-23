@@ -1,6 +1,39 @@
-# Simple Qt6 Installation Guide
+# Qt6 Installation Guide for CriptoGualet
 
-## Method 2 Alternative: Qt Online Installer (Recommended)
+## Overview
+
+CriptoGualet uses Qt6 for its primary graphical user interface. This guide covers multiple installation methods to get Qt6 set up on your development machine.
+
+## Installation Decision Tree
+
+```mermaid
+graph TD
+    Start[Need Qt6?] --> CheckOS{Operating System?}
+    CheckOS -->|Windows| WinMethod{Installation Method?}
+    CheckOS -->|macOS| MacMethod{Installation Method?}
+    CheckOS -->|Linux| LinuxMethod{Installation Method?}
+
+    WinMethod -->|Quick & Easy| OnlineInstaller[Qt Online Installer]
+    WinMethod -->|Automated| Vcpkg[vcpkg Package Manager]
+
+    MacMethod -->|Easy| Homebrew[Homebrew]
+    MacMethod -->|Official| MacOnline[Qt Online Installer]
+
+    LinuxMethod -->|System| AptYum[apt/yum/pacman]
+    LinuxMethod -->|Official| LinuxOnline[Qt Online Installer]
+
+    OnlineInstaller --> Configure[Configure CMake]
+    Vcpkg --> Configure
+    Homebrew --> Configure
+    MacOnline --> Configure
+    AptYum --> Configure
+    LinuxOnline --> Configure
+
+    Configure --> Build[Build Project]
+    Build --> Run[Run CriptoGualetQt]
+```
+
+## Method 1: Qt Online Installer (Recommended for Windows)
 
 vcpkg compilation takes 30+ minutes and can be complex. Here's a faster approach:
 
@@ -73,19 +106,66 @@ cmake --build build --config Release
 **Use Win32 GUI if**: You want to use the app immediately
 **Install Qt if**: You want the most professional, modern interface
 
-## Current Status
+## Method 2: vcpkg (Windows/Cross-Platform)
 
-Your Qt framework is **100% complete and ready**. Just needs Qt6 installed to run.
+```bash
+# Install Qt6 via vcpkg
+vcpkg install qt6-base qt6-svg qt6-widgets --triplet x64-windows
 
-Files created:
-- `include/QtThemeManager.h` - Advanced theming system
-- `src/QtThemeManager.cpp` - Theme implementation  
-- `include/CriptoGualetQt.h` - Main Qt application
-- `src/CriptoGualetQt.cpp` - Qt main window
-- `include/QtLoginUI.h` - Modern login interface
-- `src/QtLoginUI.cpp` - Login implementation
-- `include/QtWalletUI.h` - Professional wallet UI
-- `src/QtWalletUI.cpp` - Wallet implementation
+# Update your vcpkg.json (already configured in CriptoGualet)
+# CMake will automatically find Qt6 via vcpkg integration
+```
+
+## Method 3: Homebrew (macOS)
+
+```bash
+# Install Qt6 via Homebrew
+brew install qt@6
+
+# Add Qt6 to PATH
+echo 'export PATH="/opt/homebrew/opt/qt@6/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Or for Intel Macs:
+echo 'export PATH="/usr/local/opt/qt@6/bin:$PATH"' >> ~/.zshrc
+```
+
+## Method 4: Linux Package Managers
+
+### Ubuntu/Debian:
+```bash
+sudo apt update
+sudo apt install qt6-base-dev qt6-svg-dev libqt6widgets6
+```
+
+### Fedora/RHEL:
+```bash
+sudo dnf install qt6-qtbase-devel qt6-qtsvg-devel
+```
+
+### Arch Linux:
+```bash
+sudo pacman -S qt6-base qt6-svg
+```
+
+## Current CriptoGualet Qt Components
+
+Your Qt framework is **fully implemented and ready**. Just needs Qt6 installed to build.
+
+### Core Qt Files:
+- `frontend/qt/include/CriptoGualetQt.h` - Main Qt application
+- `frontend/qt/CriptoGualetQt.cpp` - Qt main window implementation
+- `frontend/qt/include/QtLoginUI.h` - Modern login interface
+- `frontend/qt/QtLoginUI.cpp` - Login implementation
+- `frontend/qt/include/QtWalletUI.h` - Professional wallet UI
+- `frontend/qt/QtWalletUI.cpp` - Wallet implementation
+- `frontend/qt/include/QtThemeManager.h` - Advanced theming system
+- `frontend/qt/QtThemeManager.cpp` - Theme implementation
+- `frontend/qt/include/QtSidebar.h` - Sidebar navigation
+- `frontend/qt/include/QtExpandableWalletCard.h` - Wallet card component
+- `frontend/qt/include/QtSendDialog.h` - Transaction send dialog
+- `frontend/qt/include/QtTopCryptosPage.h` - Top cryptocurrencies page
+- `frontend/qt/include/QtSettingsUI.h` - Settings interface
 
 ## Next Steps
 

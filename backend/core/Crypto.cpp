@@ -238,6 +238,122 @@ bool RIPEMD160(const uint8_t *data, size_t len, std::array<uint8_t, 20> &out) {
   return true;
 }
 
+// === Keccak-256 Implementation ===
+// Ethereum uses Keccak-256 (not SHA3-256), which is the original Keccak submission before NIST standardization
+
+static const uint64_t KECCAK_ROUND_CONSTANTS[24] = {
+  0x0000000000000001ULL, 0x0000000000008082ULL, 0x800000000000808AULL,
+  0x8000000080008000ULL, 0x000000000000808BULL, 0x0000000080000001ULL,
+  0x8000000080008081ULL, 0x8000000000008009ULL, 0x000000000000008AULL,
+  0x0000000000000088ULL, 0x0000000080008009ULL, 0x000000008000000AULL,
+  0x000000008000808BULL, 0x800000000000008BULL, 0x8000000000008089ULL,
+  0x8000000000008003ULL, 0x8000000000008002ULL, 0x8000000000000080ULL,
+  0x000000000000800AULL, 0x800000008000000AULL, 0x8000000080008081ULL,
+  0x8000000000008080ULL, 0x0000000080000001ULL, 0x8000000080008008ULL
+};
+
+static inline uint64_t ROTL64(uint64_t x, int n) {
+  return (x << n) | (x >> (64 - n));
+}
+
+static void Keccak_f1600(uint64_t state[25]) {
+  static const int r[24] = {1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 2, 14, 27, 41, 56, 8, 25, 43, 62, 18, 39, 61, 20, 44};
+
+  for (int round = 0; round < 24; round++) {
+    // Theta step
+    uint64_t C[5];
+    for (int i = 0; i < 5; i++) {
+      C[i] = state[i] ^ state[i + 5] ^ state[i + 10] ^ state[i + 15] ^ state[i + 20];
+    }
+    for (int i = 0; i < 5; i++) {
+      uint64_t D = C[(i + 4) % 5] ^ ROTL64(C[(i + 1) % 5], 1);
+      for (int j = 0; j < 5; j++) {
+        state[i + 5 * j] ^= D;
+      }
+    }
+
+    // Rho and Pi steps
+    uint64_t B[25];
+    B[0] = state[0];
+    int pi_x = 1, pi_y = 0;
+    for (int i = 0; i < 24; i++) {
+      int pi_index = pi_x + 5 * pi_y;
+      B[pi_y + 5 * ((2 * pi_x + 3 * pi_y) % 5)] = ROTL64(state[pi_index], r[i]);
+      int temp = pi_x;
+      pi_x = pi_y;
+      pi_y = (2 * temp + 3 * pi_y) % 5;
+    }
+
+    // Chi step
+    for (int j = 0; j < 5; j++) {
+      uint64_t temp[5];
+      for (int i = 0; i < 5; i++) {
+        temp[i] = B[i + 5 * j];
+      }
+      for (int i = 0; i < 5; i++) {
+        state[i + 5 * j] = temp[i] ^ ((~temp[(i + 1) % 5]) & temp[(i + 2) % 5]);
+      }
+    }
+
+    // Iota step
+    state[0] ^= KECCAK_ROUND_CONSTANTS[round];
+  }
+}
+
+bool Keccak256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out) {
+  // Keccak-256 uses rate = 1088 bits (136 bytes), capacity = 512 bits
+  const size_t rate = 136;
+  const size_t rate_in_words = rate / 8;
+
+  // Initialize state to all zeros
+  uint64_t state[25] = {0};
+
+  // Absorb phase
+  size_t block_count = 0;
+  while (len >= rate) {
+    // XOR input block into state (little-endian)
+    for (size_t i = 0; i < rate_in_words; i++) {
+      uint64_t word = 0;
+      for (size_t j = 0; j < 8; j++) {
+        word |= static_cast<uint64_t>(data[block_count * rate + i * 8 + j]) << (j * 8);
+      }
+      state[i] ^= word;
+    }
+    Keccak_f1600(state);
+    len -= rate;
+    block_count++;
+  }
+
+  // Pad and process final block
+  // Keccak-256 uses pad10*1 padding: append 0x01, then zeros, then 0x80
+  uint8_t last_block[136] = {0};
+  size_t offset = block_count * rate;
+  std::memcpy(last_block, data + offset, len);
+
+  // Append padding: 0x01 for Keccak (not 0x06 for SHA3)
+  last_block[len] = 0x01;
+  last_block[rate - 1] |= 0x80;
+
+  // XOR final block into state
+  for (size_t i = 0; i < rate_in_words; i++) {
+    uint64_t word = 0;
+    for (size_t j = 0; j < 8; j++) {
+      word |= static_cast<uint64_t>(last_block[i * 8 + j]) << (j * 8);
+    }
+    state[i] ^= word;
+  }
+  Keccak_f1600(state);
+
+  // Squeeze phase - extract first 256 bits (32 bytes)
+  for (size_t i = 0; i < 4; i++) {
+    for (size_t j = 0; j < 8; j++) {
+      out[i * 8 + j] = static_cast<uint8_t>(state[i] >> (j * 8));
+    }
+  }
+
+  return true;
+}
+
 bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data,
                 size_t data_len, std::vector<uint8_t> &out) {
   out.assign(32, 0);
@@ -1856,6 +1972,428 @@ bool CreateUnsignedTransaction(const std::vector<UTXO> &inputs,
   }
 
   return true;
+}
+
+// === Ethereum Address Generation ===
+
+// === EIP-55 Checksum Implementation ===
+
+bool EIP55_ToChecksumAddress(const std::string &address, std::string &checksummed) {
+  // Remove 0x prefix if present
+  std::string addr = address;
+  if (addr.size() >= 2 && addr[0] == '0' && (addr[1] == 'x' || addr[1] == 'X')) {
+    addr = addr.substr(2);
+  }
+
+  // Validate address length (should be 40 hex characters)
+  if (addr.size() != 40) {
+    return false;
+  }
+
+  // Validate hex characters
+  for (char c : addr) {
+    if (!std::isxdigit(static_cast<unsigned char>(c))) {
+      return false;
+    }
+  }
+
+  // Convert to lowercase for hashing
+  std::string lowercase_addr = addr;
+  std::transform(lowercase_addr.begin(), lowercase_addr.end(), lowercase_addr.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+
+  // Hash the lowercase address
+  std::array<uint8_t, 32> hash;
+  if (!Keccak256(reinterpret_cast<const uint8_t*>(lowercase_addr.c_str()),
+                  lowercase_addr.size(), hash)) {
+    return false;
+  }
+
+  // Apply EIP-55 checksum: capitalize letters where hash nibble >= 8
+  std::ostringstream oss;
+  oss << "0x";
+
+  for (size_t i = 0; i < lowercase_addr.size(); i++) {
+    char c = lowercase_addr[i];
+
+    // Only apply checksum to letters (a-f), not digits (0-9)
+    if (std::isalpha(static_cast<unsigned char>(c))) {
+      // Get the corresponding nibble from the hash
+      size_t hash_byte_index = i / 2;
+      uint8_t hash_byte = hash[hash_byte_index];
+
+      // Get the nibble (high or low 4 bits)
+      uint8_t nibble = (i % 2 == 0) ? (hash_byte >> 4) : (hash_byte & 0x0F);
+
+      // Capitalize if nibble >= 8
+      if (nibble >= 8) {
+        c = std::toupper(static_cast<unsigned char>(c));
+      }
+    }
+
+    oss << c;
+  }
+
+  checksummed = oss.str();
+  return true;
+}
+
+bool EIP55_ValidateChecksumAddress(const std::string &address) {
+  // Remove 0x prefix if present
+  std::string addr = address;
+  if (addr.size() >= 2 && addr[0] == '0' && (addr[1] == 'x' || addr[1] == 'X')) {
+    addr = addr.substr(2);
+  }
+
+  // Validate address length
+  if (addr.size() != 40) {
+    return false;
+  }
+
+  // Check if all lowercase or all uppercase (valid but unchecksummed)
+  bool all_lower = true;
+  bool all_upper = true;
+  for (char c : addr) {
+    if (std::isalpha(static_cast<unsigned char>(c))) {
+      if (std::isupper(static_cast<unsigned char>(c))) {
+        all_lower = false;
+      } else {
+        all_upper = false;
+      }
+    }
+  }
+
+  // If all lowercase or all uppercase, accept it (unchecksummed addresses are valid)
+  if (all_lower || all_upper) {
+    return true;
+  }
+
+  // Mixed case: verify EIP-55 checksum
+  std::string checksummed;
+  if (!EIP55_ToChecksumAddress(addr, checksummed)) {
+    return false;
+  }
+
+  // Remove 0x prefix from checksummed address for comparison
+  if (checksummed.size() >= 2 && checksummed[0] == '0' && checksummed[1] == 'x') {
+    checksummed = checksummed.substr(2);
+  }
+
+  // Compare addresses
+  return addr == checksummed;
+}
+
+bool BIP32_GetEthereumAddress(const BIP32ExtendedKey &extKey, std::string &address) {
+  // Ethereum address generation:
+  // 1. Get public key (uncompressed, 64 bytes without 0x04 prefix)
+  // 2. Keccak256 hash the public key
+  // 3. Take last 20 bytes of hash
+  // 4. Convert to hex with 0x prefix
+
+  std::vector<uint8_t> pubkey;
+
+  if (extKey.isPrivate) {
+    // Derive public key from private key using secp256k1
+    secp256k1_pubkey pubkey_struct;
+    auto* ctx = GetSecp256k1Context();
+
+    if (!secp256k1_ec_pubkey_create(ctx, &pubkey_struct, extKey.key.data())) {
+      return false;
+    }
+
+    // Serialize public key in UNCOMPRESSED format (65 bytes: 0x04 + x + y)
+    uint8_t pubkey_serialized[65];
+    size_t pubkey_len = sizeof(pubkey_serialized);
+    secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkey_len,
+                                  &pubkey_struct, SECP256K1_EC_UNCOMPRESSED);
+
+    // Ethereum uses only the x and y coordinates (skip the 0x04 prefix)
+    pubkey.assign(pubkey_serialized + 1, pubkey_serialized + 65);
+  } else {
+    // If already public key, need to convert to uncompressed format
+    auto* ctx = GetSecp256k1Context();
+    secp256k1_pubkey pubkey_struct;
+
+    if (!secp256k1_ec_pubkey_parse(ctx, &pubkey_struct, extKey.key.data(), extKey.key.size())) {
+      return false;
+    }
+
+    // Serialize to uncompressed format
+    uint8_t pubkey_serialized[65];
+    size_t pubkey_len = sizeof(pubkey_serialized);
+    secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkey_len,
+                                  &pubkey_struct, SECP256K1_EC_UNCOMPRESSED);
+
+    // Skip the 0x04 prefix
+    pubkey.assign(pubkey_serialized + 1, pubkey_serialized + 65);
+  }
+
+  // Keccak256 hash of public key (64 bytes)
+  std::array<uint8_t, 32> hash;
+  if (!Keccak256(pubkey.data(), pubkey.size(), hash)) {
+    return false;
+  }
+
+  // Take last 20 bytes of hash (generate lowercase address first)
+  std::ostringstream oss;
+  oss << "0x";
+  for (size_t i = 12; i < 32; i++) {
+    oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
+  }
+
+  std::string lowercase_address = oss.str();
+
+  // Apply EIP-55 checksum to the address
+  if (!EIP55_ToChecksumAddress(lowercase_address, address)) {
+    return false;
+  }
+
+  return !address.empty();
+}
+
+bool BIP44_DeriveEthereumAddressKey(const BIP32ExtendedKey &master, uint32_t account,
+                                     bool change, uint32_t address_index,
+                                     BIP32ExtendedKey &address_key) {
+  // Ethereum BIP44 path: m/44'/60'/account'/change/address_index
+  // 60 is the coin type for Ethereum
+  std::ostringstream path_builder;
+  path_builder << "m/44'/60'/" << account << "'/" << (change ? "1" : "0") << "/" << address_index;
+
+  std::string path = path_builder.str();
+  return BIP32_DerivePath(master, path, address_key);
+}
+
+bool BIP44_GetEthereumAddress(const BIP32ExtendedKey &master, uint32_t account,
+                               bool change, uint32_t address_index,
+                               std::string &address) {
+  BIP32ExtendedKey address_key;
+  if (!BIP44_DeriveEthereumAddressKey(master, account, change, address_index, address_key)) {
+    return false;
+  }
+
+  return BIP32_GetEthereumAddress(address_key, address);
+}
+
+bool BIP44_GenerateEthereumAddresses(const BIP32ExtendedKey &master, uint32_t account,
+                                      bool change, uint32_t start_index, uint32_t count,
+                                      std::vector<std::string> &addresses) {
+  addresses.clear();
+  addresses.reserve(count);
+
+  for (uint32_t i = 0; i < count; i++) {
+    std::string address;
+    if (!BIP44_GetEthereumAddress(master, account, change, start_index + i, address)) {
+      return false;
+    }
+    addresses.push_back(address);
+  }
+
+  return true;
+}
+
+// === Multi-Chain Helper Functions ===
+
+uint32_t GetCoinType(ChainType chain) {
+  switch (chain) {
+    case ChainType::BITCOIN:
+      return 0;
+    case ChainType::BITCOIN_TESTNET:
+      return 1;
+    case ChainType::ETHEREUM:
+    case ChainType::ETHEREUM_TESTNET:
+      return 60;
+    case ChainType::BNB_CHAIN:
+      return 714;
+    case ChainType::POLYGON:
+      return 966;
+    case ChainType::AVALANCHE:
+      return 9000;  // Avalanche C-Chain uses Ethereum derivation path
+    case ChainType::ARBITRUM:
+    case ChainType::OPTIMISM:
+    case ChainType::BASE:
+      return 60;  // EVM-compatible chains use Ethereum coin type
+    default:
+      return 0;
+  }
+}
+
+std::string GetChainName(ChainType chain) {
+  switch (chain) {
+    case ChainType::BITCOIN:
+      return "Bitcoin";
+    case ChainType::BITCOIN_TESTNET:
+      return "Bitcoin Testnet";
+    case ChainType::ETHEREUM:
+      return "Ethereum";
+    case ChainType::ETHEREUM_TESTNET:
+      return "Ethereum Testnet";
+    case ChainType::BNB_CHAIN:
+      return "BNB Chain";
+    case ChainType::POLYGON:
+      return "Polygon";
+    case ChainType::AVALANCHE:
+      return "Avalanche C-Chain";
+    case ChainType::ARBITRUM:
+      return "Arbitrum";
+    case ChainType::OPTIMISM:
+      return "Optimism";
+    case ChainType::BASE:
+      return "Base";
+    default:
+      return "Unknown";
+  }
+}
+
+bool DeriveChainAddress(const BIP32ExtendedKey &master, ChainType chain,
+                         uint32_t account, bool change, uint32_t address_index,
+                         std::string &address) {
+  // Determine if this is a Bitcoin-like chain or EVM-compatible chain
+  switch (chain) {
+    case ChainType::BITCOIN:
+      return BIP44_GetAddress(master, account, change, address_index, address, false);
+
+    case ChainType::BITCOIN_TESTNET:
+      return BIP44_GetAddress(master, account, change, address_index, address, true);
+
+    case ChainType::ETHEREUM:
+    case ChainType::ETHEREUM_TESTNET:
+    case ChainType::BNB_CHAIN:
+    case ChainType::POLYGON:
+    case ChainType::AVALANCHE:
+    case ChainType::ARBITRUM:
+    case ChainType::OPTIMISM:
+    case ChainType::BASE:
+      // All EVM-compatible chains use Ethereum address format
+      return BIP44_GetEthereumAddress(master, account, change, address_index, address);
+
+    default:
+      return false;
+  }
+}
+
+// === Chain-Aware Address Validation ===
+
+bool IsEVMChain(ChainType chain) {
+  switch (chain) {
+    case ChainType::ETHEREUM:
+    case ChainType::ETHEREUM_TESTNET:
+    case ChainType::BNB_CHAIN:
+    case ChainType::POLYGON:
+    case ChainType::AVALANCHE:
+    case ChainType::ARBITRUM:
+    case ChainType::OPTIMISM:
+    case ChainType::BASE:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool IsBitcoinChain(ChainType chain) {
+  switch (chain) {
+    case ChainType::BITCOIN:
+    case ChainType::BITCOIN_TESTNET:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool IsValidAddressFormat(const std::string &address, ChainType chain) {
+  if (IsEVMChain(chain)) {
+    // EVM address validation: 0x + 40 hex characters
+    if (address.size() < 2 || address[0] != '0' || (address[1] != 'x' && address[1] != 'X')) {
+      return false;
+    }
+
+    std::string addr = address.substr(2);
+    if (addr.size() != 40) {
+      return false;
+    }
+
+    // Validate hex characters
+    for (char c : addr) {
+      if (!std::isxdigit(static_cast<unsigned char>(c))) {
+        return false;
+      }
+    }
+
+    // Validate EIP-55 checksum if address has mixed case
+    return EIP55_ValidateChecksumAddress(address);
+  } else if (IsBitcoinChain(chain)) {
+    // Bitcoin address validation: Base58 format
+    // Basic validation: check length and character set
+    if (address.empty() || address.size() < 26 || address.size() > 35) {
+      return false;
+    }
+
+    // Bitcoin addresses typically start with 1, 3, or bc1 (mainnet) or m, n, 2, tb1 (testnet)
+    char first = address[0];
+    if (chain == ChainType::BITCOIN) {
+      if (first != '1' && first != '3' && address.substr(0, 3) != "bc1") {
+        return false;
+      }
+    } else if (chain == ChainType::BITCOIN_TESTNET) {
+      if (first != 'm' && first != 'n' && first != '2' && address.substr(0, 3) != "tb1") {
+        return false;
+      }
+    }
+
+    // Check for valid Base58 characters (no 0, O, I, l)
+    const std::string base58_chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    for (char c : address) {
+      if (base58_chars.find(c) == std::string::npos) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+std::optional<ChainType> DetectAddressChain(const std::string &address) {
+  if (address.empty()) {
+    return std::nullopt;
+  }
+
+  // Check for EVM address (0x + 40 hex characters)
+  if (address.size() == 42 && address[0] == '0' && (address[1] == 'x' || address[1] == 'X')) {
+    std::string addr = address.substr(2);
+    bool valid_hex = true;
+    for (char c : addr) {
+      if (!std::isxdigit(static_cast<unsigned char>(c))) {
+        valid_hex = false;
+        break;
+      }
+    }
+
+    if (valid_hex) {
+      // Validate EIP-55 checksum
+      if (EIP55_ValidateChecksumAddress(address)) {
+        // Default to Ethereum for valid EVM addresses
+        // Note: Cannot distinguish between different EVM chains by address alone
+        return ChainType::ETHEREUM;
+      }
+    }
+  }
+
+  // Check for Bitcoin mainnet addresses
+  if (address.size() >= 26 && address.size() <= 35) {
+    char first = address[0];
+    if (first == '1' || first == '3') {
+      return ChainType::BITCOIN;
+    } else if (address.substr(0, 3) == "bc1") {
+      return ChainType::BITCOIN;
+    } else if (first == 'm' || first == 'n' || first == '2') {
+      return ChainType::BITCOIN_TESTNET;
+    } else if (address.substr(0, 3) == "tb1") {
+      return ChainType::BITCOIN_TESTNET;
+    }
+  }
+
+  return std::nullopt;
 }
 
 } // namespace Crypto

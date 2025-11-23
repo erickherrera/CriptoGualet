@@ -8,18 +8,20 @@
 #include <QHBoxLayout>
 #include <QDoubleSpinBox>
 #include <QTextEdit>
+#include <QComboBox>
+#include <QSpinBox>
 #include <optional>
 
 // Forward declarations
 class QtThemeManager;
 
 /**
- * @brief Dialog for sending Bitcoin transactions
+ * @brief Dialog for sending Bitcoin and Ethereum transactions
  *
  * Provides a user interface for:
  * - Entering recipient address
  * - Specifying amount to send
- * - Viewing fee estimates
+ * - Viewing fee/gas estimates
  * - Confirming transaction details
  */
 class QtSendDialog : public QDialog {
@@ -27,24 +29,43 @@ class QtSendDialog : public QDialog {
 
 public:
     /**
+     * @brief Blockchain type enumeration
+     */
+    enum class ChainType {
+        BITCOIN,
+        ETHEREUM
+    };
+
+    /**
      * @brief Transaction data structure
      */
     struct TransactionData {
         QString recipientAddress;
+
+        // Bitcoin-specific fields
         double amountBTC;
         uint64_t amountSatoshis;
         uint64_t estimatedFeeSatoshis;
         uint64_t totalSatoshis;
+
+        // Ethereum-specific fields
+        double amountETH;
+        QString gasPriceGwei;
+        uint64_t gasLimit;
+        QString totalCostWei;
+        double totalCostETH;
+
         QString password;  // User password for signing
     };
 
     /**
      * @brief Constructor
-     * @param currentBalance Current wallet balance in BTC
-     * @param btcPrice Current BTC price in USD
+     * @param chainType Blockchain type (Bitcoin or Ethereum)
+     * @param currentBalance Current wallet balance (BTC or ETH)
+     * @param price Current cryptocurrency price in USD
      * @param parent Parent widget
      */
-    explicit QtSendDialog(double currentBalance, double btcPrice, QWidget* parent = nullptr);
+    explicit QtSendDialog(ChainType chainType, double currentBalance, double price, QWidget* parent = nullptr);
 
     /**
      * @brief Get the transaction data if user confirmed
@@ -58,21 +79,26 @@ private slots:
     void onSendMaxClicked();
     void onConfirmClicked();
     void onCancelClicked();
+    void onGasPriceChanged(int index);
+    void onGasLimitChanged(int value);
 
 private:
     void setupUI();
     void applyTheme();
     void updateEstimates();
     bool validateInputs();
-    QString formatBTC(double btc) const;
+    QString formatCrypto(double amount) const;
     QString formatUSD(double usd) const;
+    bool validateBitcoinAddress(const QString& address) const;
+    bool validateEthereumAddress(const QString& address) const;
 
 private:
     QtThemeManager* m_themeManager;
+    ChainType m_chainType;
 
     // Balance info
-    double m_currentBalance;  // In BTC
-    double m_btcPrice;        // USD per BTC
+    double m_currentBalance;  // In BTC or ETH
+    double m_cryptoPrice;     // USD per BTC or ETH
 
     // UI Components
     QVBoxLayout* m_mainLayout;
@@ -89,9 +115,15 @@ private:
     QLabel* m_amountUSD;
     QLabel* m_amountError;
 
-    // Fee section
+    // Fee/Gas section (shared)
     QLabel* m_feeLabel;
     QLabel* m_feeValue;
+
+    // Ethereum-specific gas controls
+    QLabel* m_gasPriceLabel;
+    QComboBox* m_gasPriceCombo;
+    QLabel* m_gasLimitLabel;
+    QSpinBox* m_gasLimitInput;
 
     // Total section
     QLabel* m_totalLabel;
@@ -112,7 +144,14 @@ private:
     // Transaction data
     std::optional<TransactionData> m_transactionData;
 
-    // Fee estimation
+    // Bitcoin fee estimation
     uint64_t m_estimatedFeeSatoshis;
     static constexpr uint64_t DEFAULT_FEE_SATOSHIS = 10000;  // 0.0001 BTC default fee
+
+    // Ethereum gas data
+    QString m_safeGasPrice;
+    QString m_proposeGasPrice;
+    QString m_fastGasPrice;
+    uint64_t m_gasLimit;
+    static constexpr uint64_t DEFAULT_GAS_LIMIT = 21000;  // Standard ETH transfer
 };

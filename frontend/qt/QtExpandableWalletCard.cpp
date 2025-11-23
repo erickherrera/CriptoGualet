@@ -18,6 +18,10 @@ QtExpandableWalletCard::QtExpandableWalletCard(QtThemeManager *themeManager,
 
   connect(m_networkManager, &QNetworkAccessManager::finished,
           this, &QtExpandableWalletCard::onIconDownloaded);
+
+  // Connect to theme changes to update styling dynamically
+  connect(m_themeManager, &QtThemeManager::themeChanged,
+          this, &QtExpandableWalletCard::onThemeChanged);
 }
 
 void QtExpandableWalletCard::setupUI() {
@@ -25,7 +29,12 @@ void QtExpandableWalletCard::setupUI() {
   setObjectName("expandableWalletCard");
 
   QVBoxLayout *mainLayout = new QVBoxLayout(this);
-  mainLayout->setContentsMargins(25, 25, 25, 25);
+  mainLayout->setContentsMargins(
+      m_themeManager->spacing(6),  // 24px (was 25)
+      m_themeManager->spacing(6),  // 24px (was 25)
+      m_themeManager->spacing(6),  // 24px (was 25)
+      m_themeManager->spacing(6)   // 24px (was 25)
+  );
   mainLayout->setSpacing(0);
 
   // Collapsed header (clickable)
@@ -35,8 +44,13 @@ void QtExpandableWalletCard::setupUI() {
   m_collapsedHeader->installEventFilter(this);
 
   QHBoxLayout *collapsedLayout = new QHBoxLayout(m_collapsedHeader);
-  collapsedLayout->setContentsMargins(20, 12, 20, 12);
-  collapsedLayout->setSpacing(15);
+  collapsedLayout->setContentsMargins(
+      m_themeManager->spacing(5),       // 20px
+      m_themeManager->compactSpacing(),  // 12px
+      m_themeManager->spacing(5),       // 20px
+      m_themeManager->compactSpacing()   // 12px
+  );
+  collapsedLayout->setSpacing(m_themeManager->standardSpacing());  // 16px (was 15)
 
   // Crypto logo container with background (circular)
   QWidget *logoContainer = new QWidget(m_collapsedHeader);
@@ -140,9 +154,11 @@ void QtExpandableWalletCard::setCryptocurrency(const QString &name,
   // Download crypto icon
   QString iconUrl = getCryptoIconUrl(symbol);
 
-  // Set placeholder while loading
+  // Set placeholder while loading (use theme color)
   m_cryptoLogo->clear();
-  m_cryptoLogo->setStyleSheet("border-radius: 24px; background-color: rgba(100, 116, 139, 0.1);");
+  QColor placeholderColor = m_themeManager->secondaryColor();
+  placeholderColor.setAlpha(25); // 10% opacity
+  m_cryptoLogo->setStyleSheet(QString("border-radius: 24px; background-color: %1;").arg(placeholderColor.name(QColor::HexArgb)));
 
   // Trigger icon download with proper headers
   QNetworkRequest request(iconUrl);
@@ -224,7 +240,7 @@ void QtExpandableWalletCard::setFallbackIcon() {
   int iconSize = 48;
   int scaledSize = qRound(iconSize * dpr);
 
-  // Create a simple colored circle as fallback with Bitcoin symbol
+  // Create a simple colored circle as fallback with crypto symbol
   QPixmap fallback(scaledSize, scaledSize);
   fallback.fill(Qt::transparent);
   fallback.setDevicePixelRatio(dpr);
@@ -232,18 +248,25 @@ void QtExpandableWalletCard::setFallbackIcon() {
   QPainter painter(&fallback);
   painter.setRenderHint(QPainter::Antialiasing);
 
+  // Use theme colors for fallback icon
+  QColor circleColor = m_themeManager->secondaryColor();
+  circleColor.setAlpha(50); // ~20% opacity
+  QColor symbolColor = m_themeManager->subtitleColor();
+
   // Draw colored circle
-  painter.setBrush(QColor(100, 116, 139, 50));
+  painter.setBrush(circleColor);
   painter.setPen(Qt::NoPen);
   painter.drawEllipse(0, 0, scaledSize, scaledSize);
 
-  // Draw Bitcoin symbol
-  painter.setPen(QColor(100, 116, 139));
+  // Draw crypto symbol (use first letter of crypto name or default to ₿)
+  painter.setPen(symbolColor);
   QFont font = painter.font();
   font.setPointSize(20);
   font.setBold(true);
   painter.setFont(font);
-  painter.drawText(QRect(0, 0, scaledSize, scaledSize), Qt::AlignCenter, "₿");
+
+  QString symbol = m_cryptoSymbol.isEmpty() ? "₿" : m_cryptoSymbol.left(1).toUpper();
+  painter.drawText(QRect(0, 0, scaledSize, scaledSize), Qt::AlignCenter, symbol);
 
   m_cryptoLogo->setPixmap(fallback);
   m_cryptoLogo->setStyleSheet("");
@@ -265,6 +288,19 @@ bool QtExpandableWalletCard::eventFilter(QObject *obj, QEvent *event) {
 
 void QtExpandableWalletCard::applyTheme() {
   updateStyles();
+}
+
+void QtExpandableWalletCard::onThemeChanged() {
+  // Update all styling when theme changes
+  updateStyles();
+
+  // Re-apply placeholder color if logo hasn't loaded yet
+  if (m_cryptoLogo->pixmap().isNull()) {
+    QColor placeholderColor = m_themeManager->secondaryColor();
+    placeholderColor.setAlpha(25); // 10% opacity
+    m_cryptoLogo->setStyleSheet(QString("border-radius: 24px; background-color: %1;")
+                                .arg(placeholderColor.name(QColor::HexArgb)));
+  }
 }
 
 void QtExpandableWalletCard::updateStyles() {
@@ -327,9 +363,9 @@ void QtExpandableWalletCard::updateStyles() {
   )")
                               .arg(surface)                                                                    // %1 - card background
                               .arg(m_themeManager->secondaryColor().name())                                    // %2 - outer border (subtle)
-                              .arg(isDarkTheme ? surfaceColor.lighter(110).name() : surfaceColor.darker(105).name())      // %3 - hover (very subtle)
-                              .arg(isDarkTheme ? accentColor.lighter(150).name() : accentColor.lighter(180).name())       // %4 - logo container background
-                              .arg(isDarkTheme ? backgroundColor.lighter(105).name() : backgroundColor.darker(102).name()) // %5 - history section bg (subtle contrast)
+                              .arg(m_themeManager->secondaryColor().name())                                    // %3 - hover (theme-aware)
+                              .arg(m_themeManager->surfaceColor().name())                                      // %4 - logo container background
+                              .arg(m_themeManager->backgroundColor().name())                                   // %5 - history section bg
                               .arg(m_themeManager->secondaryColor().name());                                   // %6 - history section border
 
   setStyleSheet(walletCardCss);
@@ -347,10 +383,8 @@ void QtExpandableWalletCard::updateStyles() {
   )").arg(accent);
   m_cryptoLogo->setStyleSheet(logoStyle);
 
-  // Crypto name styling - light text on dark themes, dark text on light themes
-  QString cryptoNameColor = isDarkTheme
-      ? m_themeManager->textColor().lighter(130).name()
-      : m_themeManager->textColor().darker(150).name();
+  // Crypto name styling - uses theme-aware subtitle color
+  QString cryptoNameColor = m_themeManager->subtitleColor().name();
 
   QString nameStyle = QString(R"(
     QLabel#cryptoName {
@@ -363,9 +397,8 @@ void QtExpandableWalletCard::updateStyles() {
   )").arg(cryptoNameColor);
   m_cryptoName->setStyleSheet(nameStyle);
 
-  // Balance styling with better contrast
-  // Use brighter text color for better visibility
-  QString balanceColor = isDarkTheme ? m_themeManager->textColor().lighter(120).name() : text;
+  // Balance styling - uses theme text color for proper contrast
+  QString balanceColor = m_themeManager->textColor().name();
   QString balanceStyle = QString(R"(
     QLabel#balanceAmount {
       color: %1;
@@ -388,9 +421,7 @@ void QtExpandableWalletCard::updateStyles() {
   m_expandIndicator->setStyleSheet(indicatorStyle);
 
   // Action button styling with rounded corners and modern look
-  QString buttonTextColor = isDarkTheme
-      ? m_themeManager->backgroundColor().name()
-      : m_themeManager->surfaceColor().name();
+  QString buttonTextColor = QColor(Qt::white).name();  // White text on accent buttons for contrast
 
   QString buttonStyle = QString(R"(
     QPushButton#actionButton {
@@ -429,13 +460,8 @@ void QtExpandableWalletCard::updateStyles() {
   m_historyTitleLabel->setStyleSheet(historyTitleStyle);
 
   // History text area styling - modern and clean
-  QString historyBgColor = isDarkTheme
-      ? m_themeManager->backgroundColor().lighter(108).name()
-      : m_themeManager->backgroundColor().darker(102).name();
-
-  QString historyBorderColor = isDarkTheme
-      ? m_themeManager->secondaryColor().lighter(120).name()
-      : m_themeManager->secondaryColor().darker(110).name();
+  QString historyBgColor = m_themeManager->backgroundColor().name();
+  QString historyBorderColor = m_themeManager->defaultBorderColor().name();
 
   QString textEditStyle = QString(R"(
     QTextEdit#historyText {

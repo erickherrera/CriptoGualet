@@ -31,6 +31,44 @@ public:
   QColor subtitleColor() const { return m_subtitleColor; }
   QColor focusBorderColor() const { return m_focusBorderColor; }
 
+  // Semantic colors
+  QColor positiveColor() const { return m_positiveColor; }
+  QColor negativeColor() const { return m_negativeColor; }
+  QColor infoColor() const { return m_infoColor; }
+
+  // Tinted backgrounds (with alpha)
+  QColor lightPositive() const { return m_lightPositiveColor; }
+  QColor lightNegative() const { return m_lightNegativeColor; }
+  QColor lightWarning() const { return m_lightWarningColor; }
+  QColor lightError() const { return m_lightErrorColor; }
+  QColor lightInfo() const { return m_lightInfoColor; }
+
+  // Dimmed text variants
+  QColor dimmedTextColor() const { return m_dimmedTextColor; }
+  QColor disabledTextColor() const { return m_disabledTextColor; }
+
+  // Border colors
+  QColor defaultBorderColor() const { return m_defaultBorderColor; }
+  QColor errorBorderColor() const { return m_errorBorderColor; }
+  QColor successBorderColor() const { return m_successBorderColor; }
+
+  // Spacing system (based on 4px grid)
+  int spacing(int scale) const;
+  int compactSpacing() const { return 12; }
+  int standardSpacing() const { return 16; }
+  int generousSpacing() const { return 24; }
+
+  int compactMargin() const { return 16; }
+  int standardMargin() const { return 24; }
+  int generousMargin() const { return 32; }
+
+  // Border radius
+  int borderRadiusSmall() const { return 4; }
+  int borderRadiusMedium() const { return 8; }
+  int borderRadiusLarge() const { return 12; }
+  int borderRadiusXLarge() const { return 16; }
+  int borderRadiusFull() const { return 9999; }
+
   // Font getters
   QFont titleFont() const { return m_titleFont; }
   QFont buttonFont() const { return m_buttonFont; }
@@ -52,7 +90,7 @@ signals:
 
 private:
   QtThemeManager(QObject *parent = nullptr);
-  ~QtThemeManager() = default;
+  ~QtThemeManager() override = default;
   QtThemeManager(const QtThemeManager &) = delete;
   QtThemeManager &operator=(const QtThemeManager &) = delete;
 
@@ -76,6 +114,27 @@ private:
   QColor m_warningColor;
   QColor m_subtitleColor;
   QColor m_focusBorderColor;
+
+  // Semantic colors
+  QColor m_positiveColor;
+  QColor m_negativeColor;
+  QColor m_infoColor;
+
+  // Tinted backgrounds
+  QColor m_lightPositiveColor;
+  QColor m_lightNegativeColor;
+  QColor m_lightWarningColor;
+  QColor m_lightErrorColor;
+  QColor m_lightInfoColor;
+
+  // Dimmed text
+  QColor m_dimmedTextColor;
+  QColor m_disabledTextColor;
+
+  // Border colors
+  QColor m_defaultBorderColor;
+  QColor m_errorBorderColor;
+  QColor m_successBorderColor;
 
   // Typography
   QFont m_titleFont;

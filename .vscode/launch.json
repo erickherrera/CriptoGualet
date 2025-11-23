@@ -2,36 +2,75 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug CriptoGualet Qt (MSVC)",
-            "type": "cppvsdbg",
+            "name": "Debug CriptoGualet Qt (Visual Studio Build)",
+            "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug/CriptoGualetQt.exe",
             "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/Debug",
-            "environment": [
-                {
-                    "name": "PATH",
-                    "value": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
-                }
-            ],
-            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug",
+            "env": {
+                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+            },
             "preLaunchTask": "CMake: build"
         },
         {
-            "name": "Debug CriptoGualet Qt (LLDB)",
+            "name": "Debug CriptoGualet Qt (Ninja Build)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/CriptoGualetQt.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/build/Debug",
-            "environment": [
-                {
-                    "name": "PATH",
-                    "value": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
-                }
-            ],
-            "preLaunchTask": "CMake: build"
+            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
+            "env": {
+                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+            },
+            "preLaunchTask": "CMake: build (Ninja)"
+        },
+        {
+            "name": "Debug CriptoGualet Qt (No Build)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/CriptoGualetQt.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
+            "env": {
+                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+            }
+        },
+        {
+            "name": "Debug BIP39 Tests",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_bip39.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
+            "preLaunchTask": "CMake: build (Ninja)"
+        },
+        {
+            "name": "Debug Repository Integration Tests",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_repository_integration.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
+            "preLaunchTask": "CMake: build (Ninja)"
+        },
+        {
+            "name": "Debug Auth Database Tests",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_auth_database_integration.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
+            "preLaunchTask": "CMake: build (Ninja)"
+        },
+        {
+            "name": "Debug Current Test File",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/${fileBasenameNoExtension}.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
+            "preLaunchTask": "CMake: build (Ninja)"
         }
     ]
 }

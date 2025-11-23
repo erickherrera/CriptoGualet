@@ -1,0 +1,66 @@
+CompileFlags:
+  # Use compile_commands.json as the primary source (already in root)
+  CompilationDatabase: .
+  
+  Add:
+    # C++ standard (compile_commands.json should have this, but ensure it's set)
+    - -std=c++17
+    
+    # Qt include paths (if Qt is installed, add common paths)
+    # These are fallbacks - compile_commands.json should have the actual paths
+    - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include
+    - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtCore
+    - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtWidgets
+    - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtGui
+    - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtSvg
+    - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtNetwork
+    
+    # vcpkg include path (compile_commands.json should have this, but ensure it)
+    - -I${workspaceFolder}/vcpkg_installed/x64-windows/include
+    
+    # Windows-specific
+    - -DWIN32
+    - -D_WINDOWS
+    
+    # MSVC compatibility (for clang-cl)
+    - -fms-compatibility-version=19
+    
+    # Suppress common warnings that might be noisy
+    # Note: compile_commands.json already has warning flags, but these are fallbacks
+    - -Wno-everything
+    
+    # But keep important ones
+    - -Werror=return-type
+    - -Werror=uninitialized
+    - -Wnull-dereference
+    - -Wdangling
+
+Diagnostics:
+  # Suppress some diagnostics that might be too noisy
+  Suppress:
+    - unused-includes
+    - missing-includes
+  
+  # Unused includes can be helpful, but sometimes noisy
+  UnusedIncludes: None
+  
+  # Missing includes - let clangd suggest them
+  MissingIncludes: Strict
+
+Index:
+  # Background indexing for better performance
+  Background: Build
+  
+  # Index standard library
+  StandardLibrary: Yes
+
+InlayHints:
+  # Show parameter names in function calls
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes
+
+Completion:
+  # All scopes completion
+  AllScopes: Yes
+

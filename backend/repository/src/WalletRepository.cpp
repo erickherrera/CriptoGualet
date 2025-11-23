@@ -188,6 +188,53 @@ Result<std::vector<Wallet>> WalletRepository::getWalletsByUserId(int userId, boo
     }
 }
 
+// PHASE 3: Get wallets by type for a user
+Result<std::vector<Wallet>> WalletRepository::getWalletsByType(int userId, const std::string& walletType,
+                                                                bool includeInactive) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "getWalletsByType");
+
+    // Validate wallet type
+    auto validation = validateWalletType(walletType);
+    if (!validation.success) {
+        return Result<std::vector<Wallet>>(validation.errorMessage, validation.errorCode);
+    }
+
+    // Build SQL query with composite index (user_id, wallet_type)
+    std::string sql = R"(
+        SELECT id, user_id, wallet_name, wallet_type, derivation_path, extended_public_key, created_at, is_active
+        FROM wallets
+        WHERE user_id = ? AND wallet_type = ?
+    )";
+
+    if (!includeInactive) {
+        sql += " AND is_active = 1";
+    }
+
+    sql += " ORDER BY created_at ASC";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<std::vector<Wallet>>("Failed to prepare wallets by type query", 500);
+    }
+
+    sqlite3_bind_int(stmt, 1, userId);
+    sqlite3_bind_text(stmt, 2, walletType.c_str(), -1, SQLITE_TRANSIENT);
+
+    std::vector<Wallet> wallets;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        wallets.push_back(mapRowToWallet(stmt));
+    }
+
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        return Result<std::vector<Wallet>>(wallets);
+    } else {
+        return Result<std::vector<Wallet>>("Database error while retrieving wallets by type", 500);
+    }
+}
+
 Result<Wallet> WalletRepository::getWalletByName(int userId, const std::string& walletName) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "getWalletByName");
 

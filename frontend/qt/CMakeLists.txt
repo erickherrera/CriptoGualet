@@ -15,6 +15,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "QtExpandableWalletCard.cpp"
     "QtTopCryptosPage.cpp"
     "QtSendDialog.cpp"
+    "QtReceiveDialog.cpp"
     "include/QtLoginUI.h"
     "include/QtWalletUI.h"
     "include/QtSettingsUI.h"
@@ -24,6 +25,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "include/QtExpandableWalletCard.h"
     "include/QtTopCryptosPage.h"
     "include/QtSendDialog.h"
+    "include/QtReceiveDialog.h"
     "include/CriptoGualetQt.h"
     "../../resources/resources.qrc"
   )
@@ -73,14 +75,14 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
 
   # Cross-platform compiler flags with security for Qt target
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
-    target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
+    target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter -Wno-ctad-maybe-unsupported)
     target_link_options(CriptoGualetQt PRIVATE -fPIE -pie)
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
-    target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+    target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-ctad-maybe-unsupported)
   elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_options(CriptoGualetQt PRIVATE /W4 /permissive- /utf-8 /EHsc /GS /Zc:__cplusplus)
   else()
-    target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
+    target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-ctad-maybe-unsupported)
     target_link_options(CriptoGualetQt PRIVATE -fPIE -pie)
   endif()
 

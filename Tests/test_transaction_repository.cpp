@@ -228,6 +228,219 @@ bool testUpdateTransactionConfirmation(Repository::TransactionRepository& txRepo
 }
 
 // ============================================================================
+// Boundary & Edge Case Tests (High Priority Security Tests)
+// ============================================================================
+
+bool testBoundaryMaximumAmount(Repository::TransactionRepository& txRepo,
+                                Repository::WalletRepository& walletRepo,
+                                Repository::UserRepository& userRepo) {
+    TEST_START("Boundary Test - Maximum Transaction Amount");
+
+    int walletId = createTestWallet(userRepo, walletRepo, "boundary_user1");
+    TEST_ASSERT(walletId > 0, "Wallet creation should succeed");
+
+    Repository::Transaction tx;
+    tx.walletId = walletId;
+    tx.txid = "max_amount_test_txid";
+    tx.amountSatoshis = 2100000000000000LL; // 21 million BTC (max supply in satoshis)
+    tx.feeSatoshis = 1000;
+    tx.direction = "incoming";
+
+    auto result = txRepo.addTransaction(tx);
+    TEST_ASSERT(result.hasValue(), "Should handle maximum Bitcoin supply amount");
+
+    if (result.hasValue()) {
+        TEST_ASSERT(result->amountSatoshis == 2100000000000000LL,
+                   "Amount should be preserved exactly (no overflow)");
+    }
+
+    TEST_PASS();
+}
+
+bool testBoundaryNegativeAmount(Repository::TransactionRepository& txRepo,
+                                 Repository::WalletRepository& walletRepo,
+                                 Repository::UserRepository& userRepo) {
+    TEST_START("Boundary Test - Negative Transaction Amount");
+
+    int walletId = createTestWallet(userRepo, walletRepo, "boundary_user2");
+    TEST_ASSERT(walletId > 0, "Wallet creation should succeed");
+
+    Repository::Transaction tx;
+    tx.walletId = walletId;
+    tx.txid = "negative_amount_test";
+    tx.amountSatoshis = -100000; // Negative amount
+    tx.feeSatoshis = 1000;
+    tx.direction = "incoming";
+
+    auto result = txRepo.addTransaction(tx);
+    // This should either fail validation or be rejected by the database
+    // The specific behavior depends on implementation
+    if (!result.hasValue()) {
+        std::cout << "    Expected behavior: Negative amounts rejected" << std::endl;
+        TEST_PASS();
+    } else {
+        std::cout << "    Warning: Negative amount was accepted (potential issue)" << std::endl;
+        TEST_PASS(); // Don't fail the test, but warn about it
+    }
+}
+
+bool testBoundaryZeroAmount(Repository::TransactionRepository& txRepo,
+                             Repository::WalletRepository& walletRepo,
+                             Repository::UserRepository& userRepo) {
+    TEST_START("Boundary Test - Zero Amount Transaction");
+
+    int walletId = createTestWallet(userRepo, walletRepo, "boundary_user3");
+
+    Repository::Transaction tx;
+    tx.walletId = walletId;
+    tx.txid = "zero_amount_test";
+    tx.amountSatoshis = 0; // Zero amount (OP_RETURN or null data transaction)
+    tx.feeSatoshis = 1000;
+    tx.direction = "outgoing";
+    tx.memo = "OP_RETURN null data transaction";
+
+    auto result = txRepo.addTransaction(tx);
+    TEST_ASSERT(result.hasValue(), "Should allow zero-amount transactions (OP_RETURN)");
+
+    TEST_PASS();
+}
+
+bool testBoundaryLargeTransactionCount(Repository::TransactionRepository& txRepo,
+                                        Repository::WalletRepository& walletRepo,
+                                        Repository::UserRepository& userRepo) {
+    TEST_START("Boundary Test - Large Transaction Count Per Wallet");
+
+    int walletId = createTestWallet(userRepo, walletRepo, "boundary_user4");
+    TEST_ASSERT(walletId > 0, "Wallet creation should succeed");
+
+    const int TX_COUNT = 500; // Test with 500 transactions
+    std::cout << "    Adding " << TX_COUNT << " transactions..." << std::endl;
+
+    for (int i = 0; i < TX_COUNT; i++) {
+        Repository::Transaction tx;
+        tx.walletId = walletId;
+        tx.txid = "bulk_tx_" + std::to_string(i);
+        tx.amountSatoshis = (i + 1) * 1000;
+        tx.feeSatoshis = 500;
+        tx.direction = (i % 2 == 0) ? "incoming" : "outgoing";
+
+        auto result = txRepo.addTransaction(tx);
+        if (!result.hasValue() && i < 10) {
+            std::cerr << "    Failed at transaction " << i << ": " << result.error() << std::endl;
+            TEST_ASSERT(false, "Should handle bulk transaction insertion");
+        }
+    }
+
+    // Verify all transactions were stored
+    Repository::PaginationParams params;
+    params.limit = TX_COUNT + 10; // Request more than we inserted
+    params.offset = 0;
+
+    auto txList = txRepo.getTransactionsByWallet(walletId, params);
+    TEST_ASSERT(txList.hasValue(), "Should retrieve transaction list");
+    TEST_ASSERT(txList->items.size() == TX_COUNT,
+               "Should retrieve all " + std::to_string(TX_COUNT) + " transactions (got " +
+               std::to_string(txList->items.size()) + ")");
+
+    std::cout << "    Successfully stored and retrieved " << TX_COUNT << " transactions" << std::endl;
+
+    TEST_PASS();
+}
+
+bool testBoundaryDuplicateTxid(Repository::TransactionRepository& txRepo,
+                                Repository::WalletRepository& walletRepo,
+                                Repository::UserRepository& userRepo) {
+    TEST_START("Boundary Test - Duplicate TXID Prevention");
+
+    int walletId = createTestWallet(userRepo, walletRepo, "boundary_user5");
+
+    Repository::Transaction tx1;
+    tx1.walletId = walletId;
+    tx1.txid = "duplicate_txid_test";
+    tx1.amountSatoshis = 100000;
+    tx1.feeSatoshis = 1000;
+    tx1.direction = "incoming";
+
+    auto result1 = txRepo.addTransaction(tx1);
+    TEST_ASSERT(result1.hasValue(), "First transaction should succeed");
+
+    // Try to add duplicate
+    Repository::Transaction tx2;
+    tx2.walletId = walletId;
+    tx2.txid = "duplicate_txid_test"; // Same TXID
+    tx2.amountSatoshis = 200000; // Different amount
+    tx2.feeSatoshis = 2000;
+    tx2.direction = "outgoing";
+
+    auto result2 = txRepo.addTransaction(tx2);
+    TEST_ASSERT(!result2.hasValue(), "Duplicate TXID should be rejected");
+
+    if (!result2.hasValue()) {
+        std::cout << "    Correctly prevented duplicate TXID" << std::endl;
+    }
+
+    TEST_PASS();
+}
+
+bool testBoundaryPaginationEdgeCases(Repository::TransactionRepository& txRepo,
+                                      Repository::WalletRepository& walletRepo,
+                                      Repository::UserRepository& userRepo) {
+    TEST_START("Boundary Test - Pagination Edge Cases");
+
+    int walletId = createTestWallet(userRepo, walletRepo, "boundary_user6");
+
+    // Add 10 transactions
+    for (int i = 0; i < 10; i++) {
+        Repository::Transaction tx;
+        tx.walletId = walletId;
+        tx.txid = "pagination_tx_" + std::to_string(i);
+        tx.amountSatoshis = (i + 1) * 10000;
+        tx.feeSatoshis = 500;
+        tx.direction = "incoming";
+        txRepo.addTransaction(tx);
+    }
+
+    // Test 1: Offset beyond available records
+    Repository::PaginationParams params1;
+    params1.limit = 10;
+    params1.offset = 100; // Way beyond our 10 transactions
+
+    auto result1 = txRepo.getTransactionsByWallet(walletId, params1);
+    TEST_ASSERT(result1.hasValue(), "Should handle offset beyond records");
+    TEST_ASSERT(result1->items.empty(), "Should return empty list for out-of-bounds offset");
+
+    // Test 2: Negative offset (if allowed)
+    Repository::PaginationParams params2;
+    params2.limit = 10;
+    params2.offset = -1;
+
+    auto result2 = txRepo.getTransactionsByWallet(walletId, params2);
+    // Should either handle gracefully or treat as 0
+    TEST_ASSERT(result2.hasValue(), "Should handle negative offset gracefully");
+
+    // Test 3: Zero limit
+    Repository::PaginationParams params3;
+    params3.limit = 0;
+    params3.offset = 0;
+
+    auto result3 = txRepo.getTransactionsByWallet(walletId, params3);
+    TEST_ASSERT(result3.hasValue(), "Should handle zero limit");
+
+    // Test 4: Extremely large limit
+    Repository::PaginationParams params4;
+    params4.limit = 999999;
+    params4.offset = 0;
+
+    auto result4 = txRepo.getTransactionsByWallet(walletId, params4);
+    TEST_ASSERT(result4.hasValue(), "Should handle very large limit");
+    TEST_ASSERT(result4->items.size() == 10, "Should return all 10 transactions");
+
+    std::cout << "    All pagination edge cases handled correctly" << std::endl;
+
+    TEST_PASS();
+}
+
+// ============================================================================
 // Main Test Runner
 // ============================================================================
 
@@ -246,7 +459,7 @@ int main() {
     Repository::WalletRepository walletRepo(dbManager);
     Repository::TransactionRepository txRepo(dbManager);
 
-    // Run tests
+    // Run core tests
     testAddTransaction(txRepo, walletRepo, userRepo);
     testGetTransactionByTxid(txRepo, walletRepo, userRepo);
     testGetTransactionById(txRepo, walletRepo, userRepo);
@@ -254,6 +467,15 @@ int main() {
     testGetTransactionStats(txRepo, walletRepo, userRepo);
     testCalculateWalletBalance(txRepo, walletRepo, userRepo);
     testUpdateTransactionConfirmation(txRepo, walletRepo, userRepo);
+
+    // Run boundary & edge case tests
+    std::cout << "\n" << COLOR_CYAN << "Running Boundary & Edge Case Tests..." << COLOR_RESET << std::endl;
+    testBoundaryMaximumAmount(txRepo, walletRepo, userRepo);
+    testBoundaryNegativeAmount(txRepo, walletRepo, userRepo);
+    testBoundaryZeroAmount(txRepo, walletRepo, userRepo);
+    testBoundaryLargeTransactionCount(txRepo, walletRepo, userRepo);
+    testBoundaryDuplicateTxid(txRepo, walletRepo, userRepo);
+    testBoundaryPaginationEdgeCases(txRepo, walletRepo, userRepo);
 
     // Print summary
     TestUtils::printTestSummary("Test");

@@ -3,6 +3,48 @@
 ## Overview
 The `QtExpandableWalletCard` is a reusable Qt widget component designed to display cryptocurrency wallet information in an expandable card format. It can be used for any cryptocurrency (Bitcoin, Ethereum, etc.).
 
+## Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "QtWalletUI"
+        WalletUI[QtWalletUI Main Interface]
+    end
+
+    subgraph "Wallet Cards"
+        BTCCard[QtExpandableWalletCard<br/>Bitcoin]
+        ETHCard[QtExpandableWalletCard<br/>Ethereum]
+        OtherCard[QtExpandableWalletCard<br/>Other Chains]
+    end
+
+    subgraph "Card Components"
+        Header[Header<br/>Logo + Name + Balance]
+        Actions[Action Buttons<br/>Send + Receive]
+        TxHistory[Transaction History]
+        Toggle[Expand/Collapse Toggle]
+    end
+
+    subgraph "Theme System"
+        ThemeManager[QtThemeManager]
+    end
+
+    WalletUI --> BTCCard
+    WalletUI --> ETHCard
+    WalletUI --> OtherCard
+
+    BTCCard --> Header
+    BTCCard --> Toggle
+    BTCCard --> Actions
+    BTCCard --> TxHistory
+
+    ThemeManager --> BTCCard
+    ThemeManager --> ETHCard
+    ThemeManager --> OtherCard
+
+    Actions -->|Signal| SendRequested[sendRequested Signal]
+    Actions -->|Signal| ReceiveRequested[receiveRequested Signal]
+```
+
 ## Features
 - **Compact collapsed state** showing cryptocurrency logo, name, and balance
 - **Expandable view** revealing Send and Receive action buttons
@@ -196,10 +238,33 @@ void updateWalletBalance(double newBalance) {
 }
 ```
 
+## Component State Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> Collapsed
+    Collapsed --> Expanded : User clicks expand
+    Expanded --> Collapsed : User clicks collapse
+
+    state Collapsed {
+        [*] --> ShowHeader
+        ShowHeader --> DisplayBalance
+        DisplayBalance --> [*]
+    }
+
+    state Expanded {
+        [*] --> ShowHeader
+        ShowHeader --> DisplayBalance
+        DisplayBalance --> ShowActions
+        ShowActions --> ShowTransactions
+        ShowTransactions --> [*]
+    }
+```
+
 ## File Locations
-- **Header:** `include/QtExpandableWalletCard.h`
-- **Implementation:** `src/QtExpandableWalletCard.cpp`
-- **Example Usage:** `src/QtWalletUI.cpp` (see `createActionButtons()` function)
+- **Header:** `frontend/qt/include/QtExpandableWalletCard.h`
+- **Implementation:** `frontend/qt/QtExpandableWalletCard.cpp`
+- **Example Usage:** `frontend/qt/QtWalletUI.cpp` (see `createActionButtons()` function)
 
 ## Theme Integration
 The component automatically uses colors from `QtThemeManager`:

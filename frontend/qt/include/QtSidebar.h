@@ -12,7 +12,7 @@ class QtSidebar : public QWidget {
 
 public:
     explicit QtSidebar(QtThemeManager *themeManager, QWidget *parent = nullptr);
-    ~QtSidebar() = default;
+    ~QtSidebar() override = default;
 
     void toggleSidebar();
     void applyTheme();

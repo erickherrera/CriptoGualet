@@ -13,7 +13,7 @@ class QtSettingsUI : public QWidget {
 
 public:
     explicit QtSettingsUI(QWidget *parent = nullptr);
-    ~QtSettingsUI() = default;
+    ~QtSettingsUI() override = default;
 
     void applyTheme();
 
@@ -23,5 +23,7 @@ private:
     QtThemeManager *m_themeManager;
     QVBoxLayout *m_mainLayout;
     QLabel *m_titleLabel;
+    QLabel *m_securityPlaceholder;
+    QLabel *m_walletPlaceholder;
     QComboBox *m_themeSelector;
 };

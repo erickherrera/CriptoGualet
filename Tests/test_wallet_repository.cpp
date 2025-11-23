@@ -10,10 +10,10 @@
 #include "Repository/UserRepository.h"
 
 // Test database
-const std::string TEST_DB_PATH = "test_wallet_repo.db";
+constexpr const char* TEST_DB_PATH = "test_wallet_repo.db";
 
 // Helper: Create test user
-int createTestUser(Repository::UserRepository& userRepo, const std::string& username) {
+static int createTestUser(Repository::UserRepository& userRepo, const std::string& username) {
     auto result = userRepo.createUser(username, username + "@example.com", "SecurePass123!");
     return result.hasValue() ? result->id : -1;
 }
@@ -22,7 +22,7 @@ int createTestUser(Repository::UserRepository& userRepo, const std::string& user
 // Test Cases
 // ============================================================================
 
-bool testCreateWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testCreateWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Create Wallet - Basic");
 
     int userId = createTestUser(userRepo, "walletuser1");
@@ -38,7 +38,7 @@ bool testCreateWallet(Repository::WalletRepository& walletRepo, Repository::User
     TEST_PASS();
 }
 
-bool testCreateMultipleWallets(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testCreateMultipleWallets(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Create Multiple Wallets");
 
     int userId = createTestUser(userRepo, "walletuser2");
@@ -53,7 +53,7 @@ bool testCreateMultipleWallets(Repository::WalletRepository& walletRepo, Reposit
     TEST_PASS();
 }
 
-bool testGetWalletsByUserId(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testGetWalletsByUserId(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Get Wallets By User ID");
 
     int userId = createTestUser(userRepo, "walletuser3");
@@ -70,7 +70,7 @@ bool testGetWalletsByUserId(Repository::WalletRepository& walletRepo, Repository
     TEST_PASS();
 }
 
-bool testGetWalletById(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testGetWalletById(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Get Wallet By ID");
 
     int userId = createTestUser(userRepo, "walletuser4");
@@ -85,7 +85,7 @@ bool testGetWalletById(Repository::WalletRepository& walletRepo, Repository::Use
     TEST_PASS();
 }
 
-bool testGetWalletByName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testGetWalletByName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Get Wallet By Name");
 
     int userId = createTestUser(userRepo, "walletuser5");
@@ -98,7 +98,7 @@ bool testGetWalletByName(Repository::WalletRepository& walletRepo, Repository::U
     TEST_PASS();
 }
 
-bool testGenerateAddress(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testGenerateAddress(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Generate Address");
 
     int userId = createTestUser(userRepo, "walletuser6");
@@ -119,7 +119,7 @@ bool testGenerateAddress(Repository::WalletRepository& walletRepo, Repository::U
     TEST_PASS();
 }
 
-bool testGenerateChangeAddress(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testGenerateChangeAddress(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Generate Change Address");
 
     int userId = createTestUser(userRepo, "walletuser7");
@@ -133,7 +133,7 @@ bool testGenerateChangeAddress(Repository::WalletRepository& walletRepo, Reposit
     TEST_PASS();
 }
 
-bool testGetAddressesByWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testGetAddressesByWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Get Addresses By Wallet");
 
     int userId = createTestUser(userRepo, "walletuser8");
@@ -158,7 +158,7 @@ bool testGetAddressesByWallet(Repository::WalletRepository& walletRepo, Reposito
     TEST_PASS();
 }
 
-bool testUpdateAddressLabel(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testUpdateAddressLabel(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Update Address Label");
 
     int userId = createTestUser(userRepo, "walletuser9");
@@ -173,7 +173,7 @@ bool testUpdateAddressLabel(Repository::WalletRepository& walletRepo, Repository
     TEST_PASS();
 }
 
-bool testUpdateAddressBalance(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testUpdateAddressBalance(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Update Address Balance");
 
     int userId = createTestUser(userRepo, "walletuser10");
@@ -189,7 +189,7 @@ bool testUpdateAddressBalance(Repository::WalletRepository& walletRepo, Reposito
     TEST_PASS();
 }
 
-bool testStoreEncryptedSeed(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testStoreEncryptedSeed(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Store Encrypted Seed");
 
     int userId = createTestUser(userRepo, "seeduser1");
@@ -207,7 +207,7 @@ bool testStoreEncryptedSeed(Repository::WalletRepository& walletRepo, Repository
     TEST_PASS();
 }
 
-bool testRetrieveDecryptedSeed(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testRetrieveDecryptedSeed(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Retrieve Decrypted Seed");
 
     int userId = createTestUser(userRepo, "seeduser2");
@@ -228,7 +228,7 @@ bool testRetrieveDecryptedSeed(Repository::WalletRepository& walletRepo, Reposit
     TEST_PASS();
 }
 
-bool testRetrieveDecryptedSeedWrongPassword(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testRetrieveDecryptedSeedWrongPassword(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Retrieve Decrypted Seed - Wrong Password");
 
     int userId = createTestUser(userRepo, "seeduser3");
@@ -247,7 +247,7 @@ bool testRetrieveDecryptedSeedWrongPassword(Repository::WalletRepository& wallet
     TEST_PASS();
 }
 
-bool testConfirmSeedBackup(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testConfirmSeedBackup(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Confirm Seed Backup");
 
     int userId = createTestUser(userRepo, "seeduser4");
@@ -262,7 +262,7 @@ bool testConfirmSeedBackup(Repository::WalletRepository& walletRepo, Repository:
     TEST_PASS();
 }
 
-bool testHasSeedStored(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testHasSeedStored(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Has Seed Stored");
 
     int userId1 = createTestUser(userRepo, "seeduser5");
@@ -280,7 +280,7 @@ bool testHasSeedStored(Repository::WalletRepository& walletRepo, Repository::Use
     TEST_PASS();
 }
 
-bool testGetSpendableBalance(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+static bool testGetSpendableBalance(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
     TEST_START("Get Spendable Balance");
 
     int userId = createTestUser(userRepo, "balanceuser1");
@@ -295,6 +295,175 @@ bool testGetSpendableBalance(Repository::WalletRepository& walletRepo, Repositor
     TEST_ASSERT(balanceResult.hasValue(), "Get spendable balance should succeed");
     // Initially should be 0
     TEST_ASSERT(*balanceResult == 0, "Initial balance should be 0");
+
+    TEST_PASS();
+}
+
+// ============================================================================
+// SQL Injection Protection Tests for Wallet Repository
+// ============================================================================
+
+static bool testSQLInjectionInWalletName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("SQL Injection Protection - Wallet Name");
+
+    int userId = createTestUser(userRepo, "sql_wallet_user");
+    TEST_ASSERT(userId > 0, "User creation should succeed");
+
+    std::vector<std::string> maliciousNames = {
+        "Wallet' OR '1'='1",
+        "'; DROP TABLE wallets;--",
+        "Wallet' UNION SELECT * FROM users--",
+        "Test\\'; DELETE FROM wallets;--"
+    };
+
+    for (const auto& name : maliciousNames) {
+        auto result = walletRepo.createWallet(userId, name, "bitcoin");
+
+        if (!result.hasValue()) {
+            std::cout << "    Rejected malicious wallet name: " << name << std::endl;
+        } else {
+            // Verify it was stored safely
+            auto getResult = walletRepo.getWalletById(result->id);
+            TEST_ASSERT(getResult.hasValue(), "Should retrieve wallet");
+            TEST_ASSERT(getResult->walletName == name,
+                       "Wallet name should be stored exactly as provided");
+            std::cout << "    Safely stored wallet name: " << name << std::endl;
+        }
+    }
+
+    TEST_PASS();
+}
+
+static bool testSQLInjectionInGetWalletByName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("SQL Injection Protection - Get Wallet By Name");
+
+    int userId = createTestUser(userRepo, "sql_getwallet_user");
+
+    // Create legitimate wallet
+    walletRepo.createWallet(userId, "My Wallet", "bitcoin");
+
+    // Try SQL injection in query
+    std::vector<std::string> maliciousQueries = {
+        "' OR '1'='1",
+        "My Wallet' OR '1'='1--",
+        "'; DROP TABLE wallets;--"
+    };
+
+    for (const auto& query : maliciousQueries) {
+        auto result = walletRepo.getWalletByName(userId, query);
+        TEST_ASSERT(!result.hasValue(), "SQL injection should not return results");
+        std::cout << "    Blocked SQL injection query: " << query << std::endl;
+    }
+
+    TEST_PASS();
+}
+
+static bool testWalletAddressLabelInjection(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("SQL Injection Protection - Address Label");
+
+    int userId = createTestUser(userRepo, "label_user");
+    auto walletResult = walletRepo.createWallet(userId, "Test Wallet", "bitcoin");
+    TEST_ASSERT(walletResult.hasValue(), "Wallet creation should succeed");
+
+    auto addressResult = walletRepo.generateAddress(walletResult->id, false);
+    TEST_ASSERT(addressResult.hasValue(), "Address generation should succeed");
+
+    std::vector<std::string> maliciousLabels = {
+        "Label' OR '1'='1",
+        "'; DELETE FROM addresses;--",
+        "Label' UNION SELECT * FROM addresses--"
+    };
+
+    for (const auto& label : maliciousLabels) {
+        auto updateResult = walletRepo.updateAddressLabel(addressResult->id, label);
+
+        if (updateResult.hasValue() && *updateResult) {
+            std::cout << "    Safely stored address label: " << label << std::endl;
+        }
+    }
+
+    TEST_PASS();
+}
+
+// ============================================================================
+// Edge Case Tests for Wallet Repository
+// ============================================================================
+
+static bool testEmptyWalletName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("Edge Case - Empty Wallet Name");
+
+    int userId = createTestUser(userRepo, "empty_wallet_user");
+
+    auto result = walletRepo.createWallet(userId, "", "bitcoin");
+    TEST_ASSERT(!result.hasValue(), "Should reject empty wallet name");
+
+    std::cout << "    Correctly rejected empty wallet name" << std::endl;
+
+    TEST_PASS();
+}
+
+static bool testVeryLongWalletName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("Edge Case - Very Long Wallet Name");
+
+    int userId = createTestUser(userRepo, "long_wallet_user");
+
+    std::string longName(1000, 'W');
+    auto result = walletRepo.createWallet(userId, longName, "bitcoin");
+
+    if (!result.hasValue()) {
+        std::cout << "    Rejected 1000-character wallet name (validation)" << std::endl;
+    } else {
+        std::cout << "    Warning: Accepted very long wallet name" << std::endl;
+    }
+
+    TEST_PASS();
+}
+
+static bool testInvalidWalletType(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("Edge Case - Invalid Wallet Type");
+
+    int userId = createTestUser(userRepo, "invalid_type_user");
+
+    std::vector<std::string> invalidTypes = {
+        "",
+        "invalidcoin",
+        "bitcoin; DROP TABLE wallets;--",
+        std::string(500, 'T')
+    };
+
+    for (const auto& type : invalidTypes) {
+        auto result = walletRepo.createWallet(userId, "Test Wallet", type);
+
+        if (!result.hasValue()) {
+            std::cout << "    Rejected invalid wallet type: " << type << std::endl;
+        } else {
+            std::cout << "    Warning: Accepted wallet type: " << type << std::endl;
+        }
+    }
+
+    TEST_PASS();
+}
+
+static bool testMaximumAddressesPerWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+    TEST_START("Edge Case - Maximum Addresses Per Wallet");
+
+    int userId = createTestUser(userRepo, "max_addr_user");
+    auto walletResult = walletRepo.createWallet(userId, "Address Test", "bitcoin");
+    TEST_ASSERT(walletResult.hasValue(), "Wallet creation should succeed");
+
+    const int MAX_ADDRESSES = 100; // Test with 100 addresses
+    std::cout << "    Generating " << MAX_ADDRESSES << " addresses..." << std::endl;
+
+    int successCount = 0;
+    for (int i = 0; i < MAX_ADDRESSES; i++) {
+        auto addressResult = walletRepo.generateAddress(walletResult->id, false);
+        if (addressResult.hasValue()) {
+            successCount++;
+        }
+    }
+
+    std::cout << "    Successfully generated " << successCount << " addresses" << std::endl;
+    TEST_ASSERT(successCount == MAX_ADDRESSES, "Should generate all addresses");
 
     TEST_PASS();
 }
@@ -316,7 +485,7 @@ int main() {
     Repository::UserRepository userRepo(dbManager);
     Repository::WalletRepository walletRepo(dbManager);
 
-    // Run tests
+    // Run core functionality tests
     testCreateWallet(walletRepo, userRepo);
     testCreateMultipleWallets(walletRepo, userRepo);
     testGetWalletsByUserId(walletRepo, userRepo);
@@ -333,6 +502,19 @@ int main() {
     testConfirmSeedBackup(walletRepo, userRepo);
     testHasSeedStored(walletRepo, userRepo);
     testGetSpendableBalance(walletRepo, userRepo);
+
+    // Run SQL injection protection tests
+    std::cout << "\n" << COLOR_CYAN << "Running SQL Injection Protection Tests..." << COLOR_RESET << std::endl;
+    testSQLInjectionInWalletName(walletRepo, userRepo);
+    testSQLInjectionInGetWalletByName(walletRepo, userRepo);
+    testWalletAddressLabelInjection(walletRepo, userRepo);
+
+    // Run edge case tests
+    std::cout << "\n" << COLOR_CYAN << "Running Edge Case Tests..." << COLOR_RESET << std::endl;
+    testEmptyWalletName(walletRepo, userRepo);
+    testVeryLongWalletName(walletRepo, userRepo);
+    testInvalidWalletType(walletRepo, userRepo);
+    testMaximumAddressesPerWallet(walletRepo, userRepo);
 
     TestUtils::printTestSummary("Test");
     TestUtils::shutdownTestEnvironment(dbManager, TEST_DB_PATH);

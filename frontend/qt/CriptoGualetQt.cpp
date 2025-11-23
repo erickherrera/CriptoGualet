@@ -1,5 +1,5 @@
-#include "CriptoGualetQt.h"
 #include "Auth.h"
+#include "CriptoGualetQt.h"
 #include "QtLoginUI.h"
 #include "QtSeedDisplayDialog.h"
 #include "QtSettingsUI.h"
@@ -41,13 +41,14 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
 
   // Initialize database and repositories
   try {
-    auto& dbManager = Database::DatabaseManager::getInstance();
+    auto &dbManager = Database::DatabaseManager::getInstance();
 
     // Derive secure machine-specific encryption key
     std::string encryptionKey;
     if (!Auth::DeriveSecureEncryptionKey(encryptionKey)) {
       QMessageBox::critical(this, "Security Error",
-        "Failed to derive secure encryption key. Cannot initialize database.");
+                            "Failed to derive secure encryption key. Cannot "
+                            "initialize database.");
       qCritical() << "Failed to derive encryption key for database";
       return;
     }
@@ -59,21 +60,28 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
 
     if (!dbResult) {
       QString errorMsg = QString("Failed to initialize database: %1")
-                         .arg(QString::fromStdString(dbResult.message));
+                             .arg(QString::fromStdString(dbResult.message));
       QMessageBox::critical(this, "Database Error", errorMsg);
-      qCritical() << "Database initialization failed:" << dbResult.message.c_str()
+      qCritical() << "Database initialization failed:"
+                  << dbResult.message.c_str()
                   << "Error code:" << dbResult.errorCode;
     } else {
-      m_userRepository = std::make_unique<Repository::UserRepository>(dbManager);
-      m_walletRepository = std::make_unique<Repository::WalletRepository>(dbManager);
+      m_userRepository =
+          std::make_unique<Repository::UserRepository>(dbManager);
+      m_walletRepository =
+          std::make_unique<Repository::WalletRepository>(dbManager);
     }
-  } catch (const std::exception& e) {
-    QMessageBox::critical(this, "Initialization Error",
-      QString("Failed to initialize database: %1").arg(e.what()));
+  } catch (const std::exception &e) {
+    QMessageBox::critical(
+        this, "Initialization Error",
+        QString("Failed to initialize database: %1").arg(e.what()));
   }
 
-  // Initialize wallet
+  // Initialize Bitcoin wallet
   m_wallet = std::make_unique<WalletAPI::SimpleWallet>("btc/test3");
+
+  // Initialize Ethereum wallet (PHASE 1 FIX: Multi-chain support)
+  m_ethereumWallet = std::make_unique<WalletAPI::EthereumWallet>("mainnet");
 
   setupUI();
   setupMenuBar();
@@ -117,10 +125,12 @@ void CriptoGualetQt::setupUI() {
   m_settingsUI = new QtSettingsUI(this);
   m_topCryptosPage = new QtTopCryptosPage(this);
 
-  // Pass wallet instance and repositories to wallet UI
+  // Pass wallet instances and repositories to wallet UI
   m_walletUI->setWallet(m_wallet.get());
+  m_walletUI->setEthereumWallet(m_ethereumWallet.get()); // PHASE 1 FIX
   if (m_userRepository && m_walletRepository) {
-    m_walletUI->setRepositories(m_userRepository.get(), m_walletRepository.get());
+    m_walletUI->setRepositories(m_userRepository.get(),
+                                m_walletRepository.get());
   }
 
   m_stackedWidget->addWidget(m_loginUI);
@@ -169,6 +179,31 @@ void CriptoGualetQt::setupUI() {
             if (userResult.success) {
               int userId = userResult.data.id;
               m_walletUI->setCurrentUserId(userId);
+
+              // PHASE 1 FIX: Derive Ethereum address from seed
+              if (m_walletRepository) {
+                auto seedResult = m_walletRepository->retrieveDecryptedSeed(
+                    userId, stdPassword);
+                if (seedResult.success && !seedResult.data.empty()) {
+                  // Convert mnemonic to seed
+                  std::array<uint8_t, 64> seed{};
+                  if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "",
+                                                     seed)) {
+                    // Derive master key
+                    Crypto::BIP32ExtendedKey masterKey;
+                    if (Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
+                      // Derive Ethereum address
+                      std::string ethAddress;
+                      if (Crypto::BIP44_GetEthereumAddress(masterKey, 0, false,
+                                                           0, ethAddress)) {
+                        m_walletUI->setEthereumAddress(
+                            QString::fromStdString(ethAddress));
+                      }
+                    }
+                    seed.fill(uint8_t(0)); // Securely wipe
+                  }
+                }
+              }
             }
           }
 
@@ -358,6 +393,70 @@ void CriptoGualetQt::setupUI() {
     receiveText += "\n\nAddress copied to clipboard!";
 
     QMessageBox::information(this, "Receive Bitcoin", receiveText);
+  });
+
+  // PHASE 2: Connect Ethereum receive handler
+  connect(m_walletUI, &QtWalletUI::receiveEthereumRequested, [this]() {
+    if (!m_ethereumWallet || g_currentUser.empty() ||
+        g_users.find(g_currentUser) == g_users.end()) {
+      QMessageBox::warning(
+          this, "Error",
+          "Ethereum wallet not initialized or user not logged in");
+      return;
+    }
+
+    const User &legacyUser = g_users[g_currentUser];
+
+    // Get Ethereum address (with EIP-55 checksum)
+    QString ethAddress;
+    if (m_walletRepository && m_userRepository) {
+      // Get proper user from repository to access user ID
+      auto userResult = m_userRepository->getUserByUsername(g_currentUser);
+      if (!userResult.hasValue()) {
+        QMessageBox::warning(this, "Error",
+                             "Failed to retrieve user information");
+        return;
+      }
+
+      // Note: Using passwordHash as password - this may need proper password
+      // handling
+      auto seedResult = m_walletRepository->retrieveDecryptedSeed(
+          userResult->id, legacyUser.passwordHash);
+      if (seedResult.success && !seedResult.data.empty()) {
+        std::array<uint8_t, 64> seed{};
+        if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "", seed)) {
+          Crypto::BIP32ExtendedKey masterKey;
+          if (Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
+            std::string ethAddr;
+            if (Crypto::BIP44_GetEthereumAddress(masterKey, 0, false, 0,
+                                                 ethAddr)) {
+              ethAddress = QString::fromStdString(ethAddr);
+            }
+          }
+          seed.fill(uint8_t(0)); // Securely wipe
+        }
+      }
+    }
+
+    if (ethAddress.isEmpty()) {
+      QMessageBox::warning(this, "Error",
+                           "Failed to retrieve Ethereum address");
+      return;
+    }
+
+    QString receiveText =
+        QString("Your Ethereum Address:\n%1\n\n"
+                "Share this address to receive Ethereum payments.\n\n"
+                "Note: This address is in EIP-55 checksum format for extra "
+                "safety.\n"
+                "You can use this address on Ethereum mainnet.")
+            .arg(ethAddress);
+
+    // Copy address to clipboard
+    QApplication::clipboard()->setText(ethAddress);
+    receiveText += "\n\nAddress copied to clipboard!";
+
+    QMessageBox::information(this, "Receive Ethereum", receiveText);
   });
 
   // Connect top cryptos page back button

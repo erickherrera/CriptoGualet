@@ -18,6 +18,7 @@ std::vector<uint8_t> B64Decode(const std::string &s);
 // === Hash Functions ===
 bool SHA256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out);
 bool RIPEMD160(const uint8_t *data, size_t len, std::array<uint8_t, 20> &out);
+bool Keccak256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out);
 bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data, size_t data_len, std::vector<uint8_t> &out);
 bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data, size_t data_len, std::vector<uint8_t> &out);
 
@@ -256,5 +257,83 @@ bool CreateUnsignedTransaction(const std::vector<UTXO> &inputs,
                                 const std::string &change_address,
                                 uint64_t change_amount,
                                 BitcoinTransaction &tx);
+
+// === Ethereum Functions ===
+
+// === EIP-55 Checksum Functions ===
+
+// Convert Ethereum address to EIP-55 checksum format
+// Input: "0x..." or raw hex address (with or without 0x prefix)
+// Output: EIP-55 checksummed address with 0x prefix
+bool EIP55_ToChecksumAddress(const std::string &address, std::string &checksummed);
+
+// Validate that an Ethereum address has correct EIP-55 checksum
+// Returns true if address has valid checksum or is all lowercase/uppercase
+// Returns false if checksum is invalid
+bool EIP55_ValidateChecksumAddress(const std::string &address);
+
+// Generate Ethereum address from extended public key
+// Ethereum addresses are 20 bytes (40 hex chars) with 0x prefix
+// Format: 0x + last 20 bytes of Keccak256(public_key)
+// Returns address in EIP-55 checksum format
+bool BIP32_GetEthereumAddress(const BIP32ExtendedKey &extKey, std::string &address);
+
+// Derive Ethereum address key from BIP44 path
+// Ethereum BIP44 path: m/44'/60'/0'/0/0 (coin_type = 60)
+bool BIP44_DeriveEthereumAddressKey(const BIP32ExtendedKey &master, uint32_t account,
+                                     bool change, uint32_t address_index,
+                                     BIP32ExtendedKey &address_key);
+
+// Derive Ethereum address from BIP44 path
+bool BIP44_GetEthereumAddress(const BIP32ExtendedKey &master, uint32_t account,
+                               bool change, uint32_t address_index,
+                               std::string &address);
+
+// Generate multiple Ethereum addresses for an account
+bool BIP44_GenerateEthereumAddresses(const BIP32ExtendedKey &master, uint32_t account,
+                                      bool change, uint32_t start_index, uint32_t count,
+                                      std::vector<std::string> &addresses);
+
+// === Multi-Chain Helper Functions ===
+
+// Chain type enumeration
+enum class ChainType {
+  BITCOIN,
+  BITCOIN_TESTNET,
+  ETHEREUM,
+  ETHEREUM_TESTNET,  // Sepolia, Goerli
+  BNB_CHAIN,
+  POLYGON,
+  AVALANCHE,
+  ARBITRUM,
+  OPTIMISM,
+  BASE
+};
+
+// Get BIP44 coin type for a chain
+uint32_t GetCoinType(ChainType chain);
+
+// Get chain name as string
+std::string GetChainName(ChainType chain);
+
+// Derive address for any supported chain
+bool DeriveChainAddress(const BIP32ExtendedKey &master, ChainType chain,
+                         uint32_t account, bool change, uint32_t address_index,
+                         std::string &address);
+
+// === Chain-Aware Address Validation ===
+
+// Check if an address format is valid for a specific chain
+bool IsValidAddressFormat(const std::string &address, ChainType chain);
+
+// Try to detect which chain type an address belongs to
+// Returns std::nullopt if address format cannot be determined
+std::optional<ChainType> DetectAddressChain(const std::string &address);
+
+// Check if a chain uses EVM-compatible addresses
+bool IsEVMChain(ChainType chain);
+
+// Check if a chain uses Bitcoin-style addresses
+bool IsBitcoinChain(ChainType chain);
 
 } // namespace Crypto

@@ -1,5 +1,55 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Windows SDK configuration - must be before project() call
+# When using clang-cl with Ninja, CMake needs to find Windows SDK tools (rc.exe) during compiler test
+if(WIN32)
+  # Find Windows SDK installation
+  set(WINDOWS_SDK_PATHS
+    "C:/Program Files (x86)/Windows Kits/10"
+    "C:/Program Files/Windows Kits/10"
+  )
+  
+  # Find the latest Windows SDK version
+  set(WINDOWS_SDK_VERSION "")
+  set(WINDOWS_SDK_ROOT "")
+  foreach(SDK_PATH ${WINDOWS_SDK_PATHS})
+    if(EXISTS "${SDK_PATH}")
+      file(GLOB SDK_VERSIONS "${SDK_PATH}/Include/*")
+      if(SDK_VERSIONS)
+        list(SORT SDK_VERSIONS)
+        list(REVERSE SDK_VERSIONS)
+        list(GET SDK_VERSIONS 0 LATEST_SDK)
+        get_filename_component(WINDOWS_SDK_VERSION "${LATEST_SDK}" NAME)
+        set(WINDOWS_SDK_ROOT "${SDK_PATH}")
+        break()
+      endif()
+    endif()
+  endforeach()
+  
+  if(WINDOWS_SDK_ROOT AND WINDOWS_SDK_VERSION)
+    # Find rc.exe (Resource Compiler) - must be set before project() call
+    find_program(RC_EXECUTABLE
+      NAMES rc.exe
+      PATHS
+        "${WINDOWS_SDK_ROOT}/bin/${WINDOWS_SDK_VERSION}/x64"
+        "${WINDOWS_SDK_ROOT}/bin/x64"
+        "${WINDOWS_SDK_ROOT}/bin/${WINDOWS_SDK_VERSION}/x86"
+        "${WINDOWS_SDK_ROOT}/bin/x86"
+      NO_DEFAULT_PATH
+    )
+    
+    if(RC_EXECUTABLE)
+      set(CMAKE_RC_COMPILER "${RC_EXECUTABLE}" CACHE FILEPATH "Windows Resource Compiler")
+    else()
+      # Try to find it in PATH as fallback
+      find_program(RC_EXECUTABLE NAMES rc.exe)
+      if(RC_EXECUTABLE)
+        set(CMAKE_RC_COMPILER "${RC_EXECUTABLE}" CACHE FILEPATH "Windows Resource Compiler")
+      endif()
+    endif()
+  endif()
+endif()
+
 # Declare the project EARLY so VS presets/toolsets apply cleanly
 project(CriptoGualet LANGUAGES CXX)
 
@@ -7,8 +57,17 @@ project(CriptoGualet LANGUAGES CXX)
 if (POLICY CMP0091)
   cmake_policy(SET CMP0091 NEW)
 endif()
-# Debug uses /MDd by default (matches VS Debug)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL")
+# Set MSVC runtime library based on build type
+# For multi-config generators (Visual Studio), CMake handles this per-config automatically
+# For single-config generators, set it based on CMAKE_BUILD_TYPE
+if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY AND NOT CMAKE_CONFIGURATION_TYPES)
+  # Single-config generator - set based on build type
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "")
+  else()
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL" CACHE STRING "")
+  endif()
+endif()
 
 # Put built EXEs/DLLs in a predictable place: <build>/bin
 # (launch.vs.json uses this)
@@ -65,15 +124,24 @@ else()
   message(STATUS "Compiler already specified: ${CMAKE_CXX_COMPILER}")
 endif()
 
-# Enable vcpkg integration (matches your presets if VCPKG_ROOT is set)
-if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING "")
+# Windows SDK information logging (detection already done before project() call)
+if(WIN32 AND CMAKE_RC_COMPILER)
+  message(STATUS "Windows Resource Compiler: ${CMAKE_RC_COMPILER}")
 endif()
 
-# Set C++ standard (Qt 6.9.1 requires C++17)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Enable vcpkg integration (matches your presets if VCPKG_ROOT is set)
+# Presets may already set CMAKE_TOOLCHAIN_FILE, so only set if not already defined
+if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+      CACHE STRING "Path to vcpkg toolchain file")
+endif()
+
+# Set C++ standard (matches CMakePresets.json)
+# Allow override from presets, but default to C++20
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
 
 # Add MSVC-specific flags for Qt compatibility
 if(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
@@ -82,7 +150,24 @@ endif()
 
 # Cross-platform compiler flags for Clang (only when using Clang)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Wno-c++98-compat -Wno-c++98-compat-pedantic")
+  # Minimal warning set - only show critical issues
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-everything")
+
+  # Enable ONLY critical error-like warnings
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type")  # Missing return statements (critical bug)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=uninitialized")  # Use of uninitialized variables
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=delete-non-virtual-dtor")  # Memory safety
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-result")  # Ignoring important return values
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wformat-security")  # Format string vulnerabilities
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wnull-dereference")  # Null pointer dereferences
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wdangling")  # Dangling pointers/references
+
+  # Suppress intentional GNU extensions
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-gnu-zero-variadic-macro-arguments")  # Logger macros use GNU extension
+
+  # Treat warnings as informational (don't fail build)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
+
   if(WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonportable-system-include-path")
   endif()

@@ -1,0 +1,37 @@
+// Copy these keybindings to your USER keybindings.json file
+// (NOT the workspace .vscode/keybindings.json)
+//
+// To open your user keybindings:
+// Ctrl+Shift+P → "Preferences: Open Keyboard Shortcuts (JSON)"
+//
+// Then paste this inside the array [...]:
+
+[
+  // Build task
+  {
+    "key": "f7",
+    "command": "workbench.action.tasks.build",
+    "when": "!inDebugMode"
+  },
+  // CMake configure (Ninja)
+  {
+    "key": "ctrl+f7",
+    "command": "workbench.action.tasks.runTask",
+    "args": "CMake: configure (Ninja)",
+    "when": "workspaceFolderCount != 0"
+  },
+  // Clean build directory
+  {
+    "key": "shift+f7",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Clean Build Directory",
+    "when": "workspaceFolderCount != 0"
+  },
+  // Run all tests
+  {
+    "key": "ctrl+shift+t",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Run All Tests",
+    "when": "workspaceFolderCount != 0"
+  }
+]

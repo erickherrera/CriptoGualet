@@ -15,6 +15,10 @@ bld/
 [Ll]og/
 [Ll]ogs/
 build/
+build-*/
+build-simple/
+build-clang/
+build-test/
 
 # Visual Studio files
 .vs/
@@ -38,8 +42,15 @@ cmake_install.cmake
 Makefile
 *.cmake
 !CMakeLists.txt
-compile_commands.json
-CMakeSettings.json
+
+# Keep compile_commands.json in root for clangd, but ignore in build dirs
+# Root compile_commands.json is copied from build dir by CMake Tools
+# compile_commands.json - Allow in root
+out/**/compile_commands.json
+build*/**/compile_commands.json
+
+# Allow CMakeSettings.json for Visual Studio users
+# CMakeSettings.json - Allow if needed
 
 # Executables and scripts
 *.exe
@@ -81,8 +92,12 @@ Thumbs.db
 
 # IDE files
 *.vcxproj.user
-*.vscode/
 .idea/
+
+# VS Code - allow .vscode directory but exclude some generated files
+# *.vscode/ - commented out to allow versioning
+.vscode/*.log
+.vscode/.ropeproject/
 
 # Ignore generated Qt files
 moc_*.cpp
@@ -106,3 +121,11 @@ nul
 
 # Build logs
 build_output.txt
+
+# Additional build directories (catch-all)
+build-*/
+build-simple/
+
+# Machine-specific helper scripts (not needed in repo)
+configure-cmake.ps1
+regenerate-clangd-config.ps1

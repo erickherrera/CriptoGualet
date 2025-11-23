@@ -62,8 +62,13 @@ QtLoginUI::QtLoginUI(QWidget *parent)
 void QtLoginUI::setupUI() {
   // Root layout
   m_mainLayout = new QVBoxLayout(this);
-  m_mainLayout->setContentsMargins(20, 30, 20, 30);
-  m_mainLayout->setSpacing(12);
+  m_mainLayout->setContentsMargins(
+      m_themeManager->standardMargin(),
+      m_themeManager->generousMargin(),
+      m_themeManager->standardMargin(),
+      m_themeManager->generousMargin()
+  );
+  m_mainLayout->setSpacing(m_themeManager->compactSpacing());
 
   // ------ Header (Title + Subtitle) OUTSIDE the card ------
   {
@@ -436,10 +441,11 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     mainLayout->setSpacing(15);
 
     // Header section
-    QLabel *title = new QLabel("<h2 style='color: #2E7D32; margin: 0;'>Account "
+    QLabel *title = new QLabel(QString("<h2 style='color: %1; margin: 0;'>Account "
                                "Created Successfully</h2>"
                                "<p style='margin: 8px 0;'>Your 12-word seed "
-                               "phrase has been generated.</p>",
+                               "phrase has been generated.</p>")
+                               .arg(m_themeManager->successColor().name()),
                                &dlg);
     title->setAlignment(Qt::AlignCenter);
     title->setWordWrap(true);
@@ -942,10 +948,7 @@ void QtLoginUI::updateStyles() {
 
   // Tab Bar Styling - Unified with content below, no gap
   // Both tabs are fully readable, bottom border indicates selection
-  QString inactiveTabColor = (win.value() < 128)
-      ? m_themeManager->textColor().darker(130).name()  // Slightly dimmed but readable on dark
-      : m_themeManager->textColor().lighter(130).name(); // Slightly lighter but readable on light
-
+  QString inactiveTabColor = m_themeManager->dimmedTextColor().name();  // Theme-aware dimmed text
   QString selectedTabColor = m_themeManager->textColor().name(); // Always use theme text color for selected tab
 
   QString tabBarStyle =
@@ -992,9 +995,7 @@ void QtLoginUI::updateStyles() {
 
   // Enhanced LineEdit styling with proper backgrounds and contrast
   // Input fields should be darker than card background in dark mode, lighter in light mode
-  QString inputBg = (win.value() < 128)
-      ? m_themeManager->backgroundColor().lighter(120).name()  // Lighter than background on dark theme
-      : m_themeManager->primaryColor().name(); // Use primary (white) on light theme
+  QString inputBg = m_themeManager->surfaceColor().name();  // Theme-aware input background
 
   QString lineEditStyle = QString(R"(
         QLineEdit {
@@ -1023,7 +1024,7 @@ void QtLoginUI::updateStyles() {
         }
     )")
                               .arg(inputBg, textHex, borderColor, accentHex,
-                                   m_themeManager->accentColor().lighter(140).name(),  // hover border
+                                   m_themeManager->focusBorderColor().name(),         // hover border
                                    m_themeManager->backgroundColor().name(),          // disabled bg
                                    m_themeManager->subtitleColor().name(),            // disabled text
                                    m_themeManager->subtitleColor().name());           // placeholder
@@ -1037,11 +1038,12 @@ void QtLoginUI::updateStyles() {
   m_passwordEdit->setStyleSheet(lineEditStyle);
 
   // Enhanced button styling with proper contrast
+  QString whiteText = QColor(Qt::white).name();
   QString buttonStyle =
       QString(R"(
         QPushButton {
             background-color: %1;
-            color: #ffffff;
+            color: %6;
             border: none;
             border-radius: 8px;
             font-size: 14px;
@@ -1051,11 +1053,11 @@ void QtLoginUI::updateStyles() {
         }
         QPushButton:hover {
             background-color: %2;
-            color: #ffffff;
+            color: %6;
         }
         QPushButton:pressed {
             background-color: %3;
-            color: #ffffff;
+            color: %6;
         }
         QPushButton:disabled {
             background-color: %4;
@@ -1066,7 +1068,8 @@ void QtLoginUI::updateStyles() {
                m_themeManager->accentColor().lighter(110).name(),
                m_themeManager->accentColor().darker(110).name(),
                m_themeManager->secondaryColor().name(),     // disabled bg
-               m_themeManager->subtitleColor().name());     // disabled text
+               m_themeManager->subtitleColor().name(),      // disabled text
+               whiteText);                                   // button text color
 
   m_loginButton->setStyleSheet(buttonStyle);
   m_registerButton->setStyleSheet(buttonStyle);

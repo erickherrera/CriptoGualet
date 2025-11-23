@@ -1,10 +1,13 @@
--- CriptoGualet Database Schema Migrations
--- This file contains all database schema versions for the cryptocurrency wallet
-
--- ============================================================================
--- MIGRATION VERSION 1: Initial Schema
--- Description: Create core tables for users, wallets, addresses, and transactions
--- ============================================================================
+  -- ============================================================================
+  -- DOCUMENTATION ONLY - NOT EXECUTED BY APPLICATION
+  -- ============================================================================
+  -- This file documents the CriptoGualet database schema but is NOT automatically
+  -- executed at runtime. The actual schema is hardcoded in:
+  --   - Production: backend/core/Auth.cpp (InitializeDatabase function)
+  --   - Tests: Tests/include/TestUtils.h (createFullSchema function)
+  --
+  -- To implement proper migrations in the future, see DatabaseManager::runMigrations()
+  -- ============================================================================
 
 -- Users table - stores user authentication data
 CREATE TABLE IF NOT EXISTS users (
@@ -232,6 +235,42 @@ CREATE INDEX IF NOT EXISTS idx_tx_outputs_spent ON transaction_outputs(is_spent)
 -- Address book indexes
 CREATE INDEX IF NOT EXISTS idx_address_book_user_id ON address_book(user_id);
 CREATE INDEX IF NOT EXISTS idx_address_book_address ON address_book(address);
+
+-- ============================================================================
+-- PHASE 3: COMPOSITE INDEXES for Query Optimization
+-- ============================================================================
+
+-- Composite indexes for common multi-column queries
+
+-- Wallets: Filter by user and type (e.g., get all Ethereum wallets for a user)
+CREATE INDEX IF NOT EXISTS idx_wallets_user_type ON wallets(user_id, wallet_type);
+
+-- Wallets: Filter by user and active status
+CREATE INDEX IF NOT EXISTS idx_wallets_user_active ON wallets(user_id, is_active);
+
+-- Transactions: Sort by wallet and date (most common transaction query)
+CREATE INDEX IF NOT EXISTS idx_transactions_wallet_date ON transactions(wallet_id, created_at DESC);
+
+-- Transactions: Filter by wallet and confirmation status
+CREATE INDEX IF NOT EXISTS idx_transactions_wallet_confirmed ON transactions(wallet_id, is_confirmed);
+
+-- Transactions: Filter by wallet, direction, and date
+CREATE INDEX IF NOT EXISTS idx_transactions_wallet_direction_date ON transactions(wallet_id, direction, created_at DESC);
+
+-- Addresses: Get receiving/change addresses for a wallet
+CREATE INDEX IF NOT EXISTS idx_addresses_wallet_change ON addresses(wallet_id, is_change);
+
+-- Addresses: Active addresses with balance for a wallet
+CREATE INDEX IF NOT EXISTS idx_addresses_wallet_balance ON addresses(wallet_id, balance_satoshis DESC);
+
+-- Transaction outputs: UTXO lookup (unspent outputs by address)
+CREATE INDEX IF NOT EXISTS idx_tx_outputs_address_spent ON transaction_outputs(address, is_spent);
+
+-- Transaction outputs: Find unspent outputs for a transaction
+CREATE INDEX IF NOT EXISTS idx_tx_outputs_tx_spent ON transaction_outputs(transaction_id, is_spent);
+
+-- Address book: Search by user and address type
+CREATE INDEX IF NOT EXISTS idx_address_book_user_type ON address_book(user_id, address_type);
 
 -- ============================================================================
 -- DEFAULT SETTINGS

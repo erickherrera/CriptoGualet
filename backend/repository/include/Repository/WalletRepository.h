@@ -66,6 +66,16 @@ public:
     Result<std::vector<Wallet>> getWalletsByUserId(int userId, bool includeInactive = false);
 
     /**
+     * @brief PHASE 3: Get wallets by type for a user
+     * @param userId User ID
+     * @param walletType Wallet type (bitcoin, ethereum, etc.)
+     * @param includeInactive Whether to include inactive wallets
+     * @return Result containing list of wallets matching the type
+     */
+    Result<std::vector<Wallet>> getWalletsByType(int userId, const std::string& walletType,
+                                                 bool includeInactive = false);
+
+    /**
      * @brief Get wallet by name for a specific user
      * @param userId User ID
      * @param walletName Wallet name

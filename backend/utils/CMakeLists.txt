@@ -27,3 +27,12 @@ add_library(SharedSymbols STATIC
 target_include_directories(SharedSymbols PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
+
+# ---- RLP Encoder library ----
+add_library(RLPEncoder STATIC
+  "RLPEncoder.cpp"
+  "include/RLPEncoder.h"
+)
+target_include_directories(RLPEncoder PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)

@@ -26,8 +26,13 @@ void QtSettingsUI::setupUI() {
     centerContainer->setMaximumWidth(900);
 
     m_mainLayout = new QVBoxLayout(centerContainer);
-    m_mainLayout->setContentsMargins(40, 40, 40, 40);
-    m_mainLayout->setSpacing(30);
+    m_mainLayout->setContentsMargins(
+        m_themeManager->spacing(10),  // 40px
+        m_themeManager->spacing(10),  // 40px
+        m_themeManager->spacing(10),  // 40px
+        m_themeManager->spacing(10)   // 40px
+    );
+    m_mainLayout->setSpacing(m_themeManager->spacing(8));  // 32px (was 30)
 
     // Add stretch before and after to center the container
     outerLayout->addStretch();
@@ -70,17 +75,21 @@ void QtSettingsUI::setupUI() {
     QGroupBox *securityGroup = new QGroupBox("Security", centerContainer);
     QVBoxLayout *securityLayout = new QVBoxLayout(securityGroup);
     securityLayout->setContentsMargins(20, 20, 20, 20);
-    QLabel *securityPlaceholder = new QLabel("Security settings will be added here", centerContainer);
-    securityPlaceholder->setStyleSheet("color: gray; font-style: italic;");
-    securityLayout->addWidget(securityPlaceholder);
+    m_securityPlaceholder = new QLabel("Security settings will be added here", centerContainer);
+    m_securityPlaceholder->setProperty("class", "subtitle");
+    QFont italicFont = m_themeManager->textFont();
+    italicFont.setItalic(true);
+    m_securityPlaceholder->setFont(italicFont);
+    securityLayout->addWidget(m_securityPlaceholder);
     m_mainLayout->addWidget(securityGroup);
 
     QGroupBox *walletGroup = new QGroupBox("Wallet", centerContainer);
     QVBoxLayout *walletLayout = new QVBoxLayout(walletGroup);
     walletLayout->setContentsMargins(20, 20, 20, 20);
-    QLabel *walletPlaceholder = new QLabel("Wallet settings will be added here", centerContainer);
-    walletPlaceholder->setStyleSheet("color: gray; font-style: italic;");
-    walletLayout->addWidget(walletPlaceholder);
+    m_walletPlaceholder = new QLabel("Wallet settings will be added here", centerContainer);
+    m_walletPlaceholder->setProperty("class", "subtitle");
+    m_walletPlaceholder->setFont(italicFont);
+    walletLayout->addWidget(m_walletPlaceholder);
     m_mainLayout->addWidget(walletGroup);
 
     // Add stretch at the end
@@ -88,9 +97,11 @@ void QtSettingsUI::setupUI() {
 }
 
 void QtSettingsUI::applyTheme() {
-    // Main background
-    setStyleSheet(QString("QWidget { background-color: %1; }")
-                      .arg(m_themeManager->backgroundColor().name()));
+    // Set main background color without affecting child widgets
+    QPalette palette = this->palette();
+    palette.setColor(QPalette::Window, m_themeManager->backgroundColor());
+    setPalette(palette);
+    setAutoFillBackground(true);
 
     // Title styling
     QString titleStyle = QString(R"(
@@ -122,7 +133,7 @@ void QtSettingsUI::applyTheme() {
         }
     )")
         .arg(m_themeManager->surfaceColor().name())
-        .arg(m_themeManager->surfaceColor().darker(120).name())
+        .arg(m_themeManager->secondaryColor().name())
         .arg(m_themeManager->textColor().name());
 
     // Apply to all group boxes
@@ -153,13 +164,33 @@ void QtSettingsUI::applyTheme() {
             border-top: 5px solid %2;
             margin-right: 8px;
         }
+        QComboBox QAbstractItemView {
+            background-color: %1;
+            color: %2;
+            border: 1px solid %3;
+            selection-background-color: %4;
+            selection-color: %5;
+        }
     )")
         .arg(m_themeManager->surfaceColor().name())
         .arg(m_themeManager->textColor().name())
-        .arg(m_themeManager->surfaceColor().darker(120).name())
-        .arg(m_themeManager->accentColor().name());
+        .arg(m_themeManager->secondaryColor().name())
+        .arg(m_themeManager->accentColor().name())
+        .arg(m_themeManager->backgroundColor().name());
 
     m_themeSelector->setStyleSheet(comboBoxStyle);
+
+    // Apply theme-aware styling to placeholder labels
+    QString placeholderStyle = QString(R"(
+        QLabel {
+            color: %1;
+            font-style: italic;
+            background-color: transparent;
+        }
+    )").arg(m_themeManager->subtitleColor().name());
+
+    m_securityPlaceholder->setStyleSheet(placeholderStyle);
+    m_walletPlaceholder->setStyleSheet(placeholderStyle);
 
     // Apply fonts
     QFont titleFont = m_themeManager->titleFont();
