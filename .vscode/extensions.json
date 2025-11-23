@@ -1,0 +1,26 @@
+{
+  "recommendations": [
+    // Core C++ development
+    "llvm-vs-code-extensions.vscode-clangd",
+    "vadimcn.vscode-lldb",
+
+    // CMake support
+    "ms-vscode.cmake-tools",
+    "twxs.cmake",
+
+    // Testing
+    "matepek.vscode-catch2-test-adapter",
+
+    // Git
+    "eamodio.gitlens",
+
+    // Additional helpful extensions
+    "ms-vscode.hexeditor",
+    "usernamehw.errorlens",
+    "streetsidesoftware.code-spell-checker"
+  ],
+  "unwantedRecommendations": [
+    // Avoid conflicts with clangd
+    "ms-vscode.cpptools"
+  ]
+}

@@ -7,7 +7,7 @@
             "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
             "args": [
                 "--build",
-                "${workspaceFolder}/build-simple",
+                "${workspaceFolder}/out/build/win-vs2022-x64-debug",
                 "--config",
                 "Debug"
             ],
@@ -37,9 +37,7 @@
             "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
             "args": [
                 "--build",
-                "${workspaceFolder}/out/build/clangd-ninja",
-                "--config",
-                "Debug"
+                "${workspaceFolder}/out/build/win-ninja-x64-debug"
             ],
             "group": "build",
             "presentation": {
@@ -63,17 +61,8 @@
             "type": "shell",
             "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
             "args": [
-                "-S",
-                "${workspaceFolder}",
-                "-B",
-                "${workspaceFolder}/build-simple",
-                "-G",
-                "Visual Studio 17 2022",
-                "-A",
-                "x64",
-                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
-                "-T",
-                "ClangCL"
+                "--preset",
+                "win-vs2022-x64-debug"
             ],
             "group": "build",
             "presentation": {
@@ -92,7 +81,7 @@
         {
             "label": "CMake: configure (Ninja)",
             "type": "shell",
-            "command": "cmake",
+            "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
             "args": [
                 "--preset",
                 "win-ninja-x64-debug"
@@ -101,6 +90,113 @@
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated"
+            },
+            "problemMatcher": [],
+            "windows": {
+                "options": {
+                    "shell": {
+                        "executable": "powershell.exe",
+                        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+                    }
+                }
+            }
+        },
+        {
+            "label": "Run All Tests",
+            "type": "shell",
+            "command": "powershell.exe",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "Get-ChildItem",
+                "-Path",
+                "${workspaceFolder}/out/build/*/bin",
+                "-Filter",
+                "test_*.exe",
+                "-Recurse",
+                "|",
+                "ForEach-Object",
+                "{",
+                "Write-Host",
+                "\"Running $($_.Name)...\";",
+                "&",
+                "$_.FullName;",
+                "Write-Host",
+                "\"\" ",
+                "}"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run BIP39 Tests",
+            "type": "shell",
+            "command": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_bip39.exe",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Repository Integration Tests",
+            "type": "shell",
+            "command": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_repository_integration.exe",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean Build Directory",
+            "type": "shell",
+            "command": "powershell.exe",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "Remove-Item",
+                "-Path",
+                "${workspaceFolder}/out/build/*",
+                "-Recurse",
+                "-Force",
+                "-ErrorAction",
+                "SilentlyContinue"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "vcpkg: Install Dependencies",
+            "type": "shell",
+            "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\vcpkg\\vcpkg.exe",
+            "args": [
+                "install",
+                "--triplet",
+                "x64-windows"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
             },
             "problemMatcher": []
         }

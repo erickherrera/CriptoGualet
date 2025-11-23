@@ -7,8 +7,17 @@ project(CriptoGualet LANGUAGES CXX)
 if (POLICY CMP0091)
   cmake_policy(SET CMP0091 NEW)
 endif()
-# Debug uses /MDd by default (matches VS Debug)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL")
+# Set MSVC runtime library based on build type
+# For multi-config generators (Visual Studio), CMake handles this per-config automatically
+# For single-config generators, set it based on CMAKE_BUILD_TYPE
+if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY AND NOT CMAKE_CONFIGURATION_TYPES)
+  # Single-config generator - set based on build type
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "")
+  else()
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL" CACHE STRING "")
+  endif()
+endif()
 
 # Put built EXEs/DLLs in a predictable place: <build>/bin
 # (launch.vs.json uses this)
@@ -66,14 +75,18 @@ else()
 endif()
 
 # Enable vcpkg integration (matches your presets if VCPKG_ROOT is set)
+# Presets may already set CMAKE_TOOLCHAIN_FILE, so only set if not already defined
 if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
   set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING "")
+      CACHE STRING "Path to vcpkg toolchain file")
 endif()
 
-# Set C++ standard (Qt 6.9.1 requires C++17)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Set C++ standard (matches CMakePresets.json)
+# Allow override from presets, but default to C++20
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
 
 # Add MSVC-specific flags for Qt compatibility
 if(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)

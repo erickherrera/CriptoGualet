@@ -42,8 +42,15 @@ cmake_install.cmake
 Makefile
 *.cmake
 !CMakeLists.txt
-compile_commands.json
-CMakeSettings.json
+
+# Keep compile_commands.json in root for clangd, but ignore in build dirs
+# Root compile_commands.json is copied from build dir by CMake Tools
+# compile_commands.json - Allow in root
+out/**/compile_commands.json
+build*/**/compile_commands.json
+
+# Allow CMakeSettings.json for Visual Studio users
+# CMakeSettings.json - Allow if needed
 
 # Executables and scripts
 *.exe
@@ -85,8 +92,12 @@ Thumbs.db
 
 # IDE files
 *.vcxproj.user
-*.vscode/
 .idea/
+
+# VS Code - allow .vscode directory but exclude some generated files
+# *.vscode/ - commented out to allow versioning
+.vscode/*.log
+.vscode/.ropeproject/
 
 # Ignore generated Qt files
 moc_*.cpp

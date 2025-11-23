@@ -1,0 +1,96 @@
+{
+  // clangd extension settings
+  "clangd.path": "clangd",
+  "clangd.arguments": [
+    // Use compile_commands.json from the workspace root
+    // clangd will automatically search parent directories, so this should work
+    "--compile-commands-dir=${workspaceFolder}",
+    // Specify the build directory for better path resolution
+    "--path-mappings=${workspaceFolder}/out/build/win-ninja-x64-debug=${workspaceFolder}",
+    // Enable background indexing
+    "--background-index",
+    // Use clang-tidy for additional diagnostics
+    "--clang-tidy",
+    // Enable completion with all scopes
+    "--all-scopes-completion",
+    // Show inlay hints
+    "--inlay-hints",
+    // Log level (set to "error" for less verbose output, "info" for more details)
+    "--log=info",
+    // Pretty print diagnostics
+    "--pretty"
+  ],
+  
+  // Disable the default C/C++ extension's IntelliSense to avoid conflicts
+  "C_Cpp.intelliSenseEngine": "disabled",
+  
+  // File associations
+  "files.associations": {
+    "*.h": "cpp",
+    "*.cpp": "cpp",
+    "*.hpp": "cpp"
+  },
+  
+  // Editor settings for C++
+  "[cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+    "editor.formatOnSave": true,
+    "editor.suggest.insertMode": "replace"
+  },
+  
+  // Format on save
+  "editor.formatOnSave": true,
+  
+  // clangd-specific settings
+  "clangd.fallbackFlags": [
+    "-std=c++17"
+  ],
+  
+  // Enable clangd features
+  "clangd.onConfigChanged": "restart",
+  "clangd.semanticHighlighting": true,
+  "clangd.completion.enable": true,
+
+  // CMake Tools extension settings
+  "cmake.configureOnOpen": false,
+  "cmake.buildDirectory": "${workspaceFolder}/out/build/${presetName}",
+  "cmake.useCMakePresets": "always",
+  "cmake.configureSettings": {
+    "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+  },
+  "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
+  
+  // vcpkg configuration for CMake Tools
+  "cmake.vcpkgPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\vcpkg",
+
+  // Test explorer settings
+  "testExplorer.useNativeTesting": true,
+  "cmake.ctest.parallelJobs": 0,
+
+  // File watching (exclude large directories for performance)
+  "files.watcherExclude": {
+    "**/out/**": true,
+    "**/build/**": true,
+    "**/build-*/**": true,
+    "**/vcpkg_installed/**": true,
+    "**/.vs/**": true
+  },
+
+  // Search exclusions
+  "search.exclude": {
+    "**/out": true,
+    "**/build": true,
+    "**/build-*": true,
+    "**/vcpkg_installed": true,
+    "**/.vs": true,
+    "**/node_modules": true
+  },
+
+  // Cursor IDE specific settings
+  "cursor.cpp.intelliSenseEngine": "clangd",
+  "cursor.aiPreviewEnabled": true,
+
+  // Git settings
+  "git.ignoreLimitWarning": true
+}
+
