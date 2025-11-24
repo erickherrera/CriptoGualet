@@ -565,6 +565,8 @@ void CriptoGualetQt::showSettingsScreen() {
   updateNavbarVisibility();
   updateSidebarVisibility();
   statusBar()->showMessage("Settings");
+  // Refresh 2FA status when settings page is shown
+  m_settingsUI->refresh2FAStatus();
 }
 
 void CriptoGualetQt::showTopCryptosPage() {

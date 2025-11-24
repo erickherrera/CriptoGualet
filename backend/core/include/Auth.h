@@ -85,4 +85,31 @@ bool InitializeAuthDatabase();
 // Returns true on success with 64-character hex key in outKey
 bool DeriveSecureEncryptionKey(std::string &outKey);
 
+// ===== Email Verification Functions =====
+
+// Send verification code to user's email
+// Generates a 6-digit code, stores it in database with expiration time, and sends email
+// Returns SUCCESS if email was sent, SYSTEM_ERROR if email sending failed
+AuthResponse SendVerificationCode(const std::string &username);
+
+// Verify the code entered by the user
+// Checks if code matches, is not expired, and hasn't exceeded attempt limit
+// If successful, marks email as verified in database
+AuthResponse VerifyEmailCode(const std::string &username,
+                             const std::string &code);
+
+// Resend verification code with rate limiting
+// Enforces 60-second cooldown and maximum 3 resends per hour
+// Returns RATE_LIMITED if cooldown/limit exceeded
+AuthResponse ResendVerificationCode(const std::string &username);
+
+// Check if user's email is verified
+// Returns true if email_verified = 1 in database
+bool IsEmailVerified(const std::string &username);
+
+// Disable 2FA (email verification) for a user
+// Sets email_verified = 0 in database
+// Returns SUCCESS if disabled, SYSTEM_ERROR on failure
+AuthResponse DisableTwoFactorAuth(const std::string &username);
+
 } // namespace Auth

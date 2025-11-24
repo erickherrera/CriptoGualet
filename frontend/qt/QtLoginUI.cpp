@@ -1,6 +1,7 @@
 ﻿// QtLoginUI.cpp
 #include "QtLoginUI.h"
 #include "Auth.h"
+#include "QtEmailVerificationDialog.h"
 #include "QtThemeManager.h"
 
 #include <QApplication>
@@ -416,7 +417,40 @@ void QtLoginUI::onRegisterModeToggled(bool registerMode) {
 }
 
 void QtLoginUI::onLoginResult(bool success, const QString &message) {
-  showMessage(message, !success);
+  // Check if login failed due to unverified email
+  if (!success && message.contains("EMAIL_NOT_VERIFIED")) {
+    // Extract username from login form
+    const QString username = m_loginUsernameEdit->text().trimmed();
+
+    // Get user email from database for verification dialog
+    try {
+      auto userResult = Auth::IsEmailVerified(username.toStdString());
+
+      // Show verification dialog
+      showMessage("Your email address has not been verified. Please verify to continue.", true);
+
+      // Small delay to let user read the message
+      QTimer::singleShot(1500, this, [this, username]() {
+        // Get user info to retrieve email
+        // For now, we'll use a simple approach - show dialog with username only
+        // The dialog will get the email from the database via SendVerificationCode
+        QtEmailVerificationDialog verifyDlg(username, "", this);
+
+        if (verifyDlg.exec() == QDialog::Accepted && verifyDlg.isVerified()) {
+          // Email verified! User can now try logging in again
+          showMessage("Email verified successfully! Please sign in.", false);
+          m_loginPasswordEdit->setFocus();
+        } else {
+          showMessage("Email verification incomplete. Please verify your email to sign in.", true);
+        }
+      });
+    } catch (...) {
+      showMessage(message, true);
+    }
+  } else {
+    showMessage(message, !success);
+  }
+
   m_loginPasswordEdit->clear();
 }
 
@@ -601,14 +635,59 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     mainLayout->addWidget(confirmFrame);
     mainLayout->addWidget(box);
 
-    // Clear input fields regardless of dialog result
-    m_usernameEdit->clear();
-    m_emailEdit->clear();
-    m_passwordEdit->clear();
-    clearMessage();
+    // Execute seed backup dialog
+    if (dlg.exec() == QDialog::Accepted) {
+      // User confirmed seed backup - now send verification code
+      showMessage("Sending verification code to your email...", false);
 
-    // Switch to Sign In tab so user can log in with their new account
-    m_tabBar->setCurrentIndex(0);
+      auto sendResult = Auth::SendVerificationCode(username.toStdString());
+
+      if (sendResult.result == Auth::AuthResult::SUCCESS) {
+        // Code sent successfully - show verification dialog
+        QtEmailVerificationDialog verifyDlg(username, email, this);
+
+        if (verifyDlg.exec() == QDialog::Accepted && verifyDlg.isVerified()) {
+          // Email verified successfully!
+          showMessage("Email verified! You can now sign in with your account.", false);
+
+          // Clear registration fields
+          m_usernameEdit->clear();
+          m_emailEdit->clear();
+          m_passwordEdit->clear();
+
+          // Switch to Sign In tab
+          m_tabBar->setCurrentIndex(0);
+
+          // Pre-fill username in login form for convenience
+          m_loginUsernameEdit->setText(username);
+        } else {
+          // Verification canceled or failed
+          showMessage(
+              "Email verification incomplete. You must verify your email before signing in.\n"
+              "A verification code has been sent to " +
+                  email + ".",
+              true);
+
+          // Clear password but keep username and email
+          m_passwordEdit->clear();
+        }
+      } else {
+        // Failed to send verification code
+        showMessage(
+            QString::fromStdString(sendResult.message) +
+                "\n\nYou must verify your email before signing in.",
+            true);
+
+        // Clear password but keep username and email
+        m_passwordEdit->clear();
+      }
+    } else {
+      // User canceled seed backup dialog
+      m_usernameEdit->clear();
+      m_emailEdit->clear();
+      m_passwordEdit->clear();
+      clearMessage();
+    }
   } else {
     m_emailEdit->clear();
     m_passwordEdit->clear();

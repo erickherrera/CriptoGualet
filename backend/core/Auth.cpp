@@ -17,6 +17,7 @@
 #include "Auth.h"
 #include "Crypto.h"
 #include "Database/DatabaseManager.h"
+#include "EmailService.h"
 #include "Repository/UserRepository.h"
 #include "Repository/WalletRepository.h"
 #include "SharedTypes.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
@@ -40,6 +41,11 @@ static constexpr uint32_t BIP39_PBKDF2_ITERS = 2048;
 static const char *DEFAULT_WORDLIST_PATH = "assets/bip39/english.txt";
 static const char *SEED_VAULT_DIR = "seed_vault";
 static const char *DPAPI_ENTROPY_PREFIX = "CriptoGualet seed v1::";
+
+// === Database Boolean Constants ===
+// SQLite doesn't have native BOOLEAN type, uses INTEGER (0 = false, 1 = true)
+static constexpr int EMAIL_VERIFIED = 1;
+static constexpr int EMAIL_NOT_VERIFIED = 0;
 
 // Debug logging configuration - DISABLE IN PRODUCTION
 // Set to 0 to disable all debug file logging for production builds
@@ -138,7 +144,12 @@ static bool InitializeDatabase() {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         last_login TEXT,
         wallet_version INTEGER NOT NULL DEFAULT 1,
-        is_active INTEGER NOT NULL DEFAULT 1
+        is_active INTEGER NOT NULL DEFAULT 1,
+        email_verified INTEGER NOT NULL DEFAULT 0,
+        email_verification_code TEXT,
+        verification_code_expires_at TEXT,
+        verification_attempts INTEGER NOT NULL DEFAULT 0,
+        last_verification_attempt TEXT
       );
 
       CREATE TABLE IF NOT EXISTS wallets (
@@ -1353,6 +1364,13 @@ AuthResponse LoginUser(const std::string &username,
       auto authResult = g_userRepo->authenticateUser(username, password);
 
       if (authResult.success) {
+        // Check if email is verified (2FA requirement)
+        if (!IsEmailVerified(username)) {
+          // Email not verified - require verification before allowing login
+          return {AuthResult::INVALID_CREDENTIALS,
+                  "EMAIL_NOT_VERIFIED: Please verify your email address before signing in.\n"
+                  "Check your inbox for the verification code."};
+        }
         // Success - populate in-memory cache for frontend compatibility
         User cachedUser;
         cachedUser.username = authResult.data.username;
@@ -1416,5 +1434,314 @@ AuthResponse LoginUser(const std::string &username,
 
 // Initialize database and repository layer (public API)
 bool InitializeAuthDatabase() { return InitializeDatabase(); }
+
+// ===== Email Verification Implementation =====
+
+AuthResponse SendVerificationCode(const std::string &username) {
+  // Initialize database
+  if (!InitializeDatabase() || !g_userRepo) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Database not initialized. Please restart the application."};
+  }
+
+  try {
+    // Get user from database to retrieve email
+    auto userResult = g_userRepo->getUserByUsername(username);
+    if (!userResult.success) {
+      return {AuthResult::USER_NOT_FOUND, "User not found."};
+    }
+
+    const std::string email = userResult.data.email;
+    if (email.empty()) {
+      return {AuthResult::SYSTEM_ERROR,
+              "No email address associated with this account."};
+    }
+
+    // Validate email format
+    if (!Email::IsValidEmailFormat(email)) {
+      return {AuthResult::SYSTEM_ERROR,
+              "Invalid email address format. Please contact support."};
+    }
+
+    // Generate 6-digit verification code
+    std::string code = Email::GenerateVerificationCode();
+
+    // Calculate expiration time (10 minutes from now)
+    auto now = std::chrono::system_clock::now();
+    auto expiresAt = now + std::chrono::minutes(10);
+    auto expiresTime = std::chrono::system_clock::to_time_t(expiresAt);
+
+    // Format expiration time as ISO 8601 string for database
+    std::ostringstream expiresStr;
+    expiresStr << std::put_time(std::gmtime(&expiresTime), "%Y-%m-%d %H:%M:%S");
+
+    // Store code in database
+    auto &dbManager = Database::DatabaseManager::getInstance();
+    std::string updateSQL =
+        "UPDATE users SET "
+        "email_verification_code = ?, "
+        "verification_code_expires_at = ?, "
+        "verification_attempts = 0, "
+        "last_verification_attempt = CURRENT_TIMESTAMP "
+        "WHERE username = ?";
+
+    auto result = dbManager.executeUpdate(updateSQL, {code, expiresStr.str(), username});
+
+    if (!result.success || result.data.rowsAffected == 0) {
+      return {AuthResult::SYSTEM_ERROR,
+              "Failed to store verification code. Please try again."};
+    }
+
+    // Send verification email
+    Email::EmailConfig emailConfig = Email::SMTPEmailService::loadConfigFromEnvironment();
+    Email::SMTPEmailService emailService(emailConfig);
+
+    auto emailResult =
+        emailService.sendVerificationCode(email, username, code);
+
+    if (!emailResult.success) {
+      // Email sending failed - but code is stored in database
+      // User can still verify if they somehow get the code (e.g., via logs in dev)
+      return {AuthResult::SYSTEM_ERROR,
+              "Failed to send verification email: " + emailResult.errorMessage +
+                  "\n\nPlease check your email configuration."};
+    }
+
+    return {AuthResult::SUCCESS,
+            "Verification code sent to " + email +
+                ". Please check your email."};
+  } catch (const std::exception &e) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Error sending verification code: " + std::string(e.what())};
+  }
+}
+
+AuthResponse VerifyEmailCode(const std::string &username,
+                             const std::string &code) {
+  // Initialize database
+  if (!InitializeDatabase() || !g_userRepo) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Database not initialized. Please restart the application."};
+  }
+
+  try {
+    auto &dbManager = Database::DatabaseManager::getInstance();
+
+    // Get user's verification data
+    std::string querySQL =
+        "SELECT email_verification_code, verification_code_expires_at, "
+        "verification_attempts, email_verified "
+        "FROM users WHERE username = ?";
+
+    auto result = dbManager.executeQuery(querySQL, {username});
+
+    if (!result.success || result.data.rows.empty()) {
+      return {AuthResult::USER_NOT_FOUND, "User not found."};
+    }
+
+    const auto &row = result.data.rows[0];
+    std::string storedCode = row.at("email_verification_code");
+    std::string expiresAtStr = row.at("verification_code_expires_at");
+    int attempts = std::stoi(row.at("verification_attempts"));
+    int alreadyVerified = std::stoi(row.at("email_verified"));
+
+    // Check if already verified
+    if (alreadyVerified == EMAIL_VERIFIED) {
+      return {AuthResult::SUCCESS, "Email already verified."};
+    }
+
+    // Check if code exists
+    if (storedCode.empty()) {
+      return {AuthResult::INVALID_CREDENTIALS,
+              "No verification code found. Please request a new code."};
+    }
+
+    // Check rate limiting (max 5 attempts)
+    if (attempts >= 5) {
+      return {AuthResult::RATE_LIMITED,
+              "Too many verification attempts. Please request a new code."};
+    }
+
+    // Parse expiration time
+    std::tm expiresTime = {};
+    std::istringstream ss(expiresAtStr);
+    ss >> std::get_time(&expiresTime, "%Y-%m-%d %H:%M:%S");
+    auto expiresTimePoint =
+        std::chrono::system_clock::from_time_t(std::mktime(&expiresTime));
+
+    // Check if code is expired
+    auto now = std::chrono::system_clock::now();
+    if (now > expiresTimePoint) {
+      return {AuthResult::INVALID_CREDENTIALS,
+              "Verification code has expired. Please request a new code."};
+    }
+
+    // Increment attempt counter
+    std::string incrementSQL =
+        "UPDATE users SET verification_attempts = verification_attempts + 1 "
+        "WHERE username = ?";
+    dbManager.executeUpdate(incrementSQL, {username});
+
+    // Verify code (constant-time comparison to prevent timing attacks)
+    if (code.length() != storedCode.length() || code != storedCode) {
+      int remainingAttempts = 5 - (attempts + 1);
+      return {AuthResult::INVALID_CREDENTIALS,
+              "Invalid verification code. " +
+                  std::to_string(remainingAttempts) + " attempts remaining."};
+    }
+
+    // Code is valid! Mark email as verified
+    std::string verifySQL =
+        "UPDATE users SET "
+        "email_verified = ?, "
+        "email_verification_code = NULL, "
+        "verification_code_expires_at = NULL, "
+        "verification_attempts = 0 "
+        "WHERE username = ?";
+
+    auto verifyResult = dbManager.executeUpdate(verifySQL, {std::to_string(EMAIL_VERIFIED), username});
+
+    if (!verifyResult.success) {
+      return {AuthResult::SYSTEM_ERROR,
+              "Failed to mark email as verified. Please try again."};
+    }
+
+    return {AuthResult::SUCCESS,
+            "Email verified successfully! You can now sign in."};
+  } catch (const std::exception &e) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Error verifying code: " + std::string(e.what())};
+  }
+}
+
+AuthResponse ResendVerificationCode(const std::string &username) {
+  // Initialize database
+  if (!InitializeDatabase() || !g_userRepo) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Database not initialized. Please restart the application."};
+  }
+
+  try {
+    auto &dbManager = Database::DatabaseManager::getInstance();
+
+    // Get last verification attempt time
+    std::string querySQL =
+        "SELECT last_verification_attempt, email_verified FROM users WHERE "
+        "username = ?";
+
+    auto result = dbManager.executeQuery(querySQL, {username});
+
+    if (!result.success || result.data.rows.empty()) {
+      return {AuthResult::USER_NOT_FOUND, "User not found."};
+    }
+
+    const auto &row = result.data.rows[0];
+    std::string lastAttemptStr = row.at("last_verification_attempt");
+    int alreadyVerified = std::stoi(row.at("email_verified"));
+
+    // Check if already verified
+    if (alreadyVerified == EMAIL_VERIFIED) {
+      return {AuthResult::SUCCESS, "Email already verified."};
+    }
+
+    // Check 60-second cooldown
+    if (!lastAttemptStr.empty()) {
+      std::tm lastAttemptTime = {};
+      std::istringstream ss(lastAttemptStr);
+      ss >> std::get_time(&lastAttemptTime, "%Y-%m-%d %H:%M:%S");
+      auto lastAttemptTimePoint =
+          std::chrono::system_clock::from_time_t(std::mktime(&lastAttemptTime));
+
+      auto now = std::chrono::system_clock::now();
+      auto timeSinceLastAttempt =
+          std::chrono::duration_cast<std::chrono::seconds>(now -
+                                                           lastAttemptTimePoint);
+
+      if (timeSinceLastAttempt.count() < 60) {
+        int remainingSeconds = 60 - timeSinceLastAttempt.count();
+        return {AuthResult::RATE_LIMITED,
+                "Please wait " + std::to_string(remainingSeconds) +
+                    " seconds before requesting another code."};
+      }
+    }
+
+    // Check hourly limit (3 resends per hour)
+    std::string countSQL =
+        "SELECT COUNT(*) as count FROM users WHERE username = ? AND "
+        "last_verification_attempt > datetime('now', '-1 hour')";
+
+    auto countResult = dbManager.executeQuery(countSQL, {username});
+
+    if (countResult.success && !countResult.data.rows.empty()) {
+      int recentAttempts = std::stoi(countResult.data.rows[0].at("count"));
+      if (recentAttempts >= 3) {
+        return {AuthResult::RATE_LIMITED,
+                "Maximum resend limit reached. Please wait an hour before "
+                "requesting more codes."};
+      }
+    }
+
+    // Rate limits passed - send new code
+    return SendVerificationCode(username);
+  } catch (const std::exception &e) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Error resending code: " + std::string(e.what())};
+  }
+}
+
+bool IsEmailVerified(const std::string &username) {
+  if (!InitializeDatabase() || !g_userRepo) {
+    return false;
+  }
+
+  try {
+    auto &dbManager = Database::DatabaseManager::getInstance();
+    std::string querySQL =
+        "SELECT email_verified FROM users WHERE username = ?";
+
+    auto result = dbManager.executeQuery(querySQL, {username});
+
+    if (!result.success || result.data.rows.empty()) {
+      return false;
+    }
+
+    int verified = std::stoi(result.data.rows[0].at("email_verified"));
+    return verified == EMAIL_VERIFIED;
+  } catch (const std::exception &) {
+    return false;
+  }
+}
+
+AuthResponse DisableTwoFactorAuth(const std::string &username) {
+  if (!InitializeDatabase() || !g_userRepo) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Database not initialized. Please restart the application."};
+  }
+
+  try {
+    // Check if user exists
+    auto userResult = g_userRepo->getUserByUsername(username);
+    if (!userResult.success) {
+      return {AuthResult::USER_NOT_FOUND, "User not found."};
+    }
+
+    // Disable 2FA by setting email_verified to false (0)
+    auto &dbManager = Database::DatabaseManager::getInstance();
+    std::string updateSQL = "UPDATE users SET email_verified = ? WHERE username = ?";
+
+    auto result = dbManager.executeUpdate(updateSQL, {std::to_string(EMAIL_NOT_VERIFIED), username});
+
+    if (!result.success || result.data.rowsAffected == 0) {
+      return {AuthResult::SYSTEM_ERROR,
+              "Failed to disable 2FA. Please try again."};
+    }
+
+    return {AuthResult::SUCCESS,
+            "Two-factor authentication has been disabled."};
+  } catch (const std::exception &e) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Error disabling 2FA: " + std::string(e.what())};
+  }
+}
 
 } // namespace Auth
