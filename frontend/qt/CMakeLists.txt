@@ -127,7 +127,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     # Copy SQLCipher DLL for database functionality (use debug version for debug builds)
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
+      "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/sqlcipher.dll>"
       "$<TARGET_FILE_DIR:CriptoGualetQt>"
       COMMENT "Copying SQLCipher DLL to output directory")
 

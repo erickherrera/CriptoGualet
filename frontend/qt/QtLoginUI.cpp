@@ -459,6 +459,7 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
 
   if (success) {
     const QString username = m_usernameEdit->text().trimmed();
+    const QString email = m_emailEdit->text().trimmed(); // Get email before clearing
     m_usernameEdit->clear();
     m_emailEdit->clear();
     m_passwordEdit->clear();

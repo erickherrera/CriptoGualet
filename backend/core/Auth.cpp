@@ -22,6 +22,14 @@
 #include "Repository/WalletRepository.h"
 #include "SharedTypes.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
 
+extern "C" {
+#ifdef SQLCIPHER_AVAILABLE
+#include <sqlcipher/sqlite3.h>
+#else
+#include <sqlite3.h>
+#endif
+}
+
 // Windows headers need to be after project headers to avoid macro conflicts
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -1485,9 +1493,9 @@ AuthResponse SendVerificationCode(const std::string &username) {
         "last_verification_attempt = CURRENT_TIMESTAMP "
         "WHERE username = ?";
 
-    auto result = dbManager.executeUpdate(updateSQL, {code, expiresStr.str(), username});
+    auto result = dbManager.executeQuery(updateSQL, {code, expiresStr.str(), username});
 
-    if (!result.success || result.data.rowsAffected == 0) {
+    if (!result.success) {
       return {AuthResult::SYSTEM_ERROR,
               "Failed to store verification code. Please try again."};
     }
@@ -1533,20 +1541,36 @@ AuthResponse VerifyEmailCode(const std::string &username,
         "verification_attempts, email_verified "
         "FROM users WHERE username = ?";
 
-    auto result = dbManager.executeQuery(querySQL, {username});
+    std::string storedCode;
+    std::string expiresAtStr;
+    int attempts = 0;
+    int emailVerified = 0;
+    bool found = false;
 
-    if (!result.success || result.data.rows.empty()) {
+    auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
+      sqlite3_stmt* stmt = nullptr;
+      const char* tail = nullptr;
+      if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+          found = true;
+          const unsigned char* codePtr = sqlite3_column_text(stmt, 0);
+          const unsigned char* expiresPtr = sqlite3_column_text(stmt, 1);
+          storedCode = codePtr ? reinterpret_cast<const char*>(codePtr) : "";
+          expiresAtStr = expiresPtr ? reinterpret_cast<const char*>(expiresPtr) : "";
+          attempts = sqlite3_column_int(stmt, 2);
+          emailVerified = sqlite3_column_int(stmt, 3);
+        }
+        sqlite3_finalize(stmt);
+      }
+    });
+
+    if (!result.success || !found) {
       return {AuthResult::USER_NOT_FOUND, "User not found."};
     }
 
-    const auto &row = result.data.rows[0];
-    std::string storedCode = row.at("email_verification_code");
-    std::string expiresAtStr = row.at("verification_code_expires_at");
-    int attempts = std::stoi(row.at("verification_attempts"));
-    int alreadyVerified = std::stoi(row.at("email_verified"));
-
     // Check if already verified
-    if (alreadyVerified == EMAIL_VERIFIED) {
+    if (emailVerified == EMAIL_VERIFIED) {
       return {AuthResult::SUCCESS, "Email already verified."};
     }
 
@@ -1580,7 +1604,7 @@ AuthResponse VerifyEmailCode(const std::string &username,
     std::string incrementSQL =
         "UPDATE users SET verification_attempts = verification_attempts + 1 "
         "WHERE username = ?";
-    dbManager.executeUpdate(incrementSQL, {username});
+    dbManager.executeQuery(incrementSQL, {username});
 
     // Verify code (constant-time comparison to prevent timing attacks)
     if (code.length() != storedCode.length() || code != storedCode) {
@@ -1599,7 +1623,7 @@ AuthResponse VerifyEmailCode(const std::string &username,
         "verification_attempts = 0 "
         "WHERE username = ?";
 
-    auto verifyResult = dbManager.executeUpdate(verifySQL, {std::to_string(EMAIL_VERIFIED), username});
+    auto verifyResult = dbManager.executeQuery(verifySQL, {std::to_string(EMAIL_VERIFIED), username});
 
     if (!verifyResult.success) {
       return {AuthResult::SYSTEM_ERROR,
@@ -1629,15 +1653,28 @@ AuthResponse ResendVerificationCode(const std::string &username) {
         "SELECT last_verification_attempt, email_verified FROM users WHERE "
         "username = ?";
 
-    auto result = dbManager.executeQuery(querySQL, {username});
+    std::string lastAttemptStr;
+    int alreadyVerified = 0;
+    bool found = false;
 
-    if (!result.success || result.data.rows.empty()) {
+    auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
+      sqlite3_stmt* stmt = nullptr;
+      const char* tail = nullptr;
+      if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+          found = true;
+          const unsigned char* attemptPtr = sqlite3_column_text(stmt, 0);
+          lastAttemptStr = attemptPtr ? reinterpret_cast<const char*>(attemptPtr) : "";
+          alreadyVerified = sqlite3_column_int(stmt, 1);
+        }
+        sqlite3_finalize(stmt);
+      }
+    });
+
+    if (!result.success || !found) {
       return {AuthResult::USER_NOT_FOUND, "User not found."};
     }
-
-    const auto &row = result.data.rows[0];
-    std::string lastAttemptStr = row.at("last_verification_attempt");
-    int alreadyVerified = std::stoi(row.at("email_verified"));
 
     // Check if already verified
     if (alreadyVerified == EMAIL_VERIFIED) {
@@ -1670,10 +1707,23 @@ AuthResponse ResendVerificationCode(const std::string &username) {
         "SELECT COUNT(*) as count FROM users WHERE username = ? AND "
         "last_verification_attempt > datetime('now', '-1 hour')";
 
-    auto countResult = dbManager.executeQuery(countSQL, {username});
+    int recentAttempts = 0;
+    bool hasCount = false;
 
-    if (countResult.success && !countResult.data.rows.empty()) {
-      int recentAttempts = std::stoi(countResult.data.rows[0].at("count"));
+    auto countResult = dbManager.executeQuery(countSQL, {username}, [&](sqlite3* db) {
+      sqlite3_stmt* stmt = nullptr;
+      const char* tail = nullptr;
+      if (sqlite3_prepare_v2(db, countSQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+          hasCount = true;
+          recentAttempts = sqlite3_column_int(stmt, 0);
+        }
+        sqlite3_finalize(stmt);
+      }
+    });
+
+    if (countResult.success && hasCount) {
       if (recentAttempts >= 3) {
         return {AuthResult::RATE_LIMITED,
                 "Maximum resend limit reached. Please wait an hour before "
@@ -1699,13 +1749,25 @@ bool IsEmailVerified(const std::string &username) {
     std::string querySQL =
         "SELECT email_verified FROM users WHERE username = ?";
 
-    auto result = dbManager.executeQuery(querySQL, {username});
+    int verified = 0;
+    bool found = false;
 
-    if (!result.success || result.data.rows.empty()) {
+    auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
+      sqlite3_stmt* stmt = nullptr;
+      const char* tail = nullptr;
+      if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+          found = true;
+          verified = sqlite3_column_int(stmt, 0);
+        }
+        sqlite3_finalize(stmt);
+      }
+    });
+
+    if (!result.success || !found) {
       return false;
     }
-
-    int verified = std::stoi(result.data.rows[0].at("email_verified"));
     return verified == EMAIL_VERIFIED;
   } catch (const std::exception &) {
     return false;
@@ -1729,9 +1791,9 @@ AuthResponse DisableTwoFactorAuth(const std::string &username) {
     auto &dbManager = Database::DatabaseManager::getInstance();
     std::string updateSQL = "UPDATE users SET email_verified = ? WHERE username = ?";
 
-    auto result = dbManager.executeUpdate(updateSQL, {std::to_string(EMAIL_NOT_VERIFIED), username});
+    auto result = dbManager.executeQuery(updateSQL, {std::to_string(EMAIL_NOT_VERIFIED), username});
 
-    if (!result.success || result.data.rowsAffected == 0) {
+    if (!result.success) {
       return {AuthResult::SYSTEM_ERROR,
               "Failed to disable 2FA. Please try again."};
     }

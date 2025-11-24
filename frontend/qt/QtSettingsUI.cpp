@@ -132,6 +132,8 @@ void QtSettingsUI::setupUI() {
     walletLayout->setContentsMargins(20, 20, 20, 20);
     m_walletPlaceholder = new QLabel("Wallet settings will be added here", centerContainer);
     m_walletPlaceholder->setProperty("class", "subtitle");
+    QFont italicFont = m_themeManager->textFont();
+    italicFont.setItalic(true);
     m_walletPlaceholder->setFont(italicFont);
     walletLayout->addWidget(m_walletPlaceholder);
     m_mainLayout->addWidget(walletGroup);

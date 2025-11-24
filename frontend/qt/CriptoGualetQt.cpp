@@ -1,5 +1,6 @@
 #include "Auth.h"
 #include "CriptoGualetQt.h"
+#include "Crypto.h"
 #include "QtLoginUI.h"
 #include "QtSeedDisplayDialog.h"
 #include "QtSettingsUI.h"
@@ -7,6 +8,7 @@
 #include "QtThemeManager.h"
 #include "QtTopCryptosPage.h"
 #include "QtWalletUI.h"
+#include "Repository/RepositoryTypes.h"
 #include "SharedTypes.h"
 #include "WalletAPI.h"
 
@@ -20,11 +22,9 @@
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QTimer>
+#include <array>
 #include <map>
 #include <string>
-
-extern std::map<std::string, User> g_users;
-extern std::string g_currentUser;
 
 CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     : QMainWindow(parent), m_stackedWidget(nullptr), m_loginUI(nullptr),
@@ -40,16 +40,20 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   setAttribute(Qt::WA_ShowWithoutActivating, false);
 
   // Initialize database and repositories
+  // Note: Defer error dialogs until after event loop starts to avoid pre-launch errors
   try {
     auto &dbManager = Database::DatabaseManager::getInstance();
 
     // Derive secure machine-specific encryption key
     std::string encryptionKey;
     if (!Auth::DeriveSecureEncryptionKey(encryptionKey)) {
-      QMessageBox::critical(this, "Security Error",
-                            "Failed to derive secure encryption key. Cannot "
-                            "initialize database.");
       qCritical() << "Failed to derive encryption key for database";
+      // Defer error dialog until after event loop starts
+      QTimer::singleShot(0, this, [this]() {
+        QMessageBox::critical(this, "Security Error",
+                              "Failed to derive secure encryption key. Cannot "
+                              "initialize database.");
+      });
       return;
     }
 
@@ -59,12 +63,15 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     std::fill(encryptionKey.begin(), encryptionKey.end(), '\0');
 
     if (!dbResult) {
-      QString errorMsg = QString("Failed to initialize database: %1")
-                             .arg(QString::fromStdString(dbResult.message));
-      QMessageBox::critical(this, "Database Error", errorMsg);
       qCritical() << "Database initialization failed:"
                   << dbResult.message.c_str()
                   << "Error code:" << dbResult.errorCode;
+      // Defer error dialog until after event loop starts
+      QString errorMsg = QString("Failed to initialize database: %1")
+                             .arg(QString::fromStdString(dbResult.message));
+      QTimer::singleShot(0, this, [this, errorMsg]() {
+        QMessageBox::critical(this, "Database Error", errorMsg);
+      });
     } else {
       m_userRepository =
           std::make_unique<Repository::UserRepository>(dbManager);
@@ -72,9 +79,12 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
           std::make_unique<Repository::WalletRepository>(dbManager);
     }
   } catch (const std::exception &e) {
-    QMessageBox::critical(
-        this, "Initialization Error",
-        QString("Failed to initialize database: %1").arg(e.what()));
+    qCritical() << "Exception during database initialization:" << e.what();
+    // Defer error dialog until after event loop starts
+    QString errorMsg = QString("Failed to initialize database: %1").arg(e.what());
+    QTimer::singleShot(0, this, [this, errorMsg]() {
+      QMessageBox::critical(this, "Initialization Error", errorMsg);
+    });
   }
 
   // Initialize Bitcoin wallet

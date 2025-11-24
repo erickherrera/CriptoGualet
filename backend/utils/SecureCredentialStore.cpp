@@ -1,7 +1,12 @@
 #include "SecureCredentialStore.h"
 
+#define UNICODE
+#define _UNICODE
 #include <windows.h>
 #include <wincred.h>
+#undef UNICODE
+#undef _UNICODE
+
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -30,10 +35,10 @@ bool SecureCredentialStore::StoreSMTPCredentials(const std::string& username,
   // Convert password to wide string for credential blob
   std::vector<BYTE> passwordBlob(password.begin(), password.end());
 
-  CREDENTIAL cred = {0};
+  CREDENTIALW cred = {0};
   cred.Type = CRED_TYPE_GENERIC;
   cred.TargetName = const_cast<LPWSTR>(targetName.c_str());
-  cred.Comment = L"CriptoGualet SMTP credentials";
+  cred.Comment = const_cast<LPWSTR>(L"CriptoGualet SMTP credentials");
   cred.UserName = const_cast<LPWSTR>(wUsername.c_str());
   cred.CredentialBlobSize = static_cast<DWORD>(passwordBlob.size());
   cred.CredentialBlob = passwordBlob.data();
@@ -41,7 +46,7 @@ bool SecureCredentialStore::StoreSMTPCredentials(const std::string& username,
   cred.AttributeCount = 0;
   cred.Attributes = nullptr;
 
-  BOOL result = CredWrite(&cred, 0);
+  BOOL result = CredWriteW(&cred, 0);
   
   // Securely wipe password from memory
   std::fill(passwordBlob.begin(), passwordBlob.end(), 0);
@@ -56,9 +61,9 @@ std::optional<std::string> SecureCredentialStore::RetrieveSMTPPassword(
   }
 
   std::wstring targetName = BuildCredentialTarget(username);
-  PCREDENTIAL cred = nullptr;
+  PCREDENTIALW cred = nullptr;
 
-  BOOL result = CredRead(targetName.c_str(), CRED_TYPE_GENERIC, 0, &cred);
+  BOOL result = CredReadW(targetName.c_str(), CRED_TYPE_GENERIC, 0, &cred);
   if (result == FALSE || cred == nullptr) {
     return std::nullopt;
   }
@@ -86,7 +91,7 @@ bool SecureCredentialStore::DeleteSMTPCredentials(const std::string& username) {
   }
 
   std::wstring targetName = BuildCredentialTarget(username);
-  BOOL result = CredDelete(targetName.c_str(), CRED_TYPE_GENERIC, 0);
+  BOOL result = CredDeleteW(targetName.c_str(), CRED_TYPE_GENERIC, 0);
 
   return result == TRUE;
 }
@@ -97,9 +102,9 @@ bool SecureCredentialStore::HasSMTPCredentials(const std::string& username) {
   }
 
   std::wstring targetName = BuildCredentialTarget(username);
-  PCREDENTIAL cred = nullptr;
+  PCREDENTIALW cred = nullptr;
 
-  BOOL result = CredRead(targetName.c_str(), CRED_TYPE_GENERIC, 0, &cred);
+  BOOL result = CredReadW(targetName.c_str(), CRED_TYPE_GENERIC, 0, &cred);
   if (cred != nullptr) {
     CredFree(cred);
   }
