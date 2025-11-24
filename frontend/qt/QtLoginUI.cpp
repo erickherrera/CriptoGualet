@@ -83,7 +83,7 @@ void QtLoginUI::setupUI() {
     m_titleLabel->setProperty("class", "title");
     m_titleLabel->setAlignment(Qt::AlignHCenter);
 
-    m_subtitleLabel = new QLabel("Secure Bitcoin Wallet", header);
+    m_subtitleLabel = new QLabel("A Secure Crypto Wallet", header);
     m_subtitleLabel->setProperty("class", "subtitle");
     m_subtitleLabel->setAlignment(Qt::AlignHCenter);
 

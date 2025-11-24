@@ -29,7 +29,7 @@ extern std::string g_currentUser;
 CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     : QMainWindow(parent), m_stackedWidget(nullptr), m_loginUI(nullptr),
       m_walletUI(nullptr), m_themeManager(&QtThemeManager::instance()) {
-  setWindowTitle("CriptoGualet - Secure Bitcoin Wallet");
+  setWindowTitle("CriptoGualet - Securely own your cryptos");
   setMinimumSize(800, 600);
 
   // Set window to windowed fullscreen (maximized)
