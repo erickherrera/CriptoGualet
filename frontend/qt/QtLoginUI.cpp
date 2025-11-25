@@ -418,36 +418,40 @@ void QtLoginUI::onRegisterModeToggled(bool registerMode) {
 
 void QtLoginUI::onLoginResult(bool success, const QString &message) {
   // Check if login failed due to unverified email
-  if (!success && message.contains("EMAIL_NOT_VERIFIED")) {
+  // EMAIL_NOT_VERIFIED message only appears when:
+  // 1. User exists in database (authentication succeeded)
+  // 2. Password is correct (authentication succeeded)
+  // 3. Email is not verified
+  // 
+  // For non-existent users, the backend returns "Invalid credentials" message,
+  // NOT "EMAIL_NOT_VERIFIED"
+  // 
+  // The backend formats the message as "EMAIL_NOT_VERIFIED: ..." so we check
+  // if the message starts with this exact prefix
+  if (!success && message.startsWith("EMAIL_NOT_VERIFIED:", Qt::CaseSensitive)) {
+    // User exists and password is correct, but email is not verified
     // Extract username from login form
     const QString username = m_loginUsernameEdit->text().trimmed();
 
-    // Get user email from database for verification dialog
-    try {
-      auto userResult = Auth::IsEmailVerified(username.toStdString());
+    // Show verification dialog
+    showMessage("Your email address has not been verified. Please verify to continue.", true);
 
-      // Show verification dialog
-      showMessage("Your email address has not been verified. Please verify to continue.", true);
+    // Small delay to let user read the message
+    QTimer::singleShot(1500, this, [this, username]() {
+      // Show email verification dialog
+      QtEmailVerificationDialog verifyDlg(username, "", this);
 
-      // Small delay to let user read the message
-      QTimer::singleShot(1500, this, [this, username]() {
-        // Get user info to retrieve email
-        // For now, we'll use a simple approach - show dialog with username only
-        // The dialog will get the email from the database via SendVerificationCode
-        QtEmailVerificationDialog verifyDlg(username, "", this);
-
-        if (verifyDlg.exec() == QDialog::Accepted && verifyDlg.isVerified()) {
-          // Email verified! User can now try logging in again
-          showMessage("Email verified successfully! Please sign in.", false);
-          m_loginPasswordEdit->setFocus();
-        } else {
-          showMessage("Email verification incomplete. Please verify your email to sign in.", true);
-        }
-      });
-    } catch (...) {
-      showMessage(message, true);
-    }
+      if (verifyDlg.exec() == QDialog::Accepted && verifyDlg.isVerified()) {
+        // Email verified! User can now try logging in again
+        showMessage("Email verified successfully! Please sign in.", false);
+        m_loginPasswordEdit->setFocus();
+      } else {
+        showMessage("Email verification incomplete. Please verify your email to sign in.", true);
+      }
+    });
   } else {
+    // Not an email verification issue - show the message as-is
+    // For non-existent users, this will show "Invalid credentials" message
     showMessage(message, !success);
   }
 
@@ -459,238 +463,20 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
 
   if (success) {
     const QString username = m_usernameEdit->text().trimmed();
-    const QString email = m_emailEdit->text().trimmed(); // Get email before clearing
+    
+    // Clear registration fields
     m_usernameEdit->clear();
     m_emailEdit->clear();
     m_passwordEdit->clear();
 
-    // Enhanced post-registration seed backup modal
-    QDialog dlg(this);
-    dlg.setWindowTitle("Wallet Seed Phrase Backup");
-    dlg.setModal(true);
-    dlg.setMinimumSize(500, 400);
-    dlg.resize(500, 400); // Set initial size to match minimum size
-
-    QVBoxLayout *mainLayout = new QVBoxLayout(&dlg);
-    mainLayout->setContentsMargins(20, 20, 20, 20);
-    mainLayout->setSpacing(15);
-
-    // Header section
-    QLabel *title = new QLabel(QString("<h2 style='color: %1; margin: 0;'>Account "
-                               "Created Successfully</h2>"
-                               "<p style='margin: 8px 0;'>Your 12-word seed "
-                               "phrase has been generated.</p>")
-                               .arg(m_themeManager->successColor().name()),
-                               &dlg);
-    title->setAlignment(Qt::AlignCenter);
-    title->setWordWrap(true);
-
-    // Warning section
-    QFrame *warningFrame = new QFrame(&dlg);
-    warningFrame->setFrameStyle(QFrame::Box);
-
-    QVBoxLayout *warningLayout = new QVBoxLayout(warningFrame);
-    warningLayout->setContentsMargins(12, 12, 12, 12);
-
-    QLabel *warningTitle =
-        new QLabel("<b>IMPORTANT: Backup Your Seed Phrase</b>", &dlg);
-
-    QLabel *warningText = new QLabel(
-        "• Write down these 12 words on paper and store securely<br/>"
-        "• This is the only way to recover your wallet<br/>"
-        "• Never share or store digitally",
-        &dlg);
-    warningText->setWordWrap(true);
-
-    warningLayout->addWidget(warningTitle);
-    warningLayout->addWidget(warningText);
-
-    // Backup file section
-    QFrame *backupFrame = new QFrame(&dlg);
-    backupFrame->setFrameStyle(QFrame::Box);
-
-    QVBoxLayout *backupLayout = new QVBoxLayout(backupFrame);
-    backupLayout->setContentsMargins(12, 12, 12, 12);
-
-    QLabel *backupTitle = new QLabel("📁 <b>Your Seed Phrase File</b>", &dlg);
-
-    QLabel *backupText = new QLabel(
-        "A temporary backup file has been created with your seed phrase.<br/>"
-        "<b>Important:</b> This file will be deleted after you confirm backup.",
-        &dlg);
-    backupText->setWordWrap(true);
-
-    QPushButton *openFolder = new QPushButton("Open Backup Folder", &dlg);
-
-    backupLayout->addWidget(backupTitle);
-    backupLayout->addWidget(backupText);
-    backupLayout->addWidget(openFolder);
-
-    // Confirmation section
-    QFrame *confirmFrame = new QFrame(&dlg);
-    confirmFrame->setFrameStyle(QFrame::Box);
-
-    QVBoxLayout *confirmLayout = new QVBoxLayout(confirmFrame);
-    confirmLayout->setContentsMargins(12, 12, 12, 12);
-
-    QCheckBox *confirm1 =
-        new QCheckBox("I have written down all 12 words on paper", &dlg);
-    QCheckBox *confirm2 = new QCheckBox(
-        "I understand this is the only way to recover my wallet", &dlg);
-    QCheckBox *confirm3 = new QCheckBox(
-        "I will delete the backup file after confirming my backup", &dlg);
-
-    confirmLayout->addWidget(confirm1);
-    confirmLayout->addWidget(confirm2);
-    confirmLayout->addWidget(confirm3);
-
-    // Buttons
-    QDialogButtonBox *box = new QDialogButtonBox(
-        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dlg);
-    box->setCenterButtons(true);
-    QPushButton *okBtn = box->button(QDialogButtonBox::Ok);
-    okBtn->setText("Continue to Wallet");
-    okBtn->setEnabled(false);
-
-    QPushButton *cancelBtn = box->button(QDialogButtonBox::Cancel);
-    cancelBtn->setText("Cancel");
-
-    // Enable OK button only when all checkboxes are checked
-    auto updateOkButton = [=]() {
-      bool allChecked = confirm1->isChecked() && confirm2->isChecked() &&
-                        confirm3->isChecked();
-      okBtn->setEnabled(allChecked);
-    };
-
-    connect(confirm1, &QCheckBox::toggled, updateOkButton);
-    connect(confirm2, &QCheckBox::toggled, updateOkButton);
-    connect(confirm3, &QCheckBox::toggled, updateOkButton);
-
-    connect(openFolder, &QPushButton::clicked, [this, username]() {
-      try {
-        // Get the current working directory
-        QString currentDir = QDir::currentPath();
-
-        // Create seed_vault directory if it doesn't exist
-        QString seedDir = currentDir + "/seed_vault";
-        QDir mainDir(seedDir);
-        if (!mainDir.exists()) {
-          mainDir.mkpath(seedDir);
-        }
-
-        // Check for user-specific backup files
-        QString userDir = seedDir + "/" + username;
-        QDir dir(userDir);
-        QString userBackupFile = userDir + "/SEED_BACKUP_12_WORDS.txt";
-        QString fallbackFile =
-            seedDir + "/" + username + "_mnemonic_SHOW_ONCE.txt";
-
-        bool success = false;
-        if (dir.exists() && QFile::exists(userBackupFile)) {
-          // User-specific directory exists and has backup file
-          success = QDesktopServices::openUrl(QUrl::fromLocalFile(userDir));
-          if (!success) {
-            QMessageBox::warning(
-                this, "Error",
-                "Failed to open user-specific backup folder: " + userDir);
-          }
-        } else if (QFile::exists(fallbackFile)) {
-          // Fallback file exists in main directory, select it
-          success = QDesktopServices::openUrl(QUrl::fromLocalFile(seedDir));
-          if (!success) {
-            QMessageBox::warning(this, "Error",
-                                 "Failed to open backup folder: " + seedDir);
-          }
-        } else {
-          // No backup files found - open main directory as last resort
-          success = QDesktopServices::openUrl(QUrl::fromLocalFile(seedDir));
-          if (!success) {
-            QMessageBox::warning(this, "Error",
-                                 "Failed to open backup folder: " + seedDir);
-          }
-          QMessageBox::information(
-              this, "Note",
-              "No backup file found. This may be because:\n"
-              "1. Account creation failed to generate backup\n"
-              "2. Backup file was already deleted\n"
-              "3. File permissions issue\n\n"
-              "If you just created an account, try the 'Reveal Seed' button "
-              "instead.");
-        }
-      } catch (const std::exception &e) {
-        QMessageBox::critical(
-            this, "Error",
-            QString("Exception while opening folder: %1").arg(e.what()));
-      } catch (...) {
-        QMessageBox::critical(this, "Error",
-                              "Unknown error occurred while opening folder.");
-      }
-    });
-    connect(box, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
-    connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
-
-    // Add all widgets to main layout
-    mainLayout->addWidget(title);
-    mainLayout->addWidget(warningFrame);
-    mainLayout->addWidget(backupFrame);
-    mainLayout->addWidget(confirmFrame);
-    mainLayout->addWidget(box);
-
-    // Execute seed backup dialog
-    if (dlg.exec() == QDialog::Accepted) {
-      // User confirmed seed backup - now send verification code
-      showMessage("Sending verification code to your email...", false);
-
-      auto sendResult = Auth::SendVerificationCode(username.toStdString());
-
-      if (sendResult.result == Auth::AuthResult::SUCCESS) {
-        // Code sent successfully - show verification dialog
-        QtEmailVerificationDialog verifyDlg(username, email, this);
-
-        if (verifyDlg.exec() == QDialog::Accepted && verifyDlg.isVerified()) {
-          // Email verified successfully!
-          showMessage("Email verified! You can now sign in with your account.", false);
-
-          // Clear registration fields
-          m_usernameEdit->clear();
-          m_emailEdit->clear();
-          m_passwordEdit->clear();
-
-          // Switch to Sign In tab
-          m_tabBar->setCurrentIndex(0);
-
-          // Pre-fill username in login form for convenience
-          m_loginUsernameEdit->setText(username);
-        } else {
-          // Verification canceled or failed
-          showMessage(
-              "Email verification incomplete. You must verify your email before signing in.\n"
-              "A verification code has been sent to " +
-                  email + ".",
-              true);
-
-          // Clear password but keep username and email
-          m_passwordEdit->clear();
-        }
-      } else {
-        // Failed to send verification code
-        showMessage(
-            QString::fromStdString(sendResult.message) +
-                "\n\nYou must verify your email before signing in.",
-            true);
-
-        // Clear password but keep username and email
-        m_passwordEdit->clear();
-      }
-    } else {
-      // User canceled seed backup dialog
-      m_usernameEdit->clear();
-      m_emailEdit->clear();
-      m_passwordEdit->clear();
-      clearMessage();
+    // Switch to Sign In tab if email was verified
+    if (message.contains("verified", Qt::CaseInsensitive)) {
+      m_tabBar->setCurrentIndex(0);
+      // Pre-fill username in login form for convenience
+      m_loginUsernameEdit->setText(username);
     }
   } else {
-    m_emailEdit->clear();
+    // Registration failed - clear password but keep username and email for retry
     m_passwordEdit->clear();
   }
 }

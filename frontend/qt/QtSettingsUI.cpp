@@ -5,7 +5,6 @@
 #include "Auth.h"
 #include "Database/DatabaseManager.h"
 #include "Repository/UserRepository.h"
-
 #include <QGroupBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -341,6 +340,47 @@ void QtSettingsUI::applyTheme() {
     textFont.setPointSize(12);
     m_themeSelector->setFont(textFont);
 
+    // Style SMTP input fields
+    QString inputBg = m_themeManager->surfaceColor().name();
+    QString textColor = m_themeManager->textColor().name();
+    QString borderColor = m_themeManager->secondaryColor().name();
+    QString accentColor = m_themeManager->accentColor().name();
+    QString placeholderColor = m_themeManager->subtitleColor().name();
+
+    QString lineEditStyle = QString(R"(
+        QLineEdit {
+            background-color: %1;
+            color: %2;
+            border: 1px solid %3;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+        QLineEdit:focus {
+            border: 2px solid %4;
+        }
+        QLineEdit::placeholder {
+            color: %5;
+        }
+    )")
+        .arg(inputBg, textColor, borderColor, accentColor, placeholderColor);
+
+    QString spinBoxStyle = QString(R"(
+        QSpinBox {
+            background-color: %1;
+            color: %2;
+            border: 1px solid %3;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+        QSpinBox:focus {
+            border: 2px solid %4;
+        }
+    )")
+        .arg(inputBg, textColor, borderColor, accentColor);
+
+
     // Refresh 2FA status when theme changes
     update2FAStatus();
 }
@@ -487,3 +527,4 @@ void QtSettingsUI::onDisable2FAClicked() {
         }
     }
 }
+

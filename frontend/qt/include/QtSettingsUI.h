@@ -38,4 +38,5 @@ private:
     QPushButton *m_enable2FAButton;
     QPushButton *m_disable2FAButton;
     QLabel *m_2FADescriptionLabel;
+    
 };

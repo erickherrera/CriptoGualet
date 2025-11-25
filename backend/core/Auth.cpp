@@ -1492,7 +1492,12 @@ AuthResponse SendVerificationCode(const std::string &username) {
       return {AuthResult::USER_NOT_FOUND, "User not found."};
     }
 
-    const std::string email = userResult.data.email;
+    std::string email = userResult.data.email;
+    
+    // Trim whitespace from email
+    email.erase(0, email.find_first_not_of(" \t\n\r"));
+    email.erase(email.find_last_not_of(" \t\n\r") + 1);
+    
     if (email.empty()) {
       return {AuthResult::SYSTEM_ERROR,
               "No email address associated with this account."};
@@ -1501,7 +1506,7 @@ AuthResponse SendVerificationCode(const std::string &username) {
     // Validate email format
     if (!Email::IsValidEmailFormat(email)) {
       return {AuthResult::SYSTEM_ERROR,
-              "Invalid email address format. Please contact support."};
+              "Invalid email address format in account. Please contact support to update your email address."};
     }
 
     // Generate 6-digit verification code
@@ -1533,7 +1538,7 @@ AuthResponse SendVerificationCode(const std::string &username) {
               "Failed to store verification code. Please try again."};
     }
 
-    // Send verification email
+    // Send verification email (email is already trimmed above)
     Email::EmailConfig emailConfig = Email::SMTPEmailService::loadConfigFromEnvironment();
     Email::SMTPEmailService emailService(emailConfig);
 

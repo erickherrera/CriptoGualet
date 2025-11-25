@@ -129,3 +129,6 @@ build-simple/
 # Machine-specific helper scripts (not needed in repo)
 configure-cmake.ps1
 regenerate-clangd-config.ps1
+
+# Local SMTP configuration (contains passwords - DO NOT COMMIT)
+setup_smtp_local.ps1

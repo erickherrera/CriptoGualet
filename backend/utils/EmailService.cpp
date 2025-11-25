@@ -16,7 +16,11 @@
 
 // Windows-specific includes
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
+#include <winreg.h>
+
+#pragma comment(lib, "Advapi32.lib")
 
 namespace Email {
 
@@ -61,41 +65,70 @@ SMTPEmailService::SMTPEmailService(const EmailConfig &config)
   }
 }
 
+// Helper function to read environment variable from registry if not in process environment
+static std::string GetEnvVarFromRegistry(const char* varName) {
+#ifdef _WIN32
+  // First try process environment
+#pragma warning(push)
+#pragma warning(disable : 4996) // Suppress getenv warning
+  const char* envValue = std::getenv(varName);
+#pragma warning(pop)
+  if (envValue) {
+    return std::string(envValue);
+  }
+  
+  // If not found, try reading from registry
+  HKEY hKey;
+  LONG result = RegOpenKeyExA(HKEY_CURRENT_USER, "Environment", 0, KEY_READ, &hKey);
+  if (result == ERROR_SUCCESS) {
+    char buffer[1024];
+    DWORD bufferSize = sizeof(buffer);
+    DWORD type = REG_SZ;
+    
+    result = RegQueryValueExA(hKey, varName, nullptr, &type, (LPBYTE)buffer, &bufferSize);
+    RegCloseKey(hKey);
+    
+    if (result == ERROR_SUCCESS && type == REG_SZ) {
+      return std::string(buffer);
+    }
+  }
+#endif
+  return std::string();
+}
+
 EmailConfig SMTPEmailService::loadConfigFromEnvironment() {
   EmailConfig config;
 
-#pragma warning(push)
-#pragma warning(disable : 4996) // Suppress getenv warning
-  const char *server = std::getenv("WALLET_SMTP_SERVER");
-  const char *port = std::getenv("WALLET_SMTP_PORT");
-  const char *username = std::getenv("WALLET_SMTP_USERNAME");
-  const char *fromEmail = std::getenv("WALLET_FROM_EMAIL");
-  const char *fromName = std::getenv("WALLET_FROM_NAME");
-#pragma warning(pop)
+  // Read from environment or registry
+  std::string server = GetEnvVarFromRegistry("WALLET_SMTP_SERVER");
+  std::string port = GetEnvVarFromRegistry("WALLET_SMTP_PORT");
+  std::string username = GetEnvVarFromRegistry("WALLET_SMTP_USERNAME");
+  std::string fromEmail = GetEnvVarFromRegistry("WALLET_FROM_EMAIL");
+  std::string fromName = GetEnvVarFromRegistry("WALLET_FROM_NAME");
 
-  if (server)
+  if (!server.empty())
     config.smtpServer = server;
-  if (port)
+  if (!port.empty())
     config.smtpPort = std::stoi(port);
-  if (username) {
+  if (!username.empty()) {
     config.username = username;
     // Try to retrieve password from secure credential store first
     auto securePassword = SecureStorage::SecureCredentialStore::RetrieveSMTPPassword(username);
     if (securePassword.has_value()) {
       config.password = securePassword.value();
     } else {
-      // Fallback to environment variable (for backward compatibility during migration)
-      const char *password = std::getenv("WALLET_SMTP_PASSWORD");
-      if (password) {
+      // Fallback to environment variable or registry (for backward compatibility during migration)
+      std::string password = GetEnvVarFromRegistry("WALLET_SMTP_PASSWORD");
+      if (!password.empty()) {
         config.password = password;
         // Store in secure credential store for future use
         SecureStorage::SecureCredentialStore::StoreSMTPCredentials(username, password);
       }
     }
   }
-  if (fromEmail)
+  if (!fromEmail.empty())
     config.fromEmail = fromEmail;
-  if (fromName)
+  if (!fromName.empty())
     config.fromName = fromName;
   else
     config.fromName = "CriptoGualet Wallet";
@@ -142,13 +175,28 @@ EmailResult SMTPEmailService::sendVerificationCode(const std::string &toEmail,
 }
 
 EmailResult SMTPEmailService::sendEmail(const EmailMessage &message) {
-  // Validate email format
-  if (!IsValidEmailFormat(message.toEmail)) {
-    return {false, "Invalid recipient email address format"};
+  // Trim and validate recipient email
+  std::string toEmail = message.toEmail;
+  toEmail.erase(0, toEmail.find_first_not_of(" \t\n\r"));
+  toEmail.erase(toEmail.find_last_not_of(" \t\n\r") + 1);
+  
+  if (!IsValidEmailFormat(toEmail)) {
+    return {false, "Invalid recipient email address format: " + message.toEmail};
   }
 
-  if (!IsValidEmailFormat(m_config.fromEmail)) {
-    return {false, "Invalid sender email address format"};
+  // Trim and validate sender email
+  std::string fromEmail = m_config.fromEmail;
+  fromEmail.erase(0, fromEmail.find_first_not_of(" \t\n\r"));
+  fromEmail.erase(fromEmail.find_last_not_of(" \t\n\r") + 1);
+  
+  if (fromEmail.empty()) {
+    return {false,
+            "Email service not configured. Please set SMTP environment variable:\n"
+            "WALLET_FROM_EMAIL (the email address to send from)"};
+  }
+  
+  if (!IsValidEmailFormat(fromEmail)) {
+    return {false, "Invalid sender email address format in configuration: " + m_config.fromEmail};
   }
 
   // Validate configuration
@@ -170,7 +218,12 @@ EmailResult SMTPEmailService::sendEmail(const EmailMessage &message) {
     }
   }
 
-  return connectAndSend(message);
+  // Update config and message with trimmed emails
+  m_config.fromEmail = fromEmail;
+  EmailMessage trimmedMessage = message;
+  trimmedMessage.toEmail = toEmail;
+
+  return connectAndSend(trimmedMessage);
 }
 
 // Callback function for libcurl to read email payload
