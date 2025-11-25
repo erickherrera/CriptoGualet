@@ -1339,10 +1339,38 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
     return {AuthResult::SYSTEM_ERROR, "Registration failed. Please try again."};
   }
 
+  // Auto-send verification code if email is provided
+  if (!email.empty() && Email::IsValidEmailFormat(email)) {
+    AUTH_DEBUG_LOG_WRITE(logFile,
+                         "Auto-sending verification code to email\n");
+    auto verifyCodeResult = SendVerificationCode(username);
+    if (!verifyCodeResult.success()) {
+      AUTH_DEBUG_LOG_STREAM(logFile)
+          << "WARNING: Failed to send verification code: "
+          << verifyCodeResult.message << "\n";
+      AUTH_DEBUG_LOG_FLUSH(logFile);
+      // Don't fail registration, just warn the user
+    } else {
+      AUTH_DEBUG_LOG_WRITE(
+          logFile, "Verification code sent successfully to email\n");
+    }
+  }
+
   if (seedOk && !generatedMnemonic.empty()) {
     outMnemonic = generatedMnemonic;
-    return {AuthResult::SUCCESS, "Account created successfully!\n"
-                                 "Please backup your seed phrase securely."};
+
+    // Customize message based on whether email verification was sent
+    if (!email.empty() && Email::IsValidEmailFormat(email)) {
+      return {AuthResult::SUCCESS,
+              "Account created successfully!\n"
+              "Please backup your seed phrase securely.\n\n"
+              "A verification code has been sent to your email. "
+              "You'll need to verify your email before signing in."};
+    } else {
+      return {AuthResult::SUCCESS,
+              "Account created successfully!\n"
+              "Please backup your seed phrase securely."};
+    }
   } else {
     return {AuthResult::SUCCESS,
             "Account created. (Warning: seed phrase generation failed – try "
@@ -1372,12 +1400,17 @@ AuthResponse LoginUser(const std::string &username,
       auto authResult = g_userRepo->authenticateUser(username, password);
 
       if (authResult.success) {
-        // Check if email is verified (2FA requirement)
-        if (!IsEmailVerified(username)) {
-          // Email not verified - require verification before allowing login
-          return {AuthResult::INVALID_CREDENTIALS,
-                  "EMAIL_NOT_VERIFIED: Please verify your email address before signing in.\n"
-                  "Check your inbox for the verification code."};
+        // Check if email is verified (2FA requirement) only if user has email
+        auto userResult = g_userRepo->getUserByUsername(username);
+        if (userResult.success && !userResult.data.email.empty()) {
+          if (!IsEmailVerified(username)) {
+            // Email not verified - require verification before allowing login
+            return {AuthResult::INVALID_CREDENTIALS,
+                    "EMAIL_NOT_VERIFIED: Please verify your email address before signing in.\n\n"
+                    "A verification code was sent to your email during registration.\n"
+                    "Check your inbox (and spam folder) for the 6-digit code.\n\n"
+                    "You can request a new code by clicking 'Resend Code' on the login screen."};
+          }
         }
         // Success - populate in-memory cache for frontend compatibility
         User cachedUser;
@@ -1774,20 +1807,71 @@ bool IsEmailVerified(const std::string &username) {
   }
 }
 
-AuthResponse DisableTwoFactorAuth(const std::string &username) {
+AuthResponse EnableTwoFactorAuth(const std::string &username,
+                                 const std::string &password) {
+  // Initialize database
   if (!InitializeDatabase() || !g_userRepo) {
     return {AuthResult::SYSTEM_ERROR,
             "Database not initialized. Please restart the application."};
   }
 
   try {
-    // Check if user exists
+    // First, verify the user's password
+    auto authResult = g_userRepo->authenticateUser(username, password);
+    if (!authResult.success) {
+      return {AuthResult::INVALID_CREDENTIALS,
+              "Invalid password. Please try again."};
+    }
+
+    // Check if user has an email address
     auto userResult = g_userRepo->getUserByUsername(username);
     if (!userResult.success) {
       return {AuthResult::USER_NOT_FOUND, "User not found."};
     }
 
-    // Disable 2FA by setting email_verified to false (0)
+    if (userResult.data.email.empty()) {
+      return {AuthResult::SYSTEM_ERROR,
+              "No email address associated with this account. "
+              "Please contact support to add an email address."};
+    }
+
+    // Check if 2FA is already enabled
+    if (IsEmailVerified(username)) {
+      return {AuthResult::SUCCESS,
+              "Two-factor authentication is already enabled for this account."};
+    }
+
+    // Password verified and email exists - send verification code
+    return SendVerificationCode(username);
+
+  } catch (const std::exception &e) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Error enabling 2FA: " + std::string(e.what())};
+  }
+}
+
+AuthResponse DisableTwoFactorAuth(const std::string &username,
+                                  const std::string &password) {
+  if (!InitializeDatabase() || !g_userRepo) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Database not initialized. Please restart the application."};
+  }
+
+  try {
+    // First, verify the user's password for security
+    auto authResult = g_userRepo->authenticateUser(username, password);
+    if (!authResult.success) {
+      return {AuthResult::INVALID_CREDENTIALS,
+              "Invalid password. Please try again."};
+    }
+
+    // Check if 2FA is currently enabled
+    if (!IsEmailVerified(username)) {
+      return {AuthResult::SUCCESS,
+              "Two-factor authentication is already disabled for this account."};
+    }
+
+    // Password verified - disable 2FA by setting email_verified to false (0)
     auto &dbManager = Database::DatabaseManager::getInstance();
     std::string updateSQL = "UPDATE users SET email_verified = ? WHERE username = ?";
 
@@ -1799,7 +1883,7 @@ AuthResponse DisableTwoFactorAuth(const std::string &username) {
     }
 
     return {AuthResult::SUCCESS,
-            "Two-factor authentication has been disabled."};
+            "Two-factor authentication has been disabled successfully."};
   } catch (const std::exception &e) {
     return {AuthResult::SYSTEM_ERROR,
             "Error disabling 2FA: " + std::string(e.what())};

@@ -6,6 +6,8 @@
  */
 
 #include "TestUtils.h"
+#include <string>
+#include <iostream>
 
 constexpr const char* TEST_DB_PATH = "test_user_repo.db";
 

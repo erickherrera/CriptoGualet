@@ -17,6 +17,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "QtSendDialog.cpp"
     "QtReceiveDialog.cpp"
     "QtEmailVerificationDialog.cpp"
+    "QtPasswordConfirmDialog.cpp"
     "include/QtLoginUI.h"
     "include/QtWalletUI.h"
     "include/QtSettingsUI.h"
@@ -28,6 +29,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "include/QtSendDialog.h"
     "include/QtReceiveDialog.h"
     "include/QtEmailVerificationDialog.h"
+    "include/QtPasswordConfirmDialog.h"
     "include/CriptoGualetQt.h"
     "../../resources/resources.qrc"
   )

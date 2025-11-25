@@ -71,6 +71,15 @@
             "args": [],
             "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
             "preLaunchTask": "CMake: build (Ninja)"
+        },
+        {
+            "name": "Debug Multi-Chain Wallets Test",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_multichain_wallets.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
+            "preLaunchTask": "CMake: build (Ninja)"
         }
     ]
 }

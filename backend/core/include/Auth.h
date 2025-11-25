@@ -103,13 +103,23 @@ AuthResponse VerifyEmailCode(const std::string &username,
 // Returns RATE_LIMITED if cooldown/limit exceeded
 AuthResponse ResendVerificationCode(const std::string &username);
 
-// Check if user's email is verified
+// Check if user's email is verified (2FA enabled)
 // Returns true if email_verified = 1 in database
 bool IsEmailVerified(const std::string &username);
 
-// Disable 2FA (email verification) for a user
-// Sets email_verified = 0 in database
-// Returns SUCCESS if disabled, SYSTEM_ERROR on failure
-AuthResponse DisableTwoFactorAuth(const std::string &username);
+// Enable 2FA for a user (requires password verification)
+// 1. Verifies user's password
+// 2. Generates and sends verification code to email
+// 3. Returns SUCCESS if code sent, INVALID_CREDENTIALS if password wrong
+// User must then call VerifyEmailCode to complete 2FA enablement
+AuthResponse EnableTwoFactorAuth(const std::string &username,
+                                 const std::string &password);
+
+// Disable 2FA for a user (requires password verification)
+// 1. Verifies user's password
+// 2. Sets email_verified = 0 in database
+// Returns SUCCESS if disabled, INVALID_CREDENTIALS if password wrong
+AuthResponse DisableTwoFactorAuth(const std::string &username,
+                                  const std::string &password);
 
 } // namespace Auth
