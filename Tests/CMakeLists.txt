@@ -174,6 +174,40 @@ else()
 endif()
 
 # ---- Auth + Database Integration Test Executable ----
+add_executable(test_2fa
+  "test_2fa.cpp"
+)
+target_link_libraries(test_2fa PRIVATE Auth Repository Database Crypto SharedSymbols EmailService comctl32 crypt32 bcrypt)
+target_include_directories(test_2fa PRIVATE
+  "${CMAKE_SOURCE_DIR}/backend/core/include"
+  "${CMAKE_SOURCE_DIR}/backend/repository/include"
+  "${CMAKE_SOURCE_DIR}/backend/database/include"
+  "${CMAKE_SOURCE_DIR}/backend/utils/include"
+  "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/include"
+)
+
+# Copy SQLCipher and libcurl DLLs for test_2fa on Windows
+if(WIN32)
+  add_custom_command(TARGET test_2fa POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
+    "$<TARGET_FILE_DIR:test_2fa>"
+    COMMENT "Copying SQLCipher DLL for test_2fa")
+
+  add_custom_command(TARGET test_2fa POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin/libcurl-d.dll"
+    "$<TARGET_FILE_DIR:test_2fa>"
+    COMMENT "Copying libcurl DLL for test_2fa")
+endif()
+
+# Compiler-specific options for test_2fa
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(test_2fa PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  target_compile_options(test_2fa PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
+endif()
+
 add_executable(test_auth_database_integration
   "test_auth_database_integration.cpp"
 )
