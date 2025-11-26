@@ -46,10 +46,12 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     Qt6::Gui
     Qt6::Svg
     Qt6::Network
-    comctl32
-    crypt32
-    bcrypt
   )
+
+  # Add Windows-specific libraries
+  if(WIN32)
+    list(APPEND QT_LINK_LIBRARIES comctl32 crypt32 bcrypt)
+  endif()
 
   # Add BlockCypher libraries if available
   if(BLOCKCYPHER_AVAILABLE)

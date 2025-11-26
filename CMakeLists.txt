@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Make MSVC runtime selection controllable & stable across configs
+# This policy MUST be set before project() call
+if(POLICY CMP0091)
+  cmake_policy(SET CMP0091 NEW)
+endif()
+
 # Windows SDK configuration - must be before project() call
 # When using clang-cl with Ninja, CMake needs to find Windows SDK tools (rc.exe) during compiler test
 if(WIN32)
@@ -53,10 +59,6 @@ endif()
 # Declare the project EARLY so VS presets/toolsets apply cleanly
 project(CriptoGualet LANGUAGES CXX)
 
-# Make MSVC runtime selection controllable & stable across configs
-if (POLICY CMP0091)
-  cmake_policy(SET CMP0091 NEW)
-endif()
 # Set MSVC runtime library based on build type
 # For multi-config generators (Visual Studio), CMake handles this per-config automatically
 # For single-config generators, set it based on CMAKE_BUILD_TYPE
@@ -74,55 +76,14 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # -------------------------------
-# Compiler detection - try to find a suitable compiler
+# Compiler information
 # -------------------------------
-if (NOT DEFINED CMAKE_CXX_COMPILER)
-  # Check standard installation locations
-  find_program(CLANG_EXECUTABLE NAMES clang
-    PATHS "C:/Program Files/LLVM/bin"
-    NO_DEFAULT_PATH)
-  find_program(CLANGXX_EXECUTABLE NAMES clang++
-    PATHS "C:/Program Files/LLVM/bin"
-    NO_DEFAULT_PATH)
-
-  # If not found in standard location, try system PATH
-  if(NOT CLANG_EXECUTABLE OR NOT CLANGXX_EXECUTABLE)
-    find_program(CLANG_EXECUTABLE NAMES clang)
-    find_program(CLANGXX_EXECUTABLE NAMES clang++)
-  endif()
-
-  # Try clang-cl for MSVC compatibility on Windows
-  find_program(CLANGCL_EXECUTABLE NAMES clang-cl
-    PATHS "C:/Program Files/LLVM/bin"
-    NO_DEFAULT_PATH)
-  if(NOT CLANGCL_EXECUTABLE)
-    find_program(CLANGCL_EXECUTABLE NAMES clang-cl)
-  endif()
-
-  if(CLANGCL_EXECUTABLE AND WIN32)
-    set(CMAKE_C_COMPILER ${CLANGCL_EXECUTABLE})
-    set(CMAKE_CXX_COMPILER ${CLANGCL_EXECUTABLE})
-    message(STATUS "Using Clang-CL: ${CLANGCL_EXECUTABLE}")
-  elseif(CLANG_EXECUTABLE AND CLANGXX_EXECUTABLE)
-    set(CMAKE_C_COMPILER ${CLANG_EXECUTABLE})
-    set(CMAKE_CXX_COMPILER ${CLANGXX_EXECUTABLE})
-    message(STATUS "Using Clang.")
-    message(STATUS "Clang C compiler: ${CLANG_EXECUTABLE}")
-    message(STATUS "Clang C++ compiler: ${CLANGXX_EXECUTABLE}")
-  else()
-    # Fall back to system default compiler detection
-    find_program(MSVC_CL NAMES cl.exe)
-    if(MSVC_CL AND WIN32)
-      set(CMAKE_C_COMPILER ${MSVC_CL})
-      set(CMAKE_CXX_COMPILER ${MSVC_CL})
-      message(STATUS "Using MSVC compiler: ${MSVC_CL}")
-    else()
-      message(WARNING "No suitable compiler found. Please ensure a C++ compiler is installed.")
-    endif()
-  endif()
-else()
-  message(STATUS "Compiler already specified: ${CMAKE_CXX_COMPILER}")
-endif()
+# Note: For Visual Studio generators, the compiler is determined by the generator/toolset,
+# not by CMAKE_C_COMPILER/CMAKE_CXX_COMPILER variables.
+# The CMakePresets.json specifies the appropriate generator and toolset.
+message(STATUS "CMake Generator: ${CMAKE_GENERATOR}")
+message(STATUS "C++ Compiler ID: ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
 
 # Windows SDK information logging (detection already done before project() call)
 if(WIN32 AND CMAKE_RC_COMPILER)
