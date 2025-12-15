@@ -132,3 +132,6 @@ regenerate-clangd-config.ps1
 
 # Local SMTP configuration (contains passwords - DO NOT COMMIT)
 setup_smtp_local.ps1
+/configure-cmake.ps1
+/.gitignore
+/regenerate-clangd-config.ps1
