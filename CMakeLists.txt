@@ -1,9 +1,24 @@
 cmake_minimum_required(VERSION 3.20)
 
-# Make MSVC runtime selection controllable & stable across configs
-# This policy MUST be set before project() call
+# Suppress common CMake warnings and set policies
+# CMP0091: Make MSVC runtime selection controllable & stable across configs
 if(POLICY CMP0091)
   cmake_policy(SET CMP0091 NEW)
+endif()
+
+# CMP0144: Suppress warning about CMAKE_MSVC_RUNTIME_LIBRARY
+if(POLICY CMP0144)
+  cmake_policy(SET CMP0144 NEW)
+endif()
+
+# CMP0092: Use MSVC_RUNTIME_LIBRARY for runtime library selection
+if(POLICY CMP0092)
+  cmake_policy(SET CMP0092 NEW)
+endif()
+
+# CMP0138: Suppress warnings about VS_STARTUP_PROJECT
+if(POLICY CMP0138)
+  cmake_policy(SET CMP0138 NEW)
 endif()
 
 # Windows SDK configuration - must be before project() call
@@ -60,16 +75,36 @@ endif()
 project(CriptoGualet LANGUAGES CXX)
 
 # Set MSVC runtime library based on build type
-# For multi-config generators (Visual Studio), CMake handles this per-config automatically
-# For single-config generators, set it based on CMAKE_BUILD_TYPE
-if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY AND NOT CMAKE_CONFIGURATION_TYPES)
-  # Single-config generator - set based on build type
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "")
+# With CMP0091 policy set, CMake handles runtime library selection properly
+# For multi-config generators (Visual Studio), we set a default that works for Debug
+# Individual targets can override if needed for Release builds
+if(MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+  if(CMAKE_CONFIGURATION_TYPES)
+    # Multi-config generator (Visual Studio) - default to Debug runtime for safety
+    # Release builds can override via target properties if needed
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library")
+    set_property(CACHE CMAKE_MSVC_RUNTIME_LIBRARY PROPERTY STRINGS 
+      "MultiThreaded" "MultiThreadedDLL" "MultiThreadedDebug" "MultiThreadedDebugDLL")
   else()
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL" CACHE STRING "")
+    # Single-config generator - set based on build type
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+      set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library")
+    else()
+      set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL" CACHE STRING "MSVC runtime library")
+    endif()
   endif()
 endif()
+
+# Helper function to set MSVC runtime library per-configuration on targets
+# Usage: set_msvc_runtime_library(target_name)
+function(set_msvc_runtime_library target)
+  if(MSVC AND CMAKE_CONFIGURATION_TYPES)
+    # For multi-config generators, set per-configuration using generator expressions
+    set_property(TARGET ${target} PROPERTY
+      MSVC_RUNTIME_LIBRARY
+      "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+  endif()
+endfunction()
 
 # Put built EXEs/DLLs in a predictable place: <build>/bin
 # (launch.vs.json uses this)

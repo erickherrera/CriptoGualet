@@ -1,6 +1,6 @@
-#include "QtEmailVerificationDialog.h"
-#include "Auth.h"
-#include "QtThemeManager.h"
+#include "include/QtEmailVerificationDialog.h"
+#include "../../backend/core/include/Auth.h"
+#include "include/QtThemeManager.h"
 
 #include <QGridLayout>
 #include <QHBoxLayout>

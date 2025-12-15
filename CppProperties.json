@@ -1,40 +1,7 @@
 {
   "configurations": [
     {
-      "name": "Win32",
-      "includePath": [
-        "${workspaceFolder}/**",
-        "${workspaceFolder}/backend/core/include",
-        "${workspaceFolder}/backend/repository/include",
-        "${workspaceFolder}/backend/database/include",
-        "${workspaceFolder}/backend/utils/include",
-        "${workspaceFolder}/backend/blockchain/include",
-        "${workspaceFolder}/frontend/qt/include",
-        "${workspaceFolder}/Tests/include",
-        "${workspaceFolder}/out/build/win-vs2022-x64-debug/vcpkg_installed/x64-windows/include",
-        "C:/Program Files/Qt/6.9.1/msvc2022_64/include/**",
-        "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/*/include/**",
-        "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/*/atlmfc/include/**",
-        "C:/Program Files (x86)/Windows Kits/10/Include/*/um/**",
-        "C:/Program Files (x86)/Windows Kits/10/Include/*/shared/**",
-        "C:/Program Files (x86)/Windows Kits/10/Include/*/winrt/**",
-        "C:/Program Files (x86)/Windows Kits/10/Include/*/cppwinrt/**"
-      ],
-      "defines": [
-        "_DEBUG",
-        "UNICODE",
-        "_UNICODE",
-        "WIN32",
-        "_WIN32",
-        "_WIN64",
-        "NOMINMAX",
-        "SQLCIPHER_AVAILABLE"
-      ],
-      "windowsSdkVersion": "10.0.22621.0",
-      "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.40.33807/bin/Hostx64/x64/cl.exe",
-      "cStandard": "c17",
-      "cppStandard": "c++20",
-      "intelliSenseMode": "windows-msvc-x64",
+      "name": "Windows VS2022 Debug",
       "configurationProvider": "ms-vscode.cmake-tools",
       "compileCommands": "${workspaceFolder}/compile_commands.json"
     }

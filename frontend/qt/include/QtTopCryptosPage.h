@@ -14,7 +14,7 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <memory>
-#include "PriceService.h"
+#include "../../../backend/blockchain/include/PriceService.h"
 
 class QtThemeManager;
 

@@ -1,7 +1,7 @@
-#include "Auth.h"
-#include "Database/DatabaseManager.h"
-#include "Repository/UserRepository.h"
-#include "EmailService.h"
+#include "../backend/core/include/Auth.h"
+#include "../backend/database/include/Database/DatabaseManager.h"
+#include "../backend/repository/include/Repository/UserRepository.h"
+#include "../backend/utils/include/EmailService.h"
 #include <iostream>
 #include <filesystem>
 #include <thread>

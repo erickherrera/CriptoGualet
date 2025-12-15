@@ -14,13 +14,13 @@
 #include <vector>
 
 // Project headers before Windows headers to avoid macro conflicts
-#include "Auth.h"
-#include "Crypto.h"
-#include "Database/DatabaseManager.h"
-#include "EmailService.h"
-#include "Repository/UserRepository.h"
-#include "Repository/WalletRepository.h"
-#include "SharedTypes.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
+#include "include/Auth.h"
+#include "include/Crypto.h"
+#include "../database/include/Database/DatabaseManager.h"
+#include "../utils/include/EmailService.h"
+#include "../repository/include/Repository/UserRepository.h"
+#include "../repository/include/Repository/WalletRepository.h"
+#include "../utils/include/SharedTypes.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE

@@ -1,6 +1,6 @@
-#include "QtPasswordConfirmDialog.h"
-#include "QtThemeManager.h"
-#include "Auth.h"
+#include "include/QtPasswordConfirmDialog.h"
+#include "include/QtThemeManager.h"
+#include "../../backend/core/include/Auth.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

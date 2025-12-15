@@ -5,7 +5,7 @@
  * Tests user creation, authentication, password management, and validation.
  */
 
-#include "TestUtils.h"
+#include "include/TestUtils.h"
 #include <string>
 #include <iostream>
 

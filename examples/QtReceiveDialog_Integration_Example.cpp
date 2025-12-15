@@ -16,7 +16,7 @@
 // STEP 1: Add include at the top of CriptoGualetQt.cpp
 // ============================================================================
 
-#include "QtReceiveDialog.h"
+#include "../frontend/qt/include/QtReceiveDialog.h"
 
 // ============================================================================
 // STEP 2: Replace Bitcoin receive handler

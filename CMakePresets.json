@@ -35,7 +35,6 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "BUILD_GUI_WIN32": "OFF",
         "VCPKG_TARGET_TRIPLET": "x64-windows"
       },
       "description": "Advanced: Ninja generator. Requires VCPKG_ROOT environment variable and ninja in PATH. Use win-vs2022-x64-debug preset instead for easier setup."
@@ -61,7 +60,6 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "BUILD_GUI_WIN32": "OFF",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
         "VCPKG_TARGET_TRIPLET": "x64-linux"
@@ -90,10 +88,11 @@
         "rhs": "Windows"
       },
       "cacheVariables": {
-        "BUILD_GUI_WIN32": "OFF",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+        "CMAKE_GENERATOR_PLATFORM": "x64"
       },
-      "description": "Recommended for Visual Studio 2022. Uses default MSVC toolset. Requires VCPKG_ROOT environment variable."
+      "description": "Recommended for Visual Studio 2022. Uses default MSVC toolset. Requires VCPKG_ROOT environment variable. Supports Debug and Release configurations. x64 platform only."
     },
     {
       "name": "win-vs2022-x64-release",
@@ -110,7 +109,11 @@
         "value": "ClangCL",
         "strategy": "set"
       },
-      "description": "Uses ClangCL toolset. Requires 'C++ Clang tools for Windows' component in Visual Studio."
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+        "CMAKE_GENERATOR_PLATFORM": "x64"
+      },
+      "description": "Uses ClangCL toolset. Requires 'C++ Clang tools for Windows' component in Visual Studio. Supports Debug and Release configurations. x64 platform only."
     },
     {
       "name": "win-vs2022-clangcl-release",

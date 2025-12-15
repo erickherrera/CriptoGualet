@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Repository/RepositoryTypes.h"
-#include "Repository/Logger.h"
-#include "Database/DatabaseManager.h"
+#include "RepositoryTypes.h"
+#include "Logger.h"
+#include "../../database/include/Database/DatabaseManager.h"
 #include <memory>
 #include <string>
 #include <vector>

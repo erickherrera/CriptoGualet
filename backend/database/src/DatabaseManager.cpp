@@ -1,4 +1,4 @@
-#include "Database/DatabaseManager.h"
+#include "../include/Database/DatabaseManager.h"
 #ifdef SQLCIPHER_AVAILABLE
 #define SQLITE_HAS_CODEC 1
 #include <sqlcipher/sqlite3.h>

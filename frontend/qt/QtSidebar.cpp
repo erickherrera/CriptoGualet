@@ -1,5 +1,5 @@
-#include "QtSidebar.h"
-#include "QtThemeManager.h"
+#include "include/QtSidebar.h"
+#include "include/QtThemeManager.h"
 
 #include <QLabel>
 #include <QSpacerItem>

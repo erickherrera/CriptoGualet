@@ -5,10 +5,10 @@
  * Tests complete workflows: User → Wallet → Addresses → Transactions
  */
 
-#include "TestUtils.h"
-#include "Repository/UserRepository.h"
-#include "Repository/WalletRepository.h"
-#include "Repository/TransactionRepository.h"
+#include "include/TestUtils.h"
+#include "../backend/repository/include/Repository/UserRepository.h"
+#include "../backend/repository/include/Repository/WalletRepository.h"
+#include "../backend/repository/include/Repository/TransactionRepository.h"
 
 const std::string TEST_DB_PATH = "test_integration.db";
 

@@ -1,7 +1,7 @@
 // QtSendDialog.cpp
-#include "QtSendDialog.h"
-#include "QtThemeManager.h"
-#include "WalletAPI.h"
+#include "include/QtSendDialog.h"
+#include "include/QtThemeManager.h"
+#include "../../backend/core/include/WalletAPI.h"
 
 #include <QGroupBox>
 #include <QInputDialog>

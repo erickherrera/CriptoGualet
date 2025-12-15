@@ -8,11 +8,11 @@
 
 #pragma once
 
-#include "Database/DatabaseManager.h"
-#include "Repository/UserRepository.h"
-#include "Repository/WalletRepository.h"
-#include "Repository/TransactionRepository.h"
-#include "Repository/Logger.h"
+#include "../../backend/database/include/Database/DatabaseManager.h"
+#include "../../backend/repository/include/Repository/UserRepository.h"
+#include "../../backend/repository/include/Repository/WalletRepository.h"
+#include "../../backend/repository/include/Repository/TransactionRepository.h"
+#include "../../backend/repository/include/Repository/Logger.h"
 #include <iostream>
 #include <filesystem>
 #include <string>

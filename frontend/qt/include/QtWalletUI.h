@@ -17,11 +17,11 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include "PriceService.h"
-#include "EthereumService.h"
-#include "WalletAPI.h"
-#include "Repository/UserRepository.h"
-#include "Repository/WalletRepository.h"
+#include "../../../backend/blockchain/include/PriceService.h"
+#include "../../../backend/blockchain/include/EthereumService.h"
+#include "../../../backend/core/include/WalletAPI.h"
+#include "../../../backend/repository/include/Repository/UserRepository.h"
+#include "../../../backend/repository/include/Repository/WalletRepository.h"
 
 // Forward declarations
 class QtThemeManager;

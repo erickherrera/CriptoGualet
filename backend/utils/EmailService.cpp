@@ -1,6 +1,6 @@
-#include "EmailService.h"
-#include "SecureCredentialStore.h"
-#include "Crypto.h" // For RandBytes
+#include "include/EmailService.h"
+#include "include/SecureCredentialStore.h"
+#include "../core/include/Crypto.h" // For RandBytes
 
 #include <algorithm>
 #include <array>

@@ -5,9 +5,9 @@
  * Tests wallet creation, address generation, seed management, and UTXO tracking.
  */
 
-#include "TestUtils.h"
-#include "Repository/WalletRepository.h"
-#include "Repository/UserRepository.h"
+#include "include/TestUtils.h"
+#include "../backend/repository/include/Repository/WalletRepository.h"
+#include "../backend/repository/include/Repository/UserRepository.h"
 
 // Test database
 constexpr const char* TEST_DB_PATH = "test_wallet_repo.db";

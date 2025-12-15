@@ -5,12 +5,12 @@
  * Tests transaction storage, retrieval, and balance calculation.
  */
 
-#include "TestUtils.h"
-#include "Repository/TransactionRepository.h"
-#include "Repository/WalletRepository.h"
-#include "Repository/UserRepository.h"
-#include "Repository/Logger.h"
-#include "Database/DatabaseManager.h"
+#include "include/TestUtils.h"
+#include "../backend/repository/include/Repository/TransactionRepository.h"
+#include "../backend/repository/include/Repository/WalletRepository.h"
+#include "../backend/repository/include/Repository/UserRepository.h"
+#include "../backend/repository/include/Repository/Logger.h"
+#include "../backend/database/include/Database/DatabaseManager.h"
 #include <iostream>
 
 const std::string TEST_DB_PATH = "test_tx_repo.db";

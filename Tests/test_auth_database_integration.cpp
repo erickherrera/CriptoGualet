@@ -1,7 +1,7 @@
-#include "Auth.h"
-#include "Database/DatabaseManager.h"
-#include "Repository/UserRepository.h"
-#include "Repository/WalletRepository.h"
+#include "../backend/core/include/Auth.h"
+#include "../backend/database/include/Database/DatabaseManager.h"
+#include "../backend/repository/include/Repository/UserRepository.h"
+#include "../backend/repository/include/Repository/WalletRepository.h"
 #include <iostream>
 #include <filesystem>
 #include <thread>

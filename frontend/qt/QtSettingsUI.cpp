@@ -1,10 +1,10 @@
-#include "QtSettingsUI.h"
-#include "QtThemeManager.h"
-#include "QtPasswordConfirmDialog.h"
-#include "QtEmailVerificationDialog.h"
-#include "Auth.h"
-#include "Database/DatabaseManager.h"
-#include "Repository/UserRepository.h"
+#include "include/QtSettingsUI.h"
+#include "include/QtThemeManager.h"
+#include "include/QtPasswordConfirmDialog.h"
+#include "include/QtEmailVerificationDialog.h"
+#include "../../backend/core/include/Auth.h"
+#include "../../backend/database/include/Database/DatabaseManager.h"
+#include "../../backend/repository/include/Repository/UserRepository.h"
 #include <QGroupBox>
 #include <QFormLayout>
 #include <QHBoxLayout>

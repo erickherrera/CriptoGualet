@@ -1,5 +1,5 @@
-#include "WalletAPI.h"
-#include "Crypto.h"
+#include "include/WalletAPI.h"
+#include "include/Crypto.h"
 #include <iostream>
 #include <cmath>
 #include <iomanip>

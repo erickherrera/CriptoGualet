@@ -1,5 +1,5 @@
-#include "Auth.h"
-#include "QRGenerator.h"
+#include "../backend/core/include/Auth.h"
+#include "../backend/utils/include/QRGenerator.h"
 #include <iostream>
 #include <vector>
 #include <string>
