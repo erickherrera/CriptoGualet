@@ -85,41 +85,55 @@ bool InitializeAuthDatabase();
 // Returns true on success with 64-character hex key in outKey
 bool DeriveSecureEncryptionKey(std::string &outKey);
 
-// ===== Email Verification Functions =====
+// ===== TOTP Two-Factor Authentication =====
+// Uses authenticator apps like Google Authenticator, Authy, Microsoft Authenticator
 
-// Send verification code to user's email
-// Generates a 6-digit code, stores it in database with expiration time, and sends email
-// Returns SUCCESS if email was sent, SYSTEM_ERROR if email sending failed
-AuthResponse SendVerificationCode(const std::string &username);
+// Check if 2FA is enabled for a user
+// Returns true if totp_enabled = 1 in database
+bool IsTwoFactorEnabled(const std::string &username);
 
-// Verify the code entered by the user
-// Checks if code matches, is not expired, and hasn't exceeded attempt limit
-// If successful, marks email as verified in database
-AuthResponse VerifyEmailCode(const std::string &username,
-                             const std::string &code);
+// Generate a new TOTP secret for enabling 2FA
+// Returns the secret in base32 format (for display) and the otpauth:// URI (for QR code)
+// Does NOT enable 2FA - user must verify a code first using ConfirmTwoFactorSetup
+struct TwoFactorSetupData {
+  std::string secretBase32;  // Secret in base32 format (for manual entry)
+  std::string otpauthUri;    // otpauth:// URI for QR code generation
+  bool success;
+  std::string errorMessage;
+};
+TwoFactorSetupData InitiateTwoFactorSetup(const std::string &username,
+                                           const std::string &password);
 
-// Resend verification code with rate limiting
-// Enforces 60-second cooldown and maximum 3 resends per hour
-// Returns RATE_LIMITED if cooldown/limit exceeded
-AuthResponse ResendVerificationCode(const std::string &username);
+// Confirm 2FA setup by verifying a TOTP code
+// This enables 2FA for the user if the code is valid
+AuthResponse ConfirmTwoFactorSetup(const std::string &username,
+                                    const std::string &totpCode);
 
-// Check if user's email is verified (2FA enabled)
-// Returns true if email_verified = 1 in database
-bool IsEmailVerified(const std::string &username);
+// Verify a TOTP code for login (when 2FA is enabled)
+// Returns SUCCESS if code is valid, INVALID_CREDENTIALS if code is wrong
+AuthResponse VerifyTwoFactorCode(const std::string &username,
+                                  const std::string &totpCode);
 
-// Enable 2FA for a user (requires password verification)
+// Disable 2FA for a user (requires password and current TOTP code)
 // 1. Verifies user's password
-// 2. Generates and sends verification code to email
-// 3. Returns SUCCESS if code sent, INVALID_CREDENTIALS if password wrong
-// User must then call VerifyEmailCode to complete 2FA enablement
-AuthResponse EnableTwoFactorAuth(const std::string &username,
-                                 const std::string &password);
+// 2. Verifies current TOTP code (proves user has authenticator)
+// 3. Removes TOTP secret and disables 2FA
+AuthResponse DisableTwoFactor(const std::string &username,
+                               const std::string &password,
+                               const std::string &totpCode);
 
-// Disable 2FA for a user (requires password verification)
-// 1. Verifies user's password
-// 2. Sets email_verified = 0 in database
-// Returns SUCCESS if disabled, INVALID_CREDENTIALS if password wrong
-AuthResponse DisableTwoFactorAuth(const std::string &username,
+// Get backup codes for 2FA recovery (generated when 2FA is enabled)
+// These are one-time use codes that can be used if authenticator is lost
+struct BackupCodesResult {
+  std::vector<std::string> codes;
+  bool success;
+  std::string errorMessage;
+};
+BackupCodesResult GetBackupCodes(const std::string &username,
                                   const std::string &password);
+
+// Use a backup code to disable 2FA (for account recovery)
+AuthResponse UseBackupCode(const std::string &username,
+                            const std::string &backupCode);
 
 } // namespace Auth

@@ -517,7 +517,8 @@ void QtWalletUI::updateStyles() {
   const QString accent = m_themeManager->accentColor().name();
   const QString background = m_themeManager->backgroundColor().name();
   const QString surface = m_themeManager->surfaceColor().name();
-  bool isDarkTheme = m_themeManager->surfaceColor().lightness() < 128;
+  // Note: isDarkTheme could be used for conditional styling in the future
+  (void)m_themeManager->surfaceColor().lightness(); // Suppress unused warning
 
   // Apply proper background colors to scroll area and content
   if (m_scrollArea) {

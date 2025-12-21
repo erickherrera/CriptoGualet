@@ -103,15 +103,15 @@ void QtCryptoCard::setupUI() {
     setAttribute(Qt::WA_Hover);
 }
 
-void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &data, int rank) {
-    QString symbol = QString::fromStdString(data.symbol);
+void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &cryptoData, int rank) {
+    QString symbol = QString::fromStdString(cryptoData.symbol);
     m_currentSymbol = symbol;
-    m_currentImageUrl = QString::fromStdString(data.image_url);
+    m_currentImageUrl = QString::fromStdString(cryptoData.image_url);
 
     // Set placeholder while loading
     m_iconLabel->clear();
     QColor placeholderBg = m_themeManager->secondaryColor();
-    placeholderBg.setAlphaF(0.1);  // 10% opacity
+    placeholderBg.setAlphaF(0.1f);  // 10% opacity
     m_iconLabel->setStyleSheet(QString("border-radius: 24px; background-color: %1;")
         .arg(placeholderBg.name(QColor::HexArgb)));
     m_iconLoaded = false;
@@ -120,18 +120,18 @@ void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &data, int 
     m_symbolLabel->setText(QString("#%1  %2")
         .arg(rank)
         .arg(symbol));
-    m_nameLabel->setText(QString::fromStdString(data.name));
-    m_priceLabel->setText(formatPrice(data.usd_price));
-    m_marketCapLabel->setText("MCap: " + formatMarketCap(data.market_cap));
+    m_nameLabel->setText(QString::fromStdString(cryptoData.name));
+    m_priceLabel->setText(formatPrice(cryptoData.usd_price));
+    m_marketCapLabel->setText("MCap: " + formatMarketCap(cryptoData.market_cap));
 
     // Format price change with color
     QString changeText = QString("%1%2")
-        .arg(data.price_change_24h >= 0 ? "+" : "")
-        .arg(data.price_change_24h, 0, 'f', 2) + "%";
+        .arg(cryptoData.price_change_24h >= 0 ? "+" : "")
+        .arg(cryptoData.price_change_24h, 0, 'f', 2) + "%";
     m_changeLabel->setText(changeText);
 
     // Apply color based on change
-    if (data.price_change_24h >= 0) {
+    if (cryptoData.price_change_24h >= 0) {
         m_changeLabel->setStyleSheet(QString(
             "font-size: 14px;"
             "font-weight: 600;"
@@ -731,14 +731,14 @@ void QtTopCryptosPage::updateCards() {
 
     // Display filtered data
     int rank = 1;
-    for (size_t i = 0; i < m_filteredData.size() && i < m_cryptoCards.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(m_filteredData.size()) && i < m_cryptoCards.size(); ++i) {
         qDebug() << "Setting card" << i << ":" << QString::fromStdString(m_filteredData[i].name);
         m_cryptoCards[i]->setCryptoData(m_filteredData[i], rank++);
         m_cryptoCards[i]->setVisible(true);
     }
 
     // Hide unused cards
-    for (size_t i = m_filteredData.size(); i < m_cryptoCards.size(); ++i) {
+    for (int i = static_cast<int>(m_filteredData.size()); i < m_cryptoCards.size(); ++i) {
         m_cryptoCards[i]->setVisible(false);
     }
 
@@ -866,7 +866,7 @@ void QtTopCryptosPage::loadVisibleIcons() {
     int scrollOffset = m_scrollArea->verticalScrollBar()->value();
 
     // Load icons for visible cards plus a buffer
-    for (size_t i = 0; i < m_filteredData.size() && i < m_cryptoCards.size(); ++i) {
+    for (int i = 0; i < static_cast<int>(m_filteredData.size()) && i < m_cryptoCards.size(); ++i) {
         QtCryptoCard* card = m_cryptoCards[i];
         if (!card->isVisible()) continue;
 

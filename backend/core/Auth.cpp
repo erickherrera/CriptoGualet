@@ -17,7 +17,6 @@
 #include "include/Auth.h"
 #include "include/Crypto.h"
 #include "../database/include/Database/DatabaseManager.h"
-#include "../utils/include/EmailService.h"
 #include "../repository/include/Repository/UserRepository.h"
 #include "../repository/include/Repository/WalletRepository.h"
 #include "../utils/include/SharedTypes.h" // for User struct, GeneratePrivateKey, GenerateBitcoinAddress
@@ -52,8 +51,6 @@ static const char *DPAPI_ENTROPY_PREFIX = "CriptoGualet seed v1::";
 
 // === Database Boolean Constants ===
 // SQLite doesn't have native BOOLEAN type, uses INTEGER (0 = false, 1 = true)
-static constexpr int EMAIL_VERIFIED = 1;
-static constexpr int EMAIL_NOT_VERIFIED = 0;
 
 // Debug logging configuration - DISABLE IN PRODUCTION
 // Set to 0 to disable all debug file logging for production builds
@@ -146,18 +143,17 @@ static bool InitializeDatabase() {
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
-        email TEXT NOT NULL,
+        email TEXT,
         password_hash TEXT NOT NULL,
         salt BLOB NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         last_login TEXT,
         wallet_version INTEGER NOT NULL DEFAULT 1,
         is_active INTEGER NOT NULL DEFAULT 1,
-        email_verified INTEGER NOT NULL DEFAULT 0,
-        email_verification_code TEXT,
-        verification_code_expires_at TEXT,
-        verification_attempts INTEGER NOT NULL DEFAULT 0,
-        last_verification_attempt TEXT
+        totp_enabled INTEGER NOT NULL DEFAULT 0,
+        totp_secret TEXT,
+        totp_secret_pending TEXT,
+        backup_codes TEXT
       );
 
       CREATE TABLE IF NOT EXISTS wallets (
@@ -1339,38 +1335,12 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
     return {AuthResult::SYSTEM_ERROR, "Registration failed. Please try again."};
   }
 
-  // Auto-send verification code if email is provided
-  if (!email.empty() && Email::IsValidEmailFormat(email)) {
-    AUTH_DEBUG_LOG_WRITE(logFile,
-                         "Auto-sending verification code to email\n");
-    auto verifyCodeResult = SendVerificationCode(username);
-    if (!verifyCodeResult.success()) {
-      AUTH_DEBUG_LOG_STREAM(logFile)
-          << "WARNING: Failed to send verification code: "
-          << verifyCodeResult.message << "\n";
-      AUTH_DEBUG_LOG_FLUSH(logFile);
-      // Don't fail registration, just warn the user
-    } else {
-      AUTH_DEBUG_LOG_WRITE(
-          logFile, "Verification code sent successfully to email\n");
-    }
-  }
-
   if (seedOk && !generatedMnemonic.empty()) {
     outMnemonic = generatedMnemonic;
-
-    // Customize message based on whether email verification was sent
-    if (!email.empty() && Email::IsValidEmailFormat(email)) {
-      return {AuthResult::SUCCESS,
-              "Account created successfully!\n"
-              "Please backup your seed phrase securely.\n\n"
-              "A verification code has been sent to your email. "
-              "You'll need to verify your email before signing in."};
-    } else {
-      return {AuthResult::SUCCESS,
-              "Account created successfully!\n"
-              "Please backup your seed phrase securely."};
-    }
+    return {AuthResult::SUCCESS,
+            "Account created successfully!\n"
+            "Please backup your seed phrase securely.\n\n"
+            "You can enable two-factor authentication in Settings for enhanced security."};
   } else {
     return {AuthResult::SUCCESS,
             "Account created. (Warning: seed phrase generation failed – try "
@@ -1400,18 +1370,15 @@ AuthResponse LoginUser(const std::string &username,
       auto authResult = g_userRepo->authenticateUser(username, password);
 
       if (authResult.success) {
-        // Check if email is verified (2FA requirement) only if user has email
-        auto userResult = g_userRepo->getUserByUsername(username);
-        if (userResult.success && !userResult.data.email.empty()) {
-          if (!IsEmailVerified(username)) {
-            // Email not verified - require verification before allowing login
-            return {AuthResult::INVALID_CREDENTIALS,
-                    "EMAIL_NOT_VERIFIED: Please verify your email address before signing in.\n\n"
-                    "A verification code was sent to your email during registration.\n"
-                    "Check your inbox (and spam folder) for the 6-digit code.\n\n"
-                    "You can request a new code by clicking 'Resend Code' on the login screen."};
-          }
+        // Check if TOTP 2FA is enabled
+        if (IsTwoFactorEnabled(username)) {
+          // 2FA is enabled - return special response indicating TOTP is required
+          // The UI should prompt for TOTP code and call VerifyTwoFactorCode
+          return {AuthResult::INVALID_CREDENTIALS,
+                  "TOTP_REQUIRED: Two-factor authentication is enabled.\n"
+                  "Please enter the 6-digit code from your authenticator app."};
         }
+        
         // Success - populate in-memory cache for frontend compatibility
         User cachedUser;
         cachedUser.username = authResult.data.username;
@@ -1476,318 +1443,22 @@ AuthResponse LoginUser(const std::string &username,
 // Initialize database and repository layer (public API)
 bool InitializeAuthDatabase() { return InitializeDatabase(); }
 
-// ===== Email Verification Implementation =====
+// ===== TOTP Two-Factor Authentication Implementation =====
 
-AuthResponse SendVerificationCode(const std::string &username) {
-  // Initialize database
-  if (!InitializeDatabase() || !g_userRepo) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Database not initialized. Please restart the application."};
-  }
+// Database constants for TOTP
+static constexpr int TOTP_ENABLED = 1;
+static constexpr int TOTP_DISABLED = 0;
 
-  try {
-    // Get user from database to retrieve email
-    auto userResult = g_userRepo->getUserByUsername(username);
-    if (!userResult.success) {
-      return {AuthResult::USER_NOT_FOUND, "User not found."};
-    }
-
-    std::string email = userResult.data.email;
-    
-    // Trim whitespace from email
-    email.erase(0, email.find_first_not_of(" \t\n\r"));
-    email.erase(email.find_last_not_of(" \t\n\r") + 1);
-    
-    if (email.empty()) {
-      return {AuthResult::SYSTEM_ERROR,
-              "No email address associated with this account."};
-    }
-
-    // Validate email format
-    if (!Email::IsValidEmailFormat(email)) {
-      return {AuthResult::SYSTEM_ERROR,
-              "Invalid email address format in account. Please contact support to update your email address."};
-    }
-
-    // Generate 6-digit verification code
-    std::string code = Email::GenerateVerificationCode();
-
-    // Calculate expiration time (10 minutes from now)
-    auto now = std::chrono::system_clock::now();
-    auto expiresAt = now + std::chrono::minutes(10);
-    auto expiresTime = std::chrono::system_clock::to_time_t(expiresAt);
-
-    // Format expiration time as ISO 8601 string for database
-    std::ostringstream expiresStr;
-    expiresStr << std::put_time(std::gmtime(&expiresTime), "%Y-%m-%d %H:%M:%S");
-
-    // Store code in database
-    auto &dbManager = Database::DatabaseManager::getInstance();
-    std::string updateSQL =
-        "UPDATE users SET "
-        "email_verification_code = ?, "
-        "verification_code_expires_at = ?, "
-        "verification_attempts = 0, "
-        "last_verification_attempt = CURRENT_TIMESTAMP "
-        "WHERE username = ?";
-
-    auto result = dbManager.executeQuery(updateSQL, {code, expiresStr.str(), username});
-
-    if (!result.success) {
-      return {AuthResult::SYSTEM_ERROR,
-              "Failed to store verification code. Please try again."};
-    }
-
-    // Send verification email (email is already trimmed above)
-    Email::EmailConfig emailConfig = Email::SMTPEmailService::loadConfigFromEnvironment();
-    Email::SMTPEmailService emailService(emailConfig);
-
-    auto emailResult =
-        emailService.sendVerificationCode(email, username, code);
-
-    if (!emailResult.success) {
-      // Email sending failed - but code is stored in database
-      // User can still verify if they somehow get the code (e.g., via logs in dev)
-      return {AuthResult::SYSTEM_ERROR,
-              "Failed to send verification email: " + emailResult.errorMessage +
-                  "\n\nPlease check your email configuration."};
-    }
-
-    return {AuthResult::SUCCESS,
-            "Verification code sent to " + email +
-                ". Please check your email."};
-  } catch (const std::exception &e) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Error sending verification code: " + std::string(e.what())};
-  }
-}
-
-AuthResponse VerifyEmailCode(const std::string &username,
-                             const std::string &code) {
-  // Initialize database
-  if (!InitializeDatabase() || !g_userRepo) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Database not initialized. Please restart the application."};
-  }
-
-  try {
-    auto &dbManager = Database::DatabaseManager::getInstance();
-
-    // Get user's verification data
-    std::string querySQL =
-        "SELECT email_verification_code, verification_code_expires_at, "
-        "verification_attempts, email_verified "
-        "FROM users WHERE username = ?";
-
-    std::string storedCode;
-    std::string expiresAtStr;
-    int attempts = 0;
-    int emailVerified = 0;
-    bool found = false;
-
-    auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
-      sqlite3_stmt* stmt = nullptr;
-      const char* tail = nullptr;
-      if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-          found = true;
-          const unsigned char* codePtr = sqlite3_column_text(stmt, 0);
-          const unsigned char* expiresPtr = sqlite3_column_text(stmt, 1);
-          storedCode = codePtr ? reinterpret_cast<const char*>(codePtr) : "";
-          expiresAtStr = expiresPtr ? reinterpret_cast<const char*>(expiresPtr) : "";
-          attempts = sqlite3_column_int(stmt, 2);
-          emailVerified = sqlite3_column_int(stmt, 3);
-        }
-        sqlite3_finalize(stmt);
-      }
-    });
-
-    if (!result.success || !found) {
-      return {AuthResult::USER_NOT_FOUND, "User not found."};
-    }
-
-    // Check if already verified
-    if (emailVerified == EMAIL_VERIFIED) {
-      return {AuthResult::SUCCESS, "Email already verified."};
-    }
-
-    // Check if code exists
-    if (storedCode.empty()) {
-      return {AuthResult::INVALID_CREDENTIALS,
-              "No verification code found. Please request a new code."};
-    }
-
-    // Check rate limiting (max 5 attempts)
-    if (attempts >= 5) {
-      return {AuthResult::RATE_LIMITED,
-              "Too many verification attempts. Please request a new code."};
-    }
-
-    // Parse expiration time
-    std::tm expiresTime = {};
-    std::istringstream ss(expiresAtStr);
-    ss >> std::get_time(&expiresTime, "%Y-%m-%d %H:%M:%S");
-    auto expiresTimePoint =
-        std::chrono::system_clock::from_time_t(std::mktime(&expiresTime));
-
-    // Check if code is expired
-    auto now = std::chrono::system_clock::now();
-    if (now > expiresTimePoint) {
-      return {AuthResult::INVALID_CREDENTIALS,
-              "Verification code has expired. Please request a new code."};
-    }
-
-    // Increment attempt counter
-    std::string incrementSQL =
-        "UPDATE users SET verification_attempts = verification_attempts + 1 "
-        "WHERE username = ?";
-    dbManager.executeQuery(incrementSQL, {username});
-
-    // Verify code (constant-time comparison to prevent timing attacks)
-    if (code.length() != storedCode.length() || code != storedCode) {
-      int remainingAttempts = 5 - (attempts + 1);
-      return {AuthResult::INVALID_CREDENTIALS,
-              "Invalid verification code. " +
-                  std::to_string(remainingAttempts) + " attempts remaining."};
-    }
-
-    // Code is valid! Mark email as verified
-    std::string verifySQL =
-        "UPDATE users SET "
-        "email_verified = ?, "
-        "email_verification_code = NULL, "
-        "verification_code_expires_at = NULL, "
-        "verification_attempts = 0 "
-        "WHERE username = ?";
-
-    auto verifyResult = dbManager.executeQuery(verifySQL, {std::to_string(EMAIL_VERIFIED), username});
-
-    if (!verifyResult.success) {
-      return {AuthResult::SYSTEM_ERROR,
-              "Failed to mark email as verified. Please try again."};
-    }
-
-    return {AuthResult::SUCCESS,
-            "Email verified successfully! You can now sign in."};
-  } catch (const std::exception &e) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Error verifying code: " + std::string(e.what())};
-  }
-}
-
-AuthResponse ResendVerificationCode(const std::string &username) {
-  // Initialize database
-  if (!InitializeDatabase() || !g_userRepo) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Database not initialized. Please restart the application."};
-  }
-
-  try {
-    auto &dbManager = Database::DatabaseManager::getInstance();
-
-    // Get last verification attempt time
-    std::string querySQL =
-        "SELECT last_verification_attempt, email_verified FROM users WHERE "
-        "username = ?";
-
-    std::string lastAttemptStr;
-    int alreadyVerified = 0;
-    bool found = false;
-
-    auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
-      sqlite3_stmt* stmt = nullptr;
-      const char* tail = nullptr;
-      if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-          found = true;
-          const unsigned char* attemptPtr = sqlite3_column_text(stmt, 0);
-          lastAttemptStr = attemptPtr ? reinterpret_cast<const char*>(attemptPtr) : "";
-          alreadyVerified = sqlite3_column_int(stmt, 1);
-        }
-        sqlite3_finalize(stmt);
-      }
-    });
-
-    if (!result.success || !found) {
-      return {AuthResult::USER_NOT_FOUND, "User not found."};
-    }
-
-    // Check if already verified
-    if (alreadyVerified == EMAIL_VERIFIED) {
-      return {AuthResult::SUCCESS, "Email already verified."};
-    }
-
-    // Check 60-second cooldown
-    if (!lastAttemptStr.empty()) {
-      std::tm lastAttemptTime = {};
-      std::istringstream ss(lastAttemptStr);
-      ss >> std::get_time(&lastAttemptTime, "%Y-%m-%d %H:%M:%S");
-      auto lastAttemptTimePoint =
-          std::chrono::system_clock::from_time_t(std::mktime(&lastAttemptTime));
-
-      auto now = std::chrono::system_clock::now();
-      auto timeSinceLastAttempt =
-          std::chrono::duration_cast<std::chrono::seconds>(now -
-                                                           lastAttemptTimePoint);
-
-      if (timeSinceLastAttempt.count() < 60) {
-        int remainingSeconds = 60 - timeSinceLastAttempt.count();
-        return {AuthResult::RATE_LIMITED,
-                "Please wait " + std::to_string(remainingSeconds) +
-                    " seconds before requesting another code."};
-      }
-    }
-
-    // Check hourly limit (3 resends per hour)
-    std::string countSQL =
-        "SELECT COUNT(*) as count FROM users WHERE username = ? AND "
-        "last_verification_attempt > datetime('now', '-1 hour')";
-
-    int recentAttempts = 0;
-    bool hasCount = false;
-
-    auto countResult = dbManager.executeQuery(countSQL, {username}, [&](sqlite3* db) {
-      sqlite3_stmt* stmt = nullptr;
-      const char* tail = nullptr;
-      if (sqlite3_prepare_v2(db, countSQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-          hasCount = true;
-          recentAttempts = sqlite3_column_int(stmt, 0);
-        }
-        sqlite3_finalize(stmt);
-      }
-    });
-
-    if (countResult.success && hasCount) {
-      if (recentAttempts >= 3) {
-        return {AuthResult::RATE_LIMITED,
-                "Maximum resend limit reached. Please wait an hour before "
-                "requesting more codes."};
-      }
-    }
-
-    // Rate limits passed - send new code
-    return SendVerificationCode(username);
-  } catch (const std::exception &e) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Error resending code: " + std::string(e.what())};
-  }
-}
-
-bool IsEmailVerified(const std::string &username) {
+bool IsTwoFactorEnabled(const std::string &username) {
   if (!InitializeDatabase() || !g_userRepo) {
     return false;
   }
 
   try {
     auto &dbManager = Database::DatabaseManager::getInstance();
-    std::string querySQL =
-        "SELECT email_verified FROM users WHERE username = ?";
+    std::string querySQL = "SELECT totp_enabled FROM users WHERE username = ?";
 
-    int verified = 0;
+    int enabled = 0;
     bool found = false;
 
     auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
@@ -1797,101 +1468,425 @@ bool IsEmailVerified(const std::string &username) {
         sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
         if (sqlite3_step(stmt) == SQLITE_ROW) {
           found = true;
-          verified = sqlite3_column_int(stmt, 0);
+          enabled = sqlite3_column_int(stmt, 0);
         }
         sqlite3_finalize(stmt);
       }
     });
 
-    if (!result.success || !found) {
-      return false;
-    }
-    return verified == EMAIL_VERIFIED;
+    return result.success && found && enabled == TOTP_ENABLED;
   } catch (const std::exception &) {
     return false;
   }
 }
 
-AuthResponse EnableTwoFactorAuth(const std::string &username,
-                                 const std::string &password) {
-  // Initialize database
+TwoFactorSetupData InitiateTwoFactorSetup(const std::string &username,
+                                           const std::string &password) {
+  TwoFactorSetupData result;
+  result.success = false;
+
   if (!InitializeDatabase() || !g_userRepo) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Database not initialized. Please restart the application."};
+    result.errorMessage = "Database not initialized.";
+    return result;
   }
 
   try {
-    // First, verify the user's password
+    // Verify password first
     auto authResult = g_userRepo->authenticateUser(username, password);
     if (!authResult.success) {
-      return {AuthResult::INVALID_CREDENTIALS,
-              "Invalid password. Please try again."};
-    }
-
-    // Check if user has an email address
-    auto userResult = g_userRepo->getUserByUsername(username);
-    if (!userResult.success) {
-      return {AuthResult::USER_NOT_FOUND, "User not found."};
-    }
-
-    if (userResult.data.email.empty()) {
-      return {AuthResult::SYSTEM_ERROR,
-              "No email address associated with this account. "
-              "Please contact support to add an email address."};
+      result.errorMessage = "Invalid password.";
+      return result;
     }
 
     // Check if 2FA is already enabled
-    if (IsEmailVerified(username)) {
-      return {AuthResult::SUCCESS,
-              "Two-factor authentication is already enabled for this account."};
+    if (IsTwoFactorEnabled(username)) {
+      result.errorMessage = "Two-factor authentication is already enabled.";
+      return result;
     }
 
-    // Password verified and email exists - send verification code
-    return SendVerificationCode(username);
+    // Generate new TOTP secret (20 bytes = 160 bits)
+    std::vector<uint8_t> secret;
+    if (!Crypto::GenerateTOTPSecret(secret)) {
+      result.errorMessage = "Failed to generate TOTP secret.";
+      return result;
+    }
+
+    // Encode secret as Base32
+    std::string secretBase32 = Crypto::Base32Encode(secret);
+    
+    // Generate otpauth:// URI for QR code
+    std::string otpauthUri = Crypto::GenerateTOTPUri(secretBase32, username, "CriptoGualet");
+
+    // Store pending secret in database (not yet enabled)
+    auto &dbManager = Database::DatabaseManager::getInstance();
+    std::string updateSQL = "UPDATE users SET totp_secret_pending = ? WHERE username = ?";
+    auto dbResult = dbManager.executeQuery(updateSQL, {secretBase32, username});
+
+    if (!dbResult.success) {
+      result.errorMessage = "Failed to store TOTP secret.";
+      return result;
+    }
+
+    result.secretBase32 = secretBase32;
+    result.otpauthUri = otpauthUri;
+    result.success = true;
+    return result;
 
   } catch (const std::exception &e) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Error enabling 2FA: " + std::string(e.what())};
+    result.errorMessage = std::string("Error: ") + e.what();
+    return result;
   }
 }
 
-AuthResponse DisableTwoFactorAuth(const std::string &username,
-                                  const std::string &password) {
+AuthResponse ConfirmTwoFactorSetup(const std::string &username,
+                                    const std::string &totpCode) {
   if (!InitializeDatabase() || !g_userRepo) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Database not initialized. Please restart the application."};
+    return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
   }
 
   try {
-    // First, verify the user's password for security
+    auto &dbManager = Database::DatabaseManager::getInstance();
+
+    // Get pending secret
+    std::string querySQL = "SELECT totp_secret_pending FROM users WHERE username = ?";
+    std::string pendingSecret;
+    bool found = false;
+
+    auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
+      sqlite3_stmt* stmt = nullptr;
+      const char* tail = nullptr;
+      if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+          found = true;
+          const unsigned char* ptr = sqlite3_column_text(stmt, 0);
+          pendingSecret = ptr ? reinterpret_cast<const char*>(ptr) : "";
+        }
+        sqlite3_finalize(stmt);
+      }
+    });
+
+    if (!result.success || !found) {
+      return {AuthResult::USER_NOT_FOUND, "User not found."};
+    }
+
+    if (pendingSecret.empty()) {
+      return {AuthResult::INVALID_CREDENTIALS, 
+              "No pending 2FA setup. Please start the setup process first."};
+    }
+
+    // Decode the Base32 secret
+    std::vector<uint8_t> secret = Crypto::Base32Decode(pendingSecret);
+    if (secret.empty()) {
+      return {AuthResult::SYSTEM_ERROR, "Invalid TOTP secret."};
+    }
+
+    // Verify the provided TOTP code with a window of ±1 time period (30 seconds each way)
+    if (!Crypto::VerifyTOTP(secret, totpCode, 1)) {
+      return {AuthResult::INVALID_CREDENTIALS, 
+              "Invalid verification code. Please check your authenticator app and try again."};
+    }
+
+    // Generate backup codes (8 random 8-character codes)
+    std::vector<std::string> backupCodes;
+    backupCodes.reserve(8);
+    for (int i = 0; i < 8; i++) {
+      std::vector<uint8_t> randomBytes(4);
+      if (!Crypto::RandBytes(randomBytes.data(), randomBytes.size())) {
+        return {AuthResult::SYSTEM_ERROR, "Failed to generate backup codes."};
+      }
+      std::ostringstream oss;
+      for (auto b : randomBytes) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << (int)b;
+      }
+      backupCodes.push_back(oss.str());
+    }
+    
+    if (backupCodes.size() != 8) {
+      return {AuthResult::SYSTEM_ERROR, "Failed to generate all backup codes."};
+    }
+
+    // Join backup codes with commas for storage
+    std::ostringstream backupCodesStr;
+    for (size_t i = 0; i < backupCodes.size(); i++) {
+      if (i > 0) backupCodesStr << ",";
+      backupCodesStr << backupCodes[i];
+    }
+
+    // Enable 2FA: move pending secret to active, set enabled flag
+    std::string enableSQL = 
+        "UPDATE users SET "
+        "totp_enabled = ?, "
+        "totp_secret = totp_secret_pending, "
+        "totp_secret_pending = NULL, "
+        "backup_codes = ? "
+        "WHERE username = ?";
+
+    auto enableResult = dbManager.executeQuery(enableSQL, 
+        {std::to_string(TOTP_ENABLED), backupCodesStr.str(), username});
+
+    if (!enableResult.success) {
+      return {AuthResult::SYSTEM_ERROR, "Failed to enable 2FA."};
+    }
+
+    return {AuthResult::SUCCESS, 
+            "Two-factor authentication enabled successfully!\n\n"
+            "Please save your backup codes in a secure location."};
+
+  } catch (const std::exception &e) {
+    return {AuthResult::SYSTEM_ERROR, std::string("Error: ") + e.what()};
+  }
+}
+
+AuthResponse VerifyTwoFactorCode(const std::string &username,
+                                  const std::string &totpCode) {
+  if (!InitializeDatabase() || !g_userRepo) {
+    return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
+  }
+
+  try {
+    auto &dbManager = Database::DatabaseManager::getInstance();
+
+    // Get TOTP secret
+    std::string querySQL = "SELECT totp_secret, totp_enabled FROM users WHERE username = ?";
+    std::string totpSecret;
+    int enabled = 0;
+    bool found = false;
+
+    auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
+      sqlite3_stmt* stmt = nullptr;
+      const char* tail = nullptr;
+      if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+          found = true;
+          const unsigned char* ptr = sqlite3_column_text(stmt, 0);
+          totpSecret = ptr ? reinterpret_cast<const char*>(ptr) : "";
+          enabled = sqlite3_column_int(stmt, 1);
+        }
+        sqlite3_finalize(stmt);
+      }
+    });
+
+    if (!result.success || !found) {
+      return {AuthResult::USER_NOT_FOUND, "User not found."};
+    }
+
+    if (enabled != TOTP_ENABLED || totpSecret.empty()) {
+      return {AuthResult::INVALID_CREDENTIALS, "2FA is not enabled for this account."};
+    }
+
+    // Decode the Base32 secret
+    std::vector<uint8_t> secret = Crypto::Base32Decode(totpSecret);
+    if (secret.empty()) {
+      return {AuthResult::SYSTEM_ERROR, "Invalid TOTP secret."};
+    }
+
+    // Verify the code with a window of ±1 time period (30 seconds each way)
+    if (!Crypto::VerifyTOTP(secret, totpCode, 1)) {
+      return {AuthResult::INVALID_CREDENTIALS, "Invalid verification code."};
+    }
+
+    return {AuthResult::SUCCESS, "Verification successful."};
+
+  } catch (const std::exception &e) {
+    return {AuthResult::SYSTEM_ERROR, std::string("Error: ") + e.what()};
+  }
+}
+
+AuthResponse DisableTwoFactor(const std::string &username,
+                               const std::string &password,
+                               const std::string &totpCode) {
+  if (!InitializeDatabase() || !g_userRepo) {
+    return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
+  }
+
+  try {
+    // Verify password
     auto authResult = g_userRepo->authenticateUser(username, password);
     if (!authResult.success) {
-      return {AuthResult::INVALID_CREDENTIALS,
-              "Invalid password. Please try again."};
+      return {AuthResult::INVALID_CREDENTIALS, "Invalid password."};
     }
 
-    // Check if 2FA is currently enabled
-    if (!IsEmailVerified(username)) {
-      return {AuthResult::SUCCESS,
-              "Two-factor authentication is already disabled for this account."};
+    // Verify TOTP code
+    auto totpResult = VerifyTwoFactorCode(username, totpCode);
+    if (!totpResult.success()) {
+      return totpResult;
     }
 
-    // Password verified - disable 2FA by setting email_verified to false (0)
+    // Disable 2FA
     auto &dbManager = Database::DatabaseManager::getInstance();
-    std::string updateSQL = "UPDATE users SET email_verified = ? WHERE username = ?";
+    std::string updateSQL = 
+        "UPDATE users SET "
+        "totp_enabled = ?, "
+        "totp_secret = NULL, "
+        "totp_secret_pending = NULL, "
+        "backup_codes = NULL "
+        "WHERE username = ?";
 
-    auto result = dbManager.executeQuery(updateSQL, {std::to_string(EMAIL_NOT_VERIFIED), username});
+    auto result = dbManager.executeQuery(updateSQL, 
+        {std::to_string(TOTP_DISABLED), username});
 
     if (!result.success) {
-      return {AuthResult::SYSTEM_ERROR,
-              "Failed to disable 2FA. Please try again."};
+      return {AuthResult::SYSTEM_ERROR, "Failed to disable 2FA."};
     }
 
-    return {AuthResult::SUCCESS,
-            "Two-factor authentication has been disabled successfully."};
+    return {AuthResult::SUCCESS, "Two-factor authentication has been disabled."};
+
   } catch (const std::exception &e) {
-    return {AuthResult::SYSTEM_ERROR,
-            "Error disabling 2FA: " + std::string(e.what())};
+    return {AuthResult::SYSTEM_ERROR, std::string("Error: ") + e.what()};
+  }
+}
+
+BackupCodesResult GetBackupCodes(const std::string &username,
+                                  const std::string &password) {
+  BackupCodesResult result;
+  result.success = false;
+
+  if (!InitializeDatabase() || !g_userRepo) {
+    result.errorMessage = "Database not initialized.";
+    return result;
+  }
+
+  try {
+    // Verify password
+    auto authResult = g_userRepo->authenticateUser(username, password);
+    if (!authResult.success) {
+      result.errorMessage = "Invalid password.";
+      return result;
+    }
+
+    auto &dbManager = Database::DatabaseManager::getInstance();
+    std::string querySQL = "SELECT backup_codes FROM users WHERE username = ?";
+    std::string backupCodesStr;
+    bool found = false;
+
+    auto dbResult = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
+      sqlite3_stmt* stmt = nullptr;
+      const char* tail = nullptr;
+      if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+          found = true;
+          const unsigned char* ptr = sqlite3_column_text(stmt, 0);
+          backupCodesStr = ptr ? reinterpret_cast<const char*>(ptr) : "";
+        }
+        sqlite3_finalize(stmt);
+      }
+    });
+
+    if (!dbResult.success || !found) {
+      result.errorMessage = "User not found.";
+      return result;
+    }
+
+    if (backupCodesStr.empty()) {
+      result.errorMessage = "No backup codes available. 2FA may not be enabled.";
+      return result;
+    }
+
+    // Parse comma-separated backup codes
+    std::istringstream iss(backupCodesStr);
+    std::string code;
+    while (std::getline(iss, code, ',')) {
+      if (!code.empty()) {
+        result.codes.push_back(code);
+      }
+    }
+
+    result.success = true;
+    return result;
+
+  } catch (const std::exception &e) {
+    result.errorMessage = std::string("Error: ") + e.what();
+    return result;
+  }
+}
+
+AuthResponse UseBackupCode(const std::string &username,
+                            const std::string &backupCode) {
+  if (!InitializeDatabase() || !g_userRepo) {
+    return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
+  }
+
+  try {
+    auto &dbManager = Database::DatabaseManager::getInstance();
+
+    // Get backup codes
+    std::string querySQL = "SELECT backup_codes FROM users WHERE username = ?";
+    std::string backupCodesStr;
+    bool found = false;
+
+    auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
+      sqlite3_stmt* stmt = nullptr;
+      const char* tail = nullptr;
+      if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+          found = true;
+          const unsigned char* ptr = sqlite3_column_text(stmt, 0);
+          backupCodesStr = ptr ? reinterpret_cast<const char*>(ptr) : "";
+        }
+        sqlite3_finalize(stmt);
+      }
+    });
+
+    if (!result.success || !found) {
+      return {AuthResult::USER_NOT_FOUND, "User not found."};
+    }
+
+    if (backupCodesStr.empty()) {
+      return {AuthResult::INVALID_CREDENTIALS, "No backup codes available."};
+    }
+
+    // Check if backup code exists and remove it
+    std::vector<std::string> codes;
+    std::istringstream iss(backupCodesStr);
+    std::string backupCodeItem;
+    bool codeFound = false;
+
+    while (std::getline(iss, backupCodeItem, ',')) {
+      if (!backupCodeItem.empty()) {
+        if (backupCodeItem == backupCode) {
+          codeFound = true;
+          // Don't add this code back (it's been used)
+        } else {
+          codes.push_back(backupCodeItem);
+        }
+      }
+    }
+
+    if (!codeFound) {
+      return {AuthResult::INVALID_CREDENTIALS, "Invalid backup code."};
+    }
+
+    // Disable 2FA and update remaining backup codes
+    std::ostringstream newCodesStr;
+    for (size_t i = 0; i < codes.size(); i++) {
+      if (i > 0) newCodesStr << ",";
+      newCodesStr << codes[i];
+    }
+
+    std::string updateSQL = 
+        "UPDATE users SET "
+        "totp_enabled = ?, "
+        "totp_secret = NULL, "
+        "backup_codes = ? "
+        "WHERE username = ?";
+
+    auto updateResult = dbManager.executeQuery(updateSQL, 
+        {std::to_string(TOTP_DISABLED), newCodesStr.str(), username});
+
+    if (!updateResult.success) {
+      return {AuthResult::SYSTEM_ERROR, "Failed to disable 2FA."};
+    }
+
+    return {AuthResult::SUCCESS, 
+            "Two-factor authentication has been disabled using backup code.\n"
+            "Please set up 2FA again for enhanced security."};
+
+  } catch (const std::exception &e) {
+    return {AuthResult::SYSTEM_ERROR, std::string("Error: ") + e.what()};
   }
 }
 

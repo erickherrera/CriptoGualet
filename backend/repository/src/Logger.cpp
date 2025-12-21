@@ -171,7 +171,13 @@ std::string Logger::formatLogEntry(const LogEntry& entry) const {
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         entry.timestamp.time_since_epoch()) % 1000;
 
-    oss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
+    std::tm timeInfo = {};
+#ifdef _WIN32
+    localtime_s(&timeInfo, &time_t);
+#else
+    localtime_r(&time_t, &timeInfo);
+#endif
+    oss << std::put_time(&timeInfo, "%Y-%m-%d %H:%M:%S");
     oss << "." << std::setfill('0') << std::setw(3) << ms.count();
 
     // Add log level

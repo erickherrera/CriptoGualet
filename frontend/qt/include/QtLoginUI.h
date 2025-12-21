@@ -32,6 +32,7 @@ public:
 signals:
   void loginRequested(const QString &username, const QString &password);
   void registerRequested(const QString &username, const QString &email, const QString &password);
+  void totpVerificationRequired(const QString &username, const QString &password);
 
 public slots:
   void onLoginResult(bool success, const QString &message);
@@ -78,7 +79,6 @@ private:
 
   // Register tab widgets
   QLineEdit *m_usernameEdit;
-  QLineEdit *m_emailEdit;
   QLineEdit *m_passwordEdit;
   QPushButton *m_passwordToggleButton;
   QPushButton *m_registerButton;

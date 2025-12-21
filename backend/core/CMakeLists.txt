@@ -37,7 +37,7 @@ target_include_directories(Auth PUBLIC
   "${CMAKE_SOURCE_DIR}/backend/database/include"
   "${CMAKE_SOURCE_DIR}/backend/repository/include"
 )
-target_link_libraries(Auth PRIVATE Crypto Repository Database SharedSymbols EmailService)
+target_link_libraries(Auth PRIVATE Crypto Repository Database SharedSymbols)
 
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)

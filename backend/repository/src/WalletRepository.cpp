@@ -1161,7 +1161,7 @@ Result<bool> WalletRepository::markUTXOsAsSpent(const std::vector<int>& utxoIds,
                      "Count: " + std::to_string(utxoIds.size()));
         return Result<bool>(true);
 
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         m_dbManager.rollbackTransaction();
         return Result<bool>("Exception during bulk UTXO update", 500);
     }
@@ -1299,8 +1299,9 @@ UTXO WalletRepository::mapRowToUTXO(sqlite3_stmt* stmt) {
     utxo.address = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
     utxo.amountSatoshis = sqlite3_column_int64(stmt, 5);
     utxo.confirmations = static_cast<uint32_t>(sqlite3_column_int(stmt, 6));
-    // Column 7 is is_confirmed boolean - we use it to derive isSpent
-    bool isConfirmed = sqlite3_column_int(stmt, 7) != 0;
+    // Column 7 is is_confirmed boolean - currently unused but read for future use
+    // bool isConfirmed = sqlite3_column_int(stmt, 7) != 0;
+    (void)sqlite3_column_int(stmt, 7); // Suppress unused warning
     utxo.isSpent = false;  // We only query unspent UTXOs, so this is always false
     utxo.createdAt = std::chrono::system_clock::now(); // Simplified
     return utxo;

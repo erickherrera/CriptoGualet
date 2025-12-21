@@ -1,42 +1,91 @@
 # Deployment Guide
 
-## SMTP Configuration (System-Level)
+## Two-Factor Authentication (2FA)
 
-Email verification for 2FA requires SMTP configuration. This must be configured at the **system/deployment level** by administrators, not by end users.
+CriptoGualet supports optional two-factor authentication using authenticator apps (TOTP - Time-based One-Time Password).
 
-### Required Environment Variables
+### Supported Authenticator Apps
 
-Set these environment variables at the system/user level:
-
-- `WALLET_SMTP_SERVER` - SMTP server (e.g., `smtp.gmail.com`)
-- `WALLET_SMTP_PORT` - SMTP port (usually `587` for TLS)
-- `WALLET_SMTP_USERNAME` - SMTP username (email address)
-- `WALLET_FROM_EMAIL` - Sender email address
-- `WALLET_SMTP_PASSWORD` - SMTP password (stored securely in Windows Credential Manager)
-- `WALLET_FROM_NAME` - Sender name (optional, defaults to "CriptoGualet Wallet")
-
-### Windows Setup
-
-**PowerShell (User-level, persistent):**
-```powershell
-[Environment]::SetEnvironmentVariable("WALLET_SMTP_SERVER", "smtp.gmail.com", "User")
-[Environment]::SetEnvironmentVariable("WALLET_SMTP_PORT", "587", "User")
-[Environment]::SetEnvironmentVariable("WALLET_SMTP_USERNAME", "your-email@gmail.com", "User")
-[Environment]::SetEnvironmentVariable("WALLET_FROM_EMAIL", "your-email@gmail.com", "User")
-[Environment]::SetEnvironmentVariable("WALLET_SMTP_PASSWORD", "your-app-password", "User")
-[Environment]::SetEnvironmentVariable("WALLET_FROM_NAME", "CriptoGualet Wallet", "User")
-```
-
-**Note:** For Gmail, use an App Password from https://myaccount.google.com/apppasswords
-
-The password will be automatically migrated to Windows Credential Manager on first use for secure storage.
+- Google Authenticator
+- Authy
+- Microsoft Authenticator
+- 1Password
+- Any TOTP-compatible authenticator
 
 ### How It Works
 
-1. User registers with email address
-2. System sends verification code to user's email (using configured SMTP)
-3. User enters verification code to complete registration
-4. User can sign in after email is verified
+1. **Registration**: Users create an account with username and password only (no email required)
+2. **Optional 2FA**: Users can enable 2FA in Settings at any time
+3. **Setup**: Scan QR code with authenticator app or enter secret manually
+4. **Login**: If 2FA is enabled, user must enter 6-digit code from authenticator app
 
-Environment variables persist in the Windows registry (`HKEY_CURRENT_USER\Environment`) and work across all cloned repositories for the same user account.
+### Security Features
 
+- **TOTP (RFC 6238)**: Industry-standard time-based one-time passwords
+- **30-second codes**: Codes refresh every 30 seconds
+- **Backup codes**: 8 one-time-use backup codes for recovery
+- **No server required**: 2FA works entirely offline (no email service needed)
+
+---
+
+## Build Configuration
+
+### Standard Build
+
+```powershell
+cmake --preset default
+cmake --build build --config Release
+```
+
+### Debug Build
+
+```powershell
+cmake --preset default
+cmake --build build --config Debug
+```
+
+---
+
+## Database
+
+The application uses SQLCipher for encrypted database storage.
+
+- Database file: `wallet.db` (created in working directory)
+- Encryption: Machine-specific key derived from Windows user context
+- Tables: users, wallets, addresses, transactions, encrypted_seeds
+
+---
+
+## Seed Phrase Security
+
+- BIP-39 12-word seed phrases
+- Stored encrypted with Windows DPAPI
+- Machine-bound (cannot be moved to different computer)
+- Users should backup seed phrase on paper/metal
+
+---
+
+## Distribution
+
+When distributing the application:
+
+1. Build in Release mode
+2. Include required DLLs (Qt, OpenSSL, SQLCipher)
+3. Include `assets/bip39/english.txt` wordlist
+4. No server configuration required (email-free 2FA)
+
+---
+
+## Troubleshooting
+
+### "Failed to initialize database"
+- Ensure write permissions in working directory
+- Check disk space
+
+### "Seed phrase generation failed"
+- Ensure `assets/bip39/english.txt` exists
+- Check file permissions
+
+### "2FA code invalid"
+- Ensure device time is accurate (±30 seconds)
+- Try the next code if on the edge of a time period

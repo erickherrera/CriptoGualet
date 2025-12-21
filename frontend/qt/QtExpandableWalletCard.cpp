@@ -320,8 +320,8 @@ void QtExpandableWalletCard::updateStyles() {
   QString primary = m_themeManager->primaryColor().name();
   QString background = backgroundColor.name();
 
-  // Determine if dark theme for better contrast
-  bool isDarkTheme = surfaceColor.lightness() < 128;
+  // Note: isDarkTheme could be used for conditional styling in the future
+  (void)surfaceColor.lightness(); // Suppress unused warning
 
   // Card styling with rounded corners and subtle shadow
   QString walletCardCss = QString(R"(

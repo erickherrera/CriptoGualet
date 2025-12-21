@@ -1,7 +1,6 @@
 // QtLoginUI.cpp
 #include "include/QtLoginUI.h"
 #include "../../backend/core/include/Auth.h"
-#include "include/QtEmailVerificationDialog.h"
 #include "include/QtThemeManager.h"
 
 #include <QApplication>
@@ -213,10 +212,6 @@ void QtLoginUI::createLoginCard() {
   m_usernameEdit->setPlaceholderText("Username");
   m_usernameEdit->setMinimumHeight(44);
 
-  m_emailEdit = new QLineEdit(registerTab);
-  m_emailEdit->setPlaceholderText("Email Address");
-  m_emailEdit->setMinimumHeight(44);
-
   m_passwordEdit = new QLineEdit(registerTab);
   m_passwordEdit->setPlaceholderText(
       "Password (6+ chars with letters and numbers)");
@@ -257,7 +252,6 @@ void QtLoginUI::createLoginCard() {
   m_registerButton->setEnabled(false); // Disabled until all fields are filled
 
   registerLayout->addWidget(m_usernameEdit);
-  registerLayout->addWidget(m_emailEdit);
   registerLayout->addWidget(m_passwordEdit);
   registerLayout->addSpacing(8);
   registerLayout->addWidget(m_registerButton);
@@ -324,13 +318,9 @@ void QtLoginUI::createLoginCard() {
           &QtLoginUI::onRegisterClicked);
   connect(m_usernameEdit, &QLineEdit::textChanged, this,
           &QtLoginUI::validateRegisterForm);
-  connect(m_emailEdit, &QLineEdit::textChanged, this,
-          &QtLoginUI::validateRegisterForm);
   connect(m_passwordEdit, &QLineEdit::textChanged, this,
           &QtLoginUI::validateRegisterForm);
   connect(m_usernameEdit, &QLineEdit::returnPressed, this,
-          &QtLoginUI::onRegisterClicked);
-  connect(m_emailEdit, &QLineEdit::returnPressed, this,
           &QtLoginUI::onRegisterClicked);
   connect(m_passwordEdit, &QLineEdit::returnPressed, this,
           &QtLoginUI::onRegisterClicked);
@@ -365,21 +355,16 @@ void QtLoginUI::onLoginClicked() {
 
 void QtLoginUI::onRegisterClicked() {
   const QString username = m_usernameEdit->text().trimmed();
-  const QString email = m_emailEdit->text().trimmed();
   const QString password = m_passwordEdit->text();
 
   clearMessage();
 
-  if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
-    showMessage("Please enter username, email, and password", true);
+  if (username.isEmpty() || password.isEmpty()) {
+    showMessage("Please enter username and password", true);
     return;
   }
   if (username.length() < 3) {
     showMessage("Username must be at least 3 characters long", true);
-    return;
-  }
-  if (!email.contains("@") || !email.contains(".")) {
-    showMessage("Please enter a valid email address", true);
     return;
   }
   if (password.length() < 6) {
@@ -389,17 +374,15 @@ void QtLoginUI::onRegisterClicked() {
 
   showMessage("Creating account... generating your seed phrase securely.",
               false);
-  emit registerRequested(username, email, password);
+  emit registerRequested(username, "", password);  // Empty email - no longer required
 }
 
 void QtLoginUI::onRegisterModeToggled(bool registerMode) {
   if (registerMode) {
-    m_emailEdit->show();
     m_registerButton->setText("Register");
     m_loginButton->setText("Back to Login");
     clearMessage();
   } else {
-    m_emailEdit->hide();
     m_registerButton->setText("Create Account");
     m_loginButton->setText("Sign In");
     clearMessage();
@@ -417,45 +400,25 @@ void QtLoginUI::onRegisterModeToggled(bool registerMode) {
 }
 
 void QtLoginUI::onLoginResult(bool success, const QString &message) {
-  // Check if login failed due to unverified email
-  // EMAIL_NOT_VERIFIED message only appears when:
-  // 1. User exists in database (authentication succeeded)
-  // 2. Password is correct (authentication succeeded)
-  // 3. Email is not verified
-  // 
-  // For non-existent users, the backend returns "Invalid credentials" message,
-  // NOT "EMAIL_NOT_VERIFIED"
-  // 
-  // The backend formats the message as "EMAIL_NOT_VERIFIED: ..." so we check
-  // if the message starts with this exact prefix
-  if (!success && message.startsWith("EMAIL_NOT_VERIFIED:", Qt::CaseSensitive)) {
-    // User exists and password is correct, but email is not verified
-    // Extract username from login form
+  // Check if login requires TOTP (2FA is enabled)
+  if (!success && message.startsWith("TOTP_REQUIRED:", Qt::CaseSensitive)) {
+    // User exists and password is correct, but 2FA is enabled
     const QString username = m_loginUsernameEdit->text().trimmed();
+    const QString password = m_loginPasswordEdit->text();
 
-    // Show verification dialog
-    showMessage("Your email address has not been verified. Please verify to continue.", true);
-
-    // Small delay to let user read the message
-    QTimer::singleShot(1500, this, [this, username]() {
-      // Show email verification dialog
-      QtEmailVerificationDialog verifyDlg(username, "", this);
-
-      if (verifyDlg.exec() == QDialog::Accepted && verifyDlg.isVerified()) {
-        // Email verified! User can now try logging in again
-        showMessage("Email verified successfully! Please sign in.", false);
-        m_loginPasswordEdit->setFocus();
-      } else {
-        showMessage("Email verification incomplete. Please verify your email to sign in.", true);
-      }
-    });
+    // Show TOTP input dialog
+    showMessage("Two-factor authentication is enabled. Please enter your code.", false);
+    
+    // Emit signal for TOTP verification (to be handled by main app)
+    emit totpVerificationRequired(username, password);
   } else {
-    // Not an email verification issue - show the message as-is
-    // For non-existent users, this will show "Invalid credentials" message
+    // Normal login result - show the message as-is
     showMessage(message, !success);
   }
 
-  m_loginPasswordEdit->clear();
+  if (!success) {
+    m_loginPasswordEdit->clear();
+  }
 }
 
 void QtLoginUI::onRegisterResult(bool success, const QString &message) {
@@ -466,17 +429,14 @@ void QtLoginUI::onRegisterResult(bool success, const QString &message) {
     
     // Clear registration fields
     m_usernameEdit->clear();
-    m_emailEdit->clear();
     m_passwordEdit->clear();
 
-    // Switch to Sign In tab if email was verified
-    if (message.contains("verified", Qt::CaseInsensitive)) {
-      m_tabBar->setCurrentIndex(0);
-      // Pre-fill username in login form for convenience
-      m_loginUsernameEdit->setText(username);
-    }
+    // Switch to Sign In tab
+    m_tabBar->setCurrentIndex(0);
+    // Pre-fill username in login form for convenience
+    m_loginUsernameEdit->setText(username);
   } else {
-    // Registration failed - clear password but keep username and email for retry
+    // Registration failed - clear password but keep username for retry
     m_passwordEdit->clear();
   }
 }
@@ -900,7 +860,6 @@ void QtLoginUI::updateStyles() {
   m_loginPasswordEdit->setStyleSheet(lineEditStyle);
   // Apply to Register tab fields
   m_usernameEdit->setStyleSheet(lineEditStyle);
-  m_emailEdit->setStyleSheet(lineEditStyle);
   m_passwordEdit->setStyleSheet(lineEditStyle);
 
   // Enhanced button styling with proper contrast
@@ -1040,7 +999,6 @@ void QtLoginUI::updateStyles() {
   m_loginPasswordEdit->setFont(m_themeManager->textFont());
   // Apply fonts to Register tab fields
   m_usernameEdit->setFont(m_themeManager->textFont());
-  m_emailEdit->setFont(m_themeManager->textFont());
   m_passwordEdit->setFont(m_themeManager->textFont());
 }
 
@@ -1074,9 +1032,8 @@ void QtLoginUI::onPasswordVisibilityToggled() {
 }
 
 void QtLoginUI::validateRegisterForm() {
-  // Enable Register button only if all fields are filled
+  // Enable Register button only if username and password are filled
   const bool allFieldsFilled = !m_usernameEdit->text().trimmed().isEmpty() &&
-                               !m_emailEdit->text().trimmed().isEmpty() &&
                                !m_passwordEdit->text().isEmpty();
   m_registerButton->setEnabled(allFieldsFilled);
 }

@@ -1,16 +1,23 @@
 #include "include/QtSettingsUI.h"
 #include "include/QtThemeManager.h"
 #include "include/QtPasswordConfirmDialog.h"
-#include "include/QtEmailVerificationDialog.h"
 #include "../../backend/core/include/Auth.h"
-#include "../../backend/database/include/Database/DatabaseManager.h"
-#include "../../backend/repository/include/Repository/UserRepository.h"
+#include "../../backend/utils/include/QRGenerator.h"
 #include <QGroupBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QMessageBox>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPixmap>
+#include <QImage>
+#include <QClipboard>
+#include <QGuiApplication>
 
 extern std::string g_currentUser;
 
@@ -98,8 +105,8 @@ void QtSettingsUI::setupUI() {
     // 2FA Description
     m_2FADescriptionLabel = new QLabel(
         "Two-factor authentication adds an extra layer of security by requiring "
-        "email verification when signing in. When enabled, you'll receive a "
-        "verification code via email each time you log in.",
+        "a code from your authenticator app when signing in. Compatible with "
+        "Google Authenticator, Authy, Microsoft Authenticator, and other TOTP apps.",
         centerContainer
     );
     m_2FADescriptionLabel->setProperty("class", "subtitle");
@@ -394,9 +401,9 @@ void QtSettingsUI::update2FAStatus() {
         return;
     }
 
-    bool isVerified = Auth::IsEmailVerified(g_currentUser);
+    bool isEnabled = Auth::IsTwoFactorEnabled(g_currentUser);
 
-    if (isVerified) {
+    if (isEnabled) {
         m_2FAStatusLabel->setText("✓ Two-factor authentication is enabled");
         m_2FAStatusLabel->setStyleSheet(QString("color: %1;").arg(m_themeManager->accentColor().name()));
         m_enable2FAButton->hide();
@@ -431,53 +438,154 @@ void QtSettingsUI::onEnable2FAClicked() {
     if (passwordDialog.exec() == QDialog::Accepted && passwordDialog.isConfirmed()) {
         QString password = passwordDialog.getPassword();
 
-        // Step 2: Enable 2FA (verifies password and sends code)
-        Auth::AuthResponse response = Auth::EnableTwoFactorAuth(
+        // Step 2: Generate TOTP secret and get QR code URI
+        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
             g_currentUser,
             password.toStdString()
         );
 
-        if (response.success()) {
-            // Step 3: Show verification code entry dialog
-            // Get user email for display
-            QMessageBox::information(this, "Verification Code Sent",
-                                   "A verification code has been sent to your email.\n\n"
-                                   "Please enter the code to complete 2FA setup.");
+        if (!setupData.success) {
+            QMessageBox::warning(this, "Error",
+                               QString("Failed to initialize 2FA: %1").arg(QString::fromStdString(setupData.errorMessage)));
+            return;
+        }
 
-            // Get user email
-            QString userEmail = "";
-            try {
-                auto &dbManager = Database::DatabaseManager::getInstance();
-                Repository::UserRepository userRepo(dbManager);
-                auto userResult = userRepo.getUserByUsername(g_currentUser);
-                if (userResult.success) {
-                    userEmail = QString::fromStdString(userResult.data.email);
+        // Step 3: Show QR code dialog for scanning
+        QDialog setupDialog(this);
+        setupDialog.setWindowTitle("Set Up Two-Factor Authentication");
+        setupDialog.setModal(true);
+        setupDialog.setMinimumWidth(400);
+
+        QVBoxLayout *layout = new QVBoxLayout(&setupDialog);
+        layout->setSpacing(15);
+        layout->setContentsMargins(20, 20, 20, 20);
+
+        // Instructions
+        QLabel *instructionsLabel = new QLabel(
+            "Scan this QR code with your authenticator app\n"
+            "(Google Authenticator, Authy, Microsoft Authenticator, etc.)",
+            &setupDialog
+        );
+        instructionsLabel->setAlignment(Qt::AlignCenter);
+        instructionsLabel->setWordWrap(true);
+        layout->addWidget(instructionsLabel);
+
+        // QR Code
+        QLabel *qrLabel = new QLabel(&setupDialog);
+        qrLabel->setAlignment(Qt::AlignCenter);
+        qrLabel->setMinimumSize(200, 200);
+        
+        // Generate QR code from the otpauth URI
+        QR::QRData qrData;
+        if (QR::GenerateQRCode(setupData.otpauthUri, qrData) && qrData.width > 0) {
+            // Convert QR data to QImage
+            int scale = 200 / qrData.width;
+            if (scale < 1) scale = 1;
+            int imgSize = qrData.width * scale;
+            QImage qrImage(imgSize, imgSize, QImage::Format_RGB32);
+            qrImage.fill(Qt::white);
+            
+            for (int y = 0; y < qrData.height; ++y) {
+                for (int x = 0; x < qrData.width; ++x) {
+                    if (qrData.data[y * qrData.width + x]) {
+                        // Fill a scaled block
+                        for (int sy = 0; sy < scale; ++sy) {
+                            for (int sx = 0; sx < scale; ++sx) {
+                                qrImage.setPixel(x * scale + sx, y * scale + sy, qRgb(0, 0, 0));
+                            }
+                        }
+                    }
                 }
-            } catch (...) {
-                // Fallback - show dialog without email
+            }
+            qrLabel->setPixmap(QPixmap::fromImage(qrImage));
+        } else {
+            qrLabel->setText("QR code generation failed.\nUse manual entry below.");
+        }
+        layout->addWidget(qrLabel);
+
+        // Manual entry option
+        QLabel *manualLabel = new QLabel("Or enter this code manually:", &setupDialog);
+        manualLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(manualLabel);
+
+        // Secret key display with copy button
+        QHBoxLayout *secretLayout = new QHBoxLayout();
+        QLineEdit *secretEdit = new QLineEdit(&setupDialog);
+        secretEdit->setText(QString::fromStdString(setupData.secretBase32));
+        secretEdit->setReadOnly(true);
+        secretEdit->setAlignment(Qt::AlignCenter);
+        secretEdit->setFont(QFont("Courier", 11));
+        secretLayout->addWidget(secretEdit);
+        
+        QPushButton *copyButton = new QPushButton("Copy", &setupDialog);
+        copyButton->setMaximumWidth(60);
+        connect(copyButton, &QPushButton::clicked, [secretEdit]() {
+            QGuiApplication::clipboard()->setText(secretEdit->text());
+        });
+        secretLayout->addWidget(copyButton);
+        layout->addLayout(secretLayout);
+
+        // Verification code entry
+        layout->addSpacing(10);
+        QLabel *verifyLabel = new QLabel("Enter the 6-digit code from your app to verify:", &setupDialog);
+        verifyLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(verifyLabel);
+
+        QLineEdit *codeEdit = new QLineEdit(&setupDialog);
+        codeEdit->setMaxLength(6);
+        codeEdit->setAlignment(Qt::AlignCenter);
+        codeEdit->setPlaceholderText("000000");
+        codeEdit->setFont(QFont("Courier", 16));
+        layout->addWidget(codeEdit);
+
+        // Buttons
+        QDialogButtonBox *buttonBox = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+            &setupDialog
+        );
+        buttonBox->button(QDialogButtonBox::Ok)->setText("Verify & Enable");
+        layout->addWidget(buttonBox);
+
+        connect(buttonBox, &QDialogButtonBox::accepted, &setupDialog, &QDialog::accept);
+        connect(buttonBox, &QDialogButtonBox::rejected, &setupDialog, &QDialog::reject);
+
+        if (setupDialog.exec() == QDialog::Accepted) {
+            QString code = codeEdit->text().trimmed();
+            
+            if (code.isEmpty() || code.length() != 6) {
+                QMessageBox::warning(this, "Invalid Code",
+                                   "Please enter a valid 6-digit code.");
+                return;
             }
 
-            QtEmailVerificationDialog verifyDialog(
-                QString::fromStdString(g_currentUser),
-                userEmail,
-                this
+            // Verify and enable 2FA
+            Auth::AuthResponse confirmResult = Auth::ConfirmTwoFactorSetup(
+                g_currentUser,
+                code.toStdString()
             );
 
-            if (verifyDialog.exec() == QDialog::Accepted && verifyDialog.isVerified()) {
-                QMessageBox::information(this, "2FA Enabled",
-                                       "Two-factor authentication has been enabled successfully!\n\n"
-                                       "You'll now need to verify your email each time you sign in.");
+            if (confirmResult.success()) {
+                // Show backup codes
+                Auth::BackupCodesResult backupCodes = Auth::GetBackupCodes(
+                    g_currentUser,
+                    password.toStdString()
+                );
+
+                QString backupMessage = "Two-factor authentication has been enabled!\n\n";
+                if (backupCodes.success && !backupCodes.codes.empty()) {
+                    backupMessage += "Save these backup codes in a secure location:\n\n";
+                    for (const auto &code : backupCodes.codes) {
+                        backupMessage += QString::fromStdString(code) + "\n";
+                    }
+                    backupMessage += "\nEach code can only be used once.";
+                }
+
+                QMessageBox::information(this, "2FA Enabled", backupMessage);
                 update2FAStatus();
             } else {
-                // User cancelled or verification failed
-                QMessageBox::information(this, "2FA Not Enabled",
-                                       "Two-factor authentication was not enabled.\n\n"
-                                       "The verification code remains valid for 10 minutes if you want to try again.");
+                QMessageBox::warning(this, "Verification Failed",
+                                   QString("Invalid code: %1").arg(QString::fromStdString(confirmResult.message)));
             }
-        } else {
-            // Failed to send code
-            QMessageBox::warning(this, "Error",
-                               QString("Failed to enable 2FA: %1").arg(QString::fromStdString(response.message)));
         }
     }
 }
@@ -498,22 +606,91 @@ void QtSettingsUI::onDisable2FAClicked() {
                                    QMessageBox::No);
 
     if (ret == QMessageBox::Yes) {
-        // Require password verification for security
-        QtPasswordConfirmDialog passwordDialog(
-            QString::fromStdString(g_currentUser),
-            "Disable Two-Factor Authentication",
-            "Please enter your password to disable 2FA:",
-            this
+        // Create dialog for password and TOTP code
+        QDialog disableDialog(this);
+        disableDialog.setWindowTitle("Disable Two-Factor Authentication");
+        disableDialog.setModal(true);
+        disableDialog.setMinimumWidth(350);
+
+        QVBoxLayout *layout = new QVBoxLayout(&disableDialog);
+        layout->setSpacing(12);
+        layout->setContentsMargins(20, 20, 20, 20);
+
+        QLabel *instructionLabel = new QLabel(
+            "Enter your password and current authenticator code\nto disable 2FA:",
+            &disableDialog
         );
+        instructionLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(instructionLabel);
 
-        if (passwordDialog.exec() == QDialog::Accepted && passwordDialog.isConfirmed()) {
-            QString password = passwordDialog.getPassword();
+        // Password field
+        QLabel *passwordLabel = new QLabel("Password:", &disableDialog);
+        layout->addWidget(passwordLabel);
+        QLineEdit *passwordEdit = new QLineEdit(&disableDialog);
+        passwordEdit->setEchoMode(QLineEdit::Password);
+        layout->addWidget(passwordEdit);
 
-            // Disable 2FA with password verification
-            Auth::AuthResponse response = Auth::DisableTwoFactorAuth(
-                g_currentUser,
-                password.toStdString()
-            );
+        // TOTP code field
+        QLabel *codeLabel = new QLabel("Authenticator Code:", &disableDialog);
+        layout->addWidget(codeLabel);
+        QLineEdit *codeEdit = new QLineEdit(&disableDialog);
+        codeEdit->setMaxLength(6);
+        codeEdit->setPlaceholderText("000000");
+        layout->addWidget(codeEdit);
+
+        // Backup code option
+        QLabel *backupLabel = new QLabel(
+            "<small>Lost your authenticator? <a href='backup'>Use a backup code</a></small>",
+            &disableDialog
+        );
+        backupLabel->setTextFormat(Qt::RichText);
+        backupLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(backupLabel);
+
+        // Buttons
+        QDialogButtonBox *buttonBox = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+            &disableDialog
+        );
+        buttonBox->button(QDialogButtonBox::Ok)->setText("Disable 2FA");
+        layout->addWidget(buttonBox);
+
+        bool useBackupCode = false;
+        connect(backupLabel, &QLabel::linkActivated, [&useBackupCode, codeLabel, codeEdit]() {
+            useBackupCode = true;
+            codeLabel->setText("Backup Code:");
+            codeEdit->setMaxLength(8);
+            codeEdit->setPlaceholderText("xxxxxxxx");
+            codeEdit->clear();
+        });
+
+        connect(buttonBox, &QDialogButtonBox::accepted, &disableDialog, &QDialog::accept);
+        connect(buttonBox, &QDialogButtonBox::rejected, &disableDialog, &QDialog::reject);
+
+        if (disableDialog.exec() == QDialog::Accepted) {
+            QString password = passwordEdit->text();
+            QString code = codeEdit->text().trimmed();
+
+            if (password.isEmpty()) {
+                QMessageBox::warning(this, "Error", "Please enter your password.");
+                return;
+            }
+
+            if (code.isEmpty()) {
+                QMessageBox::warning(this, "Error", "Please enter your authenticator code.");
+                return;
+            }
+
+            Auth::AuthResponse response;
+            if (useBackupCode) {
+                response = Auth::UseBackupCode(g_currentUser, code.toStdString());
+            } else {
+                response = Auth::DisableTwoFactor(
+                    g_currentUser,
+                    password.toStdString(),
+                    code.toStdString()
+                );
+            }
 
             if (response.success()) {
                 QMessageBox::information(this, "2FA Disabled",
@@ -522,7 +699,7 @@ void QtSettingsUI::onDisable2FAClicked() {
             } else {
                 QMessageBox::warning(this, "Error",
                                     QString("Failed to disable 2FA: %1").arg(QString::fromStdString(response.message)));
-                update2FAStatus(); // Refresh to show correct status
+                update2FAStatus();
             }
         }
     }

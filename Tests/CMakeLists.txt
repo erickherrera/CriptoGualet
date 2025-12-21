@@ -190,7 +190,7 @@ endif()
 add_executable(test_2fa
   "test_2fa.cpp"
 )
-set(TEST_2FA_LIBS Auth Repository Database Crypto SharedSymbols EmailService)
+set(TEST_2FA_LIBS Auth Repository Database Crypto SharedSymbols)
 if(WIN32)
   list(APPEND TEST_2FA_LIBS comctl32 crypt32 bcrypt)
 endif()

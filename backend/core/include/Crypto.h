@@ -336,4 +336,41 @@ bool IsEVMChain(ChainType chain);
 // Check if a chain uses Bitcoin-style addresses
 bool IsBitcoinChain(ChainType chain);
 
+// === TOTP (Time-based One-Time Password) Functions ===
+// Compatible with Google Authenticator, Authy, Microsoft Authenticator, etc.
+
+// HMAC-SHA1 for TOTP (RFC 4226/6238 requires SHA1)
+bool HMAC_SHA1(const std::vector<uint8_t> &key, const uint8_t *data, size_t data_len, 
+               std::vector<uint8_t> &out);
+
+// Generate a random TOTP secret (20 bytes = 160 bits, standard for most authenticators)
+bool GenerateTOTPSecret(std::vector<uint8_t> &secret, size_t length = 20);
+
+// Base32 encoding/decoding for TOTP secrets
+std::string Base32Encode(const std::vector<uint8_t> &data);
+std::vector<uint8_t> Base32Decode(const std::string &encoded);
+
+// Generate TOTP code for the current time (or specified timestamp)
+// Returns 6-digit code as string (with leading zeros if needed)
+// timestep: number of seconds per code (default 30 for most apps)
+// digits: number of digits in code (default 6)
+std::string GenerateTOTP(const std::vector<uint8_t> &secret, 
+                         uint64_t timestamp = 0,  // 0 = use current time
+                         uint32_t timestep = 30,
+                         uint32_t digits = 6);
+
+// Verify a TOTP code with time drift tolerance
+// window: number of time periods to check before/after current (default 1 = ±30 seconds)
+bool VerifyTOTP(const std::vector<uint8_t> &secret,
+                const std::string &code,
+                uint32_t window = 1,
+                uint32_t timestep = 30,
+                uint32_t digits = 6);
+
+// Generate otpauth:// URI for QR code generation
+// Format: otpauth://totp/Label?secret=BASE32SECRET&issuer=Issuer
+std::string GenerateTOTPUri(const std::string &secret_base32,
+                            const std::string &account_name,
+                            const std::string &issuer = "CriptoGualet");
+
 } // namespace Crypto

@@ -1,7 +1,6 @@
 #include "../../backend/core/include/Auth.h"
 #include "include/CriptoGualetQt.h"
 #include "../../backend/core/include/Crypto.h"
-#include "include/QtEmailVerificationDialog.h"
 #include "include/QtLoginUI.h"
 #include "include/QtSeedDisplayDialog.h"
 #include "include/QtSettingsUI.h"
@@ -262,79 +261,18 @@ void CriptoGualetQt::setupUI() {
           if (result == QDialog::Accepted && seedDialog.userConfirmedBackup()) {
             statusBar()->showMessage("Registration and backup completed", 3000);
             
-            // Email verification code should already be sent by RegisterUserWithMnemonic
-            // Show email verification dialog immediately
-            statusBar()->showMessage("Sending verification code to your email...", 3000);
+            // Registration complete - show success message
+            QMessageBox::information(
+                this, "Registration Complete",
+                QString("Account created for %1!\n\nYour seed phrase has been "
+                        "securely backed up.\n"
+                        "You can now sign in with your credentials.")
+                    .arg(username));
             
-            // Send verification code (in case it wasn't sent automatically)
-            auto sendResult = Auth::SendVerificationCode(stdUsername);
-            
-            if (sendResult.result == Auth::AuthResult::SUCCESS) {
-              // Show email verification dialog
-              QtEmailVerificationDialog verifyDlg(username, email, this);
-              
-              if (verifyDlg.exec() == QDialog::Accepted && verifyDlg.isVerified()) {
-                // Email verified successfully!
-                statusBar()->showMessage("Email verified! You can now sign in.", 3000);
-                QMessageBox::information(
-                    this, "Registration Complete",
-                    QString("Account created for %1!\n\nYour seed phrase has been "
-                            "securely backed up and your email has been verified.\n"
-                            "You can now sign in with your credentials.")
-                        .arg(username));
-                
-                // Clear registration fields and switch to sign in
-                m_loginUI->onRegisterResult(
-                    true,
-                    "Account created, seed phrase backed up, and email verified!");
-              } else {
-                // Verification canceled or failed
-                statusBar()->showMessage("Email verification incomplete", 5000);
-                QMessageBox::warning(
-                    this, "Email Verification Required",
-                    QString("Your account has been created, but you must verify "
-                            "your email before signing in.\n\n"
-                            "A verification code has been sent to %1.\n\n"
-                            "Please verify your email to complete registration.")
-                        .arg(email));
-                m_loginUI->onRegisterResult(true,
-                                            "Account created - please verify your "
-                                            "email before signing in");
-              }
-            } else {
-              // Failed to send verification code
-              statusBar()->showMessage("Failed to send verification code", 5000);
-              
-              // Provide user-friendly error message
-              QString errorMsg = QString::fromStdString(sendResult.message);
-              QString userFriendlyMsg;
-              
-              if (errorMsg.contains("not configured", Qt::CaseInsensitive) || 
-                  errorMsg.contains("WALLET_FROM_EMAIL", Qt::CaseInsensitive)) {
-                userFriendlyMsg = 
-                    "Your account has been created, but email verification is not configured.\n\n"
-                    "The email service needs to be set up. Please contact support or try signing in later.\n\n"
-                    "You can still sign in, but you'll need to verify your email when the service is available.";
-              } else if (errorMsg.contains("Invalid", Qt::CaseInsensitive)) {
-                userFriendlyMsg = 
-                    QString("Your account has been created, but there's an issue with the email address.\n\n"
-                            "Error: %1\n\n"
-                            "Please contact support to update your email address, or try signing in and use the 'Resend Code' option.")
-                        .arg(errorMsg);
-              } else {
-                userFriendlyMsg = 
-                    QString("Your account has been created, but we couldn't send "
-                            "a verification code to your email.\n\n"
-                            "Error: %1\n\n"
-                            "Please try signing in and use the 'Resend Code' option.")
-                        .arg(errorMsg);
-              }
-              
-              QMessageBox::warning(this, "Verification Code Error", userFriendlyMsg);
-              m_loginUI->onRegisterResult(true,
-                                          "Account created - email verification "
-                                          "code could not be sent");
-            }
+            // Clear registration fields and switch to sign in
+            m_loginUI->onRegisterResult(
+                true,
+                "Account created and seed phrase backed up!");
           } else {
             // User cancelled or didn't confirm backup
             statusBar()->showMessage("Registration completed - backup required",

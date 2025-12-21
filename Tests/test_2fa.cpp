@@ -1,7 +1,7 @@
 #include "../backend/core/include/Auth.h"
+#include "../backend/core/include/Crypto.h"
 #include "../backend/database/include/Database/DatabaseManager.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
-#include "../backend/utils/include/EmailService.h"
 #include <iostream>
 #include <filesystem>
 #include <thread>
@@ -17,14 +17,14 @@ extern "C" {
 }
 
 /**
- * 2FA (Two-Factor Authentication) Test Suite
+ * 2FA (Two-Factor Authentication) Test Suite - TOTP Version
  *
- * Tests the complete 2FA flow including:
- * - Email verification code generation and sending
- * - Code verification (valid, invalid, expired, rate limited)
- * - Enable/Disable 2FA
- * - Login with 2FA enabled
- * - Rate limiting for resend
+ * Tests the complete TOTP-based 2FA flow including:
+ * - TOTP secret generation
+ * - TOTP code verification (valid, invalid)
+ * - Enable/Disable 2FA with authenticator app
+ * - Login with 2FA enabled (TOTP_REQUIRED response)
+ * - Backup codes for recovery
  * - Edge cases and error handling
  *
  * NOTE: Tests run against the real wallet.db used by Auth.cpp
@@ -57,34 +57,6 @@ namespace {
             std::cerr << "FAILED: " << testName << std::endl;
         }
     }
-
-    // Helper to get verification code from database (for testing)
-    std::string getVerificationCodeFromDB(const std::string& username) {
-        try {
-            auto &dbManager = Database::DatabaseManager::getInstance();
-            std::string querySQL = "SELECT email_verification_code FROM users WHERE username = ?";
-            std::string code;
-            bool found = false;
-
-            auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
-                sqlite3_stmt* stmt = nullptr;
-                const char* tail = nullptr;
-                if (sqlite3_prepare_v2(db, querySQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
-                    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
-                    if (sqlite3_step(stmt) == SQLITE_ROW) {
-                        found = true;
-                        const unsigned char* codePtr = sqlite3_column_text(stmt, 0);
-                        code = codePtr ? reinterpret_cast<const char*>(codePtr) : "";
-                    }
-                    sqlite3_finalize(stmt);
-                }
-            });
-
-            return found ? code : "";
-        } catch (...) {
-            return "";
-        }
-    }
 }
 
 class TwoFactorAuthTests {
@@ -94,7 +66,7 @@ private:
 
 public:
     bool initialize() {
-        std::cout << "\n=== Initializing 2FA Tests ===" << std::endl;
+        std::cout << "\n=== Initializing TOTP 2FA Tests ===" << std::endl;
 
         try {
             cleanupTestDatabase();
@@ -127,19 +99,110 @@ public:
         cleanupTestDatabase();
     }
 
-    bool testSendVerificationCode() {
-        std::cout << "\n=== Test 1: Send Verification Code ===" << std::endl;
+    bool testTOTPGeneration() {
+        std::cout << "\n=== Test 1: TOTP Secret Generation ===" << std::endl;
+
+        bool allPassed = true;
+
+        // Test generating TOTP secret
+        {
+            std::vector<uint8_t> secret;
+            bool generated = Crypto::GenerateTOTPSecret(secret);
+            bool passed = generated && secret.size() == 20;  // 160 bits
+            logTestResult("Generate 160-bit TOTP secret", passed);
+            allPassed &= passed;
+        }
+
+        // Test Base32 encoding
+        {
+            std::vector<uint8_t> testData = {0x48, 0x65, 0x6C, 0x6C, 0x6F};  // "Hello"
+            std::string encoded = Crypto::Base32Encode(testData);
+            bool passed = !encoded.empty() && encoded == "JBSWY3DP";
+            logTestResult("Base32 encoding", passed);
+            allPassed &= passed;
+        }
+
+        // Test Base32 decoding
+        {
+            std::vector<uint8_t> decoded = Crypto::Base32Decode("JBSWY3DP");
+            bool passed = decoded.size() == 5 && 
+                         decoded[0] == 0x48 && 
+                         decoded[1] == 0x65;
+            logTestResult("Base32 decoding", passed);
+            allPassed &= passed;
+        }
+
+        // Test TOTP URI generation
+        {
+            std::string uri = Crypto::GenerateTOTPUri("JBSWY3DP", "testuser", "CriptoGualet");
+            bool passed = uri.find("otpauth://totp/") != std::string::npos &&
+                         uri.find("secret=JBSWY3DP") != std::string::npos &&
+                         uri.find("issuer=CriptoGualet") != std::string::npos;
+            logTestResult("TOTP URI generation", passed);
+            allPassed &= passed;
+        }
+
+        return allPassed;
+    }
+
+    bool testTOTPVerification() {
+        std::cout << "\n=== Test 2: TOTP Code Verification ===" << std::endl;
+
+        bool allPassed = true;
+
+        // Generate a test secret
+        std::vector<uint8_t> secret;
+        Crypto::GenerateTOTPSecret(secret);
+        std::string secretBase32 = Crypto::Base32Encode(secret);
+
+        // Generate and verify a code for current time
+        {
+            std::string code = Crypto::GenerateTOTP(secret);
+            bool passed = code.length() == 6;
+            logTestResult("Generate 6-digit TOTP code", passed);
+            allPassed &= passed;
+        }
+
+        // Verify generated code
+        {
+            std::string code = Crypto::GenerateTOTP(secret);
+            bool verified = Crypto::VerifyTOTP(secret, code);
+            logTestResult("Verify valid TOTP code", verified);
+            allPassed &= verified;
+        }
+
+        // Verify with window tolerance
+        {
+            // Code from 30 seconds ago should still work with window=1
+            uint64_t pastTime = static_cast<uint64_t>(std::time(nullptr)) - 30;
+            std::string pastCode = Crypto::GenerateTOTP(secret, pastTime);
+            bool verified = Crypto::VerifyTOTP(secret, pastCode, 1);
+            logTestResult("Verify TOTP code with time window", verified);
+            allPassed &= verified;
+        }
+
+        // Reject invalid code
+        {
+            bool rejected = !Crypto::VerifyTOTP(secret, "000000");
+            logTestResult("Reject invalid TOTP code", rejected);
+            allPassed &= rejected;
+        }
+
+        return allPassed;
+    }
+
+    bool testInitiateTwoFactorSetup() {
+        std::cout << "\n=== Test 3: Initiate 2FA Setup ===" << std::endl;
 
         bool allPassed = true;
 
         // Register a user first
-        std::string testUsername = "2fa_test_user1";
-        std::string testEmail = "2fa1@test.com";
+        std::string testUsername = "2fa_totp_user1";
         std::string testPassword = "TestP@ssw0rd1!";
         std::vector<std::string> mnemonic;
 
         Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
+            testUsername, "", testPassword, mnemonic
         );
 
         {
@@ -151,596 +214,329 @@ public:
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        // Test sending verification code
+        // Test initiating 2FA setup
         {
-            Auth::AuthResponse sendResponse = Auth::SendVerificationCode(testUsername);
-            bool passed = (sendResponse.result == Auth::AuthResult::SUCCESS || 
-                          sendResponse.result == Auth::AuthResult::SYSTEM_ERROR);
-            // SYSTEM_ERROR is acceptable if SMTP is not configured (for testing)
+            Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
+                testUsername, testPassword
+            );
+            bool passed = setupData.success && 
+                         !setupData.secretBase32.empty() &&
+                         !setupData.otpauthUri.empty();
             if (!passed) {
-                std::cerr << "Send code failed: " << sendResponse.message << std::endl;
+                std::cerr << "Setup failed: " << setupData.errorMessage << std::endl;
             }
-            logTestResult("Send verification code", passed);
+            logTestResult("Initiate 2FA setup", passed);
             allPassed &= passed;
         }
 
-        // Verify code was stored in database
+        // Test with wrong password
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            std::string code = getVerificationCodeFromDB(testUsername);
-            bool passed = !code.empty() && code.length() == 6;
-            if (!passed) {
-                std::cerr << "Code not found in database or invalid length. Code: '" << code << "'" << std::endl;
-            }
-            logTestResult("Verification code stored in database", passed);
+            Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
+                testUsername, "WrongPassword!"
+            );
+            bool passed = !setupData.success;
+            logTestResult("Reject setup with wrong password", passed);
             allPassed &= passed;
         }
 
-        // Test sending code to non-existent user
+        // Test with non-existent user
         {
-            Auth::AuthResponse sendResponse = Auth::SendVerificationCode("nonexistent_user");
-            bool passed = (sendResponse.result == Auth::AuthResult::USER_NOT_FOUND);
-            logTestResult("Send code to non-existent user fails", passed);
+            Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
+                "nonexistent_user", testPassword
+            );
+            bool passed = !setupData.success;
+            logTestResult("Reject setup for non-existent user", passed);
             allPassed &= passed;
         }
 
         return allPassed;
     }
 
-    bool testVerifyEmailCode() {
-        std::cout << "\n=== Test 2: Verify Email Code ===" << std::endl;
+    bool testConfirmTwoFactorSetup() {
+        std::cout << "\n=== Test 4: Confirm 2FA Setup ===" << std::endl;
 
         bool allPassed = true;
 
         // Register a user
-        std::string testUsername = "2fa_test_user2";
-        std::string testEmail = "2fa2@test.com";
+        std::string testUsername = "2fa_totp_user2";
         std::string testPassword = "TestP@ssw0rd2!";
         std::vector<std::string> mnemonic;
 
-        Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
+        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Initiate setup to get secret
+        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
+            testUsername, testPassword
         );
 
-        {
-            bool passed = (registerResponse.result == Auth::AuthResult::SUCCESS);
-            logTestResult("Register user for verification test", passed);
-            allPassed &= passed;
-            if (!passed) return false;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Send verification code
-        Auth::SendVerificationCode(testUsername);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Get the code from database
-        std::string correctCode = getVerificationCodeFromDB(testUsername);
-
-        if (correctCode.empty()) {
-            std::cerr << "Could not retrieve code from database" << std::endl;
-            logTestResult("Verify with correct code", false);
+        if (!setupData.success) {
+            std::cerr << "Could not initiate setup for confirm test" << std::endl;
             return false;
         }
 
-        // Test verifying with correct code
+        // Decode the secret
+        std::vector<uint8_t> secret = Crypto::Base32Decode(setupData.secretBase32);
+
+        // Generate valid TOTP code
+        std::string validCode = Crypto::GenerateTOTP(secret);
+
+        // Test confirming with valid code
         {
-            Auth::AuthResponse verifyResponse = Auth::VerifyEmailCode(testUsername, correctCode);
-            bool passed = (verifyResponse.result == Auth::AuthResult::SUCCESS);
+            Auth::AuthResponse confirmResponse = Auth::ConfirmTwoFactorSetup(
+                testUsername, validCode
+            );
+            bool passed = confirmResponse.success();
             if (!passed) {
-                std::cerr << "Verification failed: " << verifyResponse.message << std::endl;
+                std::cerr << "Confirm failed: " << confirmResponse.message << std::endl;
             }
-            logTestResult("Verify with correct code", passed);
+            logTestResult("Confirm 2FA setup with valid code", passed);
             allPassed &= passed;
         }
 
-        // Verify email is now marked as verified
+        // Verify 2FA is now enabled
         {
-            bool isVerified = Auth::IsEmailVerified(testUsername);
-            bool passed = isVerified;
-            if (!passed) {
-                std::cerr << "Email not marked as verified after successful verification" << std::endl;
-            }
-            logTestResult("Email marked as verified", passed);
-            allPassed &= passed;
+            bool enabled = Auth::IsTwoFactorEnabled(testUsername);
+            logTestResult("2FA is enabled after confirmation", enabled);
+            allPassed &= enabled;
         }
 
-        // Test verifying with wrong code
+        // Test confirming with invalid code (for another user)
         {
-            // Register another user for this test
-            std::string testUsername2 = "2fa_test_user2b";
-            std::string testEmail2 = "2fa2b@test.com";
-            std::vector<std::string> mnemonic2;
-            Auth::RegisterUserWithMnemonic(testUsername2, testEmail2, testPassword, mnemonic2);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-            Auth::SendVerificationCode(testUsername2);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-            Auth::AuthResponse verifyResponse = Auth::VerifyEmailCode(testUsername2, "000000");
-            bool passed = (verifyResponse.result == Auth::AuthResult::INVALID_CREDENTIALS);
-            logTestResult("Verify with wrong code fails", passed);
-            allPassed &= passed;
-        }
-
-        // Test verifying with non-existent user
-        {
-            Auth::AuthResponse verifyResponse = Auth::VerifyEmailCode("nonexistent_user", "123456");
-            bool passed = (verifyResponse.result == Auth::AuthResult::USER_NOT_FOUND);
-            logTestResult("Verify code for non-existent user fails", passed);
-            allPassed &= passed;
-        }
-
-        return allPassed;
-    }
-
-    bool testEnableTwoFactorAuth() {
-        std::cout << "\n=== Test 3: Enable Two-Factor Authentication ===" << std::endl;
-
-        bool allPassed = true;
-
-        // Register a user
-        std::string testUsername = "2fa_test_user3";
-        std::string testEmail = "2fa3@test.com";
-        std::string testPassword = "TestP@ssw0rd3!";
-        std::vector<std::string> mnemonic;
-
-        Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
-        );
-
-        {
-            bool passed = (registerResponse.result == Auth::AuthResult::SUCCESS);
-            logTestResult("Register user for enable 2FA test", passed);
-            allPassed &= passed;
-            if (!passed) return false;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Verify 2FA is not enabled initially
-        {
-            bool isVerified = Auth::IsEmailVerified(testUsername);
-            bool passed = !isVerified;
-            logTestResult("2FA not enabled initially", passed);
-            allPassed &= passed;
-        }
-
-        // Test enabling 2FA with correct password
-        {
-            Auth::AuthResponse enableResponse = Auth::EnableTwoFactorAuth(testUsername, testPassword);
-            bool passed = (enableResponse.result == Auth::AuthResult::SUCCESS || 
-                          enableResponse.result == Auth::AuthResult::SYSTEM_ERROR);
-            // SYSTEM_ERROR is acceptable if SMTP is not configured
-            if (!passed) {
-                std::cerr << "Enable 2FA failed: " << enableResponse.message << std::endl;
-            }
-            logTestResult("Enable 2FA with correct password", passed);
-            allPassed &= passed;
-        }
-
-        // Test enabling 2FA with wrong password
-        {
-            std::string testUsername2 = "2fa_test_user3b";
-            std::string testEmail2 = "2fa3b@test.com";
-            std::vector<std::string> mnemonic2;
-            Auth::RegisterUserWithMnemonic(testUsername2, testEmail2, testPassword, mnemonic2);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-            Auth::AuthResponse enableResponse = Auth::EnableTwoFactorAuth(testUsername2, "WrongPassword!");
-            bool passed = (enableResponse.result == Auth::AuthResult::INVALID_CREDENTIALS);
-            logTestResult("Enable 2FA with wrong password fails", passed);
-            allPassed &= passed;
-        }
-
-        // Test enabling 2FA when already enabled
-        {
-            // First enable it properly
-            std::string testUsername3 = "2fa_test_user3c";
-            std::string testEmail3 = "2fa3c@test.com";
+            std::string testUsername3 = "2fa_totp_user3";
             std::vector<std::string> mnemonic3;
-            Auth::RegisterUserWithMnemonic(testUsername3, testEmail3, testPassword, mnemonic3);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            Auth::RegisterUserWithMnemonic(testUsername3, "", testPassword, mnemonic3);
+            Auth::InitiateTwoFactorSetup(testUsername3, testPassword);
 
-            // Send and verify code to enable 2FA
-            Auth::SendVerificationCode(testUsername3);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            std::string code = getVerificationCodeFromDB(testUsername3);
-            if (!code.empty()) {
-                Auth::VerifyEmailCode(testUsername3, code);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
-
-            // Try to enable again
-            Auth::AuthResponse enableResponse = Auth::EnableTwoFactorAuth(testUsername3, testPassword);
-            bool passed = (enableResponse.result == Auth::AuthResult::SUCCESS);
-            // Should return SUCCESS with message that it's already enabled
-            logTestResult("Enable 2FA when already enabled", passed);
+            Auth::AuthResponse confirmResponse = Auth::ConfirmTwoFactorSetup(
+                testUsername3, "000000"
+            );
+            bool passed = !confirmResponse.success();
+            logTestResult("Reject invalid confirmation code", passed);
             allPassed &= passed;
         }
 
         return allPassed;
     }
 
-    bool testDisableTwoFactorAuth() {
-        std::cout << "\n=== Test 4: Disable Two-Factor Authentication ===" << std::endl;
-
-        bool allPassed = true;
-
-        // Register and enable 2FA for a user
-        std::string testUsername = "2fa_test_user4";
-        std::string testEmail = "2fa4@test.com";
-        std::string testPassword = "TestP@ssw0rd4!";
-        std::vector<std::string> mnemonic;
-
-        Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
-        );
-
-        {
-            bool passed = (registerResponse.result == Auth::AuthResult::SUCCESS);
-            logTestResult("Register user for disable 2FA test", passed);
-            allPassed &= passed;
-            if (!passed) return false;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Enable 2FA by sending and verifying code
-        Auth::SendVerificationCode(testUsername);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        std::string code = getVerificationCodeFromDB(testUsername);
-        if (!code.empty()) {
-            Auth::VerifyEmailCode(testUsername, code);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-
-        // Verify 2FA is enabled
-        {
-            bool isVerified = Auth::IsEmailVerified(testUsername);
-            bool passed = isVerified;
-            logTestResult("2FA enabled before disable test", passed);
-            allPassed &= passed;
-        }
-
-        // Test disabling 2FA with correct password
-        {
-            Auth::AuthResponse disableResponse = Auth::DisableTwoFactorAuth(testUsername, testPassword);
-            bool passed = (disableResponse.result == Auth::AuthResult::SUCCESS);
-            if (!passed) {
-                std::cerr << "Disable 2FA failed: " << disableResponse.message << std::endl;
-            }
-            logTestResult("Disable 2FA with correct password", passed);
-            allPassed &= passed;
-        }
-
-        // Verify 2FA is now disabled
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            bool isVerified = Auth::IsEmailVerified(testUsername);
-            bool passed = !isVerified;
-            if (!passed) {
-                std::cerr << "2FA still enabled after disable" << std::endl;
-            }
-            logTestResult("2FA disabled after disable call", passed);
-            allPassed &= passed;
-        }
-
-        // Test disabling 2FA with wrong password
-        {
-            // Enable 2FA again for another user
-            std::string testUsername2 = "2fa_test_user4b";
-            std::string testEmail2 = "2fa4b@test.com";
-            std::vector<std::string> mnemonic2;
-            Auth::RegisterUserWithMnemonic(testUsername2, testEmail2, testPassword, mnemonic2);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-            Auth::SendVerificationCode(testUsername2);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            std::string code2 = getVerificationCodeFromDB(testUsername2);
-            if (!code2.empty()) {
-                Auth::VerifyEmailCode(testUsername2, code2);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
-
-            Auth::AuthResponse disableResponse = Auth::DisableTwoFactorAuth(testUsername2, "WrongPassword!");
-            bool passed = (disableResponse.result == Auth::AuthResult::INVALID_CREDENTIALS);
-            logTestResult("Disable 2FA with wrong password fails", passed);
-            allPassed &= passed;
-        }
-
-        // Test disabling 2FA when already disabled
-        {
-            Auth::AuthResponse disableResponse = Auth::DisableTwoFactorAuth(testUsername, testPassword);
-            bool passed = (disableResponse.result == Auth::AuthResult::SUCCESS);
-            // Should return SUCCESS with message that it's already disabled
-            logTestResult("Disable 2FA when already disabled", passed);
-            allPassed &= passed;
-        }
-
-        return allPassed;
-    }
-
-    bool testLoginWith2FA() {
+    bool testLoginWithTwoFactor() {
         std::cout << "\n=== Test 5: Login with 2FA Enabled ===" << std::endl;
 
         bool allPassed = true;
 
-        // Register a user
-        std::string testUsername = "2fa_test_user5";
-        std::string testEmail = "2fa5@test.com";
+        // Register and enable 2FA for a user
+        std::string testUsername = "2fa_totp_user4";
+        std::string testPassword = "TestP@ssw0rd4!";
+        std::vector<std::string> mnemonic;
+
+        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Enable 2FA
+        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
+            testUsername, testPassword
+        );
+        std::vector<uint8_t> secret = Crypto::Base32Decode(setupData.secretBase32);
+        std::string validCode = Crypto::GenerateTOTP(secret);
+        Auth::ConfirmTwoFactorSetup(testUsername, validCode);
+
+        // Test login - should require TOTP
+        {
+            Auth::AuthResponse loginResponse = Auth::LoginUser(testUsername, testPassword);
+            bool passed = !loginResponse.success() && 
+                         loginResponse.message.find("TOTP_REQUIRED") != std::string::npos;
+            logTestResult("Login requires TOTP when 2FA enabled", passed);
+            allPassed &= passed;
+        }
+
+        // Test TOTP verification
+        {
+            std::string currentCode = Crypto::GenerateTOTP(secret);
+            Auth::AuthResponse verifyResponse = Auth::VerifyTwoFactorCode(
+                testUsername, currentCode
+            );
+            bool passed = verifyResponse.success();
+            logTestResult("Verify TOTP code for login", passed);
+            allPassed &= passed;
+        }
+
+        // Test with invalid TOTP
+        {
+            Auth::AuthResponse verifyResponse = Auth::VerifyTwoFactorCode(
+                testUsername, "000000"
+            );
+            bool passed = !verifyResponse.success();
+            logTestResult("Reject invalid TOTP for login", passed);
+            allPassed &= passed;
+        }
+
+        return allPassed;
+    }
+
+    bool testDisableTwoFactor() {
+        std::cout << "\n=== Test 6: Disable 2FA ===" << std::endl;
+
+        bool allPassed = true;
+
+        // Register and enable 2FA
+        std::string testUsername = "2fa_totp_user5";
         std::string testPassword = "TestP@ssw0rd5!";
         std::vector<std::string> mnemonic;
 
-        Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
+        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
+            testUsername, testPassword
         );
+        std::vector<uint8_t> secret = Crypto::Base32Decode(setupData.secretBase32);
+        std::string validCode = Crypto::GenerateTOTP(secret);
+        Auth::ConfirmTwoFactorSetup(testUsername, validCode);
 
+        // Verify 2FA is enabled
         {
-            bool passed = (registerResponse.result == Auth::AuthResult::SUCCESS);
-            logTestResult("Register user for login with 2FA test", passed);
+            bool enabled = Auth::IsTwoFactorEnabled(testUsername);
+            bool passed = enabled;
+            logTestResult("2FA is enabled before disable test", passed);
             allPassed &= passed;
-            if (!passed) return false;
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Verify email is NOT verified initially
+        // Test disabling with wrong password
         {
-            bool isVerified = Auth::IsEmailVerified(testUsername);
-            bool passed = !isVerified;
+            std::string currentCode = Crypto::GenerateTOTP(secret);
+            Auth::AuthResponse response = Auth::DisableTwoFactor(
+                testUsername, "WrongPassword!", currentCode
+            );
+            bool passed = !response.success();
+            logTestResult("Reject disable with wrong password", passed);
+            allPassed &= passed;
+        }
+
+        // Test disabling with wrong TOTP
+        {
+            Auth::AuthResponse response = Auth::DisableTwoFactor(
+                testUsername, testPassword, "000000"
+            );
+            bool passed = !response.success();
+            logTestResult("Reject disable with wrong TOTP", passed);
+            allPassed &= passed;
+        }
+
+        // Test disabling with correct credentials
+        {
+            std::string currentCode = Crypto::GenerateTOTP(secret);
+            Auth::AuthResponse response = Auth::DisableTwoFactor(
+                testUsername, testPassword, currentCode
+            );
+            bool passed = response.success();
             if (!passed) {
-                std::cerr << "Email should not be verified initially, but IsEmailVerified returned true" << std::endl;
+                std::cerr << "Disable failed: " << response.message << std::endl;
             }
-            logTestResult("Email not verified initially", passed);
+            logTestResult("Disable 2FA with correct credentials", passed);
             allPassed &= passed;
         }
 
-        // Send verification code but DO NOT verify it - email should remain unverified
-        Auth::SendVerificationCode(testUsername);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Verify email is still NOT verified after sending code
+        // Verify 2FA is disabled
         {
-            bool isVerified = Auth::IsEmailVerified(testUsername);
-            bool passed = !isVerified;
-            if (!passed) {
-                std::cerr << "Email should not be verified after sending code (without verifying), but IsEmailVerified returned true" << std::endl;
-            }
-            logTestResult("Email still not verified after sending code", passed);
-            allPassed &= passed;
-        }
-
-        // Test login with 2FA enabled but email NOT verified (should require email verification)
-        {
-            Auth::AuthResponse loginResponse = Auth::LoginUser(testUsername, testPassword);
-            // Should return EMAIL_NOT_VERIFIED message when email is not verified
-            bool passed = (!loginResponse.success() && 
-                          loginResponse.message.find("EMAIL_NOT_VERIFIED") != std::string::npos);
-            if (!passed) {
-                std::cerr << "Login response: " << loginResponse.message << std::endl;
-                std::cerr << "Login succeeded when it should have failed (email not verified)" << std::endl;
-            }
-            logTestResult("Login with 2FA enabled requires verification", passed);
-            allPassed &= passed;
-        }
-
-        // Now verify email and test that login succeeds after verification
-        {
-            std::string code = getVerificationCodeFromDB(testUsername);
-            if (!code.empty()) {
-                Auth::VerifyEmailCode(testUsername, code);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                
-                Auth::AuthResponse loginResponse = Auth::LoginUser(testUsername, testPassword);
-                bool passed = loginResponse.success();
-                if (!passed) {
-                    std::cerr << "Login should succeed after email verification, got: " << loginResponse.message << std::endl;
-                }
-                logTestResult("Login succeeds after email verification", passed);
-                allPassed &= passed;
-            }
+            bool disabled = !Auth::IsTwoFactorEnabled(testUsername);
+            logTestResult("2FA is disabled after disable call", disabled);
+            allPassed &= disabled;
         }
 
         return allPassed;
     }
 
-    bool testResendVerificationCode() {
-        std::cout << "\n=== Test 6: Resend Verification Code with Rate Limiting ===" << std::endl;
+    bool testBackupCodes() {
+        std::cout << "\n=== Test 7: Backup Codes ===" << std::endl;
 
         bool allPassed = true;
 
-        // Register a user
-        std::string testUsername = "2fa_test_user6";
-        std::string testEmail = "2fa6@test.com";
+        // Register and enable 2FA
+        std::string testUsername = "2fa_totp_user6";
         std::string testPassword = "TestP@ssw0rd6!";
         std::vector<std::string> mnemonic;
 
-        Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
+        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
+            testUsername, testPassword
+        );
+        std::vector<uint8_t> secret = Crypto::Base32Decode(setupData.secretBase32);
+        std::string validCode = Crypto::GenerateTOTP(secret);
+        Auth::ConfirmTwoFactorSetup(testUsername, validCode);
+
+        // Get backup codes
+        Auth::BackupCodesResult backupResult = Auth::GetBackupCodes(
+            testUsername, testPassword
         );
 
         {
-            bool passed = (registerResponse.result == Auth::AuthResult::SUCCESS);
-            logTestResult("Register user for resend test", passed);
+            bool passed = backupResult.success && backupResult.codes.size() == 8;
+            logTestResult("Get 8 backup codes after enabling 2FA", passed);
             allPassed &= passed;
-            if (!passed) return false;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // First send a verification code
-        {
-            Auth::AuthResponse sendResponse = Auth::SendVerificationCode(testUsername);
-            bool passed = (sendResponse.result == Auth::AuthResult::SUCCESS || 
-                          sendResponse.result == Auth::AuthResult::SYSTEM_ERROR);
-            // SYSTEM_ERROR is acceptable if SMTP is not configured
-            logTestResult("Send initial verification code", passed);
-            allPassed &= passed;
-            if (!passed) return false;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Test immediate resend (should be rate limited - 60 second cooldown)
-        {
-            Auth::AuthResponse resendResponse = Auth::ResendVerificationCode(testUsername);
-            bool passed = (resendResponse.result == Auth::AuthResult::RATE_LIMITED);
             if (!passed) {
-                std::cerr << "Expected RATE_LIMITED for immediate resend, got: " 
-                         << static_cast<int>(resendResponse.result) << " - " 
-                         << resendResponse.message << std::endl;
+                std::cerr << "Backup codes error: " << backupResult.errorMessage << std::endl;
+                return allPassed;
             }
-            logTestResult("Immediate resend is rate limited", passed);
+        }
+
+        // Test using a backup code
+        std::string backupCode = backupResult.codes[0];
+        {
+            Auth::AuthResponse response = Auth::UseBackupCode(testUsername, backupCode);
+            bool passed = response.success();
+            if (!passed) {
+                std::cerr << "Backup code failed: " << response.message << std::endl;
+            }
+            logTestResult("Use valid backup code to disable 2FA", passed);
+            allPassed &= passed;
+        }
+
+        // Verify 2FA is disabled
+        {
+            bool disabled = !Auth::IsTwoFactorEnabled(testUsername);
+            logTestResult("2FA is disabled after using backup code", disabled);
+            allPassed &= disabled;
+        }
+
+        // Test using same backup code again (should fail)
+        {
+            Auth::AuthResponse response = Auth::UseBackupCode(testUsername, backupCode);
+            bool passed = !response.success();
+            logTestResult("Reject reused backup code", passed);
             allPassed &= passed;
         }
 
         return allPassed;
     }
 
-    bool testVerificationCodeExpiration() {
-        std::cout << "\n=== Test 7: Verification Code Expiration ===" << std::endl;
+    bool testLoginWithoutTwoFactor() {
+        std::cout << "\n=== Test 8: Login Without 2FA ===" << std::endl;
 
         bool allPassed = true;
 
-        // Register a user
-        std::string testUsername = "2fa_test_user7";
-        std::string testEmail = "2fa7@test.com";
+        // Register a user without enabling 2FA
+        std::string testUsername = "2fa_totp_user7";
         std::string testPassword = "TestP@ssw0rd7!";
         std::vector<std::string> mnemonic;
 
-        Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
-        );
-
-        {
-            bool passed = (registerResponse.result == Auth::AuthResult::SUCCESS);
-            logTestResult("Register user for expiration test", passed);
-            allPassed &= passed;
-            if (!passed) return false;
-        }
-
+        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        // Send code
-        Auth::SendVerificationCode(testUsername);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        std::string code = getVerificationCodeFromDB(testUsername);
-
-        if (code.empty()) {
-            std::cerr << "Could not retrieve code for expiration test" << std::endl;
-            return false;
-        }
-
-        // Manually expire the code in database (set expiration to past)
-        // Note: There's a timezone bug in Auth.cpp - it stores UTC but parses as local time
-        // So we need to set expiration far enough in the past to account for timezone differences
-        // Using 24 hours ago to ensure it's expired regardless of timezone offset
-        try {
-            auto &dbManager = Database::DatabaseManager::getInstance();
-            // Set expiration to 24 hours ago to ensure it's expired regardless of timezone
-            std::string expireSQL = "UPDATE users SET verification_code_expires_at = datetime('now', '-24 hours') WHERE username = ?";
-            auto expireResult = dbManager.executeQuery(expireSQL, {testUsername});
-            if (!expireResult.success) {
-                std::cerr << "Could not manually expire code: " << expireResult.message << std::endl;
-                return false;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            
-            // Verify the expiration was set correctly by reading it back
-            std::string checkSQL = "SELECT verification_code_expires_at FROM users WHERE username = ?";
-            std::string storedExpiration;
-            auto checkResult = dbManager.executeQuery(checkSQL, {testUsername}, [&](sqlite3* db) {
-                sqlite3_stmt* stmt = nullptr;
-                const char* tail = nullptr;
-                if (sqlite3_prepare_v2(db, checkSQL.c_str(), -1, &stmt, &tail) == SQLITE_OK) {
-                    sqlite3_bind_text(stmt, 1, testUsername.c_str(), -1, SQLITE_STATIC);
-                    if (sqlite3_step(stmt) == SQLITE_ROW) {
-                        const unsigned char* expiresPtr = sqlite3_column_text(stmt, 0);
-                        storedExpiration = expiresPtr ? reinterpret_cast<const char*>(expiresPtr) : "";
-                    }
-                    sqlite3_finalize(stmt);
-                }
-            });
-            
-            if (storedExpiration.empty()) {
-                std::cerr << "Warning: Could not verify expiration was set" << std::endl;
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "Could not manually expire code: " << e.what() << std::endl;
-            return false;
-        }
-
-        // Test verifying expired code
+        // Test normal login without 2FA
         {
-            Auth::AuthResponse verifyResponse = Auth::VerifyEmailCode(testUsername, code);
-            // Should fail with INVALID_CREDENTIALS and message containing "expired"
-            bool passed = (verifyResponse.result == Auth::AuthResult::INVALID_CREDENTIALS &&
-                          (verifyResponse.message.find("expired") != std::string::npos ||
-                           verifyResponse.message.find("Expired") != std::string::npos ||
-                           verifyResponse.message.find("EXPIRED") != std::string::npos));
-            if (!passed) {
-                std::cerr << "Expected expired code error, got result: " 
-                         << static_cast<int>(verifyResponse.result) 
-                         << ", message: " << verifyResponse.message << std::endl;
-                std::cerr << "Note: This might indicate a timezone bug in Auth.cpp expiration checking" << std::endl;
-            }
-            logTestResult("Expired code verification fails", passed);
+            Auth::AuthResponse loginResponse = Auth::LoginUser(testUsername, testPassword);
+            bool passed = loginResponse.success();
+            logTestResult("Login succeeds without 2FA", passed);
             allPassed &= passed;
         }
 
-        return allPassed;
-    }
-
-    bool testVerificationAttemptLimit() {
-        std::cout << "\n=== Test 8: Verification Attempt Limit ===" << std::endl;
-
-        bool allPassed = true;
-
-        // Register a user
-        std::string testUsername = "2fa_test_user8";
-        std::string testEmail = "2fa8@test.com";
-        std::string testPassword = "TestP@ssw0rd8!";
-        std::vector<std::string> mnemonic;
-
-        Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
-        );
-
+        // Verify 2FA is not enabled
         {
-            bool passed = (registerResponse.result == Auth::AuthResult::SUCCESS);
-            logTestResult("Register user for attempt limit test", passed);
-            allPassed &= passed;
-            if (!passed) return false;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Send code
-        Auth::SendVerificationCode(testUsername);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-        // Manually set attempt count to 5 (max attempts)
-        try {
-            auto &dbManager = Database::DatabaseManager::getInstance();
-            std::string updateSQL = "UPDATE users SET verification_attempts = 5 WHERE username = ?";
-            dbManager.executeQuery(updateSQL, {testUsername});
-        } catch (...) {
-            std::cerr << "Could not set attempt count" << std::endl;
-            return false;
-        }
-
-        // Test verifying with max attempts reached
-        {
-            Auth::AuthResponse verifyResponse = Auth::VerifyEmailCode(testUsername, "123456");
-            bool passed = (verifyResponse.result == Auth::AuthResult::RATE_LIMITED);
-            if (!passed) {
-                std::cerr << "Expected RATE_LIMITED, got: " << static_cast<int>(verifyResponse.result) 
-                         << " - " << verifyResponse.message << std::endl;
-            }
-            logTestResult("Verification with max attempts fails", passed);
-            allPassed &= passed;
+            bool notEnabled = !Auth::IsTwoFactorEnabled(testUsername);
+            logTestResult("2FA is not enabled for new user", notEnabled);
+            allPassed &= notEnabled;
         }
 
         return allPassed;
@@ -749,14 +545,14 @@ public:
     bool runAllTests() {
         bool allPassed = true;
 
-        allPassed &= testSendVerificationCode();
-        allPassed &= testVerifyEmailCode();
-        allPassed &= testEnableTwoFactorAuth();
-        allPassed &= testDisableTwoFactorAuth();
-        allPassed &= testLoginWith2FA();
-        allPassed &= testResendVerificationCode();
-        allPassed &= testVerificationCodeExpiration();
-        allPassed &= testVerificationAttemptLimit();
+        allPassed &= testTOTPGeneration();
+        allPassed &= testTOTPVerification();
+        allPassed &= testInitiateTwoFactorSetup();
+        allPassed &= testConfirmTwoFactorSetup();
+        allPassed &= testLoginWithTwoFactor();
+        allPassed &= testDisableTwoFactor();
+        allPassed &= testBackupCodes();
+        allPassed &= testLoginWithoutTwoFactor();
 
         return allPassed;
     }
@@ -764,7 +560,7 @@ public:
 
 int main() {
     std::cout << "========================================" << std::endl;
-    std::cout << "  2FA (Two-Factor Authentication) Tests" << std::endl;
+    std::cout << "  TOTP 2FA (Authenticator App) Tests" << std::endl;
     std::cout << "========================================" << std::endl;
 
     TwoFactorAuthTests tests;
@@ -788,4 +584,3 @@ int main() {
 
     return allPassed ? 0 : 1;
 }
-

@@ -9,7 +9,9 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstring>
+#include <ctime>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -1601,6 +1603,9 @@ static void WriteUInt64LE(std::vector<uint8_t> &out, uint64_t value) {
 
 // Helper: Decode Base58Check to get payload (without version byte and checksum)
 static bool DecodeBase58Check(const std::string &address, std::vector<uint8_t> &payload) {
+  // Suppress unused parameter warnings until full implementation
+  (void)address;
+  (void)payload;
   // This is a simplified version - in production, implement full Base58 decoding
   // For now, return empty to indicate we need full implementation
   // TODO: Implement proper Base58 decoding
@@ -2027,7 +2032,7 @@ bool EIP55_ToChecksumAddress(const std::string &address, std::string &checksumme
 
       // Capitalize if nibble >= 8
       if (nibble >= 8) {
-        c = std::toupper(static_cast<unsigned char>(c));
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
       }
     }
 
@@ -2394,6 +2399,210 @@ std::optional<ChainType> DetectAddressChain(const std::string &address) {
   }
 
   return std::nullopt;
+}
+
+// === TOTP (Time-based One-Time Password) Functions ===
+
+bool HMAC_SHA1(const std::vector<uint8_t> &key, const uint8_t *data, size_t data_len, 
+               std::vector<uint8_t> &out) {
+  BCRYPT_ALG_HANDLE hAlg = nullptr;
+  NTSTATUS status = BCryptOpenAlgorithmProvider(
+      &hAlg, BCRYPT_SHA1_ALGORITHM, nullptr, BCRYPT_ALG_HANDLE_HMAC_FLAG);
+  if (!BCRYPT_SUCCESS(status)) return false;
+
+  // SHA1 produces 20 bytes
+  out.resize(20);
+  BCRYPT_HASH_HANDLE hHash = nullptr;
+  status = BCryptCreateHash(hAlg, &hHash, nullptr, 0,
+                            (PUCHAR)key.data(), (ULONG)key.size(), 0);
+  if (!BCRYPT_SUCCESS(status)) {
+    BCryptCloseAlgorithmProvider(hAlg, 0);
+    return false;
+  }
+
+  status = BCryptHashData(hHash, (PUCHAR)data, (ULONG)data_len, 0);
+  if (!BCRYPT_SUCCESS(status)) {
+    BCryptDestroyHash(hHash);
+    BCryptCloseAlgorithmProvider(hAlg, 0);
+    return false;
+  }
+
+  status = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
+  BCryptDestroyHash(hHash);
+  BCryptCloseAlgorithmProvider(hAlg, 0);
+  return BCRYPT_SUCCESS(status);
+}
+
+bool GenerateTOTPSecret(std::vector<uint8_t> &secret, size_t length) {
+  secret.resize(length);
+  return RandBytes(secret.data(), length);
+}
+
+// Base32 alphabet (RFC 4648)
+static const char BASE32_ALPHABET[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+std::string Base32Encode(const std::vector<uint8_t> &data) {
+  if (data.empty()) return "";
+  
+  std::string result;
+  result.reserve((data.size() * 8 + 4) / 5);
+  
+  int buffer = 0;
+  int bitsLeft = 0;
+  
+  for (uint8_t byte : data) {
+    buffer = (buffer << 8) | byte;
+    bitsLeft += 8;
+    while (bitsLeft >= 5) {
+      bitsLeft -= 5;
+      result += BASE32_ALPHABET[(buffer >> bitsLeft) & 0x1F];
+    }
+  }
+  
+  if (bitsLeft > 0) {
+    result += BASE32_ALPHABET[(buffer << (5 - bitsLeft)) & 0x1F];
+  }
+  
+  // Add padding to make length multiple of 8
+  while (result.size() % 8 != 0) {
+    result += '=';
+  }
+  
+  return result;
+}
+
+std::vector<uint8_t> Base32Decode(const std::string &encoded) {
+  std::vector<uint8_t> result;
+  if (encoded.empty()) return result;
+  
+  int buffer = 0;
+  int bitsLeft = 0;
+  
+  for (char c : encoded) {
+    if (c == '=' || c == ' ') continue;  // Skip padding and spaces
+    
+    // Find character in alphabet
+    int value = -1;
+    if (c >= 'A' && c <= 'Z') {
+      value = c - 'A';
+    } else if (c >= 'a' && c <= 'z') {
+      value = c - 'a';  // Case insensitive
+    } else if (c >= '2' && c <= '7') {
+      value = c - '2' + 26;
+    }
+    
+    if (value < 0) continue;  // Invalid character
+    
+    buffer = (buffer << 5) | value;
+    bitsLeft += 5;
+    
+    if (bitsLeft >= 8) {
+      bitsLeft -= 8;
+      result.push_back(static_cast<uint8_t>((buffer >> bitsLeft) & 0xFF));
+    }
+  }
+  
+  return result;
+}
+
+std::string GenerateTOTP(const std::vector<uint8_t> &secret, 
+                         uint64_t timestamp,
+                         uint32_t timestep,
+                         uint32_t digits) {
+  // Use current time if timestamp not specified
+  if (timestamp == 0) {
+    timestamp = static_cast<uint64_t>(std::time(nullptr));
+  }
+  
+  // Calculate time counter (number of time steps since Unix epoch)
+  uint64_t counter = timestamp / timestep;
+  
+  // Convert counter to big-endian bytes
+  uint8_t counterBytes[8];
+  for (int i = 7; i >= 0; i--) {
+    counterBytes[i] = static_cast<uint8_t>(counter & 0xFF);
+    counter >>= 8;
+  }
+  
+  // Calculate HMAC-SHA1
+  std::vector<uint8_t> hmacResult;
+  if (!HMAC_SHA1(secret, counterBytes, 8, hmacResult)) {
+    return "";
+  }
+  
+  // Dynamic truncation (RFC 4226)
+  int offset = hmacResult[19] & 0x0F;
+  uint32_t binary = 
+      ((hmacResult[offset] & 0x7F) << 24) |
+      ((hmacResult[offset + 1] & 0xFF) << 16) |
+      ((hmacResult[offset + 2] & 0xFF) << 8) |
+      (hmacResult[offset + 3] & 0xFF);
+  
+  // Generate OTP of specified digits
+  uint32_t otp = binary % static_cast<uint32_t>(std::pow(10, digits));
+  
+  // Format with leading zeros
+  std::ostringstream oss;
+  oss << std::setw(digits) << std::setfill('0') << otp;
+  return oss.str();
+}
+
+bool VerifyTOTP(const std::vector<uint8_t> &secret,
+                const std::string &code,
+                uint32_t window,
+                uint32_t timestep,
+                uint32_t digits) {
+  uint64_t currentTime = static_cast<uint64_t>(std::time(nullptr));
+  
+  // Check codes within the time window
+  for (int i = -static_cast<int>(window); i <= static_cast<int>(window); i++) {
+    uint64_t checkTime = currentTime + (i * timestep);
+    std::string expectedCode = GenerateTOTP(secret, checkTime, timestep, digits);
+    
+    // Constant-time comparison to prevent timing attacks
+    if (code.length() == expectedCode.length()) {
+      bool match = true;
+      for (size_t j = 0; j < code.length(); j++) {
+        if (code[j] != expectedCode[j]) match = false;
+      }
+      if (match) return true;
+    }
+  }
+  
+  return false;
+}
+
+std::string GenerateTOTPUri(const std::string &secret_base32,
+                            const std::string &account_name,
+                            const std::string &issuer) {
+  // URL encode special characters in account name and issuer
+  auto urlEncode = [](const std::string &str) -> std::string {
+    std::ostringstream encoded;
+    for (char c : str) {
+      if (std::isalnum(static_cast<unsigned char>(c)) || 
+          c == '-' || c == '_' || c == '.' || c == '~') {
+        encoded << c;
+      } else if (c == ' ') {
+        encoded << "%20";
+      } else {
+        encoded << '%' << std::hex << std::uppercase 
+                << std::setw(2) << std::setfill('0') 
+                << (static_cast<unsigned int>(static_cast<unsigned char>(c)));
+      }
+    }
+    return encoded.str();
+  };
+  
+  std::ostringstream uri;
+  uri << "otpauth://totp/";
+  uri << urlEncode(issuer) << ":" << urlEncode(account_name);
+  uri << "?secret=" << secret_base32;
+  uri << "&issuer=" << urlEncode(issuer);
+  uri << "&algorithm=SHA1";
+  uri << "&digits=6";
+  uri << "&period=30";
+  
+  return uri.str();
 }
 
 } // namespace Crypto
