@@ -14,8 +14,8 @@
 #include <vector>
 
 // Project headers before Windows headers to avoid macro conflicts
-#include "include/Auth.h"
-#include "include/Crypto.h"
+#include "Auth.h"
+#include "Crypto.h"
 #include "../database/include/Database/DatabaseManager.h"
 #include "../repository/include/Repository/UserRepository.h"
 #include "../repository/include/Repository/WalletRepository.h"

@@ -1,7 +1,7 @@
 // QtLoginUI.cpp
-#include "include/QtLoginUI.h"
+#include "QtLoginUI.h"
 #include "../../backend/core/include/Auth.h"
-#include "include/QtThemeManager.h"
+#include "QtThemeManager.h"
 
 #include <QApplication>
 #include <QComboBox>

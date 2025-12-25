@@ -6,7 +6,7 @@
  * This file addresses the gap in testing multi-chain functionality mentioned in the project guides.
  */
 
-#include "include/TestUtils.h"
+#include "TestUtils.h"
 #include "../backend/repository/include/Repository/WalletRepository.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
 #include "../backend/core/include/Crypto.h"

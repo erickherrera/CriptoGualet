@@ -1,4 +1,4 @@
-#include "include/QtThemeManager.h"
+#include "QtThemeManager.h"
 #include <QApplication>
 #include <QStyleFactory>
 

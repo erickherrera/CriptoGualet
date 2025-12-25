@@ -5,7 +5,7 @@
  * Tests transaction storage, retrieval, and balance calculation.
  */
 
-#include "include/TestUtils.h"
+#include "TestUtils.h"
 #include "../backend/repository/include/Repository/TransactionRepository.h"
 #include "../backend/repository/include/Repository/WalletRepository.h"
 #include "../backend/repository/include/Repository/UserRepository.h"

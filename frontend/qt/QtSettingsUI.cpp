@@ -1,6 +1,6 @@
-#include "include/QtSettingsUI.h"
-#include "include/QtThemeManager.h"
-#include "include/QtPasswordConfirmDialog.h"
+#include "QtSettingsUI.h"
+#include "QtThemeManager.h"
+#include "QtPasswordConfirmDialog.h"
 #include "../../backend/core/include/Auth.h"
 #include "../../backend/utils/include/QRGenerator.h"
 #include <QGroupBox>

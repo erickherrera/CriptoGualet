@@ -1,5 +1,5 @@
-#include "include/QtExpandableWalletCard.h"
-#include "include/QtThemeManager.h"
+#include "QtExpandableWalletCard.h"
+#include "QtThemeManager.h"
 #include <QEvent>
 #include <QMouseEvent>
 #include <QNetworkRequest>

@@ -1,9 +1,9 @@
 // QtWalletUI.cpp
-#include "include/QtWalletUI.h"
-#include "include/QtExpandableWalletCard.h"
-#include "include/QtThemeManager.h"
-#include "include/QtSendDialog.h"
-#include "include/QtReceiveDialog.h"
+#include "QtWalletUI.h"
+#include "QtExpandableWalletCard.h"
+#include "QtThemeManager.h"
+#include "QtSendDialog.h"
+#include "QtReceiveDialog.h"
 #include "../../backend/blockchain/include/PriceService.h"
 #include "../../backend/core/include/Crypto.h"
 

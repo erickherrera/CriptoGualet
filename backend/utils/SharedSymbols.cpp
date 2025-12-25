@@ -6,7 +6,7 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
-#include "include/SharedTypes.h"
+#include "SharedTypes.h"
 
 // Global variables needed by both Win32 and Qt versions
 std::map<std::string, User> g_users;

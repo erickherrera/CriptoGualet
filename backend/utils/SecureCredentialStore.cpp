@@ -1,4 +1,4 @@
-#include "include/SecureCredentialStore.h"
+#include "SecureCredentialStore.h"
 
 #define UNICODE
 #define _UNICODE

@@ -22,7 +22,7 @@
 #include <secp256k1.h>
 
 // Project headers
-#include "include/Crypto.h"
+#include "Crypto.h"
 
 #pragma comment(lib, "Bcrypt.lib")
 #pragma comment(lib, "Crypt32.lib")

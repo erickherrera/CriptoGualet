@@ -1,5 +1,5 @@
-#include "include/QtTopCryptosPage.h"
-#include "include/QtThemeManager.h"
+#include "QtTopCryptosPage.h"
+#include "QtThemeManager.h"
 #include <QGraphicsDropShadowEffect>
 #include <QPainter>
 #include <QPainterPath>

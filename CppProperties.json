@@ -2,10 +2,9 @@
   "configurations": [
     {
       "name": "Windows VS2022 Debug",
-      "configurationProvider": "ms-vscode.cmake-tools",
-      "compileCommands": "${workspaceFolder}/compile_commands.json",
+      "compileCommands": "${workspaceRoot}/compile_commands.json",
       "includePath": [
-        "${workspaceFolder}/**",
+        "${workspaceRoot}/**",
         "C:/Program Files/Qt/6.9.1/msvc2022_64/include",
         "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtCore",
         "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtWidgets",

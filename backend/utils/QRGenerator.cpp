@@ -1,4 +1,4 @@
-#include "include/QRGenerator.h"
+#include "QRGenerator.h"
 #include <stdexcept>
 #include <iostream>
 

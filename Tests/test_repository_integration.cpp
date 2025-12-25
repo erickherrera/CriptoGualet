@@ -5,7 +5,7 @@
  * Tests complete workflows: User → Wallet → Addresses → Transactions
  */
 
-#include "include/TestUtils.h"
+#include "TestUtils.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
 #include "../backend/repository/include/Repository/WalletRepository.h"
 #include "../backend/repository/include/Repository/TransactionRepository.h"

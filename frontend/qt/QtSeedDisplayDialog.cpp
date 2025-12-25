@@ -1,6 +1,6 @@
-#include "include/QtSeedDisplayDialog.h"
+#include "QtSeedDisplayDialog.h"
 #include "../../backend/utils/include/QRGenerator.h"
-#include "include/QtThemeManager.h"
+#include "QtThemeManager.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QFont>
