@@ -116,12 +116,11 @@ public:
 
         // Register a new user via Auth API
         std::string testUsername = "integration_test_user";
-        std::string testEmail = "integration@test.com";
         std::string testPassword = "SecureP@ssw0rd!";
         std::vector<std::string> mnemonic;
 
         Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
+            testUsername, testPassword, mnemonic
         );
 
         // Verify registration succeeded
@@ -150,15 +149,14 @@ public:
             allPassed &= passed;
         }
 
-        // Verify email was stored correctly
+        // Verify email was stored correctly (should be empty since email is not required)
         {
             auto userResult = userRepo->getUserByUsername(testUsername);
-            bool passed = userResult.success && userResult.data.email == testEmail;
+            bool passed = userResult.success && userResult.data.email.empty();
             if (!passed) {
-                std::cerr << "Email mismatch: expected '" << testEmail
-                         << "', got '" << userResult.data.email << "'" << std::endl;
+                std::cerr << "Email should be empty, got '" << userResult.data.email << "'" << std::endl;
             }
-            logTestResult("Email persisted correctly", passed);
+            logTestResult("Email persisted correctly (empty)", passed);
             allPassed &= passed;
         }
 
@@ -220,13 +218,12 @@ public:
         bool allPassed = true;
 
         std::string testUsername = "login_test_user";
-        std::string testEmail = "login@test.com";
         std::string testPassword = "LoginP@ssw0rd!";
         std::vector<std::string> mnemonic;
 
         // First register a user
         Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testEmail, testPassword, mnemonic
+            testUsername, testPassword, mnemonic
         );
 
         {
@@ -291,7 +288,7 @@ public:
 
         // Register first user
         Auth::AuthResponse firstRegister = Auth::RegisterUserWithMnemonic(
-            testUsername, "first@test.com", testPassword, mnemonic1
+            testUsername, testPassword, mnemonic1
         );
 
         {
@@ -305,7 +302,7 @@ public:
 
         // Try to register duplicate user
         Auth::AuthResponse secondRegister = Auth::RegisterUserWithMnemonic(
-            testUsername, "second@test.com", testPassword, mnemonic2
+            testUsername, testPassword, mnemonic2
         );
 
         {

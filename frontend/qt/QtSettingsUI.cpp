@@ -14,6 +14,7 @@
 #include <QDialogButtonBox>
 #include <QLabel>
 #include <QLineEdit>
+#include <QScrollArea>
 #include <QPixmap>
 #include <QImage>
 #include <QClipboard>
@@ -22,7 +23,10 @@
 extern std::string g_currentUser;
 
 QtSettingsUI::QtSettingsUI(QWidget *parent)
-    : QWidget(parent), m_themeManager(&QtThemeManager::instance()) {
+    : QWidget(parent), m_themeManager(&QtThemeManager::instance()),
+      m_2FATitleLabel(nullptr), m_2FAStatusLabel(nullptr),
+      m_enable2FAButton(nullptr), m_disable2FAButton(nullptr),
+      m_2FADescriptionLabel(nullptr) {
 
     setupUI();
     applyTheme();
@@ -37,35 +41,47 @@ void QtSettingsUI::setupUI() {
     outerLayout->setContentsMargins(0, 0, 0, 0);
     outerLayout->setSpacing(0);
 
+    // Use a Scroll Area for laptop screens
+    QScrollArea *scrollArea = new QScrollArea(this);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setStyleSheet("background-color: transparent; border: none;");
+
     // Center container with max width
-    QWidget *centerContainer = new QWidget(this);
+    QWidget *centerContainer = new QWidget();
     centerContainer->setMaximumWidth(900);
+    centerContainer->setStyleSheet("background-color: transparent;");
 
     m_mainLayout = new QVBoxLayout(centerContainer);
+    // Optimized for laptop screens (reduced margins/spacing)
     m_mainLayout->setContentsMargins(
-        m_themeManager->spacing(10),  // 40px
-        m_themeManager->spacing(10),  // 40px
-        m_themeManager->spacing(10),  // 40px
-        m_themeManager->spacing(10)   // 40px
+        m_themeManager->spacing(6),  // 24px (was 40px)
+        m_themeManager->spacing(5),  // 20px (was 40px)
+        m_themeManager->spacing(6),  // 24px (was 40px)
+        m_themeManager->spacing(5)   // 20px (was 40px)
     );
-    m_mainLayout->setSpacing(m_themeManager->spacing(8));  // 32px (was 30)
+    m_mainLayout->setSpacing(m_themeManager->spacing(4));  // 16px (was 32px)
+
+    scrollArea->setWidget(centerContainer);
 
     // Add stretch before and after to center the container
     outerLayout->addStretch();
-    outerLayout->addWidget(centerContainer);
+    outerLayout->addWidget(scrollArea);
     outerLayout->addStretch();
 
     // Title
     m_titleLabel = new QLabel("Settings", centerContainer);
-    m_titleLabel->setProperty("class", "settings-title");
+    m_titleLabel->setProperty("class", "title");
     m_titleLabel->setAlignment(Qt::AlignLeft);
     m_mainLayout->addWidget(m_titleLabel);
 
     // Theme Settings Group
     QGroupBox *themeGroup = new QGroupBox("Appearance", centerContainer);
     QFormLayout *themeLayout = new QFormLayout(themeGroup);
-    themeLayout->setContentsMargins(20, 20, 20, 20);
-    themeLayout->setSpacing(15);
+    themeLayout->setContentsMargins(15, 15, 15, 15); // Compacted (was 20)
+    themeLayout->setSpacing(10); // Compacted (was 15)
 
     // Theme selector
     m_themeSelector = new QComboBox(centerContainer);
@@ -89,77 +105,105 @@ void QtSettingsUI::setupUI() {
 
     // Security Settings Group - 2FA
     QGroupBox *securityGroup = new QGroupBox("Security", centerContainer);
+    securityGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    securityGroup->setVisible(true);
     QVBoxLayout *securityLayout = new QVBoxLayout(securityGroup);
-    securityLayout->setContentsMargins(20, 20, 20, 20);
-    securityLayout->setSpacing(15);
+    securityLayout->setContentsMargins(15, 20, 15, 15);  // Compacted (was 20, 25, 20, 20)
+    securityLayout->setSpacing(8); // Compacted (was 12)
+    // Apply group box styling immediately for visibility
+    QString groupBoxStyle = QString(R"(
+        QGroupBox {
+            background-color: %1;
+            border: 1px solid %2;
+            border-radius: 8px;
+            margin-top: 10px;
+            padding-top: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            color: %3;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            left: 15px;
+            padding: 0 5px;
+            margin-top: 5px;
+        }
+    )")
+        .arg(m_themeManager->surfaceColor().name())
+        .arg(m_themeManager->secondaryColor().name())
+        .arg(m_themeManager->textColor().name());
+    securityGroup->setStyleSheet(groupBoxStyle);
 
     // 2FA Title
-    QLabel *twoFactorTitle = new QLabel("Two-Factor Authentication (2FA)", centerContainer);
-    twoFactorTitle->setProperty("class", "settings-section-title");
-    QFont sectionFont = m_themeManager->textFont();
-    sectionFont.setPointSize(13);
-    sectionFont.setBold(true);
-    twoFactorTitle->setFont(sectionFont);
-    securityLayout->addWidget(twoFactorTitle);
+    m_2FATitleLabel = new QLabel("Two-Factor Authentication (2FA)", securityGroup);
+    m_2FATitleLabel->setProperty("class", "title");
+    m_2FATitleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    m_2FATitleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    m_2FATitleLabel->setWordWrap(false);
+    securityLayout->addWidget(m_2FATitleLabel);
 
     // 2FA Description
     m_2FADescriptionLabel = new QLabel(
         "Two-factor authentication adds an extra layer of security by requiring "
         "a code from your authenticator app when signing in. Compatible with "
         "Google Authenticator, Authy, Microsoft Authenticator, and other TOTP apps.",
-        centerContainer
+        securityGroup
     );
     m_2FADescriptionLabel->setProperty("class", "subtitle");
+    m_2FADescriptionLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     m_2FADescriptionLabel->setWordWrap(true);
-    QFont descFont = m_themeManager->textFont();
-    descFont.setPointSize(10);
-    m_2FADescriptionLabel->setFont(descFont);
+    m_2FADescriptionLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     securityLayout->addWidget(m_2FADescriptionLabel);
 
     // 2FA Status Label
-    m_2FAStatusLabel = new QLabel("", centerContainer);
+    m_2FAStatusLabel = new QLabel("Loading...", securityGroup);
     m_2FAStatusLabel->setProperty("class", "subtitle");
-    QFont statusFont = m_themeManager->textFont();
-    statusFont.setPointSize(11);
-    statusFont.setBold(true);
-    m_2FAStatusLabel->setFont(statusFont);
+    m_2FAStatusLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    m_2FAStatusLabel->setWordWrap(true);
+    m_2FAStatusLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     securityLayout->addWidget(m_2FAStatusLabel);
 
     // Button container
     QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->setSpacing(10);
 
     // Enable 2FA Button (shown when 2FA is disabled)
-    m_enable2FAButton = new QPushButton("Enable 2FA", centerContainer);
-    m_enable2FAButton->setProperty("class", "settings-button");
+    m_enable2FAButton = new QPushButton("Enable 2FA", securityGroup);
+    m_enable2FAButton->setProperty("class", "accent-button");
     m_enable2FAButton->setMinimumWidth(120);
     m_enable2FAButton->setMaximumWidth(150);
+    m_enable2FAButton->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    m_enable2FAButton->setEnabled(true);
     buttonLayout->addWidget(m_enable2FAButton);
-    m_enable2FAButton->hide(); // Initially hidden
+    m_enable2FAButton->hide(); // Initially hidden, will be shown by update2FAStatus() if needed
 
     // Disable 2FA Button (shown when 2FA is enabled)
-    m_disable2FAButton = new QPushButton("Disable 2FA", centerContainer);
-    m_disable2FAButton->setProperty("class", "settings-button");
+    m_disable2FAButton = new QPushButton("Disable 2FA", securityGroup);
+    m_disable2FAButton->setProperty("class", "secondary-button");
     m_disable2FAButton->setMinimumWidth(120);
     m_disable2FAButton->setMaximumWidth(150);
+    m_disable2FAButton->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    m_disable2FAButton->setEnabled(true);
     buttonLayout->addWidget(m_disable2FAButton);
-    m_disable2FAButton->hide(); // Initially hidden
+    m_disable2FAButton->hide(); // Initially hidden, will be shown by update2FAStatus() if needed
 
     buttonLayout->addStretch();
     securityLayout->addLayout(buttonLayout);
 
-    // Connect signals
+    // Connect signals for 2FA enablement
     connect(m_enable2FAButton, &QPushButton::clicked, this, &QtSettingsUI::onEnable2FAClicked);
     connect(m_disable2FAButton, &QPushButton::clicked, this, &QtSettingsUI::onDisable2FAClicked);
 
-    // Update 2FA status
+    // Update 2FA status to show/hide appropriate buttons
     update2FAStatus();
 
     m_mainLayout->addWidget(securityGroup);
 
     QGroupBox *walletGroup = new QGroupBox("Wallet", centerContainer);
     QVBoxLayout *walletLayout = new QVBoxLayout(walletGroup);
-    walletLayout->setContentsMargins(20, 20, 20, 20);
+    walletLayout->setContentsMargins(15, 15, 15, 15); // Compacted (was 20)
     m_walletPlaceholder = new QLabel("Wallet settings will be added here", centerContainer);
     m_walletPlaceholder->setProperty("class", "subtitle");
     QFont italicFont = m_themeManager->textFont();
@@ -179,16 +223,22 @@ void QtSettingsUI::applyTheme() {
     setPalette(palette);
     setAutoFillBackground(true);
 
-    // Title styling
-    QString titleStyle = QString(R"(
-        QLabel {
-            color: %1;
-            font-size: 32px;
+    // Apply the global label and button stylesheets to this widget
+    // This ensures that class properties like "title" and "subtitle" are picked up
+    QString globalStyle = m_themeManager->getLabelStyleSheet() + 
+                          m_themeManager->getButtonStyleSheet();
+    this->setStyleSheet(globalStyle);
+
+    // Title styling (override for the main settings title)
+    QString mainTitleStyle = QString(R"(
+        QLabel[class="title"]#mainTitle {
+            font-size: 28px;
             font-weight: 700;
-            background-color: transparent;
+            margin-bottom: 5px;
         }
-    )").arg(m_themeManager->textColor().name());
-    m_titleLabel->setStyleSheet(titleStyle);
+    )");
+    m_titleLabel->setObjectName("mainTitle");
+    m_titleLabel->setStyleSheet(mainTitleStyle);
 
     // Group box styling
     QString groupBoxStyle = QString(R"(
@@ -197,15 +247,17 @@ void QtSettingsUI::applyTheme() {
             border: 1px solid %2;
             border-radius: 8px;
             margin-top: 10px;
-            padding-top: 10px;
-            font-size: 16px;
+            padding-top: 22px;
+            font-size: 15px;
             font-weight: 600;
             color: %3;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
-            left: 15px;
-            padding: 0 5px;
+            subcontrol-position: top left;
+            left: 12px;
+            padding: 0 3px;
+            margin-top: 4px;
         }
     )")
         .arg(m_themeManager->surfaceColor().name())
@@ -218,17 +270,10 @@ void QtSettingsUI::applyTheme() {
     }
 
     // Combo box styling
-    QString comboBoxStyle = QString(R"(
+    QString comboBoxStyle = m_themeManager->getLineEditStyleSheet() + QString(R"(
         QComboBox {
-            background-color: %1;
-            color: %2;
-            border: 1px solid %3;
-            border-radius: 4px;
-            padding: 8px;
             min-width: 200px;
-        }
-        QComboBox:hover {
-            border-color: %4;
+            padding: 8px;
         }
         QComboBox::drop-down {
             border: none;
@@ -237,156 +282,33 @@ void QtSettingsUI::applyTheme() {
             image: none;
             border-left: 5px solid transparent;
             border-right: 5px solid transparent;
-            border-top: 5px solid %2;
+            border-top: 5px solid %1;
             margin-right: 8px;
         }
-        QComboBox QAbstractItemView {
-            background-color: %1;
-            color: %2;
-            border: 1px solid %3;
-            selection-background-color: %4;
-            selection-color: %5;
-        }
-    )")
-        .arg(m_themeManager->surfaceColor().name())
-        .arg(m_themeManager->textColor().name())
-        .arg(m_themeManager->secondaryColor().name())
-        .arg(m_themeManager->accentColor().name())
-        .arg(m_themeManager->backgroundColor().name());
+    )").arg(m_themeManager->textColor().name());
 
     m_themeSelector->setStyleSheet(comboBoxStyle);
 
-    // Apply theme-aware styling to placeholder labels
-    QString placeholderStyle = QString(R"(
-        QLabel {
-            color: %1;
-            font-style: italic;
-            background-color: transparent;
-        }
-    )").arg(m_themeManager->subtitleColor().name());
+    // 2FA Section styling is now handled by class properties and global stylesheet
+    // No need for manual setStyleSheet calls here for m_2FATitleLabel, m_2FADescriptionLabel, etc.
 
-    m_walletPlaceholder->setStyleSheet(placeholderStyle);
+    // Enable button styling
+    if (m_enable2FAButton) {
+        m_enable2FAButton->setStyleSheet(m_themeManager->getButtonStyleSheet());
+    }
 
-    // 2FA Description styling
-    QString descStyle = QString(R"(
-        QLabel {
-            color: %1;
-            background-color: transparent;
-            padding: 5px 0px;
-        }
-    )").arg(m_themeManager->subtitleColor().name());
-    m_2FADescriptionLabel->setStyleSheet(descStyle);
-
-    // 2FA Status label styling
-    QString statusStyle = QString(R"(
-        QLabel {
-            color: %1;
-            background-color: transparent;
-            padding: 10px 0px 5px 0px;
-        }
-    )").arg(m_themeManager->accentColor().name());
-    m_2FAStatusLabel->setStyleSheet(statusStyle);
-
-    // Enable button styling (accent color)
-    QString enableButtonStyle = QString(R"(
-        QPushButton {
-            background-color: %1;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        QPushButton:hover {
-            background-color: %2;
-        }
-        QPushButton:pressed {
-            background-color: %3;
-        }
-    )")
-        .arg(m_themeManager->accentColor().name())
-        .arg(m_themeManager->accentColor().lighter(110).name())
-        .arg(m_themeManager->accentColor().darker(110).name());
-
-    m_enable2FAButton->setStyleSheet(enableButtonStyle);
-
-    // Disable button styling (secondary color)
-    QString disableButtonStyle = QString(R"(
-        QPushButton {
-            background-color: %1;
-            color: %2;
-            border: 1px solid %3;
-            border-radius: 6px;
-            padding: 10px 20px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        QPushButton:hover {
-            background-color: %3;
-            border-color: %3;
-        }
-        QPushButton:pressed {
-            background-color: %4;
-        }
-    )")
-        .arg(m_themeManager->surfaceColor().name())
-        .arg(m_themeManager->textColor().name())
-        .arg(m_themeManager->secondaryColor().name())
-        .arg(m_themeManager->secondaryColor().darker(110).name());
-
-    m_disable2FAButton->setStyleSheet(disableButtonStyle);
+    // Disable button styling
+    if (m_disable2FAButton) {
+        m_disable2FAButton->setStyleSheet(m_themeManager->getButtonStyleSheet());
+    }
 
     // Apply fonts
-    QFont titleFont = m_themeManager->titleFont();
-    titleFont.setPointSize(28);
-    titleFont.setBold(true);
-    m_titleLabel->setFont(titleFont);
-
-    QFont textFont = m_themeManager->textFont();
-    textFont.setPointSize(12);
-    m_themeSelector->setFont(textFont);
+    m_titleLabel->setFont(m_themeManager->titleFont());
+    m_themeSelector->setFont(m_themeManager->textFont());
 
     // Style SMTP input fields
-    QString inputBg = m_themeManager->surfaceColor().name();
-    QString textColor = m_themeManager->textColor().name();
-    QString borderColor = m_themeManager->secondaryColor().name();
-    QString accentColor = m_themeManager->accentColor().name();
-    QString placeholderColor = m_themeManager->subtitleColor().name();
-
-    QString lineEditStyle = QString(R"(
-        QLineEdit {
-            background-color: %1;
-            color: %2;
-            border: 1px solid %3;
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 13px;
-        }
-        QLineEdit:focus {
-            border: 2px solid %4;
-        }
-        QLineEdit::placeholder {
-            color: %5;
-        }
-    )")
-        .arg(inputBg, textColor, borderColor, accentColor, placeholderColor);
-
-    QString spinBoxStyle = QString(R"(
-        QSpinBox {
-            background-color: %1;
-            color: %2;
-            border: 1px solid %3;
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 13px;
-        }
-        QSpinBox:focus {
-            border: 2px solid %4;
-        }
-    )")
-        .arg(inputBg, textColor, borderColor, accentColor);
-
+    QString lineEditStyle = m_themeManager->getLineEditStyleSheet();
+    // ... we can apply this to any line edits if needed ...
 
     // Refresh 2FA status when theme changes
     update2FAStatus();
@@ -394,25 +316,41 @@ void QtSettingsUI::applyTheme() {
 
 void QtSettingsUI::update2FAStatus() {
     if (g_currentUser.empty()) {
-        m_2FAStatusLabel->setText("Please sign in to manage 2FA settings.");
-        m_2FAStatusLabel->setStyleSheet(QString("color: %1;").arg(m_themeManager->subtitleColor().name()));
-        m_enable2FAButton->hide();
-        m_disable2FAButton->hide();
+        if (m_2FAStatusLabel) {
+            m_2FAStatusLabel->setText("Please sign in to manage 2FA settings.");
+        }
+        if (m_enable2FAButton) m_enable2FAButton->hide();
+        if (m_disable2FAButton) m_disable2FAButton->hide();
         return;
     }
 
     bool isEnabled = Auth::IsTwoFactorEnabled(g_currentUser);
 
     if (isEnabled) {
-        m_2FAStatusLabel->setText("✓ Two-factor authentication is enabled");
-        m_2FAStatusLabel->setStyleSheet(QString("color: %1;").arg(m_themeManager->accentColor().name()));
-        m_enable2FAButton->hide();
-        m_disable2FAButton->show();
+        if (m_2FAStatusLabel) {
+            m_2FAStatusLabel->setText("✓ Two-factor authentication is enabled");
+            // We can use dynamic properties for semantic coloring if needed
+            m_2FAStatusLabel->setProperty("status", "success");
+            m_2FAStatusLabel->style()->unpolish(m_2FAStatusLabel);
+            m_2FAStatusLabel->style()->polish(m_2FAStatusLabel);
+        }
+        if (m_enable2FAButton) m_enable2FAButton->hide();
+        if (m_disable2FAButton) {
+            m_disable2FAButton->show();
+            m_disable2FAButton->setEnabled(true);
+        }
     } else {
-        m_2FAStatusLabel->setText("Two-factor authentication is disabled");
-        m_2FAStatusLabel->setStyleSheet(QString("color: %1;").arg(m_themeManager->subtitleColor().name()));
-        m_enable2FAButton->show();
-        m_disable2FAButton->hide();
+        if (m_2FAStatusLabel) {
+            m_2FAStatusLabel->setText("Two-factor authentication is disabled");
+            m_2FAStatusLabel->setProperty("status", "normal");
+            m_2FAStatusLabel->style()->unpolish(m_2FAStatusLabel);
+            m_2FAStatusLabel->style()->polish(m_2FAStatusLabel);
+        }
+        if (m_enable2FAButton) {
+            m_enable2FAButton->show();
+            m_enable2FAButton->setEnabled(true);
+        }
+        if (m_disable2FAButton) m_disable2FAButton->hide();
     }
 }
 

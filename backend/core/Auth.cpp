@@ -1060,9 +1060,9 @@ AuthResponse RegisterUser(const std::string &username, const std::string &email,
   AUTH_DEBUG_LOG_FLUSH(logFile);
 
   // Basic input validation
-  if (username.empty() || email.empty() || password.empty()) {
+  if (username.empty() || password.empty()) {
     return {AuthResult::INVALID_CREDENTIALS,
-            "Username, email, and password cannot be empty."};
+            "Username and password cannot be empty."};
   }
 
   // Validate username
@@ -1145,21 +1145,19 @@ AuthResponse RegisterUser(const std::string &username, const std::string &email,
 }
 
 AuthResponse RegisterUserWithMnemonic(const std::string &username,
-                                      const std::string &email,
                                       const std::string &password,
                                       std::vector<std::string> &outMnemonic) {
   AUTH_DEBUG_LOG_OPEN(logFile);
   AUTH_DEBUG_LOG_STREAM(logFile)
       << "\n=== Extended Registration Attempt ===\n"
       << "Username: '" << username << "'\n"
-      << "Email: '" << email << "'\n"
       << "Password length: " << password.length() << "\n";
   AUTH_DEBUG_LOG_FLUSH(logFile);
 
   // Basic input validation
-  if (username.empty() || email.empty() || password.empty()) {
+  if (username.empty() || password.empty()) {
     return {AuthResult::INVALID_CREDENTIALS,
-            "Username, email, and password cannot be empty."};
+            "Username and password cannot be empty."};
   }
 
   // Validate username
@@ -1240,7 +1238,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
   // Create user in database (single source of truth)
   int userId = 0;
   try {
-    auto createResult = g_userRepo->createUser(username, email, password);
+    auto createResult = g_userRepo->createUser(username, "", password);
 
     if (!createResult.success) {
       AUTH_DEBUG_LOG_STREAM(logFile)
@@ -1315,7 +1313,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
     // Populate in-memory cache for frontend compatibility
     User cachedUser;
     cachedUser.username = username;
-    cachedUser.email = email;
+    cachedUser.email = "";
     cachedUser.passwordHash = createResult.data.passwordHash;
     cachedUser.privateKey = privateKeyWIF;
     cachedUser.walletAddress = walletAddress;

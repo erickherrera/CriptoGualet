@@ -34,27 +34,27 @@ QtCryptoCard::QtCryptoCard(QWidget *parent)
 void QtCryptoCard::setupUI() {
     // Main layout
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(24, 20, 24, 20);
-    mainLayout->setSpacing(16);
+    mainLayout->setContentsMargins(16, 12, 16, 12); // Compacted (was 24, 20, 24, 20)
+    mainLayout->setSpacing(12); // Compacted (was 16)
 
     // Crypto icon (left side)
     m_iconLabel = new QLabel(this);
     m_iconLabel->setAlignment(Qt::AlignCenter);
-    m_iconLabel->setFixedSize(48, 48);
+    m_iconLabel->setFixedSize(40, 40); // Compacted (was 48x48)
     m_iconLabel->setScaledContents(true); // Scale to fit label
 
     // Crypto info (middle)
     QVBoxLayout *infoLayout = new QVBoxLayout();
-    infoLayout->setSpacing(4);
+    infoLayout->setSpacing(2); // Tightened
 
     QHBoxLayout *topRow = new QHBoxLayout();
-    topRow->setSpacing(12);
+    topRow->setSpacing(8); // Tightened
 
     m_symbolLabel = new QLabel(this);
-    m_symbolLabel->setStyleSheet("font-size: 20px; font-weight: bold;");
+    m_symbolLabel->setStyleSheet("font-size: 18px; font-weight: bold;"); // Compacted (was 20px)
 
     m_nameLabel = new QLabel(this);
-    m_nameLabel->setStyleSheet(QString("font-size: 14px; color: %1;")
+    m_nameLabel->setStyleSheet(QString("font-size: 13px; color: %1;") // Slightly smaller
         .arg(m_themeManager->dimmedTextColor().name()));
 
     topRow->addWidget(m_symbolLabel);
@@ -62,7 +62,7 @@ void QtCryptoCard::setupUI() {
     topRow->addStretch();
 
     m_marketCapLabel = new QLabel(this);
-    m_marketCapLabel->setStyleSheet(QString("font-size: 12px; color: %1;")
+    m_marketCapLabel->setStyleSheet(QString("font-size: 11px; color: %1;") // Slightly smaller
         .arg(m_themeManager->dimmedTextColor().name()));
 
     infoLayout->addLayout(topRow);
@@ -70,20 +70,20 @@ void QtCryptoCard::setupUI() {
 
     // Price info (right side)
     QVBoxLayout *priceLayout = new QVBoxLayout();
-    priceLayout->setSpacing(4);
+    priceLayout->setSpacing(2); // Tightened
     priceLayout->setAlignment(Qt::AlignRight);
 
     m_priceLabel = new QLabel(this);
     m_priceLabel->setAlignment(Qt::AlignRight);
-    m_priceLabel->setStyleSheet("font-size: 20px; font-weight: 600;");
+    m_priceLabel->setStyleSheet("font-size: 18px; font-weight: 600;"); // Compacted (was 20px)
 
     m_changeLabel = new QLabel(this);
     m_changeLabel->setAlignment(Qt::AlignRight);
     m_changeLabel->setStyleSheet(
-        "font-size: 14px;"
+        "font-size: 13px;" // Slightly smaller
         "font-weight: 600;"
-        "padding: 4px 12px;"
-        "border-radius: 12px;"
+        "padding: 2px 10px;" // Compacted
+        "border-radius: 10px;"
     );
 
     priceLayout->addWidget(m_priceLabel);
@@ -96,7 +96,7 @@ void QtCryptoCard::setupUI() {
 
     // Card styling
     setFrameShape(QFrame::NoFrame);
-    setMinimumHeight(100);
+    setMinimumHeight(80); // Compacted (was 100)
 
     // Enable hover cursor
     setCursor(Qt::PointingHandCursor);
@@ -112,7 +112,7 @@ void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &cryptoData
     m_iconLabel->clear();
     QColor placeholderBg = m_themeManager->secondaryColor();
     placeholderBg.setAlphaF(0.1f);  // 10% opacity
-    m_iconLabel->setStyleSheet(QString("border-radius: 24px; background-color: %1;")
+    m_iconLabel->setStyleSheet(QString("border-radius: 20px; background-color: %1;")
         .arg(placeholderBg.name(QColor::HexArgb)));
     m_iconLoaded = false;
 
@@ -133,20 +133,20 @@ void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &cryptoData
     // Apply color based on change
     if (cryptoData.price_change_24h >= 0) {
         m_changeLabel->setStyleSheet(QString(
-            "font-size: 14px;"
+            "font-size: 13px;"
             "font-weight: 600;"
-            "padding: 4px 12px;"
-            "border-radius: 12px;"
+            "padding: 2px 10px;"
+            "border-radius: 10px;"
             "background-color: %1;"
             "color: %2;"
         ).arg(m_themeManager->lightPositive().name(QColor::HexArgb))
          .arg(m_themeManager->positiveColor().name()));
     } else {
         m_changeLabel->setStyleSheet(QString(
-            "font-size: 14px;"
+            "font-size: 13px;"
             "font-weight: 600;"
-            "padding: 4px 12px;"
-            "border-radius: 12px;"
+            "padding: 2px 10px;"
+            "border-radius: 10px;"
             "background-color: %1;"
             "color: %2;"
         ).arg(m_themeManager->lightNegative().name(QColor::HexArgb))
@@ -485,10 +485,10 @@ void QtTopCryptosPage::setupUI() {
     m_scrollContent = new QWidget();
     m_contentLayout = new QVBoxLayout(m_scrollContent);
     m_contentLayout->setContentsMargins(
-        m_themeManager->spacing(8),      // 32px
-        m_themeManager->standardSpacing(),  // 16px (was 24)
-        m_themeManager->spacing(8),      // 32px
-        m_themeManager->standardSpacing()   // 16px (was 24)
+        m_themeManager->spacing(4),      // 16px (was 32)
+        m_themeManager->standardSpacing(),
+        m_themeManager->spacing(4),      // 16px (was 32)
+        m_themeManager->standardSpacing()
     );
     m_contentLayout->setSpacing(m_themeManager->standardSpacing());
 
@@ -497,13 +497,13 @@ void QtTopCryptosPage::setupUI() {
     m_contentLayout->addWidget(m_headerWidget);
 
     // Add spacing after header
-    m_contentLayout->addSpacing(8);
+    m_contentLayout->addSpacing(4);
 
     // Cards container
     m_cardsContainer = new QWidget();
     m_cardsLayout = new QVBoxLayout(m_cardsContainer);
     m_cardsLayout->setContentsMargins(0, 0, 0, 0);
-    m_cardsLayout->setSpacing(12);
+    m_cardsLayout->setSpacing(8); // Compacted (was 12)
 
     m_contentLayout->addWidget(m_cardsContainer);
     m_contentLayout->addStretch();
@@ -537,15 +537,15 @@ void QtTopCryptosPage::setupUI() {
 void QtTopCryptosPage::createHeader() {
     m_headerWidget = new QWidget();
     QVBoxLayout *headerLayout = new QVBoxLayout(m_headerWidget);
-    headerLayout->setContentsMargins(0, 0, 0, 16);
-    headerLayout->setSpacing(12);
+    headerLayout->setContentsMargins(0, 0, 0, 8); // Compacted (was 16)
+    headerLayout->setSpacing(8); // Compacted (was 12)
 
     // Top row: Back button and refresh button
     QHBoxLayout *topRow = new QHBoxLayout();
-    topRow->setSpacing(12);
+    topRow->setSpacing(10); // Compacted
 
     m_backButton = new QPushButton("← Back", m_headerWidget);
-    m_backButton->setFixedHeight(40);
+    m_backButton->setFixedHeight(36); // Compacted (was 40)
     m_backButton->setCursor(Qt::PointingHandCursor);
     connect(m_backButton, &QPushButton::clicked, this, &QtTopCryptosPage::onBackClicked);
 
@@ -553,7 +553,7 @@ void QtTopCryptosPage::createHeader() {
     topRow->addStretch();
 
     m_refreshButton = new QPushButton("⟳ Refresh", m_headerWidget);
-    m_refreshButton->setFixedHeight(40);
+    m_refreshButton->setFixedHeight(36); // Compacted (was 40)
     m_refreshButton->setCursor(Qt::PointingHandCursor);
     connect(m_refreshButton, &QPushButton::clicked, this, &QtTopCryptosPage::onRefreshClicked);
 
@@ -561,7 +561,7 @@ void QtTopCryptosPage::createHeader() {
 
     // Title section
     QVBoxLayout *titleLayout = new QVBoxLayout();
-    titleLayout->setSpacing(4);
+    titleLayout->setSpacing(2); // Tightened
 
     m_titleLabel = new QLabel("Top 100 Cryptocurrencies", m_headerWidget);
     m_titleLabel->setProperty("class", "title");
@@ -577,7 +577,7 @@ void QtTopCryptosPage::createHeader() {
 
     // Search and filter controls row
     QHBoxLayout *controlsRow = new QHBoxLayout();
-    controlsRow->setSpacing(12);
+    controlsRow->setSpacing(10); // Compacted
 
     createSearchBar();
     createSortDropdown();
@@ -590,7 +590,7 @@ void QtTopCryptosPage::createHeader() {
     // Result counter row
     QHBoxLayout *counterRow = new QHBoxLayout();
     m_resultCounterLabel = new QLabel("Loading...", m_headerWidget);
-    m_resultCounterLabel->setStyleSheet(QString("font-size: 13px; font-weight: 500; color: %1;")
+    m_resultCounterLabel->setStyleSheet(QString("font-size: 12px; font-weight: 500; color: %1;") // Slightly smaller
         .arg(m_themeManager->dimmedTextColor().name()));
     counterRow->addWidget(m_resultCounterLabel);
     counterRow->addStretch();
@@ -601,7 +601,7 @@ void QtTopCryptosPage::createHeader() {
 void QtTopCryptosPage::createSearchBar() {
     m_searchBox = new QLineEdit(m_headerWidget);
     m_searchBox->setPlaceholderText("Search by name or symbol (e.g., Bitcoin, BTC)...");
-    m_searchBox->setFixedHeight(44);
+    m_searchBox->setFixedHeight(38); // Compacted (was 44)
     m_searchBox->setClearButtonEnabled(false); // We'll use custom clear button
 
     // Connect search text changes with debouncing
@@ -610,7 +610,7 @@ void QtTopCryptosPage::createSearchBar() {
 
 void QtTopCryptosPage::createSortDropdown() {
     m_sortDropdown = new QComboBox(m_headerWidget);
-    m_sortDropdown->setFixedHeight(44);
+    m_sortDropdown->setFixedHeight(38); // Compacted (was 44)
     m_sortDropdown->setCursor(Qt::PointingHandCursor);
 
     // Add sort options
@@ -962,7 +962,7 @@ void QtTopCryptosPage::applyTheme() {
         "  border-radius: 8px;"
         "  color: %5;"
         "  font-size: 14px;"
-        "  padding: 10px 16px;"
+        "  padding: 8px 14px;" // Compacted (was 10 16)
         "}"
         "QLineEdit:focus {"
         "  border: 2px solid %6;"
@@ -986,8 +986,8 @@ void QtTopCryptosPage::applyTheme() {
         "  border-radius: 8px;"
         "  color: %5;"
         "  font-size: 14px;"
-        "  padding: 10px 16px;"
-        "  min-width: 200px;"
+        "  padding: 8px 14px;" // Compacted (was 10 16)
+        "  min-width: 180px;" // Slightly narrower (was 200)
         "}"
         "QComboBox:hover {"
         "  border: 2px solid rgba(%2, %3, %4, 0.5);"
@@ -1021,13 +1021,13 @@ void QtTopCryptosPage::applyTheme() {
 
     // Title styling
     QFont titleFont = m_themeManager->titleFont();
-    titleFont.setPointSize(24);
+    titleFont.setPointSize(20); // Compacted (was 24)
     m_titleLabel->setFont(titleFont);
     m_titleLabel->setStyleSheet(QString("color: %1;").arg(txtColor));
 
     // Subtitle styling
     QFont subtitleFont = m_themeManager->textFont();
-    subtitleFont.setPointSize(12);
+    subtitleFont.setPointSize(11); // Compacted (was 12)
     m_subtitleLabel->setFont(subtitleFont);
     m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(subtitleColor));
 }

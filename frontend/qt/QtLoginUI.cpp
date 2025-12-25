@@ -374,7 +374,7 @@ void QtLoginUI::onRegisterClicked() {
 
   showMessage("Creating account... generating your seed phrase securely.",
               false);
-  emit registerRequested(username, "", password);  // Empty email - no longer required
+  emit registerRequested(username, password);
 }
 
 void QtLoginUI::onRegisterModeToggled(bool registerMode) {

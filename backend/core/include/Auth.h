@@ -44,7 +44,6 @@ AuthResponse RegisterUser(const std::string &username,
 
 // Extended registration that also returns the mnemonic for secure display
 AuthResponse RegisterUserWithMnemonic(const std::string &username,
-                                      const std::string &email,
                                       const std::string &password,
                                       std::vector<std::string> &outMnemonic);
 

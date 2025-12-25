@@ -202,7 +202,7 @@ public:
         std::vector<std::string> mnemonic;
 
         Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, "", testPassword, mnemonic
+            testUsername, testPassword, mnemonic
         );
 
         {
@@ -262,7 +262,7 @@ public:
         std::string testPassword = "TestP@ssw0rd2!";
         std::vector<std::string> mnemonic;
 
-        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
+        Auth::RegisterUserWithMnemonic(testUsername, testPassword, mnemonic);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         // Initiate setup to get secret
@@ -305,7 +305,7 @@ public:
         {
             std::string testUsername3 = "2fa_totp_user3";
             std::vector<std::string> mnemonic3;
-            Auth::RegisterUserWithMnemonic(testUsername3, "", testPassword, mnemonic3);
+            Auth::RegisterUserWithMnemonic(testUsername3, testPassword, mnemonic3);
             Auth::InitiateTwoFactorSetup(testUsername3, testPassword);
 
             Auth::AuthResponse confirmResponse = Auth::ConfirmTwoFactorSetup(
@@ -329,7 +329,7 @@ public:
         std::string testPassword = "TestP@ssw0rd4!";
         std::vector<std::string> mnemonic;
 
-        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
+        Auth::RegisterUserWithMnemonic(testUsername, testPassword, mnemonic);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         // Enable 2FA
@@ -383,7 +383,7 @@ public:
         std::string testPassword = "TestP@ssw0rd5!";
         std::vector<std::string> mnemonic;
 
-        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
+        Auth::RegisterUserWithMnemonic(testUsername, testPassword, mnemonic);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
@@ -456,7 +456,7 @@ public:
         std::string testPassword = "TestP@ssw0rd6!";
         std::vector<std::string> mnemonic;
 
-        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
+        Auth::RegisterUserWithMnemonic(testUsername, testPassword, mnemonic);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
@@ -521,7 +521,7 @@ public:
         std::string testPassword = "TestP@ssw0rd7!";
         std::vector<std::string> mnemonic;
 
-        Auth::RegisterUserWithMnemonic(testUsername, "", testPassword, mnemonic);
+        Auth::RegisterUserWithMnemonic(testUsername, testPassword, mnemonic);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         // Test normal login without 2FA

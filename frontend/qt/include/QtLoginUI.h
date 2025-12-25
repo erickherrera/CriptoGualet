@@ -31,7 +31,7 @@ public:
 
 signals:
   void loginRequested(const QString &username, const QString &password);
-  void registerRequested(const QString &username, const QString &email, const QString &password);
+  void registerRequested(const QString &username, const QString &password);
   void totpVerificationRequired(const QString &username, const QString &password);
 
 public slots:
