@@ -15,11 +15,13 @@
 #include <QWidget>
 #include <QTimer>
 #include <memory>
-#include "PriceService.h"
-#include "WalletAPI.h"
-#include "EthereumService.h"
-#include "Repository/UserRepository.h"
-#include "Repository/WalletRepository.h"
+#include <vector>
+#include <string>
+#include "../../../backend/blockchain/include/PriceService.h"
+#include "../../../backend/blockchain/include/EthereumService.h"
+#include "../../../backend/core/include/WalletAPI.h"
+#include "../../../backend/repository/include/Repository/UserRepository.h"
+#include "../../../backend/repository/include/Repository/WalletRepository.h"
 
 // Forward declarations
 class QtThemeManager;

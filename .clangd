@@ -16,7 +16,7 @@ CompileFlags:
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtNetwork
     
     # vcpkg include path (compile_commands.json should have this, but ensure it)
-    - -I${workspaceFolder}/vcpkg_installed/x64-windows/include
+    - -Ivcpkg_installed/x64-windows/include
     
     # Windows-specific
     - -DWIN32

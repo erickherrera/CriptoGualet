@@ -44,7 +44,6 @@ AuthResponse RegisterUser(const std::string &username,
 
 // Extended registration that also returns the mnemonic for secure display
 AuthResponse RegisterUserWithMnemonic(const std::string &username,
-                                      const std::string &email,
                                       const std::string &password,
                                       std::vector<std::string> &outMnemonic);
 
@@ -84,5 +83,56 @@ bool InitializeAuthDatabase();
 // Uses machine identifiers (computer name, username, volume serial) with PBKDF2
 // Returns true on success with 64-character hex key in outKey
 bool DeriveSecureEncryptionKey(std::string &outKey);
+
+// ===== TOTP Two-Factor Authentication =====
+// Uses authenticator apps like Google Authenticator, Authy, Microsoft Authenticator
+
+// Check if 2FA is enabled for a user
+// Returns true if totp_enabled = 1 in database
+bool IsTwoFactorEnabled(const std::string &username);
+
+// Generate a new TOTP secret for enabling 2FA
+// Returns the secret in base32 format (for display) and the otpauth:// URI (for QR code)
+// Does NOT enable 2FA - user must verify a code first using ConfirmTwoFactorSetup
+struct TwoFactorSetupData {
+  std::string secretBase32;  // Secret in base32 format (for manual entry)
+  std::string otpauthUri;    // otpauth:// URI for QR code generation
+  bool success;
+  std::string errorMessage;
+};
+TwoFactorSetupData InitiateTwoFactorSetup(const std::string &username,
+                                           const std::string &password);
+
+// Confirm 2FA setup by verifying a TOTP code
+// This enables 2FA for the user if the code is valid
+AuthResponse ConfirmTwoFactorSetup(const std::string &username,
+                                    const std::string &totpCode);
+
+// Verify a TOTP code for login (when 2FA is enabled)
+// Returns SUCCESS if code is valid, INVALID_CREDENTIALS if code is wrong
+AuthResponse VerifyTwoFactorCode(const std::string &username,
+                                  const std::string &totpCode);
+
+// Disable 2FA for a user (requires password and current TOTP code)
+// 1. Verifies user's password
+// 2. Verifies current TOTP code (proves user has authenticator)
+// 3. Removes TOTP secret and disables 2FA
+AuthResponse DisableTwoFactor(const std::string &username,
+                               const std::string &password,
+                               const std::string &totpCode);
+
+// Get backup codes for 2FA recovery (generated when 2FA is enabled)
+// These are one-time use codes that can be used if authenticator is lost
+struct BackupCodesResult {
+  std::vector<std::string> codes;
+  bool success;
+  std::string errorMessage;
+};
+BackupCodesResult GetBackupCodes(const std::string &username,
+                                  const std::string &password);
+
+// Use a backup code to disable 2FA (for account recovery)
+AuthResponse UseBackupCode(const std::string &username,
+                            const std::string &backupCode);
 
 } // namespace Auth

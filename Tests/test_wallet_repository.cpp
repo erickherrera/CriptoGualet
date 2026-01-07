@@ -6,8 +6,8 @@
  */
 
 #include "TestUtils.h"
-#include "Repository/WalletRepository.h"
-#include "Repository/UserRepository.h"
+#include "../backend/repository/include/Repository/WalletRepository.h"
+#include "../backend/repository/include/Repository/UserRepository.h"
 
 // Test database
 constexpr const char* TEST_DB_PATH = "test_wallet_repo.db";

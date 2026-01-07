@@ -12,18 +12,63 @@
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${env:PATH}"
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
         }
       ],
       "externalConsole": false,
-      "MIMode": "lldb",
-      "setupCommands": [
+      "MIMode": "vsdbg",
+      "preLaunchTask": "CMake: build"
+    },
+    {
+      "type": "cppdbg",
+      "name": "CriptoGualet Qt Application (Release)",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/win-vs2022-x64-release/bin/Release/CriptoGualetQt.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/win-vs2022-x64-release/bin/Release",
+      "environment": [
         {
-          "description": "Enable pretty-printing for gdb",
-          "text": "-enable-pretty-printing",
-          "ignoreFailures": true
+          "name": "PATH",
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-release\\bin\\Release;C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
         }
-      ]
+      ],
+      "externalConsole": false,
+      "MIMode": "vsdbg"
+    },
+    {
+      "type": "cppdbg",
+      "name": "Test: 2FA Tests",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug/test_2fa.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug",
+      "environment": [
+        {
+          "name": "PATH",
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+        }
+      ],
+      "externalConsole": false,
+      "MIMode": "vsdbg"
+    },
+    {
+      "type": "cppdbg",
+      "name": "Test: BIP39 Tests",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug/test_bip39.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug",
+      "environment": [
+        {
+          "name": "PATH",
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+        }
+      ],
+      "externalConsole": false,
+      "MIMode": "vsdbg"
     }
   ]
 }

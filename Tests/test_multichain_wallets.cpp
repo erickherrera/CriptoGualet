@@ -7,12 +7,13 @@
  */
 
 #include "TestUtils.h"
-#include <set>
-#include "Repository/WalletRepository.h"
-#include "Repository/UserRepository.h"
-#include "Crypto.h"
+#include "../backend/repository/include/Repository/WalletRepository.h"
+#include "../backend/repository/include/Repository/UserRepository.h"
+#include "../backend/core/include/Crypto.h"
 #include <iostream>
 #include <set>
+#include <string>
+#include <vector>
 
 constexpr const char* TEST_DB_PATH = "test_multichain.db";
 

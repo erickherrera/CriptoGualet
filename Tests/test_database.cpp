@@ -1,4 +1,4 @@
-#include "Database/DatabaseManager.h"
+#include "../backend/database/include/Database/DatabaseManager.h"
 #include <cassert>
 #include <filesystem>
 #include <iostream>
@@ -365,7 +365,6 @@ private:
 
   int getPassedTests() const {
     // Count how many tests actually passed
-    int passed = 0;
     // This is a simplified count - in a real implementation you'd track this
     // properly
     return testsPassed ? testsRun : 0;

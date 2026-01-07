@@ -14,7 +14,7 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <memory>
-#include "PriceService.h"
+#include "../../../backend/blockchain/include/PriceService.h"
 
 class QtThemeManager;
 
@@ -24,7 +24,7 @@ class QtCryptoCard : public QFrame {
 
 public:
     explicit QtCryptoCard(QWidget *parent = nullptr);
-    void setCryptoData(const PriceService::CryptoPriceData &data, int rank);
+    void setCryptoData(const PriceService::CryptoPriceData &cryptoData, int rank);
     void applyTheme();
     void loadIcon(const QString &symbol);
     bool isIconLoaded() const { return m_iconLoaded; }

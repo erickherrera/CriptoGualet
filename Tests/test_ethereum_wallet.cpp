@@ -5,7 +5,7 @@
 #include <string>
 #include <array>
 #include <fstream>
-#include "Crypto.h"
+#include "../backend/core/include/Crypto.h"
 
 // Load BIP39 English wordlist
 std::vector<std::string> LoadWordlist(const std::string& filepath) {

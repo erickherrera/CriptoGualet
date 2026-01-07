@@ -1,7 +1,7 @@
 // QtReceiveDialog.cpp
 #include "QtReceiveDialog.h"
 #include "QtThemeManager.h"
-#include "QRGenerator.h"
+#include "../../backend/utils/include/QRGenerator.h"
 
 #include <QGroupBox>
 #include <QMessageBox>

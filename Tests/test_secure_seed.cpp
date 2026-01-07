@@ -1,5 +1,5 @@
-#include "Auth.h"
-#include "QRGenerator.h"
+#include "../backend/core/include/Auth.h"
+#include "../backend/utils/include/QRGenerator.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -31,7 +31,7 @@ int main() {
     std::cout << "\n1. Testing registration with mnemonic generation..." << std::endl;
 
     std::vector<std::string> mnemonic;
-    Auth::AuthResponse response = Auth::RegisterUserWithMnemonic("testuser_secure", "test@example.com", "password123", mnemonic);
+    Auth::AuthResponse response = Auth::RegisterUserWithMnemonic("testuser_secure", "password123", mnemonic);
 
     if (response.success()) {
         std::cout << "   ✅ Registration successful: " << response.message << std::endl;

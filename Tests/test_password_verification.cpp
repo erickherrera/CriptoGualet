@@ -4,9 +4,9 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "Auth.h"
-#include "Database/DatabaseManager.h"
-#include "Repository/UserRepository.h"
+#include "../backend/core/include/Auth.h"
+#include "../backend/database/include/Database/DatabaseManager.h"
+#include "../backend/repository/include/Repository/UserRepository.h"
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {

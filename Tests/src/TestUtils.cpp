@@ -3,7 +3,7 @@
  * @brief Implementation of shared testing utilities
  */
 
-#include "TestUtils.h"
+#include "../include/TestUtils.h"
 
 namespace TestGlobals {
     int g_testsRun = 0;

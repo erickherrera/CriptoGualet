@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "Crypto.h"
+#include "../backend/core/include/Crypto.h"
 
 void test_memory_security() {
     std::cout << "Testing memory security functions..." << std::endl;

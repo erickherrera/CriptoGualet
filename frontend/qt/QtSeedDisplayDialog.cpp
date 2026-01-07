@@ -1,5 +1,5 @@
 #include "QtSeedDisplayDialog.h"
-#include "QRGenerator.h"
+#include "../../backend/utils/include/QRGenerator.h"
 #include "QtThemeManager.h"
 #include <QApplication>
 #include <QClipboard>

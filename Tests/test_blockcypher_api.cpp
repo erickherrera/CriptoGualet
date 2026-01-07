@@ -1,6 +1,6 @@
-#include "WalletAPI.h"
-#include "BlockCypher.h"
-#include "Crypto.h"
+#include "../backend/core/include/WalletAPI.h"
+#include "../backend/blockchain/include/BlockCypher.h"
+#include "../backend/core/include/Crypto.h"
 #include <iostream>
 #include <string>
 #include <chrono>

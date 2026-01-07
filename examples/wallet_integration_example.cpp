@@ -5,8 +5,8 @@
  * into your existing Qt wallet application.
  */
 
-#include "../include/WalletAPI.h"
-#include "../include/BlockCypher.h"
+#include "../backend/core/include/WalletAPI.h"
+#include "../backend/blockchain/include/BlockCypher.h"
 #include <iostream>
 #include <memory>
 

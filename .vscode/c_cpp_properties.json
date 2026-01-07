@@ -1,31 +1,37 @@
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "Windows VS2022 Debug",
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "compileCommands": "${workspaceFolder}/compile_commands.json",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/include",
-                "${workspaceFolder}/src",
                 "C:/Program Files/Qt/6.9.1/msvc2022_64/include",
                 "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtCore",
                 "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtWidgets",
                 "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtGui",
-                "${workspaceFolder}/out/build/win-msvc-x64-debug/src/CriptoGualetQt_autogen/include_Debug"
+                "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtSvg",
+                "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtNetwork",
+                "C:/Program Files/Qt/6.9.1/msvc2022_64/mkspecs/win32-msvc"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE",
+                "WIN32",
+                "WIN64",
+                "_WIN64",
+                "_WINDOWS",
+                "_ENABLE_EXTENDED_ALIGNED_STORAGE",
                 "QT_CORE_LIB",
+                "QT_GUI_LIB",
                 "QT_WIDGETS_LIB",
-                "QT_GUI_LIB"
+                "QT_SVG_LIB",
+                "QT_NETWORK_LIB"
             ],
-            "windowsSdkVersion": "10.0.22621.0",
-            "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.41.34120/bin/Hostx64/x64/cl.exe",
             "cStandard": "c17",
             "cppStandard": "c++20",
-            "intelliSenseMode": "windows-msvc-x64",
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "intelliSenseMode": "windows-msvc-x64"
         }
     ],
     "version": 4

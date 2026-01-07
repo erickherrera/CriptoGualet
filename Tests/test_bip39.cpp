@@ -21,9 +21,9 @@
 #include <vector>
 
 // Include your auth header
-#include "Auth.h"
-#include "Crypto.h"
-#include "SharedTypes.h"
+#include "../backend/core/include/Auth.h"
+#include "../backend/core/include/Crypto.h"
+#include "../backend/utils/include/SharedTypes.h"
 
 // Include secp256k1 for signature verification tests
 #include <secp256k1.h>

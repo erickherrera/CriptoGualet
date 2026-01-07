@@ -6,9 +6,9 @@
  */
 
 #include "TestUtils.h"
-#include "Repository/UserRepository.h"
-#include "Repository/WalletRepository.h"
-#include "Repository/TransactionRepository.h"
+#include "../backend/repository/include/Repository/UserRepository.h"
+#include "../backend/repository/include/Repository/WalletRepository.h"
+#include "../backend/repository/include/Repository/TransactionRepository.h"
 
 const std::string TEST_DB_PATH = "test_integration.db";
 

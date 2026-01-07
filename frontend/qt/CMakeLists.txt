@@ -16,6 +16,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "QtTopCryptosPage.cpp"
     "QtSendDialog.cpp"
     "QtReceiveDialog.cpp"
+    "QtPasswordConfirmDialog.cpp"
     "include/QtLoginUI.h"
     "include/QtWalletUI.h"
     "include/QtSettingsUI.h"
@@ -26,6 +27,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "include/QtTopCryptosPage.h"
     "include/QtSendDialog.h"
     "include/QtReceiveDialog.h"
+    "include/QtPasswordConfirmDialog.h"
     "include/CriptoGualetQt.h"
     "../../resources/resources.qrc"
   )
@@ -42,10 +44,12 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     Qt6::Gui
     Qt6::Svg
     Qt6::Network
-    comctl32
-    crypt32
-    bcrypt
   )
+
+  # Add Windows-specific libraries
+  if(WIN32)
+    list(APPEND QT_LINK_LIBRARIES comctl32 crypt32 bcrypt)
+  endif()
 
   # Add BlockCypher libraries if available
   if(BLOCKCYPHER_AVAILABLE)
@@ -125,7 +129,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     # Copy SQLCipher DLL for database functionality (use debug version for debug builds)
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll"
+      "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/sqlcipher.dll>"
       "$<TARGET_FILE_DIR:CriptoGualetQt>"
       COMMENT "Copying SQLCipher DLL to output directory")
 

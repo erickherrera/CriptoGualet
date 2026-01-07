@@ -36,3 +36,13 @@ add_library(RLPEncoder STATIC
 target_include_directories(RLPEncoder PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
+
+# ---- Secure Credential Store library ----
+add_library(SecureCredentialStore STATIC
+  "SecureCredentialStore.cpp"
+  "include/SecureCredentialStore.h"
+)
+target_include_directories(SecureCredentialStore PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+
