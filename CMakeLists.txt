@@ -213,6 +213,21 @@ if(BUILD_GUI_QT)
           "${QT_VERSION}/clang_64")
       endif()
     endforeach()
+  elseif(APPLE)
+    # macOS Qt paths - Homebrew installations
+    list(APPEND CMAKE_PREFIX_PATH
+      "/usr/local/opt/qt6"           # Intel Homebrew
+      "/opt/homebrew/opt/qt6"        # Apple Silicon Homebrew
+      "/usr/local/opt/qt@6"          # Alternative Homebrew naming
+      "/opt/homebrew/opt/qt@6"
+    )
+    # Qt installer default locations
+    file(GLOB QT_VERSIONS "$ENV{HOME}/Qt/6.*")
+    foreach(QT_VERSION ${QT_VERSIONS})
+      list(APPEND CMAKE_PREFIX_PATH
+        "${QT_VERSION}/macos"
+        "${QT_VERSION}/clang_64")
+    endforeach()
   endif()
 
   find_package(Qt6 QUIET COMPONENTS Core Widgets Gui Svg Network)
@@ -309,6 +324,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed")
   if(WIN32)
     list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows")
+  elseif(APPLE)
+    # Support both Intel and Apple Silicon Macs
+    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-osx")
+    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/arm64-osx")
   else()
     list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-linux")
   endif()

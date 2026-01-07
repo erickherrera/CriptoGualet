@@ -3,15 +3,41 @@
 # Find secp256k1 library
 find_package(unofficial-secp256k1 CONFIG REQUIRED)
 
+# Platform-specific source files
+if(WIN32)
+  set(CRYPTO_PLATFORM_SOURCES "Crypto_Windows.cpp")
+  set(AUTH_PLATFORM_SOURCES "Auth_Windows.cpp")
+elseif(APPLE)
+  set(CRYPTO_PLATFORM_SOURCES "Crypto_macOS.cpp")
+  set(AUTH_PLATFORM_SOURCES "Auth_macOS.cpp")
+else()
+  # Linux - placeholder for future implementation
+  message(WARNING "Linux platform not yet fully supported - using stub implementations")
+  set(CRYPTO_PLATFORM_SOURCES "")
+  set(AUTH_PLATFORM_SOURCES "")
+endif()
+
 # ---- Crypto library (cryptographic functions) ----
 add_library(Crypto STATIC
   "Crypto.cpp"
+  ${CRYPTO_PLATFORM_SOURCES}
   "include/Crypto.h"
+  "include/Crypto_Platform.h"
 )
 target_include_directories(Crypto PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 target_link_libraries(Crypto PUBLIC unofficial::secp256k1 unofficial::secp256k1_precomputed)
+
+# Platform-specific linking for Crypto
+if(WIN32)
+  target_link_libraries(Crypto PRIVATE Bcrypt Crypt32)
+elseif(APPLE)
+  find_library(SECURITY_FRAMEWORK Security REQUIRED)
+  find_library(COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+  target_link_libraries(Crypto PRIVATE ${SECURITY_FRAMEWORK} ${COREFOUNDATION_FRAMEWORK})
+endif()
 
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
@@ -29,15 +55,28 @@ endif()
 # ---- Auth library (portable, builds everywhere) ----
 add_library(Auth STATIC
   "Auth.cpp"
+  ${AUTH_PLATFORM_SOURCES}
   "include/Auth.h"
+  "include/Auth_Platform.h"
 )
 target_include_directories(Auth PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_SOURCE_DIR}/backend/utils/include"
   "${CMAKE_SOURCE_DIR}/backend/database/include"
   "${CMAKE_SOURCE_DIR}/backend/repository/include"
 )
 target_link_libraries(Auth PRIVATE Crypto Repository Database SharedSymbols)
+
+# Platform-specific linking for Auth
+if(WIN32)
+  target_link_libraries(Auth PRIVATE Bcrypt Crypt32)
+elseif(APPLE)
+  find_library(SECURITY_FRAMEWORK Security REQUIRED)
+  find_library(COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+  find_library(IOKIT_FRAMEWORK IOKit REQUIRED)
+  target_link_libraries(Auth PRIVATE ${SECURITY_FRAMEWORK} ${COREFOUNDATION_FRAMEWORK} ${IOKIT_FRAMEWORK})
+endif()
 
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
