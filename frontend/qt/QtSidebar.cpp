@@ -1,18 +1,17 @@
 #include "QtSidebar.h"
 #include "QtThemeManager.h"
 
-#include <QLabel>
-#include <QSpacerItem>
-#include <QMouseEvent>
-#include <QHBoxLayout>
 #include <QGraphicsDropShadowEffect>
-#include <QSvgRenderer>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
+#include <QSpacerItem>
+#include <QSvgRenderer>
 
-QtSidebar::QtSidebar(QtThemeManager *themeManager, QWidget *parent)
+QtSidebar::QtSidebar(QtThemeManager* themeManager, QWidget* parent)
     : QWidget(parent), m_themeManager(themeManager), m_isExpanded(false) {
-
     setupUI();
     applyTheme();
 
@@ -75,18 +74,18 @@ void QtSidebar::createNavigationButtons() {
     m_walletButton->setToolTip("Wallet");
     m_walletButton->setFixedHeight(50);
 
-    QHBoxLayout *walletLayout = new QHBoxLayout(m_walletButton);
+    QHBoxLayout* walletLayout = new QHBoxLayout(m_walletButton);
     walletLayout->setContentsMargins(8, 0, 8, 0);
     walletLayout->setSpacing(12);
 
     walletLayout->addStretch();
-    QLabel *walletIcon = new QLabel(m_walletButton);
+    QLabel* walletIcon = new QLabel(m_walletButton);
     walletIcon->setObjectName("walletIcon");
     walletIcon->setAlignment(Qt::AlignCenter);
     walletIcon->setFixedSize(24, 24);
     walletLayout->addWidget(walletIcon);
 
-    QLabel *walletText = new QLabel("Wallet", m_walletButton);
+    QLabel* walletText = new QLabel("Wallet", m_walletButton);
     walletText->setObjectName("walletText");
     walletText->setVisible(false);
     walletLayout->addWidget(walletText);
@@ -108,18 +107,18 @@ void QtSidebar::createNavigationButtons() {
     m_topCryptosButton->setToolTip("Top Cryptos");
     m_topCryptosButton->setFixedHeight(50);
 
-    QHBoxLayout *topCryptosLayout = new QHBoxLayout(m_topCryptosButton);
+    QHBoxLayout* topCryptosLayout = new QHBoxLayout(m_topCryptosButton);
     topCryptosLayout->setContentsMargins(8, 0, 8, 0);
     topCryptosLayout->setSpacing(12);
 
     topCryptosLayout->addStretch();
-    QLabel *topCryptosIcon = new QLabel(m_topCryptosButton);
+    QLabel* topCryptosIcon = new QLabel(m_topCryptosButton);
     topCryptosIcon->setObjectName("topCryptosIcon");
     topCryptosIcon->setAlignment(Qt::AlignCenter);
     topCryptosIcon->setFixedSize(24, 24);
     topCryptosLayout->addWidget(topCryptosIcon);
 
-    QLabel *topCryptosText = new QLabel("Markets", m_topCryptosButton);
+    QLabel* topCryptosText = new QLabel("Markets", m_topCryptosButton);
     topCryptosText->setObjectName("topCryptosText");
     topCryptosText->setVisible(false);
     topCryptosLayout->addWidget(topCryptosText);
@@ -141,18 +140,18 @@ void QtSidebar::createNavigationButtons() {
     m_settingsButton->setToolTip("Settings");
     m_settingsButton->setFixedHeight(50);
 
-    QHBoxLayout *settingsLayout = new QHBoxLayout(m_settingsButton);
+    QHBoxLayout* settingsLayout = new QHBoxLayout(m_settingsButton);
     settingsLayout->setContentsMargins(8, 0, 8, 0);
     settingsLayout->setSpacing(12);
 
     settingsLayout->addStretch();
-    QLabel *settingsIcon = new QLabel(m_settingsButton);
+    QLabel* settingsIcon = new QLabel(m_settingsButton);
     settingsIcon->setObjectName("settingsIcon");
     settingsIcon->setAlignment(Qt::AlignCenter);
     settingsIcon->setFixedSize(24, 24);
     settingsLayout->addWidget(settingsIcon);
 
-    QLabel *settingsText = new QLabel("Settings", m_settingsButton);
+    QLabel* settingsText = new QLabel("Settings", m_settingsButton);
     settingsText->setObjectName("settingsText");
     settingsText->setVisible(false);
     settingsLayout->addWidget(settingsText);
@@ -175,22 +174,17 @@ void QtSidebar::toggleSidebar() {
 
 void QtSidebar::animateSidebar(bool expand) {
     int targetWidth = expand ? EXPANDED_WIDTH : COLLAPSED_WIDTH;
-    int currentHeight = height();
 
     // Update fixed width immediately
     setFixedWidth(targetWidth);
 
-    // Animate geometry change while maintaining height
-    QRect startGeometry = geometry();
-    QRect endGeometry(0, 0, targetWidth, currentHeight);
-
-    m_widthAnimation->setStartValue(startGeometry);
-    m_widthAnimation->setEndValue(endGeometry);
+    // Emit signal so parent layout can adjust content margin
+    emit sidebarWidthChanged(targetWidth);
 
     // Update button text visibility based on state
-    QLabel *walletText = m_walletButton->findChild<QLabel *>("walletText");
-    QLabel *topCryptosText = m_topCryptosButton->findChild<QLabel *>("topCryptosText");
-    QLabel *settingsText = m_settingsButton->findChild<QLabel *>("settingsText");
+    QLabel* walletText = m_walletButton->findChild<QLabel*>("walletText");
+    QLabel* topCryptosText = m_topCryptosButton->findChild<QLabel*>("topCryptosText");
+    QLabel* settingsText = m_settingsButton->findChild<QLabel*>("settingsText");
 
     if (walletText) {
         walletText->setVisible(expand);
@@ -201,13 +195,11 @@ void QtSidebar::animateSidebar(bool expand) {
     if (settingsText) {
         settingsText->setVisible(expand);
     }
-
-    m_widthAnimation->start();
 }
 
-bool QtSidebar::eventFilter(QObject *obj, QEvent *event) {
+bool QtSidebar::eventFilter(QObject* obj, QEvent* event) {
     if (event->type() == QEvent::MouseButtonPress && m_isExpanded) {
-        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+        QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
 
         // Check if click was outside sidebar
         if (!geometry().contains(mouseEvent->pos())) {
@@ -218,7 +210,7 @@ bool QtSidebar::eventFilter(QObject *obj, QEvent *event) {
     return QWidget::eventFilter(obj, event);
 }
 
-QIcon QtSidebar::createColoredIcon(const QString &svgPath, const QColor &color) {
+QIcon QtSidebar::createColoredIcon(const QString& svgPath, const QColor& color) {
     // Render at higher resolution for better quality (2x scaling)
     const int size = 48;
     const int displaySize = 24;
@@ -248,9 +240,8 @@ QIcon QtSidebar::createColoredIcon(const QString &svgPath, const QColor &color) 
     colorPainter.end();
 
     // Scale down to display size for crisp rendering
-    QPixmap scaledPixmap = coloredPixmap.scaled(displaySize, displaySize,
-                                                  Qt::KeepAspectRatio,
-                                                  Qt::SmoothTransformation);
+    QPixmap scaledPixmap = coloredPixmap.scaled(displaySize, displaySize, Qt::KeepAspectRatio,
+                                                Qt::SmoothTransformation);
 
     return QIcon(scaledPixmap);
 }
@@ -308,11 +299,11 @@ void QtSidebar::applyTheme() {
             color: %5;
         }
     )")
-        .arg(sidebarBg)
-        .arg(borderColor)
-        .arg(hoverColor)
-        .arg(pressedColor)
-        .arg(textColor);
+                               .arg(sidebarBg)
+                               .arg(borderColor)
+                               .arg(hoverColor)
+                               .arg(pressedColor)
+                               .arg(textColor);
 
     setStyleSheet(sidebarStyle);
 
@@ -327,9 +318,9 @@ void QtSidebar::applyTheme() {
     m_menuButton->setIconSize(QSize(24, 24));
 
     // Set icons on navigation buttons
-    QLabel *walletIconLabel = m_walletButton->findChild<QLabel *>("walletIcon");
-    QLabel *topCryptosIconLabel = m_topCryptosButton->findChild<QLabel *>("topCryptosIcon");
-    QLabel *settingsIconLabel = m_settingsButton->findChild<QLabel *>("settingsIcon");
+    QLabel* walletIconLabel = m_walletButton->findChild<QLabel*>("walletIcon");
+    QLabel* topCryptosIconLabel = m_topCryptosButton->findChild<QLabel*>("topCryptosIcon");
+    QLabel* settingsIconLabel = m_settingsButton->findChild<QLabel*>("settingsIcon");
 
     if (walletIconLabel) {
         QPixmap walletPixmap = walletIcon.pixmap(QSize(24, 24));
@@ -352,14 +343,20 @@ void QtSidebar::applyTheme() {
     textFont.setWeight(QFont::Medium);
 
     // Apply to wallet button text
-    QLabel *walletText = m_walletButton->findChild<QLabel *>("walletText");
-    if (walletText) walletText->setFont(textFont);
+    QLabel* walletText = m_walletButton->findChild<QLabel*>("walletText");
+    if (walletText)
+        walletText->setFont(textFont);
 
     // Apply to top cryptos button text
-    QLabel *topCryptosText = m_topCryptosButton->findChild<QLabel *>("topCryptosText");
-    if (topCryptosText) topCryptosText->setFont(textFont);
+    QLabel* topCryptosText = m_topCryptosButton->findChild<QLabel*>("topCryptosText");
+    if (topCryptosText)
+        topCryptosText->setFont(textFont);
 
     // Apply to settings button text
-    QLabel *settingsText = m_settingsButton->findChild<QLabel *>("settingsText");
-    if (settingsText) settingsText->setFont(textFont);
+    QLabel* settingsText = m_settingsButton->findChild<QLabel*>("settingsText");
+    if (settingsText)
+        settingsText->setFont(textFont);
+
+    // Force visual refresh
+    update();
 }

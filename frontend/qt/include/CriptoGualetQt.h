@@ -23,46 +23,49 @@ class QtThemeManager;
 class QtSidebar;
 
 class CriptoGualetQt : public QMainWindow {
-  Q_OBJECT
+    Q_OBJECT
 
-public:
-  explicit CriptoGualetQt(QWidget *parent = nullptr);
-  ~CriptoGualetQt() override = default;
+  public:
+    explicit CriptoGualetQt(QWidget* parent = nullptr);
+    ~CriptoGualetQt() override = default;
 
-public slots:
-  void showLoginScreen();
-  void showWalletScreen();
-  void showSettingsScreen();
-  void showTopCryptosPage();
-  void onThemeChanged();
+  public slots:
+    void showLoginScreen();
+    void showWalletScreen();
+    void showSettingsScreen();
+    void showTopCryptosPage();
+    void onThemeChanged();
+    void onSidebarWidthChanged(int width);
 
-protected:
-  void resizeEvent(QResizeEvent *event) override;
+  protected:
+    void resizeEvent(QResizeEvent* event) override;
 
-private:
-  void setupUI();
-  void setupMenuBar();
-  void setupStatusBar();
-  void createNavbar();
-  void createSidebar();
-  void updateNavbarVisibility();
-  void updateSidebarVisibility();
-  void applyNavbarStyling();
+  private:
+    void setupUI();
+    void setupMenuBar();
+    void setupStatusBar();
+    void createNavbar();
+    void createSidebar();
+    void updateNavbarVisibility();
+    void updateSidebarVisibility();
+    void applyNavbarStyling();
 
-  QWidget *m_centralWidget;
-  QVBoxLayout *m_mainLayout;
-  QFrame *m_navbar;
-  QLabel *m_appTitleLabel;
-  QPushButton *m_signOutButton;
-  QStackedWidget *m_stackedWidget;
-  QtLoginUI *m_loginUI;
-  QtWalletUI *m_walletUI;
-  QtSettingsUI *m_settingsUI;
-  QtTopCryptosPage *m_topCryptosPage;
-  QtSidebar *m_sidebar;
-  QtThemeManager *m_themeManager;
-  std::unique_ptr<WalletAPI::SimpleWallet> m_wallet;
-  std::unique_ptr<WalletAPI::EthereumWallet> m_ethereumWallet;  // PHASE 1 FIX
-  std::unique_ptr<Repository::UserRepository> m_userRepository;
-  std::unique_ptr<Repository::WalletRepository> m_walletRepository;
+    QWidget* m_centralWidget;
+    QVBoxLayout* m_mainLayout;
+    QHBoxLayout* m_contentLayout;
+    QWidget* m_contentWidget;
+    QFrame* m_navbar;
+    QLabel* m_appTitleLabel;
+    QPushButton* m_signOutButton;
+    QStackedWidget* m_stackedWidget;
+    QtLoginUI* m_loginUI;
+    QtWalletUI* m_walletUI;
+    QtSettingsUI* m_settingsUI;
+    QtTopCryptosPage* m_topCryptosPage;
+    QtSidebar* m_sidebar;
+    QtThemeManager* m_themeManager;
+    std::unique_ptr<WalletAPI::SimpleWallet> m_wallet;
+    std::unique_ptr<WalletAPI::EthereumWallet> m_ethereumWallet;  // PHASE 1 FIX
+    std::unique_ptr<Repository::UserRepository> m_userRepository;
+    std::unique_ptr<Repository::WalletRepository> m_walletRepository;
 };

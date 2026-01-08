@@ -1,33 +1,37 @@
 #include "QtSettingsUI.h"
-#include "QtThemeManager.h"
-#include "QtPasswordConfirmDialog.h"
 #include "../../backend/core/include/Auth.h"
 #include "../../backend/utils/include/QRGenerator.h"
-#include <QGroupBox>
-#include <QFormLayout>
-#include <QHBoxLayout>
-#include <QVBoxLayout>
-#include <QMessageBox>
+#include "QtPasswordConfirmDialog.h"
+#include "QtThemeManager.h"
 #include <QCheckBox>
-#include <QPushButton>
+#include <QClipboard>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QGuiApplication>
+#include <QHBoxLayout>
+#include <QImage>
 #include <QLabel>
 #include <QLineEdit>
-#include <QScrollArea>
+#include <QMessageBox>
 #include <QPixmap>
-#include <QImage>
-#include <QClipboard>
-#include <QGuiApplication>
+#include <QPushButton>
+#include <QScrollArea>
+#include <QVBoxLayout>
 
 extern std::string g_currentUser;
 
-QtSettingsUI::QtSettingsUI(QWidget *parent)
-    : QWidget(parent), m_themeManager(&QtThemeManager::instance()),
-      m_2FATitleLabel(nullptr), m_2FAStatusLabel(nullptr),
-      m_enable2FAButton(nullptr), m_disable2FAButton(nullptr),
+QtSettingsUI::QtSettingsUI(QWidget* parent)
+    : QWidget(parent),
+      m_themeManager(&QtThemeManager::instance()),
+      m_scrollArea(nullptr),
+      m_centerContainer(nullptr),
+      m_2FATitleLabel(nullptr),
+      m_2FAStatusLabel(nullptr),
+      m_enable2FAButton(nullptr),
+      m_disable2FAButton(nullptr),
       m_2FADescriptionLabel(nullptr) {
-
     setupUI();
     applyTheme();
 
@@ -37,54 +41,53 @@ QtSettingsUI::QtSettingsUI(QWidget *parent)
 
 void QtSettingsUI::setupUI() {
     // Main layout with horizontal centering
-    QHBoxLayout *outerLayout = new QHBoxLayout(this);
+    QHBoxLayout* outerLayout = new QHBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
     outerLayout->setSpacing(0);
 
     // Use a Scroll Area for laptop screens
-    QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    scrollArea->setStyleSheet("background-color: transparent; border: none;");
+    m_scrollArea = new QScrollArea(this);
+    m_scrollArea->setWidgetResizable(true);
+    m_scrollArea->setFrameShape(QFrame::NoFrame);
+    m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    // Don't set stylesheet here - will be set in updateStyles()
 
     // Center container with max width
-    QWidget *centerContainer = new QWidget();
-    centerContainer->setMaximumWidth(900);
-    centerContainer->setStyleSheet("background-color: transparent;");
+    m_centerContainer = new QWidget();
+    m_centerContainer->setMaximumWidth(900);
+    // Don't set stylesheet here - will be set in updateStyles()
 
-    m_mainLayout = new QVBoxLayout(centerContainer);
+    m_mainLayout = new QVBoxLayout(m_centerContainer);
     // Optimized for laptop screens (reduced margins/spacing)
-    m_mainLayout->setContentsMargins(
-        m_themeManager->spacing(6),  // 24px (was 40px)
-        m_themeManager->spacing(5),  // 20px (was 40px)
-        m_themeManager->spacing(6),  // 24px (was 40px)
-        m_themeManager->spacing(5)   // 20px (was 40px)
+    m_mainLayout->setContentsMargins(m_themeManager->spacing(6),  // 24px (was 40px)
+                                     m_themeManager->spacing(5),  // 20px (was 40px)
+                                     m_themeManager->spacing(6),  // 24px (was 40px)
+                                     m_themeManager->spacing(5)   // 20px (was 40px)
     );
     m_mainLayout->setSpacing(m_themeManager->spacing(4));  // 16px (was 32px)
 
-    scrollArea->setWidget(centerContainer);
+    m_scrollArea->setWidget(m_centerContainer);
 
     // Add stretch before and after to center the container
     outerLayout->addStretch();
-    outerLayout->addWidget(scrollArea);
+    outerLayout->addWidget(m_scrollArea);
     outerLayout->addStretch();
 
     // Title
-    m_titleLabel = new QLabel("Settings", centerContainer);
+    m_titleLabel = new QLabel("Settings", m_centerContainer);
     m_titleLabel->setProperty("class", "title");
     m_titleLabel->setAlignment(Qt::AlignLeft);
     m_mainLayout->addWidget(m_titleLabel);
 
     // Theme Settings Group
-    QGroupBox *themeGroup = new QGroupBox("Appearance", centerContainer);
-    QFormLayout *themeLayout = new QFormLayout(themeGroup);
-    themeLayout->setContentsMargins(15, 15, 15, 15); // Compacted (was 20)
-    themeLayout->setSpacing(10); // Compacted (was 15)
+    QGroupBox* themeGroup = new QGroupBox("Appearance", m_centerContainer);
+    QFormLayout* themeLayout = new QFormLayout(themeGroup);
+    themeLayout->setContentsMargins(15, 15, 15, 15);  // Compacted (was 20)
+    themeLayout->setSpacing(10);                      // Compacted (was 15)
 
     // Theme selector
-    m_themeSelector = new QComboBox(centerContainer);
+    m_themeSelector = new QComboBox(m_centerContainer);
     m_themeSelector->addItem("Dark Theme", static_cast<int>(ThemeType::DARK));
     m_themeSelector->addItem("Light Theme", static_cast<int>(ThemeType::LIGHT));
     m_themeSelector->addItem("Crypto Dark", static_cast<int>(ThemeType::CRYPTO_DARK));
@@ -94,22 +97,23 @@ void QtSettingsUI::setupUI() {
     ThemeType currentTheme = m_themeManager->getCurrentTheme();
     m_themeSelector->setCurrentIndex(m_themeSelector->findData(static_cast<int>(currentTheme)));
 
-    connect(m_themeSelector, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) {
-        int themeValue = m_themeSelector->itemData(index).toInt();
-        m_themeManager->applyTheme(static_cast<ThemeType>(themeValue));
-    });
+    connect(m_themeSelector, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [this](int index) {
+                int themeValue = m_themeSelector->itemData(index).toInt();
+                m_themeManager->applyTheme(static_cast<ThemeType>(themeValue));
+            });
 
     themeLayout->addRow("Theme:", m_themeSelector);
 
     m_mainLayout->addWidget(themeGroup);
 
     // Security Settings Group - 2FA
-    QGroupBox *securityGroup = new QGroupBox("Security", centerContainer);
+    QGroupBox* securityGroup = new QGroupBox("Security", m_centerContainer);
     securityGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     securityGroup->setVisible(true);
-    QVBoxLayout *securityLayout = new QVBoxLayout(securityGroup);
+    QVBoxLayout* securityLayout = new QVBoxLayout(securityGroup);
     securityLayout->setContentsMargins(15, 20, 15, 15);  // Compacted (was 20, 25, 20, 20)
-    securityLayout->setSpacing(8); // Compacted (was 12)
+    securityLayout->setSpacing(8);                       // Compacted (was 12)
     // Apply group box styling immediately for visibility
     QString groupBoxStyle = QString(R"(
         QGroupBox {
@@ -130,9 +134,9 @@ void QtSettingsUI::setupUI() {
             margin-top: 5px;
         }
     )")
-        .arg(m_themeManager->surfaceColor().name())
-        .arg(m_themeManager->secondaryColor().name())
-        .arg(m_themeManager->textColor().name());
+                                .arg(m_themeManager->surfaceColor().name())
+                                .arg(m_themeManager->secondaryColor().name())
+                                .arg(m_themeManager->textColor().name());
     securityGroup->setStyleSheet(groupBoxStyle);
 
     // 2FA Title
@@ -148,8 +152,7 @@ void QtSettingsUI::setupUI() {
         "Two-factor authentication adds an extra layer of security by requiring "
         "a code from your authenticator app when signing in. Compatible with "
         "Google Authenticator, Authy, Microsoft Authenticator, and other TOTP apps.",
-        securityGroup
-    );
+        securityGroup);
     m_2FADescriptionLabel->setProperty("class", "subtitle");
     m_2FADescriptionLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     m_2FADescriptionLabel->setWordWrap(true);
@@ -165,7 +168,7 @@ void QtSettingsUI::setupUI() {
     securityLayout->addWidget(m_2FAStatusLabel);
 
     // Button container
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->setSpacing(10);
 
@@ -177,7 +180,7 @@ void QtSettingsUI::setupUI() {
     m_enable2FAButton->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
     m_enable2FAButton->setEnabled(true);
     buttonLayout->addWidget(m_enable2FAButton);
-    m_enable2FAButton->hide(); // Initially hidden, will be shown by update2FAStatus() if needed
+    m_enable2FAButton->hide();  // Initially hidden, will be shown by update2FAStatus() if needed
 
     // Disable 2FA Button (shown when 2FA is enabled)
     m_disable2FAButton = new QPushButton("Disable 2FA", securityGroup);
@@ -187,7 +190,7 @@ void QtSettingsUI::setupUI() {
     m_disable2FAButton->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
     m_disable2FAButton->setEnabled(true);
     buttonLayout->addWidget(m_disable2FAButton);
-    m_disable2FAButton->hide(); // Initially hidden, will be shown by update2FAStatus() if needed
+    m_disable2FAButton->hide();  // Initially hidden, will be shown by update2FAStatus() if needed
 
     buttonLayout->addStretch();
     securityLayout->addLayout(buttonLayout);
@@ -201,10 +204,10 @@ void QtSettingsUI::setupUI() {
 
     m_mainLayout->addWidget(securityGroup);
 
-    QGroupBox *walletGroup = new QGroupBox("Wallet", centerContainer);
-    QVBoxLayout *walletLayout = new QVBoxLayout(walletGroup);
-    walletLayout->setContentsMargins(15, 15, 15, 15); // Compacted (was 20)
-    m_walletPlaceholder = new QLabel("Wallet settings will be added here", centerContainer);
+    QGroupBox* walletGroup = new QGroupBox("Wallet", m_centerContainer);
+    QVBoxLayout* walletLayout = new QVBoxLayout(walletGroup);
+    walletLayout->setContentsMargins(15, 15, 15, 15);  // Compacted (was 20)
+    m_walletPlaceholder = new QLabel("Wallet settings will be added here", m_centerContainer);
     m_walletPlaceholder->setProperty("class", "subtitle");
     QFont italicFont = m_themeManager->textFont();
     italicFont.setItalic(true);
@@ -217,28 +220,108 @@ void QtSettingsUI::setupUI() {
 }
 
 void QtSettingsUI::applyTheme() {
-    // Set main background color without affecting child widgets
-    QPalette palette = this->palette();
-    palette.setColor(QPalette::Window, m_themeManager->backgroundColor());
-    setPalette(palette);
-    setAutoFillBackground(true);
+    updateStyles();
 
-    // Apply the global label and button stylesheets to this widget
-    // This ensures that class properties like "title" and "subtitle" are picked up
-    QString globalStyle = m_themeManager->getLabelStyleSheet() + 
-                          m_themeManager->getButtonStyleSheet();
-    this->setStyleSheet(globalStyle);
+    // Sync theme selector with current theme (in case theme was changed externally)
+    ThemeType currentTheme = m_themeManager->getCurrentTheme();
+    int newIndex = m_themeSelector->findData(static_cast<int>(currentTheme));
+    if (m_themeSelector->currentIndex() != newIndex) {
+        m_themeSelector->blockSignals(true);
+        m_themeSelector->setCurrentIndex(newIndex);
+        m_themeSelector->blockSignals(false);
+    }
 
-    // Title styling (override for the main settings title)
-    QString mainTitleStyle = QString(R"(
-        QLabel[class="title"]#mainTitle {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-    )");
-    m_titleLabel->setObjectName("mainTitle");
-    m_titleLabel->setStyleSheet(mainTitleStyle);
+    // Refresh 2FA status when theme changes
+    update2FAStatus();
+}
+
+void QtSettingsUI::updateStyles() {
+    // Early return if theme manager hasn't been set
+    if (!m_themeManager) {
+        return;
+    }
+
+    const QString bgColor = m_themeManager->backgroundColor().name();
+    const QString textColor = m_themeManager->textColor().name();
+    const QString surfaceColor = m_themeManager->surfaceColor().name();
+    const QString accentColor = m_themeManager->accentColor().name();
+    const QString subtitleColor = m_themeManager->subtitleColor().name();
+    const QString secondaryColor = m_themeManager->secondaryColor().name();
+
+    // Update layout spacing and margins based on new theme
+    if (m_mainLayout) {
+        m_mainLayout->setContentsMargins(m_themeManager->spacing(6),  // 24px
+                                         m_themeManager->spacing(5),  // 20px
+                                         m_themeManager->spacing(6),  // 24px
+                                         m_themeManager->spacing(5)   // 20px
+        );
+        m_mainLayout->setSpacing(m_themeManager->spacing(4));  // 16px
+    }
+
+    // Style scroll area with explicit background color
+    if (m_scrollArea) {
+        m_scrollArea->setStyleSheet(QString(R"(
+            QScrollArea {
+                background-color: %1;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background: %1;
+                width: 10px;
+                border-radius: 5px;
+                margin: 2px;
+            }
+            QScrollBar::handle:vertical {
+                background: %2;
+                border-radius: 5px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: %3;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        )")
+                                        .arg(bgColor)
+                                        .arg(secondaryColor)
+                                        .arg(accentColor));
+    }
+
+    // Style center container with explicit background color
+    if (m_centerContainer) {
+        m_centerContainer->setStyleSheet(QString("QWidget { background-color: %1; }").arg(bgColor));
+    }
+
+    // Title label styling
+    if (m_titleLabel) {
+        m_titleLabel->setStyleSheet(
+            QString("QLabel { color: %1; background-color: transparent; }").arg(textColor));
+        m_titleLabel->setFont(m_themeManager->titleFont());
+    }
+
+    // Style 2FA labels directly
+    QString labelSubtitleStyle =
+        QString("QLabel { color: %1; background-color: transparent; }").arg(subtitleColor);
+    QString labelTitleStyle =
+        QString("QLabel { color: %1; background-color: transparent; }").arg(textColor);
+
+    if (m_2FATitleLabel) {
+        m_2FATitleLabel->setStyleSheet(labelTitleStyle);
+        m_2FATitleLabel->setFont(m_themeManager->titleFont());
+    }
+    if (m_2FADescriptionLabel) {
+        m_2FADescriptionLabel->setStyleSheet(labelSubtitleStyle);
+    }
+    if (m_2FAStatusLabel) {
+        m_2FAStatusLabel->setStyleSheet(labelSubtitleStyle);
+    }
+    if (m_walletPlaceholder) {
+        m_walletPlaceholder->setStyleSheet(labelSubtitleStyle);
+    }
 
     // Group box styling
     QString groupBoxStyle = QString(R"(
@@ -260,20 +343,27 @@ void QtSettingsUI::applyTheme() {
             margin-top: 4px;
         }
     )")
-        .arg(m_themeManager->surfaceColor().name())
-        .arg(m_themeManager->secondaryColor().name())
-        .arg(m_themeManager->textColor().name());
+                                .arg(surfaceColor)
+                                .arg(secondaryColor)
+                                .arg(textColor);
 
     // Apply to all group boxes
-    for (QGroupBox *groupBox : findChildren<QGroupBox *>()) {
+    for (QGroupBox* groupBox : findChildren<QGroupBox*>()) {
         groupBox->setStyleSheet(groupBoxStyle);
     }
 
-    // Combo box styling
-    QString comboBoxStyle = m_themeManager->getLineEditStyleSheet() + QString(R"(
+    // Combo box styling - create a self-contained style without using getLineEditStyleSheet
+    QString comboBoxStyle = QString(R"(
         QComboBox {
+            background-color: %1;
+            color: %2;
+            border: 2px solid %3;
+            border-radius: 6px;
+            padding: 8px 12px;
             min-width: 200px;
-            padding: 8px;
+        }
+        QComboBox:focus {
+            border-color: %4;
         }
         QComboBox::drop-down {
             border: none;
@@ -282,36 +372,61 @@ void QtSettingsUI::applyTheme() {
             image: none;
             border-left: 5px solid transparent;
             border-right: 5px solid transparent;
-            border-top: 5px solid %1;
+            border-top: 5px solid %2;
             margin-right: 8px;
         }
-    )").arg(m_themeManager->textColor().name());
+        QComboBox QAbstractItemView {
+            background-color: %1;
+            color: %2;
+            border: 1px solid %3;
+            selection-background-color: %4;
+        }
+    )")
+                                .arg(surfaceColor)
+                                .arg(textColor)
+                                .arg(secondaryColor)
+                                .arg(accentColor);
 
-    m_themeSelector->setStyleSheet(comboBoxStyle);
+    if (m_themeSelector) {
+        m_themeSelector->setStyleSheet(comboBoxStyle);
+        m_themeSelector->setFont(m_themeManager->textFont());
+    }
 
-    // 2FA Section styling is now handled by class properties and global stylesheet
-    // No need for manual setStyleSheet calls here for m_2FATitleLabel, m_2FADescriptionLabel, etc.
+    // Button styling for 2FA buttons
+    QString buttonStyle = QString(R"(
+        QPushButton {
+            background-color: %1;
+            color: %2;
+            border: 2px solid %3;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 600;
+            min-height: 20px;
+        }
+        QPushButton:hover {
+            background-color: %4;
+            border-color: %5;
+        }
+        QPushButton:pressed {
+            background-color: %6;
+        }
+    )")
+                              .arg(surfaceColor)
+                              .arg(textColor)
+                              .arg(accentColor)
+                              .arg(m_themeManager->accentColor().lighter(120).name())
+                              .arg(m_themeManager->accentColor().lighter(130).name())
+                              .arg(m_themeManager->accentColor().darker(120).name());
 
-    // Enable button styling
     if (m_enable2FAButton) {
-        m_enable2FAButton->setStyleSheet(m_themeManager->getButtonStyleSheet());
+        m_enable2FAButton->setStyleSheet(buttonStyle);
     }
-
-    // Disable button styling
     if (m_disable2FAButton) {
-        m_disable2FAButton->setStyleSheet(m_themeManager->getButtonStyleSheet());
+        m_disable2FAButton->setStyleSheet(buttonStyle);
     }
 
-    // Apply fonts
-    m_titleLabel->setFont(m_themeManager->titleFont());
-    m_themeSelector->setFont(m_themeManager->textFont());
-
-    // Style SMTP input fields
-    QString lineEditStyle = m_themeManager->getLineEditStyleSheet();
-    // ... we can apply this to any line edits if needed ...
-
-    // Refresh 2FA status when theme changes
-    update2FAStatus();
+    // Force visual refresh
+    update();
 }
 
 void QtSettingsUI::update2FAStatus() {
@@ -319,8 +434,10 @@ void QtSettingsUI::update2FAStatus() {
         if (m_2FAStatusLabel) {
             m_2FAStatusLabel->setText("Please sign in to manage 2FA settings.");
         }
-        if (m_enable2FAButton) m_enable2FAButton->hide();
-        if (m_disable2FAButton) m_disable2FAButton->hide();
+        if (m_enable2FAButton)
+            m_enable2FAButton->hide();
+        if (m_disable2FAButton)
+            m_disable2FAButton->hide();
         return;
     }
 
@@ -334,7 +451,8 @@ void QtSettingsUI::update2FAStatus() {
             m_2FAStatusLabel->style()->unpolish(m_2FAStatusLabel);
             m_2FAStatusLabel->style()->polish(m_2FAStatusLabel);
         }
-        if (m_enable2FAButton) m_enable2FAButton->hide();
+        if (m_enable2FAButton)
+            m_enable2FAButton->hide();
         if (m_disable2FAButton) {
             m_disable2FAButton->show();
             m_disable2FAButton->setEnabled(true);
@@ -350,41 +468,35 @@ void QtSettingsUI::update2FAStatus() {
             m_enable2FAButton->show();
             m_enable2FAButton->setEnabled(true);
         }
-        if (m_disable2FAButton) m_disable2FAButton->hide();
+        if (m_disable2FAButton)
+            m_disable2FAButton->hide();
     }
 }
 
-void QtSettingsUI::refresh2FAStatus() {
-    update2FAStatus();
-}
+void QtSettingsUI::refresh2FAStatus() { update2FAStatus(); }
 
 void QtSettingsUI::onEnable2FAClicked() {
     if (g_currentUser.empty()) {
-        QMessageBox::warning(this, "Not Signed In",
-                            "Please sign in to manage 2FA settings.");
+        QMessageBox::warning(this, "Not Signed In", "Please sign in to manage 2FA settings.");
         return;
     }
 
     // Step 1: Password confirmation dialog
-    QtPasswordConfirmDialog passwordDialog(
-        QString::fromStdString(g_currentUser),
-        "Enable Two-Factor Authentication",
-        "Please enter your password to enable 2FA:",
-        this
-    );
+    QtPasswordConfirmDialog passwordDialog(QString::fromStdString(g_currentUser),
+                                           "Enable Two-Factor Authentication",
+                                           "Please enter your password to enable 2FA:", this);
 
     if (passwordDialog.exec() == QDialog::Accepted && passwordDialog.isConfirmed()) {
         QString password = passwordDialog.getPassword();
 
         // Step 2: Generate TOTP secret and get QR code URI
-        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
-            g_currentUser,
-            password.toStdString()
-        );
+        Auth::TwoFactorSetupData setupData =
+            Auth::InitiateTwoFactorSetup(g_currentUser, password.toStdString());
 
         if (!setupData.success) {
             QMessageBox::warning(this, "Error",
-                               QString("Failed to initialize 2FA: %1").arg(QString::fromStdString(setupData.errorMessage)));
+                                 QString("Failed to initialize 2FA: %1")
+                                     .arg(QString::fromStdString(setupData.errorMessage)));
             return;
         }
 
@@ -394,35 +506,35 @@ void QtSettingsUI::onEnable2FAClicked() {
         setupDialog.setModal(true);
         setupDialog.setMinimumWidth(400);
 
-        QVBoxLayout *layout = new QVBoxLayout(&setupDialog);
+        QVBoxLayout* layout = new QVBoxLayout(&setupDialog);
         layout->setSpacing(15);
         layout->setContentsMargins(20, 20, 20, 20);
 
         // Instructions
-        QLabel *instructionsLabel = new QLabel(
+        QLabel* instructionsLabel = new QLabel(
             "Scan this QR code with your authenticator app\n"
             "(Google Authenticator, Authy, Microsoft Authenticator, etc.)",
-            &setupDialog
-        );
+            &setupDialog);
         instructionsLabel->setAlignment(Qt::AlignCenter);
         instructionsLabel->setWordWrap(true);
         layout->addWidget(instructionsLabel);
 
         // QR Code
-        QLabel *qrLabel = new QLabel(&setupDialog);
+        QLabel* qrLabel = new QLabel(&setupDialog);
         qrLabel->setAlignment(Qt::AlignCenter);
         qrLabel->setMinimumSize(200, 200);
-        
+
         // Generate QR code from the otpauth URI
         QR::QRData qrData;
         if (QR::GenerateQRCode(setupData.otpauthUri, qrData) && qrData.width > 0) {
             // Convert QR data to QImage
             int scale = 200 / qrData.width;
-            if (scale < 1) scale = 1;
+            if (scale < 1)
+                scale = 1;
             int imgSize = qrData.width * scale;
             QImage qrImage(imgSize, imgSize, QImage::Format_RGB32);
             qrImage.fill(Qt::white);
-            
+
             for (int y = 0; y < qrData.height; ++y) {
                 for (int x = 0; x < qrData.width; ++x) {
                     if (qrData.data[y * qrData.width + x]) {
@@ -442,34 +554,34 @@ void QtSettingsUI::onEnable2FAClicked() {
         layout->addWidget(qrLabel);
 
         // Manual entry option
-        QLabel *manualLabel = new QLabel("Or enter this code manually:", &setupDialog);
+        QLabel* manualLabel = new QLabel("Or enter this code manually:", &setupDialog);
         manualLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(manualLabel);
 
         // Secret key display with copy button
-        QHBoxLayout *secretLayout = new QHBoxLayout();
-        QLineEdit *secretEdit = new QLineEdit(&setupDialog);
+        QHBoxLayout* secretLayout = new QHBoxLayout();
+        QLineEdit* secretEdit = new QLineEdit(&setupDialog);
         secretEdit->setText(QString::fromStdString(setupData.secretBase32));
         secretEdit->setReadOnly(true);
         secretEdit->setAlignment(Qt::AlignCenter);
         secretEdit->setFont(QFont("Courier", 11));
         secretLayout->addWidget(secretEdit);
-        
-        QPushButton *copyButton = new QPushButton("Copy", &setupDialog);
+
+        QPushButton* copyButton = new QPushButton("Copy", &setupDialog);
         copyButton->setMaximumWidth(60);
-        connect(copyButton, &QPushButton::clicked, [secretEdit]() {
-            QGuiApplication::clipboard()->setText(secretEdit->text());
-        });
+        connect(copyButton, &QPushButton::clicked,
+                [secretEdit]() { QGuiApplication::clipboard()->setText(secretEdit->text()); });
         secretLayout->addWidget(copyButton);
         layout->addLayout(secretLayout);
 
         // Verification code entry
         layout->addSpacing(10);
-        QLabel *verifyLabel = new QLabel("Enter the 6-digit code from your app to verify:", &setupDialog);
+        QLabel* verifyLabel =
+            new QLabel("Enter the 6-digit code from your app to verify:", &setupDialog);
         verifyLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(verifyLabel);
 
-        QLineEdit *codeEdit = new QLineEdit(&setupDialog);
+        QLineEdit* codeEdit = new QLineEdit(&setupDialog);
         codeEdit->setMaxLength(6);
         codeEdit->setAlignment(Qt::AlignCenter);
         codeEdit->setPlaceholderText("000000");
@@ -477,10 +589,8 @@ void QtSettingsUI::onEnable2FAClicked() {
         layout->addWidget(codeEdit);
 
         // Buttons
-        QDialogButtonBox *buttonBox = new QDialogButtonBox(
-            QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
-            &setupDialog
-        );
+        QDialogButtonBox* buttonBox =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &setupDialog);
         buttonBox->button(QDialogButtonBox::Ok)->setText("Verify & Enable");
         layout->addWidget(buttonBox);
 
@@ -489,30 +599,25 @@ void QtSettingsUI::onEnable2FAClicked() {
 
         if (setupDialog.exec() == QDialog::Accepted) {
             QString code = codeEdit->text().trimmed();
-            
+
             if (code.isEmpty() || code.length() != 6) {
-                QMessageBox::warning(this, "Invalid Code",
-                                   "Please enter a valid 6-digit code.");
+                QMessageBox::warning(this, "Invalid Code", "Please enter a valid 6-digit code.");
                 return;
             }
 
             // Verify and enable 2FA
-            Auth::AuthResponse confirmResult = Auth::ConfirmTwoFactorSetup(
-                g_currentUser,
-                code.toStdString()
-            );
+            Auth::AuthResponse confirmResult =
+                Auth::ConfirmTwoFactorSetup(g_currentUser, code.toStdString());
 
             if (confirmResult.success()) {
                 // Show backup codes
-                Auth::BackupCodesResult backupCodes = Auth::GetBackupCodes(
-                    g_currentUser,
-                    password.toStdString()
-                );
+                Auth::BackupCodesResult backupCodes =
+                    Auth::GetBackupCodes(g_currentUser, password.toStdString());
 
                 QString backupMessage = "Two-factor authentication has been enabled!\n\n";
                 if (backupCodes.success && !backupCodes.codes.empty()) {
                     backupMessage += "Save these backup codes in a secure location:\n\n";
-                    for (const auto &code : backupCodes.codes) {
+                    for (const auto& code : backupCodes.codes) {
                         backupMessage += QString::fromStdString(code) + "\n";
                     }
                     backupMessage += "\nEach code can only be used once.";
@@ -521,8 +626,9 @@ void QtSettingsUI::onEnable2FAClicked() {
                 QMessageBox::information(this, "2FA Enabled", backupMessage);
                 update2FAStatus();
             } else {
-                QMessageBox::warning(this, "Verification Failed",
-                                   QString("Invalid code: %1").arg(QString::fromStdString(confirmResult.message)));
+                QMessageBox::warning(
+                    this, "Verification Failed",
+                    QString("Invalid code: %1").arg(QString::fromStdString(confirmResult.message)));
             }
         }
     }
@@ -530,18 +636,17 @@ void QtSettingsUI::onEnable2FAClicked() {
 
 void QtSettingsUI::onDisable2FAClicked() {
     if (g_currentUser.empty()) {
-        QMessageBox::warning(this, "Not Signed In",
-                            "Please sign in to manage 2FA settings.");
+        QMessageBox::warning(this, "Not Signed In", "Please sign in to manage 2FA settings.");
         return;
     }
 
     // Confirm with user
-    int ret = QMessageBox::question(this, "Disable 2FA",
-                                   "Are you sure you want to disable two-factor authentication?\n\n"
-                                   "This will reduce the security of your account. You can re-enable it "
-                                   "later through the settings.",
-                                   QMessageBox::Yes | QMessageBox::No,
-                                   QMessageBox::No);
+    int ret =
+        QMessageBox::question(this, "Disable 2FA",
+                              "Are you sure you want to disable two-factor authentication?\n\n"
+                              "This will reduce the security of your account. You can re-enable it "
+                              "later through the settings.",
+                              QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
 
     if (ret == QMessageBox::Yes) {
         // Create dialog for password and TOTP code
@@ -550,46 +655,41 @@ void QtSettingsUI::onDisable2FAClicked() {
         disableDialog.setModal(true);
         disableDialog.setMinimumWidth(350);
 
-        QVBoxLayout *layout = new QVBoxLayout(&disableDialog);
+        QVBoxLayout* layout = new QVBoxLayout(&disableDialog);
         layout->setSpacing(12);
         layout->setContentsMargins(20, 20, 20, 20);
 
-        QLabel *instructionLabel = new QLabel(
-            "Enter your password and current authenticator code\nto disable 2FA:",
-            &disableDialog
-        );
+        QLabel* instructionLabel = new QLabel(
+            "Enter your password and current authenticator code\nto disable 2FA:", &disableDialog);
         instructionLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(instructionLabel);
 
         // Password field
-        QLabel *passwordLabel = new QLabel("Password:", &disableDialog);
+        QLabel* passwordLabel = new QLabel("Password:", &disableDialog);
         layout->addWidget(passwordLabel);
-        QLineEdit *passwordEdit = new QLineEdit(&disableDialog);
+        QLineEdit* passwordEdit = new QLineEdit(&disableDialog);
         passwordEdit->setEchoMode(QLineEdit::Password);
         layout->addWidget(passwordEdit);
 
         // TOTP code field
-        QLabel *codeLabel = new QLabel("Authenticator Code:", &disableDialog);
+        QLabel* codeLabel = new QLabel("Authenticator Code:", &disableDialog);
         layout->addWidget(codeLabel);
-        QLineEdit *codeEdit = new QLineEdit(&disableDialog);
+        QLineEdit* codeEdit = new QLineEdit(&disableDialog);
         codeEdit->setMaxLength(6);
         codeEdit->setPlaceholderText("000000");
         layout->addWidget(codeEdit);
 
         // Backup code option
-        QLabel *backupLabel = new QLabel(
+        QLabel* backupLabel = new QLabel(
             "<small>Lost your authenticator? <a href='backup'>Use a backup code</a></small>",
-            &disableDialog
-        );
+            &disableDialog);
         backupLabel->setTextFormat(Qt::RichText);
         backupLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(backupLabel);
 
         // Buttons
-        QDialogButtonBox *buttonBox = new QDialogButtonBox(
-            QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
-            &disableDialog
-        );
+        QDialogButtonBox* buttonBox =
+            new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &disableDialog);
         buttonBox->button(QDialogButtonBox::Ok)->setText("Disable 2FA");
         layout->addWidget(buttonBox);
 
@@ -623,23 +723,21 @@ void QtSettingsUI::onDisable2FAClicked() {
             if (useBackupCode) {
                 response = Auth::UseBackupCode(g_currentUser, code.toStdString());
             } else {
-                response = Auth::DisableTwoFactor(
-                    g_currentUser,
-                    password.toStdString(),
-                    code.toStdString()
-                );
+                response = Auth::DisableTwoFactor(g_currentUser, password.toStdString(),
+                                                  code.toStdString());
             }
 
             if (response.success()) {
-                QMessageBox::information(this, "2FA Disabled",
-                                       "Two-factor authentication has been disabled successfully.");
+                QMessageBox::information(
+                    this, "2FA Disabled",
+                    "Two-factor authentication has been disabled successfully.");
                 update2FAStatus();
             } else {
                 QMessageBox::warning(this, "Error",
-                                    QString("Failed to disable 2FA: %1").arg(QString::fromStdString(response.message)));
+                                     QString("Failed to disable 2FA: %1")
+                                         .arg(QString::fromStdString(response.message)));
                 update2FAStatus();
             }
         }
     }
 }
-

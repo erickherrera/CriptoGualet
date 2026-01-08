@@ -117,17 +117,27 @@ void CriptoGualetQt::setupUI() {
     // Create navbar
     createNavbar();
 
-    // Create a container widget that will hold the stacked widget
-    QWidget* contentContainer = new QWidget(m_centralWidget);
-    contentContainer->setObjectName("contentContainer");
+    // Create horizontal layout container for sidebar + content
+    QWidget* horizontalContainer = new QWidget(m_centralWidget);
+    m_contentLayout = new QHBoxLayout(horizontalContainer);
+    m_contentLayout->setContentsMargins(0, 0, 0, 0);
+    m_contentLayout->setSpacing(0);
 
-    // Use vertical layout for just the stacked widget
-    QVBoxLayout* contentLayout = new QVBoxLayout(contentContainer);
-    contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(0);
+    // Create sidebar (part of horizontal layout, not overlay)
+    m_sidebar = new QtSidebar(m_themeManager, horizontalContainer);
+    m_sidebar->hide();  // Initially hidden (login screen)
+    m_contentLayout->addWidget(m_sidebar);
 
-    // Create stacked widget for pages (fills the entire container)
-    m_stackedWidget = new QStackedWidget(contentContainer);
+    // Create content widget that will hold the stacked widget
+    m_contentWidget = new QWidget(horizontalContainer);
+    m_contentWidget->setObjectName("contentWidget");
+
+    QVBoxLayout* contentInnerLayout = new QVBoxLayout(m_contentWidget);
+    contentInnerLayout->setContentsMargins(0, 0, 0, 0);
+    contentInnerLayout->setSpacing(0);
+
+    // Create stacked widget for pages
+    m_stackedWidget = new QStackedWidget(m_contentWidget);
 
     m_loginUI = new QtLoginUI(this);
     m_walletUI = new QtWalletUI(this);
@@ -146,17 +156,17 @@ void CriptoGualetQt::setupUI() {
     m_stackedWidget->addWidget(m_settingsUI);
     m_stackedWidget->addWidget(m_topCryptosPage);
 
-    contentLayout->addWidget(m_stackedWidget);
+    contentInnerLayout->addWidget(m_stackedWidget);
 
-    m_mainLayout->addWidget(contentContainer);
+    // Add content widget to horizontal layout (takes remaining space)
+    m_contentLayout->addWidget(m_contentWidget, 1);
 
-    // Create sidebar as an OVERLAY on top of the content container
-    m_sidebar = new QtSidebar(m_themeManager, contentContainer);
-    m_sidebar->raise();  // Ensure sidebar is on top
-    m_sidebar->hide();   // Initially hidden
+    m_mainLayout->addWidget(horizontalContainer);
 
-    // Connect sidebar navigation signals
+    // Connect sidebar navigation and width change signals
     createSidebar();
+    connect(m_sidebar, &QtSidebar::sidebarWidthChanged, this,
+            &CriptoGualetQt::onSidebarWidthChanged);
 
     connect(m_loginUI, &QtLoginUI::loginRequested,
             [this](const QString& username, const QString& password) {
@@ -612,6 +622,10 @@ void CriptoGualetQt::showSettingsScreen() {
     statusBar()->showMessage("Settings");
     // Refresh 2FA status when settings page is shown
     m_settingsUI->refresh2FAStatus();
+    // Re-apply sidebar theme to prevent style bleeding from settings page
+    if (m_sidebar) {
+        m_sidebar->applyTheme();
+    }
 }
 
 void CriptoGualetQt::showTopCryptosPage() {
@@ -635,24 +649,29 @@ void CriptoGualetQt::updateSidebarVisibility() {
     // Show sidebar only when not on login screen
     if (m_stackedWidget->currentWidget() != m_loginUI) {
         m_sidebar->show();
-        // Position sidebar as overlay at left edge
-        QWidget* contentContainer = m_sidebar->parentWidget();
-        if (contentContainer) {
-            m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
-        }
     } else {
         m_sidebar->hide();
     }
 }
 
 void CriptoGualetQt::onThemeChanged() {
+    // Apply theme to all UI pages
     m_loginUI->applyTheme();
     m_walletUI->applyTheme();
     m_settingsUI->applyTheme();
+    m_topCryptosPage->applyTheme();
+
+    // Apply theme to sidebar
     if (m_sidebar) {
         m_sidebar->applyTheme();
     }
+
+    // Apply navbar styling
     applyNavbarStyling();
+
+    // Force visual refresh of the entire UI
+    m_centralWidget->update();
+    update();
 }
 
 void CriptoGualetQt::applyNavbarStyling() {
@@ -662,17 +681,64 @@ void CriptoGualetQt::applyNavbarStyling() {
     // Apply fonts to navbar components
     m_appTitleLabel->setFont(m_themeManager->titleFont());
     m_signOutButton->setFont(m_themeManager->buttonFont());
+
+    // Style menu bar with theme-appropriate colors
+    QString menuBarStyle = QString(R"(
+        QMenuBar {
+            background-color: %1;
+            color: %2;
+            border: none;
+            padding: 2px;
+        }
+        QMenuBar::item {
+            background-color: transparent;
+            color: %2;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+        QMenuBar::item:selected {
+            background-color: %3;
+        }
+        QMenuBar::item:pressed {
+            background-color: %4;
+        }
+        QMenu {
+            background-color: %5;
+            color: %2;
+            border: 1px solid %6;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        QMenu::item {
+            padding: 6px 20px;
+            border-radius: 4px;
+        }
+        QMenu::item:selected {
+            background-color: %3;
+        }
+    )")
+                               .arg(m_themeManager->backgroundColor().name())
+                               .arg(m_themeManager->textColor().name())
+                               .arg(m_themeManager->accentColor().name())
+                               .arg(m_themeManager->accentColor().darker(110).name())
+                               .arg(m_themeManager->surfaceColor().name())
+                               .arg(m_themeManager->secondaryColor().name());
+
+    menuBar()->setStyleSheet(menuBarStyle);
 }
 
 void CriptoGualetQt::resizeEvent(QResizeEvent* event) {
     QMainWindow::resizeEvent(event);
+    // Sidebar is now part of layout, no manual geometry update needed
+}
 
-    // Update sidebar geometry as overlay when window is resized
-    if (m_sidebar && m_sidebar->isVisible()) {
-        QWidget* contentContainer = m_sidebar->parentWidget();
-        if (contentContainer) {
-            m_sidebar->setGeometry(0, 0, m_sidebar->width(), contentContainer->height());
-        }
+void CriptoGualetQt::onSidebarWidthChanged(int width) {
+    Q_UNUSED(width);
+    // The sidebar is part of the horizontal layout, so the layout
+    // automatically adjusts the content widget when sidebar width changes.
+    // Force a layout update to ensure smooth transition.
+    if (m_contentLayout) {
+        m_contentLayout->update();
     }
 }
 

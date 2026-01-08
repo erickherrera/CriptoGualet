@@ -1,90 +1,89 @@
 #include "QtTopCryptosPage.h"
 #include "QtThemeManager.h"
-#include <QGraphicsDropShadowEffect>
-#include <QPainter>
-#include <QPainterPath>
-#include <QResizeEvent>
-#include <QMessageBox>
-#include <QSpacerItem>
 #include <QTimer>
 #include <QDebug>
+#include <QGraphicsDropShadowEffect>
+#include <QMessageBox>
 #include <QNetworkAccessManager>
-#include <QNetworkRequest>
 #include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QPainter>
+#include <QPainterPath>
 #include <QPixmap>
+#include <QResizeEvent>
 #include <QScrollBar>
+#include <QSpacerItem>
 #include <algorithm>
 
 // ============================================================================
 // QtCryptoCard Implementation
 // ============================================================================
 
-QtCryptoCard::QtCryptoCard(QWidget *parent)
-    : QFrame(parent)
-    , m_themeManager(&QtThemeManager::instance())
-    , m_networkManager(new QNetworkAccessManager(this))
-    , m_iconLoaded(false) {
+QtCryptoCard::QtCryptoCard(QWidget* parent)
+    : QFrame(parent),
+      m_themeManager(&QtThemeManager::instance()),
+      m_networkManager(new QNetworkAccessManager(this)),
+      m_iconLoaded(false) {
     setupUI();
     applyTheme();
 
-    connect(m_networkManager, &QNetworkAccessManager::finished,
-            this, &QtCryptoCard::onIconDownloaded);
+    connect(m_networkManager, &QNetworkAccessManager::finished, this,
+            &QtCryptoCard::onIconDownloaded);
 }
 
 void QtCryptoCard::setupUI() {
     // Main layout
-    QHBoxLayout *mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(16, 12, 16, 12); // Compacted (was 24, 20, 24, 20)
-    mainLayout->setSpacing(12); // Compacted (was 16)
+    QHBoxLayout* mainLayout = new QHBoxLayout(this);
+    mainLayout->setContentsMargins(16, 12, 16, 12);  // Compacted (was 24, 20, 24, 20)
+    mainLayout->setSpacing(12);                      // Compacted (was 16)
 
     // Crypto icon (left side)
     m_iconLabel = new QLabel(this);
     m_iconLabel->setAlignment(Qt::AlignCenter);
-    m_iconLabel->setFixedSize(40, 40); // Compacted (was 48x48)
-    m_iconLabel->setScaledContents(true); // Scale to fit label
+    m_iconLabel->setFixedSize(40, 40);     // Compacted (was 48x48)
+    m_iconLabel->setScaledContents(true);  // Scale to fit label
 
     // Crypto info (middle)
-    QVBoxLayout *infoLayout = new QVBoxLayout();
-    infoLayout->setSpacing(2); // Tightened
+    QVBoxLayout* infoLayout = new QVBoxLayout();
+    infoLayout->setSpacing(2);  // Tightened
 
-    QHBoxLayout *topRow = new QHBoxLayout();
-    topRow->setSpacing(8); // Tightened
+    QHBoxLayout* topRow = new QHBoxLayout();
+    topRow->setSpacing(8);  // Tightened
 
     m_symbolLabel = new QLabel(this);
-    m_symbolLabel->setStyleSheet("font-size: 18px; font-weight: bold;"); // Compacted (was 20px)
+    m_symbolLabel->setStyleSheet("font-size: 18px; font-weight: bold;");  // Compacted (was 20px)
 
     m_nameLabel = new QLabel(this);
-    m_nameLabel->setStyleSheet(QString("font-size: 13px; color: %1;") // Slightly smaller
-        .arg(m_themeManager->dimmedTextColor().name()));
+    m_nameLabel->setStyleSheet(QString("font-size: 13px; color: %1;")  // Slightly smaller
+                                   .arg(m_themeManager->dimmedTextColor().name()));
 
     topRow->addWidget(m_symbolLabel);
     topRow->addWidget(m_nameLabel);
     topRow->addStretch();
 
     m_marketCapLabel = new QLabel(this);
-    m_marketCapLabel->setStyleSheet(QString("font-size: 11px; color: %1;") // Slightly smaller
-        .arg(m_themeManager->dimmedTextColor().name()));
+    m_marketCapLabel->setStyleSheet(QString("font-size: 11px; color: %1;")  // Slightly smaller
+                                        .arg(m_themeManager->dimmedTextColor().name()));
 
     infoLayout->addLayout(topRow);
     infoLayout->addWidget(m_marketCapLabel);
 
     // Price info (right side)
-    QVBoxLayout *priceLayout = new QVBoxLayout();
-    priceLayout->setSpacing(2); // Tightened
+    QVBoxLayout* priceLayout = new QVBoxLayout();
+    priceLayout->setSpacing(2);  // Tightened
     priceLayout->setAlignment(Qt::AlignRight);
 
     m_priceLabel = new QLabel(this);
     m_priceLabel->setAlignment(Qt::AlignRight);
-    m_priceLabel->setStyleSheet("font-size: 18px; font-weight: 600;"); // Compacted (was 20px)
+    m_priceLabel->setStyleSheet("font-size: 18px; font-weight: 600;");  // Compacted (was 20px)
 
     m_changeLabel = new QLabel(this);
     m_changeLabel->setAlignment(Qt::AlignRight);
     m_changeLabel->setStyleSheet(
-        "font-size: 13px;" // Slightly smaller
+        "font-size: 13px;"  // Slightly smaller
         "font-weight: 600;"
-        "padding: 2px 10px;" // Compacted
-        "border-radius: 10px;"
-    );
+        "padding: 2px 10px;"  // Compacted
+        "border-radius: 10px;");
 
     priceLayout->addWidget(m_priceLabel);
     priceLayout->addWidget(m_changeLabel);
@@ -96,14 +95,14 @@ void QtCryptoCard::setupUI() {
 
     // Card styling
     setFrameShape(QFrame::NoFrame);
-    setMinimumHeight(80); // Compacted (was 100)
+    setMinimumHeight(80);  // Compacted (was 100)
 
     // Enable hover cursor
     setCursor(Qt::PointingHandCursor);
     setAttribute(Qt::WA_Hover);
 }
 
-void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &cryptoData, int rank) {
+void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData& cryptoData, int rank) {
     QString symbol = QString::fromStdString(cryptoData.symbol);
     m_currentSymbol = symbol;
     m_currentImageUrl = QString::fromStdString(cryptoData.image_url);
@@ -113,44 +112,41 @@ void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData &cryptoData
     QColor placeholderBg = m_themeManager->secondaryColor();
     placeholderBg.setAlphaF(0.1f);  // 10% opacity
     m_iconLabel->setStyleSheet(QString("border-radius: 20px; background-color: %1;")
-        .arg(placeholderBg.name(QColor::HexArgb)));
+                                   .arg(placeholderBg.name(QColor::HexArgb)));
     m_iconLoaded = false;
 
     // Add rank prefix to symbol
-    m_symbolLabel->setText(QString("#%1  %2")
-        .arg(rank)
-        .arg(symbol));
+    m_symbolLabel->setText(QString("#%1  %2").arg(rank).arg(symbol));
     m_nameLabel->setText(QString::fromStdString(cryptoData.name));
     m_priceLabel->setText(formatPrice(cryptoData.usd_price));
     m_marketCapLabel->setText("MCap: " + formatMarketCap(cryptoData.market_cap));
 
     // Format price change with color
     QString changeText = QString("%1%2")
-        .arg(cryptoData.price_change_24h >= 0 ? "+" : "")
-        .arg(cryptoData.price_change_24h, 0, 'f', 2) + "%";
+                             .arg(cryptoData.price_change_24h >= 0 ? "+" : "")
+                             .arg(cryptoData.price_change_24h, 0, 'f', 2) +
+                         "%";
     m_changeLabel->setText(changeText);
 
     // Apply color based on change
     if (cryptoData.price_change_24h >= 0) {
-        m_changeLabel->setStyleSheet(QString(
-            "font-size: 13px;"
-            "font-weight: 600;"
-            "padding: 2px 10px;"
-            "border-radius: 10px;"
-            "background-color: %1;"
-            "color: %2;"
-        ).arg(m_themeManager->lightPositive().name(QColor::HexArgb))
-         .arg(m_themeManager->positiveColor().name()));
+        m_changeLabel->setStyleSheet(QString("font-size: 13px;"
+                                             "font-weight: 600;"
+                                             "padding: 2px 10px;"
+                                             "border-radius: 10px;"
+                                             "background-color: %1;"
+                                             "color: %2;")
+                                         .arg(m_themeManager->lightPositive().name(QColor::HexArgb))
+                                         .arg(m_themeManager->positiveColor().name()));
     } else {
-        m_changeLabel->setStyleSheet(QString(
-            "font-size: 13px;"
-            "font-weight: 600;"
-            "padding: 2px 10px;"
-            "border-radius: 10px;"
-            "background-color: %1;"
-            "color: %2;"
-        ).arg(m_themeManager->lightNegative().name(QColor::HexArgb))
-         .arg(m_themeManager->negativeColor().name()));
+        m_changeLabel->setStyleSheet(QString("font-size: 13px;"
+                                             "font-weight: 600;"
+                                             "padding: 2px 10px;"
+                                             "border-radius: 10px;"
+                                             "background-color: %1;"
+                                             "color: %2;")
+                                         .arg(m_themeManager->lightNegative().name(QColor::HexArgb))
+                                         .arg(m_themeManager->negativeColor().name()));
     }
 }
 
@@ -176,9 +172,9 @@ QString QtCryptoCard::formatMarketCap(double marketCap) {
     }
 }
 
-void QtCryptoCard::loadIcon(const QString &symbol) {
+void QtCryptoCard::loadIcon(const QString& symbol) {
     if (m_iconLoaded) {
-        return; // Already loaded
+        return;  // Already loaded
     }
 
     // Use the image URL from the API data, or fallback to static mapping
@@ -194,11 +190,12 @@ void QtCryptoCard::loadIcon(const QString &symbol) {
     // Trigger icon download with proper headers
     QNetworkRequest request(iconUrl);
     request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
     m_networkManager->get(request);
 }
 
-QString QtCryptoCard::getCryptoIconUrl(const QString &symbol) {
+QString QtCryptoCard::getCryptoIconUrl(const QString& symbol) {
     // Use CoinGecko assets API
     // Format: https://assets.coingecko.com/coins/images/{id}/large/{coin}.png
     // Expanded to cover top 100+ cryptocurrencies
@@ -313,14 +310,13 @@ QString QtCryptoCard::getCryptoIconUrl(const QString &symbol) {
         {"ICX", "2099/large/icon.png"},
         {"WOO", "7501/large/wootrade.png"},
         {"QTUM", "1684/large/qtum.png"},
-        {"AR", "5186/large/arweave.png"}
-    };
+        {"AR", "5186/large/arweave.png"}};
 
     QString imagePath = symbolToImagePath.value(symbol.toUpper(), "1/large/bitcoin.png");
     return QString("https://assets.coingecko.com/coins/images/%1").arg(imagePath);
 }
 
-void QtCryptoCard::onIconDownloaded(QNetworkReply *reply) {
+void QtCryptoCard::onIconDownloaded(QNetworkReply* reply) {
     if (reply->error() == QNetworkReply::NoError) {
         QByteArray imageData = reply->readAll();
         QPixmap pixmap;
@@ -330,11 +326,8 @@ void QtCryptoCard::onIconDownloaded(QNetworkReply *reply) {
             int highResSize = 96;
 
             // Scale pixmap to high resolution with smooth transformation
-            QPixmap scaledPixmap = pixmap.scaled(
-                highResSize, highResSize,
-                Qt::KeepAspectRatio,
-                Qt::SmoothTransformation
-            );
+            QPixmap scaledPixmap = pixmap.scaled(highResSize, highResSize, Qt::KeepAspectRatio,
+                                                 Qt::SmoothTransformation);
 
             // Create a rounded pixmap at high resolution
             QPixmap roundedPixmap(highResSize, highResSize);
@@ -364,8 +357,8 @@ void QtCryptoCard::onIconDownloaded(QNetworkReply *reply) {
             setFallbackIcon();
         }
     } else {
-        qDebug() << "Network error downloading crypto icon:" << reply->errorString()
-                 << "from" << reply->url().toString();
+        qDebug() << "Network error downloading crypto icon:" << reply->errorString() << "from"
+                 << reply->url().toString();
         setFallbackIcon();
     }
     reply->deleteLater();
@@ -390,7 +383,7 @@ void QtCryptoCard::setFallbackIcon() {
     // Draw currency symbol
     painter.setPen(QColor(100, 116, 139));
     QFont font = painter.font();
-    font.setPointSize(36); // Scaled up for high-res
+    font.setPointSize(36);  // Scaled up for high-res
     font.setBold(true);
     painter.setFont(font);
     painter.drawText(QRect(0, 0, highResSize, highResSize), Qt::AlignCenter, "$");
@@ -408,20 +401,20 @@ void QtCryptoCard::applyTheme() {
     QColor hoverColor = surfaceColor.lighter(110);
 
     QString cardStyle = QString(
-        "QFrame {"
-        "  background-color: %1;"
-        "  border-radius: 16px;"
-        "  border: none;"
-        "}"
-        "QFrame:hover {"
-        "  background-color: %2;"
-        "}"
-    ).arg(cardBg, hoverColor.name());
+                            "QFrame {"
+                            "  background-color: %1;"
+                            "  border-radius: 16px;"
+                            "  border: none;"
+                            "}"
+                            "QFrame:hover {"
+                            "  background-color: %2;"
+                            "}")
+                            .arg(cardBg, hoverColor.name());
 
     setStyleSheet(cardStyle);
 
     // Add subtle shadow effect
-    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect();
+    QGraphicsDropShadowEffect* shadow = new QGraphicsDropShadowEffect();
     shadow->setBlurRadius(20);
     shadow->setXOffset(0);
     shadow->setYOffset(4);
@@ -433,14 +426,13 @@ void QtCryptoCard::applyTheme() {
 // QtTopCryptosPage Implementation
 // ============================================================================
 
-QtTopCryptosPage::QtTopCryptosPage(QWidget *parent)
-    : QWidget(parent)
-    , m_themeManager(&QtThemeManager::instance())
-    , m_priceFetcher(std::make_unique<PriceService::PriceFetcher>(15))
-    , m_currentSortIndex(0)
-    , m_searchDebounceTimer(new QTimer(this))
-    , m_refreshTimer(new QTimer(this)) {
-
+QtTopCryptosPage::QtTopCryptosPage(QWidget* parent)
+    : QWidget(parent),
+      m_themeManager(&QtThemeManager::instance()),
+      m_priceFetcher(std::make_unique<PriceService::PriceFetcher>(15)),
+      m_currentSortIndex(0),
+      m_searchDebounceTimer(new QTimer(this)),
+      m_refreshTimer(new QTimer(this)) {
     setupUI();
     applyTheme();
 
@@ -453,7 +445,8 @@ QtTopCryptosPage::QtTopCryptosPage(QWidget *parent)
 
     // Configure search debounce timer
     m_searchDebounceTimer->setSingleShot(true);
-    connect(m_searchDebounceTimer, &QTimer::timeout, this, &QtTopCryptosPage::onSearchDebounceTimer);
+    connect(m_searchDebounceTimer, &QTimer::timeout, this,
+            &QtTopCryptosPage::onSearchDebounceTimer);
 
     // Initial data fetch
     fetchTopCryptos();
@@ -462,19 +455,16 @@ QtTopCryptosPage::QtTopCryptosPage(QWidget *parent)
 void QtTopCryptosPage::setupUI() {
     m_mainLayout = new QVBoxLayout(this);
     m_mainLayout->setContentsMargins(
-        m_themeManager->standardMargin(),
-        m_themeManager->standardMargin(),
-        m_themeManager->standardMargin(),
-        m_themeManager->standardMargin()
-    );
+        m_themeManager->standardMargin(), m_themeManager->standardMargin(),
+        m_themeManager->standardMargin(), m_themeManager->standardMargin());
     m_mainLayout->setSpacing(0);
 
     // Create a horizontal layout to center content with max width
-    QHBoxLayout *centeringLayout = new QHBoxLayout();
+    QHBoxLayout* centeringLayout = new QHBoxLayout();
+    centeringLayout->setContentsMargins(0, 0, 0, 0);
 
-    // Add left spacer
-    centeringLayout->addItem(
-        new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
+    // Add left spacer for centering
+    centeringLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
     // Create scroll area for all content including header
     m_scrollArea = new QScrollArea(this);
@@ -484,12 +474,10 @@ void QtTopCryptosPage::setupUI() {
 
     m_scrollContent = new QWidget();
     m_contentLayout = new QVBoxLayout(m_scrollContent);
-    m_contentLayout->setContentsMargins(
-        m_themeManager->spacing(4),      // 16px (was 32)
-        m_themeManager->standardSpacing(),
-        m_themeManager->spacing(4),      // 16px (was 32)
-        m_themeManager->standardSpacing()
-    );
+    m_contentLayout->setContentsMargins(m_themeManager->spacing(4),  // 16px (was 32)
+                                        m_themeManager->standardSpacing(),
+                                        m_themeManager->spacing(4),  // 16px (was 32)
+                                        m_themeManager->standardSpacing());
     m_contentLayout->setSpacing(m_themeManager->standardSpacing());
 
     // Create header inside scroll area
@@ -503,7 +491,7 @@ void QtTopCryptosPage::setupUI() {
     m_cardsContainer = new QWidget();
     m_cardsLayout = new QVBoxLayout(m_cardsContainer);
     m_cardsLayout->setContentsMargins(0, 0, 0, 0);
-    m_cardsLayout->setSpacing(8); // Compacted (was 12)
+    m_cardsLayout->setSpacing(8);  // Compacted (was 12)
 
     m_contentLayout->addWidget(m_cardsContainer);
     m_contentLayout->addStretch();
@@ -511,17 +499,14 @@ void QtTopCryptosPage::setupUI() {
     m_scrollArea->setWidget(m_scrollContent);
 
     // Connect scroll area scrolling to icon loading
-    connect(m_scrollArea->verticalScrollBar(), &QScrollBar::valueChanged,
-            this, [this]() {
-                QTimer::singleShot(50, this, &QtTopCryptosPage::loadVisibleIcons);
-            });
+    connect(m_scrollArea->verticalScrollBar(), &QScrollBar::valueChanged, this,
+            [this]() { QTimer::singleShot(50, this, &QtTopCryptosPage::loadVisibleIcons); });
 
     // Add scroll area to centering layout
     centeringLayout->addWidget(m_scrollArea);
 
     // Add right spacer
-    centeringLayout->addItem(
-        new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
+    centeringLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
     m_mainLayout->addLayout(centeringLayout);
 
@@ -529,23 +514,21 @@ void QtTopCryptosPage::setupUI() {
     createCryptoCards();
 
     // Initialize responsive layout
-    QTimer::singleShot(0, this, [this]() {
-        updateScrollAreaWidth();
-    });
+    QTimer::singleShot(0, this, [this]() { updateScrollAreaWidth(); });
 }
 
 void QtTopCryptosPage::createHeader() {
     m_headerWidget = new QWidget();
-    QVBoxLayout *headerLayout = new QVBoxLayout(m_headerWidget);
-    headerLayout->setContentsMargins(0, 0, 0, 8); // Compacted (was 16)
-    headerLayout->setSpacing(8); // Compacted (was 12)
+    QVBoxLayout* headerLayout = new QVBoxLayout(m_headerWidget);
+    headerLayout->setContentsMargins(0, 0, 0, 8);  // Compacted (was 16)
+    headerLayout->setSpacing(8);                   // Compacted (was 12)
 
     // Top row: Back button and refresh button
-    QHBoxLayout *topRow = new QHBoxLayout();
-    topRow->setSpacing(10); // Compacted
+    QHBoxLayout* topRow = new QHBoxLayout();
+    topRow->setSpacing(10);  // Compacted
 
     m_backButton = new QPushButton("← Back", m_headerWidget);
-    m_backButton->setFixedHeight(36); // Compacted (was 40)
+    m_backButton->setFixedHeight(36);  // Compacted (was 40)
     m_backButton->setCursor(Qt::PointingHandCursor);
     connect(m_backButton, &QPushButton::clicked, this, &QtTopCryptosPage::onBackClicked);
 
@@ -553,15 +536,15 @@ void QtTopCryptosPage::createHeader() {
     topRow->addStretch();
 
     m_refreshButton = new QPushButton("⟳ Refresh", m_headerWidget);
-    m_refreshButton->setFixedHeight(36); // Compacted (was 40)
+    m_refreshButton->setFixedHeight(36);  // Compacted (was 40)
     m_refreshButton->setCursor(Qt::PointingHandCursor);
     connect(m_refreshButton, &QPushButton::clicked, this, &QtTopCryptosPage::onRefreshClicked);
 
     topRow->addWidget(m_refreshButton);
 
     // Title section
-    QVBoxLayout *titleLayout = new QVBoxLayout();
-    titleLayout->setSpacing(2); // Tightened
+    QVBoxLayout* titleLayout = new QVBoxLayout();
+    titleLayout->setSpacing(2);  // Tightened
 
     m_titleLabel = new QLabel("Top 100 Cryptocurrencies", m_headerWidget);
     m_titleLabel->setProperty("class", "title");
@@ -576,8 +559,8 @@ void QtTopCryptosPage::createHeader() {
     headerLayout->addLayout(titleLayout);
 
     // Search and filter controls row
-    QHBoxLayout *controlsRow = new QHBoxLayout();
-    controlsRow->setSpacing(10); // Compacted
+    QHBoxLayout* controlsRow = new QHBoxLayout();
+    controlsRow->setSpacing(10);  // Compacted
 
     createSearchBar();
     createSortDropdown();
@@ -588,10 +571,11 @@ void QtTopCryptosPage::createHeader() {
     headerLayout->addLayout(controlsRow);
 
     // Result counter row
-    QHBoxLayout *counterRow = new QHBoxLayout();
+    QHBoxLayout* counterRow = new QHBoxLayout();
     m_resultCounterLabel = new QLabel("Loading...", m_headerWidget);
-    m_resultCounterLabel->setStyleSheet(QString("font-size: 12px; font-weight: 500; color: %1;") // Slightly smaller
-        .arg(m_themeManager->dimmedTextColor().name()));
+    m_resultCounterLabel->setStyleSheet(
+        QString("font-size: 12px; font-weight: 500; color: %1;")  // Slightly smaller
+            .arg(m_themeManager->dimmedTextColor().name()));
     counterRow->addWidget(m_resultCounterLabel);
     counterRow->addStretch();
 
@@ -601,8 +585,8 @@ void QtTopCryptosPage::createHeader() {
 void QtTopCryptosPage::createSearchBar() {
     m_searchBox = new QLineEdit(m_headerWidget);
     m_searchBox->setPlaceholderText("Search by name or symbol (e.g., Bitcoin, BTC)...");
-    m_searchBox->setFixedHeight(38); // Compacted (was 44)
-    m_searchBox->setClearButtonEnabled(false); // We'll use custom clear button
+    m_searchBox->setFixedHeight(38);            // Compacted (was 44)
+    m_searchBox->setClearButtonEnabled(false);  // We'll use custom clear button
 
     // Connect search text changes with debouncing
     connect(m_searchBox, &QLineEdit::textChanged, this, &QtTopCryptosPage::onSearchTextChanged);
@@ -610,7 +594,7 @@ void QtTopCryptosPage::createSearchBar() {
 
 void QtTopCryptosPage::createSortDropdown() {
     m_sortDropdown = new QComboBox(m_headerWidget);
-    m_sortDropdown->setFixedHeight(38); // Compacted (was 44)
+    m_sortDropdown->setFixedHeight(38);  // Compacted (was 44)
     m_sortDropdown->setCursor(Qt::PointingHandCursor);
 
     // Add sort options
@@ -625,13 +609,13 @@ void QtTopCryptosPage::createSortDropdown() {
     m_sortDropdown->addItem("Name: Z-A");
 
     // Connect sort changes
-    connect(m_sortDropdown, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &QtTopCryptosPage::onSortChanged);
+    connect(m_sortDropdown, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &QtTopCryptosPage::onSortChanged);
 }
 
 void QtTopCryptosPage::createCryptoCards() {
     // Clear existing cards
-    for (auto *card : m_cryptoCards) {
+    for (auto* card : m_cryptoCards) {
         card->deleteLater();
     }
     m_cryptoCards.clear();
@@ -640,9 +624,9 @@ void QtTopCryptosPage::createCryptoCards() {
 
     // Create 100 cards for top 100 cryptocurrencies
     for (int i = 0; i < 100; ++i) {
-        QtCryptoCard *card = new QtCryptoCard(m_cardsContainer);
+        QtCryptoCard* card = new QtCryptoCard(m_cardsContainer);
         card->setMinimumHeight(100);
-        card->setVisible(false); // Hide until we have data
+        card->setVisible(false);  // Hide until we have data
         m_cryptoCards.append(card);
         m_cardsLayout->addWidget(card);
     }
@@ -690,7 +674,7 @@ void QtTopCryptosPage::updateCards() {
         m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(subtitleColor));
 
         // Hide all cards
-        for (auto *card : m_cryptoCards) {
+        for (auto* card : m_cryptoCards) {
             card->setVisible(false);
         }
         return;
@@ -710,7 +694,7 @@ void QtTopCryptosPage::updateCards() {
         m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(errorColor));
 
         // Hide all cards
-        for (auto *card : m_cryptoCards) {
+        for (auto* card : m_cryptoCards) {
             card->setVisible(false);
         }
         return;
@@ -779,68 +763,73 @@ void QtTopCryptosPage::applySearchFilter() {
         }
     }
 
-    qDebug() << "Filtered from" << m_cryptoData.size() << "to" << m_filteredData.size() << "results";
+    qDebug() << "Filtered from" << m_cryptoData.size() << "to" << m_filteredData.size()
+             << "results";
 }
 
 void QtTopCryptosPage::applySorting() {
     switch (m_currentSortIndex) {
-        case 0: // Rank (Default) - already sorted by market cap from API
+        case 0:  // Rank (Default) - already sorted by market cap from API
             break;
 
-        case 1: // Price: High to Low
-            std::sort(m_filteredData.begin(), m_filteredData.end(),
+        case 1:  // Price: High to Low
+            std::sort(
+                m_filteredData.begin(), m_filteredData.end(),
                 [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
                     return a.usd_price > b.usd_price;
                 });
             break;
 
-        case 2: // Price: Low to High
-            std::sort(m_filteredData.begin(), m_filteredData.end(),
+        case 2:  // Price: Low to High
+            std::sort(
+                m_filteredData.begin(), m_filteredData.end(),
                 [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
                     return a.usd_price < b.usd_price;
                 });
             break;
 
-        case 3: // 24h Change: Highest Gainers
-            std::sort(m_filteredData.begin(), m_filteredData.end(),
+        case 3:  // 24h Change: Highest Gainers
+            std::sort(
+                m_filteredData.begin(), m_filteredData.end(),
                 [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
                     return a.price_change_24h > b.price_change_24h;
                 });
             break;
 
-        case 4: // 24h Change: Biggest Losers
-            std::sort(m_filteredData.begin(), m_filteredData.end(),
+        case 4:  // 24h Change: Biggest Losers
+            std::sort(
+                m_filteredData.begin(), m_filteredData.end(),
                 [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
                     return a.price_change_24h < b.price_change_24h;
                 });
             break;
 
-        case 5: // Market Cap: Largest
-            std::sort(m_filteredData.begin(), m_filteredData.end(),
+        case 5:  // Market Cap: Largest
+            std::sort(
+                m_filteredData.begin(), m_filteredData.end(),
                 [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
                     return a.market_cap > b.market_cap;
                 });
             break;
 
-        case 6: // Market Cap: Smallest
-            std::sort(m_filteredData.begin(), m_filteredData.end(),
+        case 6:  // Market Cap: Smallest
+            std::sort(
+                m_filteredData.begin(), m_filteredData.end(),
                 [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
                     return a.market_cap < b.market_cap;
                 });
             break;
 
-        case 7: // Name: A-Z
+        case 7:  // Name: A-Z
             std::sort(m_filteredData.begin(), m_filteredData.end(),
-                [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
-                    return a.name < b.name;
-                });
+                      [](const PriceService::CryptoPriceData& a,
+                         const PriceService::CryptoPriceData& b) { return a.name < b.name; });
             break;
 
-        case 8: // Name: Z-A
+        case 8:  // Name: Z-A
             std::sort(m_filteredData.begin(), m_filteredData.end(),
-                [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
-                    return a.name > b.name;
-                });
+                      [](const PriceService::CryptoPriceData& a,
+                         const PriceService::CryptoPriceData& b) { return a.name > b.name; });
             break;
     }
 
@@ -849,17 +838,18 @@ void QtTopCryptosPage::applySorting() {
 
 void QtTopCryptosPage::updateResultCounter() {
     if (m_searchText.isEmpty()) {
-        m_resultCounterLabel->setText(QString("Showing all %1 cryptocurrencies")
-            .arg(m_filteredData.size()));
+        m_resultCounterLabel->setText(
+            QString("Showing all %1 cryptocurrencies").arg(m_filteredData.size()));
     } else {
         m_resultCounterLabel->setText(QString("Showing %1 of %2 cryptocurrencies")
-            .arg(m_filteredData.size())
-            .arg(m_cryptoData.size()));
+                                          .arg(m_filteredData.size())
+                                          .arg(m_cryptoData.size()));
     }
 }
 
 void QtTopCryptosPage::loadVisibleIcons() {
-    if (!m_scrollArea) return;
+    if (!m_scrollArea)
+        return;
 
     // Get the visible rectangle of the scroll area
     QRect visibleRect = m_scrollArea->viewport()->rect();
@@ -868,7 +858,8 @@ void QtTopCryptosPage::loadVisibleIcons() {
     // Load icons for visible cards plus a buffer
     for (int i = 0; i < static_cast<int>(m_filteredData.size()) && i < m_cryptoCards.size(); ++i) {
         QtCryptoCard* card = m_cryptoCards[i];
-        if (!card->isVisible()) continue;
+        if (!card->isVisible())
+            continue;
 
         // Check if card is in or near the viewport
         QRect cardGeometry = card->geometry();
@@ -893,148 +884,146 @@ void QtTopCryptosPage::applyTheme() {
 
     // Page-level styling
     QString pageStyle = QString(
-        "QWidget {"
-        "  background-color: %1;"
-        "  color: %2;"
-        "}"
-        "QScrollArea {"
-        "  background-color: %1;"
-        "  border: none;"
-        "}"
-    ).arg(bgColor, txtColor);
+                            "QWidget {"
+                            "  background-color: %1;"
+                            "  color: %2;"
+                            "}"
+                            "QScrollArea {"
+                            "  background-color: %1;"
+                            "  border: none;"
+                            "}")
+                            .arg(bgColor, txtColor);
 
     setStyleSheet(pageStyle);
 
     // Apply theme to all cards
-    for (auto *card : m_cryptoCards) {
+    for (auto* card : m_cryptoCards) {
         card->applyTheme();
     }
 
     // Back button styling
     QString backButtonStyle = QString(
-        "QPushButton {"
-        "  background-color: transparent;"
-        "  border: none;"
-        "  font-size: 16px;"
-        "  font-weight: 600;"
-        "  padding: 8px 16px;"
-        "  text-align: left;"
-        "  color: %1;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: %2;"
-        "  border-radius: 8px;"
-        "}"
-    ).arg(txtColor, surfaceColor);
+                                  "QPushButton {"
+                                  "  background-color: transparent;"
+                                  "  border: none;"
+                                  "  font-size: 16px;"
+                                  "  font-weight: 600;"
+                                  "  padding: 8px 16px;"
+                                  "  text-align: left;"
+                                  "  color: %1;"
+                                  "}"
+                                  "QPushButton:hover {"
+                                  "  background-color: %2;"
+                                  "  border-radius: 8px;"
+                                  "}")
+                                  .arg(txtColor, surfaceColor);
     m_backButton->setStyleSheet(backButtonStyle);
 
     // Refresh button styling
     QString refreshButtonStyle = QString(
-        "QPushButton {"
-        "  background-color: rgba(%1, %2, %3, 0.1);"
-        "  border: 2px solid %4;"
-        "  border-radius: 8px;"
-        "  color: %4;"
-        "  font-size: 14px;"
-        "  font-weight: 600;"
-        "  padding: 8px 20px;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: rgba(%1, %2, %3, 0.2);"
-        "}"
-        "QPushButton:pressed {"
-        "  background-color: rgba(%1, %2, %3, 0.3);"
-        "}"
-        "QPushButton:disabled {"
-        "  opacity: 0.5;"
-        "}"
-    ).arg(m_themeManager->accentColor().red())
-     .arg(m_themeManager->accentColor().green())
-     .arg(m_themeManager->accentColor().blue())
-     .arg(accentColor);
+                                     "QPushButton {"
+                                     "  background-color: rgba(%1, %2, %3, 0.1);"
+                                     "  border: 2px solid %4;"
+                                     "  border-radius: 8px;"
+                                     "  color: %4;"
+                                     "  font-size: 14px;"
+                                     "  font-weight: 600;"
+                                     "  padding: 8px 20px;"
+                                     "}"
+                                     "QPushButton:hover {"
+                                     "  background-color: rgba(%1, %2, %3, 0.2);"
+                                     "}"
+                                     "QPushButton:pressed {"
+                                     "  background-color: rgba(%1, %2, %3, 0.3);"
+                                     "}"
+                                     "QPushButton:disabled {"
+                                     "  opacity: 0.5;"
+                                     "}")
+                                     .arg(m_themeManager->accentColor().red())
+                                     .arg(m_themeManager->accentColor().green())
+                                     .arg(m_themeManager->accentColor().blue())
+                                     .arg(accentColor);
     m_refreshButton->setStyleSheet(refreshButtonStyle);
 
     // Search box styling
     QString searchBoxStyle = QString(
-        "QLineEdit {"
-        "  background-color: %1;"
-        "  border: 2px solid rgba(%2, %3, %4, 0.3);"
-        "  border-radius: 8px;"
-        "  color: %5;"
-        "  font-size: 14px;"
-        "  padding: 8px 14px;" // Compacted (was 10 16)
-        "}"
-        "QLineEdit:focus {"
-        "  border: 2px solid %6;"
-        "}"
-        "QLineEdit:disabled {"
-        "  opacity: 0.5;"
-        "}"
-    ).arg(surfaceColor)
-     .arg(m_themeManager->accentColor().red())
-     .arg(m_themeManager->accentColor().green())
-     .arg(m_themeManager->accentColor().blue())
-     .arg(txtColor)
-     .arg(accentColor);
+                                 "QLineEdit {"
+                                 "  background-color: %1;"
+                                 "  border: 2px solid rgba(%2, %3, %4, 0.3);"
+                                 "  border-radius: 8px;"
+                                 "  color: %5;"
+                                 "  font-size: 14px;"
+                                 "  padding: 8px 14px;"  // Compacted (was 10 16)
+                                 "}"
+                                 "QLineEdit:focus {"
+                                 "  border: 2px solid %6;"
+                                 "}"
+                                 "QLineEdit:disabled {"
+                                 "  opacity: 0.5;"
+                                 "}")
+                                 .arg(surfaceColor)
+                                 .arg(m_themeManager->accentColor().red())
+                                 .arg(m_themeManager->accentColor().green())
+                                 .arg(m_themeManager->accentColor().blue())
+                                 .arg(txtColor)
+                                 .arg(accentColor);
     m_searchBox->setStyleSheet(searchBoxStyle);
 
     // Sort dropdown styling
     QString dropdownStyle = QString(
-        "QComboBox {"
-        "  background-color: %1;"
-        "  border: 2px solid rgba(%2, %3, %4, 0.3);"
-        "  border-radius: 8px;"
-        "  color: %5;"
-        "  font-size: 14px;"
-        "  padding: 8px 14px;" // Compacted (was 10 16)
-        "  min-width: 180px;" // Slightly narrower (was 200)
-        "}"
-        "QComboBox:hover {"
-        "  border: 2px solid rgba(%2, %3, %4, 0.5);"
-        "}"
-        "QComboBox:disabled {"
-        "  opacity: 0.5;"
-        "}"
-        "QComboBox::drop-down {"
-        "  border: none;"
-        "  padding-right: 10px;"
-        "}"
-        "QComboBox::down-arrow {"
-        "  width: 12px;"
-        "  height: 12px;"
-        "}"
-        "QComboBox QAbstractItemView {"
-        "  background-color: %1;"
-        "  border: 2px solid rgba(%2, %3, %4, 0.3);"
-        "  border-radius: 8px;"
-        "  color: %5;"
-        "  selection-background-color: %6;"
-        "  padding: 4px;"
-        "}"
-    ).arg(surfaceColor)
-     .arg(m_themeManager->accentColor().red())
-     .arg(m_themeManager->accentColor().green())
-     .arg(m_themeManager->accentColor().blue())
-     .arg(txtColor)
-     .arg(accentColor);
+                                "QComboBox {"
+                                "  background-color: %1;"
+                                "  border: 2px solid rgba(%2, %3, %4, 0.3);"
+                                "  border-radius: 8px;"
+                                "  color: %5;"
+                                "  font-size: 14px;"
+                                "  padding: 8px 14px;"  // Compacted (was 10 16)
+                                "  min-width: 180px;"   // Slightly narrower (was 200)
+                                "}"
+                                "QComboBox:hover {"
+                                "  border: 2px solid rgba(%2, %3, %4, 0.5);"
+                                "}"
+                                "QComboBox:disabled {"
+                                "  opacity: 0.5;"
+                                "}"
+                                "QComboBox::drop-down {"
+                                "  border: none;"
+                                "  padding-right: 10px;"
+                                "}"
+                                "QComboBox::down-arrow {"
+                                "  width: 12px;"
+                                "  height: 12px;"
+                                "}"
+                                "QComboBox QAbstractItemView {"
+                                "  background-color: %1;"
+                                "  border: 2px solid rgba(%2, %3, %4, 0.3);"
+                                "  border-radius: 8px;"
+                                "  color: %5;"
+                                "  selection-background-color: %6;"
+                                "  padding: 4px;"
+                                "}")
+                                .arg(surfaceColor)
+                                .arg(m_themeManager->accentColor().red())
+                                .arg(m_themeManager->accentColor().green())
+                                .arg(m_themeManager->accentColor().blue())
+                                .arg(txtColor)
+                                .arg(accentColor);
     m_sortDropdown->setStyleSheet(dropdownStyle);
 
     // Title styling
     QFont titleFont = m_themeManager->titleFont();
-    titleFont.setPointSize(20); // Compacted (was 24)
+    titleFont.setPointSize(20);  // Compacted (was 24)
     m_titleLabel->setFont(titleFont);
     m_titleLabel->setStyleSheet(QString("color: %1;").arg(txtColor));
 
     // Subtitle styling
     QFont subtitleFont = m_themeManager->textFont();
-    subtitleFont.setPointSize(11); // Compacted (was 12)
+    subtitleFont.setPointSize(11);  // Compacted (was 12)
     m_subtitleLabel->setFont(subtitleFont);
     m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(subtitleColor));
 }
 
-void QtTopCryptosPage::refreshData() {
-    fetchTopCryptos();
-}
+void QtTopCryptosPage::refreshData() { fetchTopCryptos(); }
 
 void QtTopCryptosPage::onRefreshClicked() {
     m_refreshButton->setText("⟳ Refreshing...");
@@ -1046,15 +1035,11 @@ void QtTopCryptosPage::onRefreshClicked() {
     m_refreshButton->setEnabled(true);
 }
 
-void QtTopCryptosPage::onBackClicked() {
-    emit backRequested();
-}
+void QtTopCryptosPage::onBackClicked() { emit backRequested(); }
 
-void QtTopCryptosPage::onAutoRefreshTimer() {
-    fetchTopCryptos();
-}
+void QtTopCryptosPage::onAutoRefreshTimer() { fetchTopCryptos(); }
 
-void QtTopCryptosPage::onSearchTextChanged(const QString &text) {
+void QtTopCryptosPage::onSearchTextChanged(const QString& text) {
     m_searchText = text;
 
     // Stop existing timer
@@ -1079,7 +1064,7 @@ void QtTopCryptosPage::onSearchDebounceTimer() {
     filterAndSortData();
 }
 
-void QtTopCryptosPage::resizeEvent(QResizeEvent *event) {
+void QtTopCryptosPage::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
     updateScrollAreaWidth();
 
@@ -1089,27 +1074,27 @@ void QtTopCryptosPage::resizeEvent(QResizeEvent *event) {
 
 void QtTopCryptosPage::updateScrollAreaWidth() {
     if (m_scrollArea) {
-        int windowWidth = this->width();
+        // Get the actual available width (accounts for sidebar)
+        int availableWidth = this->width();
 
-        // Apply max-width constraints based on screen size
-        if (windowWidth < 768) {
-            // Mobile - use full width
+        // Apply max-width constraints based on available space
+        // Use percentage-based max width so content stays centered and doesn't overflow
+        if (availableWidth < 768) {
+            // Small screens - fill available width
             m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
-            m_scrollArea->setMinimumWidth(windowWidth);
-        } else if (windowWidth > 1920) {
-            // Large screens - limit to 65% of width
-            int targetWidth = static_cast<int>(windowWidth * 0.65);
-            m_scrollArea->setMaximumWidth(targetWidth);
-            m_scrollArea->setMinimumWidth(800);
-        } else if (windowWidth > 1200) {
-            // Medium screens - limit to 75% of width
-            int targetWidth = static_cast<int>(windowWidth * 0.75);
-            m_scrollArea->setMaximumWidth(targetWidth);
-            m_scrollArea->setMinimumWidth(600);
+            m_scrollArea->setMinimumWidth(0);
+        } else if (availableWidth > 1400) {
+            // Large screens - limit to 900px max for readability
+            m_scrollArea->setMaximumWidth(900);
+            m_scrollArea->setMinimumWidth(0);
+        } else if (availableWidth > 1000) {
+            // Medium-large screens - limit to 800px
+            m_scrollArea->setMaximumWidth(800);
+            m_scrollArea->setMinimumWidth(0);
         } else {
-            // Small screens - use 100% of width
-            m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
-            m_scrollArea->setMinimumWidth(windowWidth);
+            // Medium screens - limit to 700px or available width
+            m_scrollArea->setMaximumWidth(qMin(700, availableWidth));
+            m_scrollArea->setMinimumWidth(0);
         }
     }
 }
