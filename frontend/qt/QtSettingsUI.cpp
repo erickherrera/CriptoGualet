@@ -60,10 +60,12 @@ void QtSettingsUI::setupUI() {
 
     m_mainLayout = new QVBoxLayout(m_centerContainer);
     // Optimized for laptop screens (reduced margins/spacing)
-    m_mainLayout->setContentsMargins(m_themeManager->spacing(6),  // 24px (was 40px)
-                                     m_themeManager->spacing(5),  // 20px (was 40px)
-                                     m_themeManager->spacing(6),  // 24px (was 40px)
-                                     m_themeManager->spacing(5)   // 20px (was 40px)
+    // Increased top margin to account for floating Sign Out button
+    m_mainLayout->setContentsMargins(
+        m_themeManager->spacing(6),  // 24px (was 40px)
+        m_themeManager->spacing(8),  // 32px - increased for floating button
+        m_themeManager->spacing(6),  // 24px (was 40px)
+        m_themeManager->spacing(5)   // 20px (was 40px)
     );
     m_mainLayout->setSpacing(m_themeManager->spacing(4));  // 16px (was 32px)
 

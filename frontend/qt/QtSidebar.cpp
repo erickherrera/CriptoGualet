@@ -53,6 +53,34 @@ void QtSidebar::setupUI() {
     // Add stretch to push buttons to top
     m_navLayout->addStretch();
 
+    // Add Sign Out button at the bottom
+    m_signOutButton = new QPushButton(m_sidebarContent);
+    m_signOutButton->setProperty("class", "sidebar-nav-button signout-button");
+    m_signOutButton->setCursor(Qt::PointingHandCursor);
+    m_signOutButton->setToolTip("Sign Out");
+    m_signOutButton->setFixedHeight(50);
+
+    QHBoxLayout* signOutLayout = new QHBoxLayout(m_signOutButton);
+    signOutLayout->setContentsMargins(8, 0, 8, 0);
+    signOutLayout->setSpacing(12);
+
+    signOutLayout->addStretch();
+    QLabel* signOutIcon = new QLabel(m_signOutButton);
+    signOutIcon->setObjectName("signOutIcon");
+    signOutIcon->setAlignment(Qt::AlignCenter);
+    signOutIcon->setFixedSize(24, 24);
+    signOutLayout->addWidget(signOutIcon);
+
+    QLabel* signOutText = new QLabel("Sign Out", m_signOutButton);
+    signOutText->setObjectName("signOutText");
+    signOutText->setVisible(false);
+    signOutLayout->addWidget(signOutText);
+    signOutLayout->addStretch();
+
+    m_navLayout->addWidget(m_signOutButton);
+
+    connect(m_signOutButton, &QPushButton::clicked, this, [this]() { emit signOutRequested(); });
+
     m_mainLayout->addWidget(m_sidebarContent);
 
     // Setup animation for width (using geometry)
@@ -64,6 +92,12 @@ void QtSidebar::setupUI() {
     if (parent()) {
         parent()->installEventFilter(this);
     }
+
+    // Install event filter on buttons for hover labels
+    m_walletButton->installEventFilter(this);
+    m_topCryptosButton->installEventFilter(this);
+    m_settingsButton->installEventFilter(this);
+    m_signOutButton->installEventFilter(this);
 }
 
 void QtSidebar::createNavigationButtons() {
@@ -185,6 +219,7 @@ void QtSidebar::animateSidebar(bool expand) {
     QLabel* walletText = m_walletButton->findChild<QLabel*>("walletText");
     QLabel* topCryptosText = m_topCryptosButton->findChild<QLabel*>("topCryptosText");
     QLabel* settingsText = m_settingsButton->findChild<QLabel*>("settingsText");
+    QLabel* signOutText = m_signOutButton->findChild<QLabel*>("signOutText");
 
     if (walletText) {
         walletText->setVisible(expand);
@@ -194,6 +229,9 @@ void QtSidebar::animateSidebar(bool expand) {
     }
     if (settingsText) {
         settingsText->setVisible(expand);
+    }
+    if (signOutText) {
+        signOutText->setVisible(expand);
     }
 }
 
@@ -207,6 +245,46 @@ bool QtSidebar::eventFilter(QObject* obj, QEvent* event) {
             return true;
         }
     }
+
+    // Handle hover labels when collapsed
+    if (!m_isExpanded) {
+        if (obj == m_walletButton || obj == m_topCryptosButton || obj == m_settingsButton ||
+            obj == m_signOutButton) {
+            if (event->type() == QEvent::Enter) {
+                QLabel* textLabel =
+                    obj->findChild<QLabel*>(obj->objectName().replace("Button", "Text"));
+                if (!textLabel) {
+                    // Fallback to manual check if objectName not set
+                    if (obj == m_walletButton)
+                        textLabel = m_walletButton->findChild<QLabel*>("walletText");
+                    else if (obj == m_topCryptosButton)
+                        textLabel = m_topCryptosButton->findChild<QLabel*>("topCryptosText");
+                    else if (obj == m_settingsButton)
+                        textLabel = m_settingsButton->findChild<QLabel*>("settingsText");
+                    else if (obj == m_signOutButton)
+                        textLabel = m_signOutButton->findChild<QLabel*>("signOutText");
+                }
+                if (textLabel)
+                    textLabel->setVisible(true);
+            } else if (event->type() == QEvent::Leave) {
+                QLabel* textLabel =
+                    obj->findChild<QLabel*>(obj->objectName().replace("Button", "Text"));
+                if (!textLabel) {
+                    if (obj == m_walletButton)
+                        textLabel = m_walletButton->findChild<QLabel*>("walletText");
+                    else if (obj == m_topCryptosButton)
+                        textLabel = m_topCryptosButton->findChild<QLabel*>("topCryptosText");
+                    else if (obj == m_settingsButton)
+                        textLabel = m_settingsButton->findChild<QLabel*>("settingsText");
+                    else if (obj == m_signOutButton)
+                        textLabel = m_signOutButton->findChild<QLabel*>("signOutText");
+                }
+                if (textLabel)
+                    textLabel->setVisible(false);
+            }
+        }
+    }
+
     return QWidget::eventFilter(obj, event);
 }
 
@@ -247,9 +325,6 @@ QIcon QtSidebar::createColoredIcon(const QString& svgPath, const QColor& color) 
 }
 
 void QtSidebar::applyTheme() {
-    // Get current theme type
-    ThemeType themeType = m_themeManager->getCurrentTheme();
-
     // Define gray tones for each theme
     QString sidebarBg, borderColor, textColor;
     QColor iconColor;
@@ -261,6 +336,10 @@ void QtSidebar::applyTheme() {
     QColor accentColor = m_themeManager->accentColor();
     QString hoverColor = accentColor.name();
     QString pressedColor = accentColor.darker(110).name();  // Slight darken for pressed state
+
+    // Special color for sign out button (reddish)
+    QString signOutColor = m_themeManager->negativeColor().name();
+    QString signOutHoverColor = m_themeManager->negativeColor().lighter(120).name();
 
     QString sidebarStyle = QString(R"(
         QtSidebar {
@@ -294,16 +373,28 @@ void QtSidebar::applyTheme() {
         QPushButton[class="sidebar-nav-button"]:pressed {
             background-color: %4;
         }
+        QPushButton[class~="signout-button"] {
+            color: %6;
+        }
+        QPushButton[class~="signout-button"]:hover {
+            background-color: %7;
+            color: white;
+        }
         QLabel {
             background-color: transparent;
             color: %5;
+        }
+        QLabel#signOutText {
+            color: inherit;
         }
     )")
                                .arg(sidebarBg)
                                .arg(borderColor)
                                .arg(hoverColor)
                                .arg(pressedColor)
-                               .arg(textColor);
+                               .arg(textColor)
+                               .arg(signOutColor)
+                               .arg(signOutHoverColor);
 
     setStyleSheet(sidebarStyle);
 
@@ -313,6 +404,9 @@ void QtSidebar::applyTheme() {
     QIcon chartIcon = createColoredIcon(":/icons/icons/chart.svg", iconColor);
     QIcon settingsIcon = createColoredIcon(":/icons/icons/settings.svg", iconColor);
 
+    // For sign out, use the new logout icon
+    QIcon signOutIcon = createColoredIcon(":/icons/icons/logout.svg", QColor(signOutColor));
+
     // Set icons on buttons
     m_menuButton->setIcon(menuIcon);
     m_menuButton->setIconSize(QSize(24, 24));
@@ -321,6 +415,7 @@ void QtSidebar::applyTheme() {
     QLabel* walletIconLabel = m_walletButton->findChild<QLabel*>("walletIcon");
     QLabel* topCryptosIconLabel = m_topCryptosButton->findChild<QLabel*>("topCryptosIcon");
     QLabel* settingsIconLabel = m_settingsButton->findChild<QLabel*>("settingsIcon");
+    QLabel* signOutIconLabel = m_signOutButton->findChild<QLabel*>("signOutIcon");
 
     if (walletIconLabel) {
         QPixmap walletPixmap = walletIcon.pixmap(QSize(24, 24));
@@ -335,6 +430,11 @@ void QtSidebar::applyTheme() {
     if (settingsIconLabel) {
         QPixmap settingsPixmap = settingsIcon.pixmap(QSize(24, 24));
         settingsIconLabel->setPixmap(settingsPixmap);
+    }
+
+    if (signOutIconLabel) {
+        QPixmap signOutPixmap = signOutIcon.pixmap(QSize(24, 24));
+        signOutIconLabel->setPixmap(signOutPixmap);
     }
 
     // Apply fonts to button labels
@@ -356,6 +456,11 @@ void QtSidebar::applyTheme() {
     QLabel* settingsText = m_settingsButton->findChild<QLabel*>("settingsText");
     if (settingsText)
         settingsText->setFont(textFont);
+
+    // Apply to sign out button text
+    QLabel* signOutText = m_signOutButton->findChild<QLabel*>("signOutText");
+    if (signOutText)
+        signOutText->setFont(textFont);
 
     // Force visual refresh
     update();

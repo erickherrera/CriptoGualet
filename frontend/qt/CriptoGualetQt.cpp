@@ -114,9 +114,6 @@ void CriptoGualetQt::setupUI() {
     m_mainLayout->setContentsMargins(0, 0, 0, 0);
     m_mainLayout->setSpacing(0);
 
-    // Create navbar
-    createNavbar();
-
     // Create horizontal layout container for sidebar + content
     QWidget* horizontalContainer = new QWidget(m_centralWidget);
     m_contentLayout = new QHBoxLayout(horizontalContainer);
@@ -359,8 +356,6 @@ void CriptoGualetQt::setupUI() {
                 m_loginUI->onLoginResult(response.success(), message);
             });
 
-    // Logout handled by navbar sign out button
-
     connect(m_walletUI, &QtWalletUI::viewBalanceRequested, [this]() {
         if (!m_wallet || g_currentUser.empty() || g_users.find(g_currentUser) == g_users.end()) {
             QMessageBox::warning(this, "Error", "Wallet not initialized or user not logged in");
@@ -523,45 +518,19 @@ void CriptoGualetQt::setupUI() {
             &CriptoGualetQt::showWalletScreen);
 }
 
-void CriptoGualetQt::createNavbar() {
-    m_navbar = new QFrame(m_centralWidget);
-    m_navbar->setProperty("class", "navbar");
-    m_navbar->setFixedHeight(60);
-
-    QHBoxLayout* navLayout = new QHBoxLayout(m_navbar);
-    navLayout->setContentsMargins(20, 10, 20, 10);
-    navLayout->setSpacing(10);
-
-    // App title/logo
-    m_appTitleLabel = new QLabel("CriptoGualet", m_navbar);
-    m_appTitleLabel->setProperty("class", "navbar-title");
-    navLayout->addWidget(m_appTitleLabel);
-
-    // Spacer to push sign out button to the right
-    navLayout->addStretch();
-
-    // Sign out button
-    m_signOutButton = new QPushButton("Sign Out", m_navbar);
-    m_signOutButton->setProperty("class", "navbar-button");
-    m_signOutButton->setMaximumWidth(100);
-    navLayout->addWidget(m_signOutButton);
-
-    // Connect sign out button
-    connect(m_signOutButton, &QPushButton::clicked, this, &CriptoGualetQt::showLoginScreen);
-
-    // Add navbar to main layout (at the top)
-    m_mainLayout->insertWidget(0, m_navbar);
-
-    // Initially hidden until user logs in
-    m_navbar->hide();
-}
-
 void CriptoGualetQt::createSidebar() {
     // Sidebar is now created in setupUI() since it needs to be a child of
-    // contentContainer Connect navigation signals
+    // horizontalContainer
+    // Connect navigation signals
     connect(m_sidebar, &QtSidebar::navigateToWallet, this, &CriptoGualetQt::showWalletScreen);
     connect(m_sidebar, &QtSidebar::navigateToTopCryptos, this, &CriptoGualetQt::showTopCryptosPage);
     connect(m_sidebar, &QtSidebar::navigateToSettings, this, &CriptoGualetQt::showSettingsScreen);
+
+    // Connect sign out requested signal
+    connect(m_sidebar, &QtSidebar::signOutRequested, this, [this]() {
+        qDebug() << "Sign Out requested from sidebar";
+        showLoginScreen();
+    });
 }
 
 void CriptoGualetQt::setupMenuBar() {
@@ -602,14 +571,12 @@ void CriptoGualetQt::showLoginScreen() {
     g_currentUser.clear();
     m_stackedWidget->setCurrentWidget(m_loginUI);
     m_loginUI->clearLoginFields();
-    updateNavbarVisibility();
     updateSidebarVisibility();
     statusBar()->showMessage("Please log in or create an account");
 }
 
 void CriptoGualetQt::showWalletScreen() {
     m_stackedWidget->setCurrentWidget(m_walletUI);
-    updateNavbarVisibility();
     updateSidebarVisibility();
     statusBar()->showMessage(
         QString("Logged in as: %1").arg(QString::fromStdString(g_currentUser)));
@@ -617,7 +584,6 @@ void CriptoGualetQt::showWalletScreen() {
 
 void CriptoGualetQt::showSettingsScreen() {
     m_stackedWidget->setCurrentWidget(m_settingsUI);
-    updateNavbarVisibility();
     updateSidebarVisibility();
     statusBar()->showMessage("Settings");
     // Refresh 2FA status when settings page is shown
@@ -630,19 +596,9 @@ void CriptoGualetQt::showSettingsScreen() {
 
 void CriptoGualetQt::showTopCryptosPage() {
     m_stackedWidget->setCurrentWidget(m_topCryptosPage);
-    updateNavbarVisibility();
     updateSidebarVisibility();
     statusBar()->showMessage("Top Cryptocurrencies by Market Cap");
     m_topCryptosPage->refreshData();
-}
-
-void CriptoGualetQt::updateNavbarVisibility() {
-    // Show navbar only when not on login screen
-    if (m_stackedWidget->currentWidget() != m_loginUI) {
-        m_navbar->show();
-    } else {
-        m_navbar->hide();
-    }
 }
 
 void CriptoGualetQt::updateSidebarVisibility() {
@@ -677,10 +633,6 @@ void CriptoGualetQt::onThemeChanged() {
 void CriptoGualetQt::applyNavbarStyling() {
     // Apply main window stylesheet (includes navbar styles)
     setStyleSheet(m_themeManager->getMainWindowStyleSheet());
-
-    // Apply fonts to navbar components
-    m_appTitleLabel->setFont(m_themeManager->titleFont());
-    m_signOutButton->setFont(m_themeManager->buttonFont());
 
     // Style menu bar with theme-appropriate colors
     QString menuBarStyle = QString(R"(

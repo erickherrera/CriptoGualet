@@ -44,9 +44,7 @@ class CriptoGualetQt : public QMainWindow {
     void setupUI();
     void setupMenuBar();
     void setupStatusBar();
-    void createNavbar();
     void createSidebar();
-    void updateNavbarVisibility();
     void updateSidebarVisibility();
     void applyNavbarStyling();
 
@@ -54,9 +52,6 @@ class CriptoGualetQt : public QMainWindow {
     QVBoxLayout* m_mainLayout;
     QHBoxLayout* m_contentLayout;
     QWidget* m_contentWidget;
-    QFrame* m_navbar;
-    QLabel* m_appTitleLabel;
-    QPushButton* m_signOutButton;
     QStackedWidget* m_stackedWidget;
     QtLoginUI* m_loginUI;
     QtWalletUI* m_walletUI;

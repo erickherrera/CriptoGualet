@@ -6,5 +6,6 @@
         <file>icons/chart.svg</file>
         <file>icons/settings.svg</file>
         <file>icons/menu.svg</file>
+        <file>icons/logout.svg</file>
     </qresource>
 </RCC>

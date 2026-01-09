@@ -386,6 +386,23 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
             background-color: %1;
             color: %2;
         }
+        QToolTip {
+            background-color: %5;
+            color: %2;
+            border: 1px solid %8;
+            border-radius: 4px;
+            padding: 4px;
+            font-size: 12px;
+        }
+        QToolTip {
+            background-color: %5;
+            color: %2;
+            border: 1px solid %8;
+            border-radius: 4px;
+            padding: 4px;
+            font-family: %4;
+            font-size: 12px;
+        }
         QMainWindow > QWidget#contentContainer {
             background-color: %3;
         }

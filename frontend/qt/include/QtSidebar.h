@@ -21,6 +21,7 @@ class QtSidebar : public QWidget {
     void navigateToWallet();
     void navigateToSettings();
     void navigateToTopCryptos();
+    void signOutRequested();
     void sidebarWidthChanged(int width);
 
   protected:
@@ -41,6 +42,7 @@ class QtSidebar : public QWidget {
     QPushButton* m_walletButton;
     QPushButton* m_topCryptosButton;
     QPushButton* m_settingsButton;
+    QPushButton* m_signOutButton;
 
     QPropertyAnimation* m_widthAnimation;
 

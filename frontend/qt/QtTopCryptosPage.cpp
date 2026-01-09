@@ -454,9 +454,11 @@ QtTopCryptosPage::QtTopCryptosPage(QWidget* parent)
 
 void QtTopCryptosPage::setupUI() {
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setContentsMargins(
-        m_themeManager->standardMargin(), m_themeManager->standardMargin(),
-        m_themeManager->standardMargin(), m_themeManager->standardMargin());
+    // Increased top margin to account for floating Sign Out button
+    int topMargin = m_themeManager->standardMargin() + 20;  // Extra 20px for floating button
+    m_mainLayout->setContentsMargins(m_themeManager->standardMargin(), topMargin,
+                                     m_themeManager->standardMargin(),
+                                     m_themeManager->standardMargin());
     m_mainLayout->setSpacing(0);
 
     // Create a horizontal layout to center content with max width
