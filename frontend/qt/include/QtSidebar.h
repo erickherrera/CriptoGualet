@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QLabel>
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -32,6 +33,8 @@ class QtSidebar : public QWidget {
     void animateSidebar(bool expand);
     void createNavigationButtons();
     QIcon createColoredIcon(const QString& svgPath, const QColor& color);
+    void showHoverLabel(const QString& text, int yPos, bool isSignOut = false);
+    void hideHoverLabel();
 
     QtThemeManager* m_themeManager;
     QWidget* m_sidebarContent;
@@ -45,6 +48,7 @@ class QtSidebar : public QWidget {
     QPushButton* m_signOutButton;
 
     QPropertyAnimation* m_widthAnimation;
+    QLabel* m_hoverLabel;
 
     bool m_isExpanded;
 
