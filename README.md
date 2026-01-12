@@ -27,7 +27,7 @@ To build CriptoGualet, you'll need the following:
 ### 1. Clone the Repository
 
 ```bash
-git clone [https://github.com/your-username/CriptoGualet.git](https://github.com/your-username/CriptoGualet.git)
+git clone https://github.com/erickherrera/CriptoGualet.git
 cd CriptoGualet
 ````
 
@@ -55,15 +55,17 @@ After a successful build, the executable will be located in the `build` director
 
 ## Usage
 
-(Provide a brief description of how to run the application, e.g., double-click the executable or run from the command line.)
+CriptoGualet provides a graphical interface for managing your cryptocurrency wallets. After building the application, you can launch it from the build directory or install it to your system.
 
 ```bash
-# Example for a Linux/macOS build
+# Launch from build directory (Linux/macOS)
 ./build/CriptoGualet
 
-# Example for a Windows build
+# Launch from build directory (Windows)
 .\build\CriptoGualet.exe
 ```
+
+On first launch, you'll be guided through creating a new wallet or importing an existing one. Make sure to securely back up your recovery phrase.
 
 -----
 
