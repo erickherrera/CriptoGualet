@@ -19,22 +19,6 @@ target_include_directories(test_bip39 PRIVATE
   "${CMAKE_SOURCE_DIR}/backend/utils/include"
 )
 
-# ---- Ethereum Wallet Test Executable ----
-add_executable(test_ethereum_wallet
-  "test_ethereum_wallet.cpp"
-)
-set(TEST_ETH_LIBS Auth Crypto SharedSymbols unofficial::secp256k1 unofficial::secp256k1_precomputed)
-if(WIN32)
-  list(APPEND TEST_ETH_LIBS comctl32 crypt32 bcrypt)
-endif()
-target_link_libraries(test_ethereum_wallet PRIVATE ${TEST_ETH_LIBS})
-target_include_directories(test_ethereum_wallet PRIVATE
-  "${CMAKE_SOURCE_DIR}/backend/core/include"
-  "${CMAKE_SOURCE_DIR}/backend/repository/include"
-  "${CMAKE_SOURCE_DIR}/backend/database/include"
-  "${CMAKE_SOURCE_DIR}/backend/utils/include"
-)
-
 # ---- Secure Seed Test Executable ----
 add_executable(test_secure_seed
   "test_secure_seed.cpp"
@@ -361,7 +345,7 @@ add_repository_test(test_transaction_repository "test_transaction_repository.cpp
 add_repository_test(test_repository_integration "test_repository_integration.cpp")
 
 # ---- Multi-Chain Wallet Tests ----
-add_repository_test(test_multichain_wallets "test_multichain_wallets.cpp")
+add_repository_test(test_wallet_chains "test_wallet_chains.cpp")
 
 # ---- Password Verification Test Tool ----
 add_executable(test_password_verification
