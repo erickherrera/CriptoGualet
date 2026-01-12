@@ -121,6 +121,7 @@ nul
 
 # Build logs
 build_output.txt
+build_fresh*.txt
 
 # Additional build directories (catch-all)
 build-*/
