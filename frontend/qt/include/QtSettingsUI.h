@@ -17,7 +17,7 @@ class QtSettingsUI : public QWidget {
     ~QtSettingsUI() override = default;
 
     void applyTheme();
-    void refresh2FAStatus();  // Refresh 2FA status when settings page is shown
+    void refresh2FAStatus();
 
   private slots:
     void onEnable2FAClicked();
@@ -36,7 +36,6 @@ class QtSettingsUI : public QWidget {
     QLabel* m_walletPlaceholder;
     QComboBox* m_themeSelector;
 
-    // 2FA controls
     QLabel* m_2FATitleLabel;
     QLabel* m_2FAStatusLabel;
     QPushButton* m_enable2FAButton;

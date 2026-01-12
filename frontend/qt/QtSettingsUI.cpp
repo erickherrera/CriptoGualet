@@ -85,17 +85,19 @@ void QtSettingsUI::setupUI() {
     // Theme Settings Group
     QGroupBox* themeGroup = new QGroupBox("Appearance", m_centerContainer);
     QFormLayout* themeLayout = new QFormLayout(themeGroup);
-    themeLayout->setContentsMargins(15, 15, 15, 15);  // Compacted (was 20)
-    themeLayout->setSpacing(10);                      // Compacted (was 15)
+    themeLayout->setContentsMargins(15, 15, 15, 15);
+    themeLayout->setSpacing(10);
 
     // Theme selector
+    QLabel* themeLabel = new QLabel("Theme:", m_centerContainer);
+    themeLabel->setStyleSheet("QLabel { background-color: transparent; }");
+
     m_themeSelector = new QComboBox(m_centerContainer);
     m_themeSelector->addItem("Dark Theme", static_cast<int>(ThemeType::DARK));
     m_themeSelector->addItem("Light Theme", static_cast<int>(ThemeType::LIGHT));
     m_themeSelector->addItem("Crypto Dark", static_cast<int>(ThemeType::CRYPTO_DARK));
     m_themeSelector->addItem("Crypto Light", static_cast<int>(ThemeType::CRYPTO_LIGHT));
 
-    // Set current theme
     ThemeType currentTheme = m_themeManager->getCurrentTheme();
     m_themeSelector->setCurrentIndex(m_themeSelector->findData(static_cast<int>(currentTheme)));
 
@@ -105,7 +107,7 @@ void QtSettingsUI::setupUI() {
                 m_themeManager->applyTheme(static_cast<ThemeType>(themeValue));
             });
 
-    themeLayout->addRow("Theme:", m_themeSelector);
+    themeLayout->addRow(themeLabel, m_themeSelector);
 
     m_mainLayout->addWidget(themeGroup);
 
@@ -224,7 +226,6 @@ void QtSettingsUI::setupUI() {
 void QtSettingsUI::applyTheme() {
     updateStyles();
 
-    // Sync theme selector with current theme (in case theme was changed externally)
     ThemeType currentTheme = m_themeManager->getCurrentTheme();
     int newIndex = m_themeSelector->findData(static_cast<int>(currentTheme));
     if (m_themeSelector->currentIndex() != newIndex) {
@@ -233,7 +234,6 @@ void QtSettingsUI::applyTheme() {
         m_themeSelector->blockSignals(false);
     }
 
-    // Refresh 2FA status when theme changes
     update2FAStatus();
 }
 
@@ -354,7 +354,7 @@ void QtSettingsUI::updateStyles() {
         groupBox->setStyleSheet(groupBoxStyle);
     }
 
-    // Combo box styling - create a self-contained style without using getLineEditStyleSheet
+    // Combo box styling
     QString comboBoxStyle = QString(R"(
         QComboBox {
             background-color: %1;
