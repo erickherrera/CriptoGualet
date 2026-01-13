@@ -31,6 +31,7 @@ public:
      */
     enum class ChainType {
         BITCOIN,
+        LITECOIN,
         ETHEREUM
     };
 

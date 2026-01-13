@@ -300,6 +300,8 @@ bool BIP44_GenerateEthereumAddresses(const BIP32ExtendedKey &master, uint32_t ac
 enum class ChainType {
   BITCOIN,
   BITCOIN_TESTNET,
+  LITECOIN,
+  LITECOIN_TESTNET,
   ETHEREUM,
   ETHEREUM_TESTNET,  // Sepolia, Goerli
   BNB_CHAIN,

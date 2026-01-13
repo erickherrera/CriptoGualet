@@ -157,6 +157,18 @@ inline bool createFullSchema(Database::DatabaseManager& dbManager) {
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
 
+        CREATE TABLE IF NOT EXISTS erc20_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wallet_id INTEGER NOT NULL,
+            contract_address TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            name TEXT NOT NULL,
+            decimals INTEGER NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (wallet_id) REFERENCES wallets(id),
+            UNIQUE (wallet_id, contract_address)
+        );
+
         CREATE TABLE IF NOT EXISTS transaction_outputs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             transaction_id INTEGER NOT NULL,
@@ -176,6 +188,7 @@ inline bool createFullSchema(Database::DatabaseManager& dbManager) {
         CREATE INDEX IF NOT EXISTS idx_addresses_address ON addresses(address);
         CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id);
         CREATE INDEX IF NOT EXISTS idx_transactions_txid ON transactions(txid);
+        CREATE INDEX IF NOT EXISTS idx_erc20_tokens_wallet_contract ON erc20_tokens(wallet_id, contract_address);
 
         -- Phase 3: Composite indexes for query optimization
         CREATE INDEX IF NOT EXISTS idx_wallets_user_type ON wallets(user_id, wallet_type);

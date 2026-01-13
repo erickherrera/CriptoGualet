@@ -50,6 +50,18 @@ struct GasPrice {
 };
 
 /**
+ * @brief ERC20 token information
+ */
+struct TokenInfo {
+    std::string contract_address;
+    std::string name;
+    std::string symbol;
+    int decimals;
+
+    TokenInfo() : decimals(0) {}
+};
+
+/**
  * @brief Ethereum blockchain service client
  *
  * Provides Ethereum blockchain interaction using Etherscan API
@@ -105,6 +117,21 @@ public:
      * @return Optional transaction count
      */
     std::optional<uint64_t> GetTransactionCount(const std::string& address);
+
+    /**
+     * @brief Get ERC20 token information
+     * @param contractAddress The address of the token contract
+     * @return Optional TokenInfo if successful
+     */
+    std::optional<TokenInfo> GetTokenInfo(const std::string& contractAddress);
+
+    /**
+     * @brief Get ERC20 token balance for an address
+     * @param contractAddress The address of the token contract
+     * @param userAddress The address of the user
+     * @return Optional balance as a string (in smallest unit)
+     */
+    std::optional<std::string> GetTokenBalance(const std::string& contractAddress, const std::string& userAddress);
 
     /**
      * @brief Send raw signed transaction to the network

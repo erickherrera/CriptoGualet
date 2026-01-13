@@ -4,10 +4,12 @@ add_library(Repository STATIC
   "src/UserRepository.cpp"
   "src/WalletRepository.cpp"
   "src/TransactionRepository.cpp"
+  "src/TokenRepository.cpp"
   "src/Logger.cpp"
   "include/Repository/UserRepository.h"
   "include/Repository/WalletRepository.h"
   "include/Repository/TransactionRepository.h"
+  "include/Repository/TokenRepository.h"
   "include/Repository/Logger.h"
   "include/Repository/RepositoryTypes.h"
 )

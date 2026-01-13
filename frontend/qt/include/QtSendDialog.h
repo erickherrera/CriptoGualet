@@ -33,6 +33,7 @@ public:
      */
     enum class ChainType {
         BITCOIN,
+        LITECOIN,
         ETHEREUM
     };
 
@@ -47,6 +48,12 @@ public:
         uint64_t amountSatoshis;
         uint64_t estimatedFeeSatoshis;
         uint64_t totalSatoshis;
+
+        // Litecoin-specific fields (similar to Bitcoin)
+        double amountLTC;
+        uint64_t amountLitoshis;  // 1 LTC = 100,000,000 litoshis
+        uint64_t estimatedFeeLitoshis;
+        uint64_t totalLitoshis;
 
         // Ethereum-specific fields
         double amountETH;
@@ -90,6 +97,7 @@ private:
     QString formatCrypto(double amount) const;
     QString formatUSD(double usd) const;
     bool validateBitcoinAddress(const QString& address) const;
+    bool validateLitecoinAddress(const QString& address) const;
     bool validateEthereumAddress(const QString& address) const;
 
 private:

@@ -44,21 +44,27 @@ QtWalletUI::QtWalletUI(QWidget* parent)
       m_toggleBalanceButton(nullptr),
       m_refreshButton(nullptr),
       m_bitcoinWalletCard(nullptr),
+      m_litecoinWalletCard(nullptr),
       m_ethereumWalletCard(nullptr),
       m_currentMockUser(nullptr),
       m_wallet(nullptr),
+      m_litecoinWallet(nullptr),
       m_ethereumWallet(nullptr),
       m_balanceUpdateTimer(nullptr),
       m_realBalanceBTC(0.0),
+      m_realBalanceLTC(0.0),
       m_realBalanceETH(0.0),
       m_userRepository(nullptr),
       m_walletRepository(nullptr),
+      m_tokenRepository(nullptr),
       m_currentUserId(-1),
       m_priceFetcher(nullptr),
       m_priceUpdateTimer(nullptr),
       m_currentBTCPrice(43000.0),
+      m_currentLTCPrice(70.0),
       m_currentETHPrice(2500.0),
       m_isLoadingBTC(false),
+      m_isLoadingLTC(false),
       m_isLoadingETH(false),
       m_statusLabel(nullptr),
       m_balanceVisible(true),
@@ -249,6 +255,22 @@ void QtWalletUI::createActionButtons() {
 
     m_contentLayout->addWidget(m_bitcoinWalletCard);
 
+    // Create Litecoin wallet card
+    m_litecoinWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+    m_litecoinWalletCard->setCryptocurrency("Litecoin", "LTC", "Ł");
+    m_litecoinWalletCard->setBalance("0.00000000 LTC");
+    m_litecoinWalletCard->setTransactionHistory(
+        "No transactions yet.<br><br>This wallet supports Litecoin network. "
+        "Transaction history will be displayed here.");
+
+    // Connect Litecoin signals
+    connect(m_litecoinWalletCard, &QtExpandableWalletCard::sendRequested, this,
+            &QtWalletUI::onSendLitecoinClicked);
+    connect(m_litecoinWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+            &QtWalletUI::onReceiveLitecoinClicked);
+
+    m_contentLayout->addWidget(m_litecoinWalletCard);
+
     // Create Ethereum wallet card
     m_ethereumWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
     m_ethereumWalletCard->setCryptocurrency("Ethereum", "ETH", "Ξ");
@@ -264,6 +286,24 @@ void QtWalletUI::createActionButtons() {
             &QtWalletUI::onReceiveEthereumClicked);
 
     m_contentLayout->addWidget(m_ethereumWalletCard);
+
+    // PHASE 4: Add "Import Token" button for Ethereum ecosystem
+    QHBoxLayout* tokenActionsLayout = new QHBoxLayout();
+    tokenActionsLayout->setSpacing(10);
+    tokenActionsLayout->setAlignment(Qt::AlignCenter);
+
+    m_importTokenButton = new QPushButton("Import Token", this);
+    m_importTokenButton->setToolTip("Import an ERC20 token to your Ethereum wallet.");
+    m_importTokenButton->setCursor(Qt::PointingHandCursor);
+    m_importTokenButton->setObjectName("importTokenButton");
+
+    connect(m_importTokenButton, &QPushButton::clicked, this, &QtWalletUI::onImportTokenClicked);
+
+    tokenActionsLayout->addStretch();
+    tokenActionsLayout->addWidget(m_importTokenButton);
+    tokenActionsLayout->addStretch();
+
+    m_contentLayout->addLayout(tokenActionsLayout);
 }
 
 void QtWalletUI::setUserInfo(const QString& username, const QString& address) {
@@ -371,6 +411,101 @@ void QtWalletUI::onReceiveBitcoinClicked() {
     dialog.exec();
 
     emit receiveBitcoinRequested();
+}
+
+void QtWalletUI::onSendLitecoinClicked() {
+    // Check if Litecoin wallet is available
+    if (!m_litecoinWallet) {
+        QMessageBox::warning(this, "Litecoin Wallet Not Available",
+                             "Litecoin wallet is not initialized. Please restart the application.");
+        return;
+    }
+
+    // Determine current balance
+    double currentBalance = m_realBalanceLTC;
+
+    // Create and show send dialog for Litecoin
+    QtSendDialog dialog(QtSendDialog::ChainType::LITECOIN, currentBalance, m_currentLTCPrice, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        auto txDataOpt = dialog.getTransactionData();
+        if (!txDataOpt.has_value()) {
+            return;
+        }
+
+        auto txData = txDataOpt.value();
+
+        try {
+            // Show progress indicator
+            QMessageBox* progressBox = new QMessageBox(this);
+            progressBox->setWindowTitle("Sending Litecoin Transaction");
+            progressBox->setText("Broadcasting transaction to the Litecoin network...\nPlease wait.");
+            progressBox->setStandardButtons(QMessageBox::NoButton);
+            progressBox->setModal(true);
+            progressBox->show();
+            QApplication::processEvents();
+
+            // Derive private key for the Litecoin address
+            std::vector<uint8_t> privateKeyBytes =
+                derivePrivateKeyForAddress(m_litecoinAddress, txData.password);
+
+            // Create private keys map
+            std::map<std::string, std::vector<uint8_t>> privateKeysMap;
+            std::string fromAddress = m_litecoinAddress.toStdString();
+            privateKeysMap[fromAddress] = privateKeyBytes;
+
+            // Prepare addresses
+            std::vector<std::string> fromAddresses = {fromAddress};
+            std::string toAddress = txData.recipientAddress.toStdString();
+
+            // Send the Litecoin transaction
+            auto result = m_litecoinWallet->SendFunds(
+                fromAddresses, toAddress, txData.amountLitoshis,
+                privateKeysMap, txData.estimatedFeeLitoshis);
+
+            progressBox->close();
+            delete progressBox;
+
+            if (result.success) {
+                QMessageBox::information(
+                    this, "Transaction Sent",
+                    QString("Transaction sent successfully!\n\n"
+                            "Transaction Hash:\n%1\n\n"
+                            "Amount: %2 LTC\n"
+                            "Fee: %3 LTC\n\n"
+                            "You can track your transaction on a Litecoin block explorer.")
+                        .arg(QString::fromStdString(result.transaction_hash))
+                        .arg(m_litecoinWallet->ConvertLitoshisToLTC(txData.amountLitoshis), 0, 'f', 8)
+                        .arg(m_litecoinWallet->ConvertLitoshisToLTC(result.total_fees), 0, 'f', 8));
+
+                // Refresh balance after sending
+                fetchRealBalance();
+            } else {
+                QMessageBox::critical(this, "Transaction Failed",
+                                      QString("Failed to send transaction:\n%1")
+                                          .arg(QString::fromStdString(result.error_message)));
+            }
+        } catch (const std::exception& e) {
+            QMessageBox::critical(this, "Transaction Failed",
+                                  QString("Failed to send transaction:\n%1").arg(e.what()));
+        }
+    }
+
+    emit sendLitecoinRequested();
+}
+
+void QtWalletUI::onReceiveLitecoinClicked() {
+    // Show Litecoin receive dialog with Litecoin address
+    if (m_litecoinAddress.isEmpty()) {
+        QMessageBox::warning(
+            this, "No Litecoin Address",
+            "Litecoin address not available. Please ensure your wallet is set up correctly.");
+        return;
+    }
+
+    QtReceiveDialog dialog(QtReceiveDialog::ChainType::LITECOIN, m_litecoinAddress, this);
+    dialog.exec();
+
+    emit receiveLitecoinRequested();
 }
 
 // PHASE 2: Separate Ethereum receive handler
@@ -489,9 +624,86 @@ void QtWalletUI::onThemeChanged() {
     if (m_bitcoinWalletCard) {
         m_bitcoinWalletCard->applyTheme();
     }
+    if (m_litecoinWalletCard) {
+        m_litecoinWalletCard->applyTheme();
+    }
     if (m_ethereumWalletCard) {
         m_ethereumWalletCard->applyTheme();
     }
+}
+
+void QtWalletUI::onImportTokenClicked() {
+    if (!m_ethereumWallet) {
+        QMessageBox::warning(this, "Ethereum Wallet Not Available",
+                             "Please ensure your Ethereum wallet is initialized before importing tokens.");
+        return;
+    }
+
+    QInputDialog* dialog = new QInputDialog(this);
+    dialog->setLabelText("Enter ERC20 Token Contract Address:");
+    dialog->setWindowTitle("Import Token");
+    dialog->setTextValue("");
+    dialog->setOkButtonText("Import");
+
+    if (m_themeManager) {
+        dialog->setStyleSheet(m_themeManager->getMainWindowStyleSheet() + " QInputDialog { background-color: " + m_themeManager->surfaceColor().name() + "; }");
+    }
+
+    if (dialog->exec() == QDialog::Accepted) {
+        QString tokenAddress = dialog->textValue().trimmed();
+        if (tokenAddress.isEmpty() || !tokenAddress.startsWith("0x") || tokenAddress.length() != 42) {
+            QMessageBox::warning(this, "Invalid Address", "Please enter a valid Ethereum contract address (42 characters, starting with '0x').");
+            return;
+        }
+
+        // TODO: Implement backend logic to add the token to the user's list
+        // For now, just show a confirmation message
+        // QMessageBox::information(this, "Token Import",
+        //                          QString("Attempting to import token with address:\n%1").arg(tokenAddress));
+
+        if (!m_tokenRepository || m_currentUserId < 0) {
+            QMessageBox::critical(this, "Error", "Repositories not initialized. Cannot import token.");
+            return;
+        }
+
+        // Fetch the Ethereum wallet ID for the current user
+        // This assumes there's one Ethereum wallet per user. A more robust solution
+        // would allow the user to select which wallet to import to.
+        auto userWalletsResult = m_walletRepository->getWalletsByUserId(m_currentUserId);
+        if (!userWalletsResult.success) {
+            QMessageBox::critical(this, "Error", QString("Failed to retrieve wallets for user: %1").arg(QString::fromStdString(userWalletsResult.errorMessage)));
+            return;
+        }
+
+        int ethereumWalletId = -1;
+        for (const auto& wallet : userWalletsResult.data) {
+            if (wallet.walletType == "ethereum") {
+                ethereumWalletId = wallet.id;
+                break;
+            }
+        }
+
+        if (ethereumWalletId == -1) {
+            QMessageBox::warning(this, "Error", "No Ethereum wallet found for the current user.");
+            return;
+        }
+
+        // Call the backend API to import the token
+        WalletAPI::ImportTokenResult importResult = m_ethereumWallet->importERC20Token(ethereumWalletId, tokenAddress.toStdString(), *m_tokenRepository);
+
+        if (importResult.success) {
+            QString successMessage = QString("Successfully imported token:\nSymbol: %1\nName: %2\nDecimals: %3")
+                                         .arg(QString::fromStdString(importResult.token_info->symbol))
+                                         .arg(QString::fromStdString(importResult.token_info->name))
+                                         .arg(importResult.token_info->decimals);
+            QMessageBox::information(this, "Token Import Successful", successMessage);
+            // TODO: Refresh UI to show the new token balance/info
+        } else {
+            QMessageBox::critical(this, "Token Import Failed", QString("Failed to import token: %1").arg(QString::fromStdString(importResult.error_message)));
+        }
+    }
+
+    delete dialog;
 }
 
 void QtWalletUI::applyTheme() { updateStyles(); }
@@ -752,15 +964,38 @@ void QtWalletUI::updateStyles() {
         }
     )")
                                          .arg(m_themeManager->secondaryColor().name())
-                                         .arg(toggleButtonSize);
-        m_refreshButton->setStyleSheet(refreshButtonStyle);
-    }
-
-    // Status label styling - ensure proper contrast
-    if (m_statusLabel && m_statusLabel->isVisible()) {
-        updateStatusLabel();
-    }
-}
+                                                                                   .arg(toggleButtonSize);
+                                                 m_refreshButton->setStyleSheet(refreshButtonStyle);
+                                             }
+                                         
+                                             if (m_importTokenButton) {
+                                                 QString importButtonStyle = QString(R"(
+                                                     QPushButton {
+                                                         background-color: %1;
+                                                         color: %2;
+                                                         border: 1px solid %3;
+                                                         padding: 8px 16px;
+                                                         border-radius: 4px;
+                                                         font-weight: 600;
+                                                     }
+                                                                 QPushButton:hover {
+                                                                     background-color: %4;
+                                                                 }
+                                                                 QPushButton:pressed {
+                                                                     background-color: %5;
+                                                                 }
+                                                             )")
+                                                             .arg(m_themeManager->surfaceColor().name())
+                                                             .arg(m_themeManager->textColor().name())
+                                                             .arg(m_themeManager->accentColor().name())
+                                                             .arg(m_themeManager->secondaryColor().name())
+                                                             .arg(m_themeManager->accentColor().name());
+                                                             m_importTokenButton->setStyleSheet(importButtonStyle);
+                                                         }                                         
+                                             // Status label styling - ensure proper contrast
+                                             if (m_statusLabel && m_statusLabel->isVisible()) {
+                                                 updateStatusLabel();
+                                             }}
 
 void QtWalletUI::onLogoutClicked() { emit logoutRequested(); }
 
@@ -1226,6 +1461,25 @@ void QtWalletUI::fetchBTCPrice() {
     }
 }
 
+void QtWalletUI::fetchLTCPrice() {
+    if (!m_priceFetcher) {
+        return;
+    }
+
+    // Fetch LTC price using the generic GetCryptoPrice method
+    auto priceDataOpt = m_priceFetcher->GetCryptoPrice("litecoin");
+    if (priceDataOpt.has_value()) {
+        m_currentLTCPrice = priceDataOpt.value().usd_price;
+        updateUSDBalance();
+    } else {
+        // If fetch fails, keep using the last known price
+        // or set a default fallback price
+        if (m_currentLTCPrice == 0.0) {
+            m_currentLTCPrice = 70.0;  // Fallback price
+        }
+    }
+}
+
 // PHASE 2: Fetch Ethereum price
 void QtWalletUI::fetchETHPrice() {
     if (!m_priceFetcher) {
@@ -1246,9 +1500,10 @@ void QtWalletUI::fetchETHPrice() {
     }
 }
 
-// PHASE 2: Fetch both BTC and ETH prices
+// PHASE 2: Fetch all cryptocurrency prices
 void QtWalletUI::fetchAllPrices() {
     fetchBTCPrice();
+    fetchLTCPrice();
     fetchETHPrice();
 }
 
@@ -1264,31 +1519,36 @@ void QtWalletUI::updateUSDBalance() {
         return;
     }
 
-    // PHASE 2: Calculate total balance including both BTC and ETH
+    // Calculate total balance including BTC, LTC, and ETH
 
     // Use fallback prices if current prices are not available
     double btcPriceToUse = (m_currentBTCPrice > 0.0) ? m_currentBTCPrice : 43000.0;
+    double ltcPriceToUse = (m_currentLTCPrice > 0.0) ? m_currentLTCPrice : 70.0;
     double ethPriceToUse = (m_currentETHPrice > 0.0) ? m_currentETHPrice : 2500.0;
 
     double btcBalance = 0.0;
+    double ltcBalance = 0.0;
     double ethBalance = 0.0;
 
     // Use real balance if not in mock mode
     if (!m_mockMode) {
         btcBalance = m_realBalanceBTC;
+        ltcBalance = m_realBalanceLTC;
         ethBalance = m_realBalanceETH;
     } else if (m_currentMockUser) {
         // Use mock balance if in mock mode (only BTC for now)
         btcBalance = m_currentMockUser->balance;
+        ltcBalance = 0.0;  // Mock mode doesn't have LTC yet
         ethBalance = 0.0;  // Mock mode doesn't have ETH yet
     }
 
     // Calculate USD value for each currency
     double btcUsdValue = btcBalance * btcPriceToUse;
+    double ltcUsdValue = ltcBalance * ltcPriceToUse;
     double ethUsdValue = ethBalance * ethPriceToUse;
 
     // Calculate total USD balance
-    double totalUsdBalance = btcUsdValue + ethUsdValue;
+    double totalUsdBalance = btcUsdValue + ltcUsdValue + ethUsdValue;
 
     m_balanceLabel->setText(QString("$%L1 USD").arg(totalUsdBalance, 0, 'f', 2));
 }
@@ -1304,6 +1564,22 @@ void QtWalletUI::setWallet(WalletAPI::SimpleWallet* wallet) {
     m_wallet = wallet;
     // Fetch initial balance when wallet is set
     if (m_wallet && !m_currentAddress.isEmpty()) {
+        fetchRealBalance();
+    }
+}
+
+void QtWalletUI::setLitecoinWallet(WalletAPI::LitecoinWallet* ltcWallet) {
+    m_litecoinWallet = ltcWallet;
+    // Fetch initial balance when wallet is set
+    if (m_litecoinWallet && !m_litecoinAddress.isEmpty()) {
+        fetchRealBalance();
+    }
+}
+
+void QtWalletUI::setLitecoinAddress(const QString& address) {
+    m_litecoinAddress = address;
+    // Fetch balance if wallet is already set
+    if (m_litecoinWallet && !m_litecoinAddress.isEmpty()) {
         fetchRealBalance();
     }
 }
@@ -1366,6 +1642,35 @@ void QtWalletUI::fetchRealBalance() {
         return;
     }
 
+    // Fetch Litecoin balance if we have a Litecoin wallet and address
+    if (m_litecoinWallet && !m_litecoinAddress.isEmpty()) {
+        setLoadingState(true, "Litecoin");
+
+        try {
+            std::string ltcAddress = m_litecoinAddress.toStdString();
+            uint64_t balanceLitoshis = m_litecoinWallet->GetBalance(ltcAddress);
+
+            // Convert litoshis to LTC
+            m_realBalanceLTC = m_litecoinWallet->ConvertLitoshisToLTC(balanceLitoshis);
+
+            // Update Litecoin wallet card
+            if (m_litecoinWalletCard) {
+                m_litecoinWalletCard->setBalance(QString("%1 LTC").arg(m_realBalanceLTC, 0, 'f', 8));
+            }
+
+            // Fetch and display Litecoin transaction history
+            auto ltcTxHistory = m_litecoinWallet->GetTransactionHistory(ltcAddress, 10);
+            if (m_litecoinWalletCard) {
+                m_litecoinWalletCard->setTransactionHistory(formatBitcoinTransactionHistory(ltcTxHistory));
+            }
+
+            setLoadingState(false, "Litecoin");
+
+        } catch (const std::exception& e) {
+            setErrorState(QString("Failed to fetch Litecoin balance: %1").arg(e.what()));
+        }
+    }
+
     // Fetch Ethereum balance if we have an Ethereum wallet and address
     if (m_ethereumWallet && !m_ethereumAddress.isEmpty()) {
         // PHASE 2: Set loading state for Ethereum
@@ -1408,6 +1713,10 @@ void QtWalletUI::setRepositories(Repository::UserRepository* userRepo,
                                  Repository::WalletRepository* walletRepo) {
     m_userRepository = userRepo;
     m_walletRepository = walletRepo;
+}
+
+void QtWalletUI::setTokenRepository(Repository::TokenRepository* tokenRepo) {
+    m_tokenRepository = tokenRepo;
 }
 
 void QtWalletUI::setCurrentUserId(int userId) { m_currentUserId = userId; }
@@ -1544,6 +1853,8 @@ std::vector<uint8_t> QtWalletUI::derivePrivateKeyForAddress(const QString& addre
 void QtWalletUI::setLoadingState(bool loading, const QString& chain) {
     if (chain.toLower() == "bitcoin" || chain.toLower() == "btc") {
         m_isLoadingBTC = loading;
+    } else if (chain.toLower() == "litecoin" || chain.toLower() == "ltc") {
+        m_isLoadingLTC = loading;
     } else if (chain.toLower() == "ethereum" || chain.toLower() == "eth") {
         m_isLoadingETH = loading;
     }
@@ -1555,6 +1866,7 @@ void QtWalletUI::setLoadingState(bool loading, const QString& chain) {
 void QtWalletUI::setErrorState(const QString& errorMessage) {
     m_lastErrorMessage = errorMessage;
     m_isLoadingBTC = false;
+    m_isLoadingLTC = false;
     m_isLoadingETH = false;
     updateStatusLabel();
 }
@@ -1579,12 +1891,28 @@ void QtWalletUI::updateStatusLabel() {
         m_statusLabel->setVisible(true);
     }
     // Check for loading states
-    else if (m_isLoadingBTC && m_isLoadingETH) {
+    else if (m_isLoadingBTC && m_isLoadingLTC && m_isLoadingETH) {
+        statusText = "Loading Bitcoin, Litecoin, and Ethereum balances...";
+        styleClass = "loading";
+        m_statusLabel->setVisible(true);
+    } else if (m_isLoadingBTC && m_isLoadingLTC) {
+        statusText = "Loading Bitcoin and Litecoin balances...";
+        styleClass = "loading";
+        m_statusLabel->setVisible(true);
+    } else if (m_isLoadingBTC && m_isLoadingETH) {
         statusText = "Loading Bitcoin and Ethereum balances...";
+        styleClass = "loading";
+        m_statusLabel->setVisible(true);
+    } else if (m_isLoadingLTC && m_isLoadingETH) {
+        statusText = "Loading Litecoin and Ethereum balances...";
         styleClass = "loading";
         m_statusLabel->setVisible(true);
     } else if (m_isLoadingBTC) {
         statusText = "Loading Bitcoin balance...";
+        styleClass = "loading";
+        m_statusLabel->setVisible(true);
+    } else if (m_isLoadingLTC) {
+        statusText = "Loading Litecoin balance...";
         styleClass = "loading";
         m_statusLabel->setVisible(true);
     } else if (m_isLoadingETH) {
