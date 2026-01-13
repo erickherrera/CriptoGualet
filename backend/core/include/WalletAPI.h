@@ -110,4 +110,58 @@ public:
   std::string GetNetworkInfo();
 };
 
+// Litecoin Send Transaction Result (similar to Bitcoin)
+struct LitecoinSendResult {
+  bool success;
+  std::string transaction_hash;
+  std::string error_message;
+  uint64_t total_fees;  // In litoshis (1 LTC = 100,000,000 litoshis)
+};
+
+// Litecoin Receive Info (similar to Bitcoin)
+struct LitecoinReceiveInfo {
+  std::string address;
+  uint64_t confirmed_balance;    // In litoshis
+  uint64_t unconfirmed_balance;  // In litoshis
+  uint32_t transaction_count;
+  std::vector<std::string> recent_transactions;
+};
+
+// Litecoin Wallet class (uses BlockCypher API which supports Litecoin)
+class LitecoinWallet {
+private:
+  std::unique_ptr<BlockCypher::BlockCypherClient> client;
+  std::string current_network;
+
+public:
+  explicit LitecoinWallet(const std::string &network = "ltc/main");
+  ~LitecoinWallet() = default;
+
+  // Configuration
+  void SetApiToken(const std::string &token);
+  void SetNetwork(const std::string &network);
+
+  // Receive functionality
+  LitecoinReceiveInfo GetAddressInfo(const std::string &address);
+  uint64_t GetBalance(const std::string &address);  // Returns litoshis
+  std::vector<std::string> GetTransactionHistory(const std::string &address,
+                                                 uint32_t limit = 10);
+
+  // Send functionality
+  LitecoinSendResult
+  SendFunds(const std::vector<std::string> &from_addresses,
+            const std::string &to_address, uint64_t amount_litoshis,
+            const std::map<std::string, std::vector<uint8_t>> &private_keys,
+            uint64_t fee_litoshis = 0);
+
+  // Utility functions
+  bool ValidateAddress(const std::string &address);
+  uint64_t EstimateTransactionFee();
+  uint64_t ConvertLTCToLitoshis(double ltc_amount);
+  double ConvertLitoshisToLTC(uint64_t litoshis);
+
+  // For testing/demo purposes
+  std::string GetNetworkInfo();
+};
+
 } // namespace WalletAPI

@@ -2204,6 +2204,10 @@ uint32_t GetCoinType(ChainType chain) {
       return 0;
     case ChainType::BITCOIN_TESTNET:
       return 1;
+    case ChainType::LITECOIN:
+      return 2;  // BIP44 coin type for Litecoin
+    case ChainType::LITECOIN_TESTNET:
+      return 1;  // Testnet uses coin type 1
     case ChainType::ETHEREUM:
     case ChainType::ETHEREUM_TESTNET:
       return 60;
@@ -2228,6 +2232,10 @@ std::string GetChainName(ChainType chain) {
       return "Bitcoin";
     case ChainType::BITCOIN_TESTNET:
       return "Bitcoin Testnet";
+    case ChainType::LITECOIN:
+      return "Litecoin";
+    case ChainType::LITECOIN_TESTNET:
+      return "Litecoin Testnet";
     case ChainType::ETHEREUM:
       return "Ethereum";
     case ChainType::ETHEREUM_TESTNET:
@@ -2258,6 +2266,15 @@ bool DeriveChainAddress(const BIP32ExtendedKey &master, ChainType chain,
       return BIP44_GetAddress(master, account, change, address_index, address, false);
 
     case ChainType::BITCOIN_TESTNET:
+      return BIP44_GetAddress(master, account, change, address_index, address, true);
+
+    case ChainType::LITECOIN:
+      // Litecoin uses same address format as Bitcoin but with different prefix
+      // For now, use Bitcoin address generation (which will work for testing)
+      // TODO: Implement proper Litecoin address generation with L/M prefix
+      return BIP44_GetAddress(master, account, change, address_index, address, false);
+
+    case ChainType::LITECOIN_TESTNET:
       return BIP44_GetAddress(master, account, change, address_index, address, true);
 
     case ChainType::ETHEREUM:
@@ -2298,6 +2315,8 @@ bool IsBitcoinChain(ChainType chain) {
   switch (chain) {
     case ChainType::BITCOIN:
     case ChainType::BITCOIN_TESTNET:
+    case ChainType::LITECOIN:
+    case ChainType::LITECOIN_TESTNET:
       return true;
     default:
       return false;

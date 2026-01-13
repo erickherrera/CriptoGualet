@@ -466,4 +466,263 @@ std::string EthereumWallet::GetNetworkInfo() {
     return "Connected to Etherscan API - Network: " + current_network;
 }
 
+// ===== Litecoin Wallet Implementation =====
+
+LitecoinWallet::LitecoinWallet(const std::string& network)
+    : current_network(network) {
+    // BlockCypher supports Litecoin with "ltc/main" network
+    client = std::make_unique<BlockCypher::BlockCypherClient>(network);
+}
+
+void LitecoinWallet::SetApiToken(const std::string& token) {
+    if (client) {
+        client->SetApiToken(token);
+    }
+}
+
+void LitecoinWallet::SetNetwork(const std::string& network) {
+    current_network = network;
+    if (client) {
+        client->SetNetwork(network);
+    }
+}
+
+LitecoinReceiveInfo LitecoinWallet::GetAddressInfo(const std::string& address) {
+    LitecoinReceiveInfo info;
+    info.address = address;
+    info.confirmed_balance = 0;
+    info.unconfirmed_balance = 0;
+    info.transaction_count = 0;
+
+    if (!client) {
+        return info;
+    }
+
+    // Get balance information
+    auto balance_result = client->GetAddressBalance(address);
+    if (balance_result) {
+        info.confirmed_balance = balance_result->balance;
+        info.unconfirmed_balance = balance_result->unconfirmed_balance;
+        info.transaction_count = balance_result->n_tx;
+    }
+
+    // Get recent transactions
+    auto tx_result = client->GetAddressTransactions(address, 10);
+    if (tx_result) {
+        info.recent_transactions = tx_result.value();
+    }
+
+    return info;
+}
+
+uint64_t LitecoinWallet::GetBalance(const std::string& address) {
+    if (!client) {
+        return 0;
+    }
+
+    auto balance_result = client->GetAddressBalance(address);
+    if (balance_result) {
+        return balance_result->balance;
+    }
+
+    return 0;
+}
+
+std::vector<std::string> LitecoinWallet::GetTransactionHistory(const std::string& address, uint32_t limit) {
+    if (!client) {
+        return {};
+    }
+
+    auto tx_result = client->GetAddressTransactions(address, limit);
+    if (tx_result) {
+        return tx_result.value();
+    }
+
+    return {};
+}
+
+LitecoinSendResult LitecoinWallet::SendFunds(
+    const std::vector<std::string>& from_addresses,
+    const std::string& to_address,
+    uint64_t amount_litoshis,
+    const std::map<std::string, std::vector<uint8_t>>& private_keys,
+    uint64_t fee_litoshis) {
+
+    LitecoinSendResult result;
+    result.success = false;
+    result.total_fees = 0;
+
+    if (!client) {
+        result.error_message = "BlockCypher client not initialized";
+        return result;
+    }
+
+    // Validate addresses
+    for (const auto& addr : from_addresses) {
+        if (!client->IsValidAddress(addr)) {
+            result.error_message = "Invalid source address: " + addr;
+            return result;
+        }
+    }
+
+    if (!client->IsValidAddress(to_address)) {
+        result.error_message = "Invalid destination address: " + to_address;
+        return result;
+    }
+
+    // Verify we have private keys for all input addresses
+    for (const auto& addr : from_addresses) {
+        if (private_keys.find(addr) == private_keys.end()) {
+            result.error_message = "Missing private key for address: " + addr;
+            return result;
+        }
+    }
+
+    // Check balances
+    uint64_t total_available = 0;
+    for (const auto& addr : from_addresses) {
+        auto balance_result = client->GetAddressBalance(addr);
+        if (balance_result) {
+            total_available += balance_result->balance;
+        }
+    }
+
+    // Estimate fees if not provided
+    if (fee_litoshis == 0) {
+        auto fee_estimate = client->EstimateFees();
+        if (fee_estimate) {
+            // Rough estimate: base fee per KB for average transaction size (~250 bytes)
+            fee_litoshis = (fee_estimate.value() * 250) / 1000;
+        } else {
+            fee_litoshis = 10000; // Default 10k litoshis
+        }
+    }
+
+    if (total_available < amount_litoshis + fee_litoshis) {
+        result.error_message = "Insufficient funds. Available: " + std::to_string(total_available) +
+                              " litoshis, Required: " + std::to_string(amount_litoshis + fee_litoshis) + " litoshis";
+        return result;
+    }
+
+    // Create transaction request
+    BlockCypher::CreateTransactionRequest tx_request;
+    tx_request.input_addresses = from_addresses;
+    tx_request.outputs.emplace_back(to_address, amount_litoshis);
+    tx_request.fees = fee_litoshis;
+
+    // Create the transaction skeleton
+    auto create_result = client->CreateTransaction(tx_request);
+    if (!create_result) {
+        result.error_message = "Failed to create transaction";
+        return result;
+    }
+
+    if (!create_result->errors.empty()) {
+        result.error_message = "Transaction creation error: " + create_result->errors;
+        return result;
+    }
+
+    // Sign the transaction
+    if (create_result->tosign.empty()) {
+        result.error_message = "No hashes to sign in transaction";
+        return result;
+    }
+
+    // Sign each hash
+    create_result->signatures.clear();
+    create_result->pubkeys.clear();
+
+    for (size_t i = 0; i < create_result->tosign.size(); i++) {
+        std::string tosign_hex = create_result->tosign[i];
+
+        // Convert hex string to bytes
+        std::array<uint8_t, 32> hash_bytes;
+        for (size_t j = 0; j < 32; j++) {
+            std::string byte_str = tosign_hex.substr(j * 2, 2);
+            hash_bytes[j] = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
+        }
+
+        // Get the private key for this input
+        const auto& priv_key = private_keys.begin()->second;
+
+        // Sign the hash
+        Crypto::ECDSASignature signature;
+        if (!Crypto::SignHash(priv_key, hash_bytes, signature)) {
+            result.error_message = "Failed to sign transaction hash " + std::to_string(i);
+            return result;
+        }
+
+        // Convert signature to hex string
+        std::stringstream sig_hex;
+        sig_hex << std::hex << std::setfill('0');
+        for (uint8_t byte : signature.der_encoded) {
+            sig_hex << std::setw(2) << static_cast<int>(byte);
+        }
+        create_result->signatures.push_back(sig_hex.str());
+
+        // Extract public key from private key
+        std::vector<uint8_t> public_key;
+        if (!Crypto::DerivePublicKey(priv_key, public_key)) {
+            result.error_message = "Failed to derive public key from private key";
+            return result;
+        }
+
+        // Convert public key to hex string
+        std::stringstream pubkey_hex;
+        pubkey_hex << std::hex << std::setfill('0');
+        for (uint8_t byte : public_key) {
+            pubkey_hex << std::setw(2) << static_cast<int>(byte);
+        }
+        create_result->pubkeys.push_back(pubkey_hex.str());
+    }
+
+    // Send the signed transaction
+    auto send_result = client->SendSignedTransaction(*create_result);
+    if (!send_result) {
+        result.error_message = "Failed to broadcast transaction";
+        return result;
+    }
+
+    // Success!
+    result.success = true;
+    result.transaction_hash = send_result.value();
+    result.total_fees = fee_litoshis;
+    result.error_message = "Transaction signed and broadcast successfully";
+
+    return result;
+}
+
+bool LitecoinWallet::ValidateAddress(const std::string& address) {
+    if (!client) {
+        return false;
+    }
+    return client->IsValidAddress(address);
+}
+
+uint64_t LitecoinWallet::EstimateTransactionFee() {
+    if (!client) {
+        return 10000; // Default fallback
+    }
+
+    auto fee_estimate = client->EstimateFees();
+    if (fee_estimate) {
+        // Estimate for average transaction size (~250 bytes)
+        return (fee_estimate.value() * 250) / 1000;
+    }
+
+    return 10000; // Default fallback
+}
+
+uint64_t LitecoinWallet::ConvertLTCToLitoshis(double ltc_amount) {
+    return static_cast<uint64_t>(std::round(ltc_amount * 100000000.0));
+}
+
+double LitecoinWallet::ConvertLitoshisToLTC(uint64_t litoshis) {
+    return static_cast<double>(litoshis) / 100000000.0;
+}
+
+std::string LitecoinWallet::GetNetworkInfo() {
+    return "Connected to BlockCypher API - Network: " + current_network;
+}
+
 } // namespace WalletAPI

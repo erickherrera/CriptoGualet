@@ -57,6 +57,8 @@ class QtWalletUI : public QWidget {
 
     void setUserInfo(const QString& username, const QString& address);
     void setWallet(WalletAPI::SimpleWallet* wallet);
+    void setLitecoinWallet(WalletAPI::LitecoinWallet* ltcWallet);
+    void setLitecoinAddress(const QString& address);
     void setEthereumWallet(WalletAPI::EthereumWallet* ethWallet);  // PHASE 1 FIX
     void setEthereumAddress(const QString& address);
     void setRepositories(Repository::UserRepository* userRepo,
@@ -74,6 +76,8 @@ class QtWalletUI : public QWidget {
     void logoutRequested();
     void sendBitcoinRequested();
     void receiveBitcoinRequested();
+    void sendLitecoinRequested();
+    void receiveLitecoinRequested();
     void receiveEthereumRequested();  // PHASE 2
     void viewBalanceRequested();
 
@@ -85,6 +89,8 @@ class QtWalletUI : public QWidget {
     void onLogoutClicked();
     void onSendBitcoinClicked();
     void onReceiveBitcoinClicked();
+    void onSendLitecoinClicked();
+    void onReceiveLitecoinClicked();
     void onReceiveEthereumClicked();  // PHASE 2
     void onSendEthereumClicked();     // PHASE 2
     void onViewBalanceClicked();
@@ -106,6 +112,7 @@ class QtWalletUI : public QWidget {
     void initializeMockUsers();
     void updateMockTransactionHistory();
     void fetchBTCPrice();
+    void fetchLTCPrice();
     void fetchETHPrice();   // PHASE 2
     void fetchAllPrices();  // PHASE 2
     void updateUSDBalance();
@@ -143,20 +150,24 @@ class QtWalletUI : public QWidget {
     QPushButton* m_toggleBalanceButton;
     QPushButton* m_refreshButton;
     class QtExpandableWalletCard* m_bitcoinWalletCard;
+    class QtExpandableWalletCard* m_litecoinWalletCard;
     class QtExpandableWalletCard* m_ethereumWalletCard;
     QLabel* m_statusLabel;  // PHASE 2
 
     // State
     QString m_currentUsername;
     QString m_currentAddress;
+    QString m_litecoinAddress;
     QString m_ethereumAddress;  // PHASE 1 FIX
     MockUserData* m_currentMockUser;
     QMap<QString, MockUserData> m_mockUsers;
     QtThemeManager* m_themeManager;
     WalletAPI::SimpleWallet* m_wallet;
+    WalletAPI::LitecoinWallet* m_litecoinWallet;
     WalletAPI::EthereumWallet* m_ethereumWallet;  // PHASE 1 FIX
     QTimer* m_balanceUpdateTimer;
     double m_realBalanceBTC;
+    double m_realBalanceLTC;
     double m_realBalanceETH;
     Repository::UserRepository* m_userRepository;
     Repository::WalletRepository* m_walletRepository;
@@ -166,8 +177,10 @@ class QtWalletUI : public QWidget {
     std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;
     QTimer* m_priceUpdateTimer;
     double m_currentBTCPrice;
+    double m_currentLTCPrice;
     double m_currentETHPrice;
     bool m_isLoadingBTC;
+    bool m_isLoadingLTC;
     bool m_isLoadingETH;
     QString m_lastErrorMessage;
 

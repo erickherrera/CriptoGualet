@@ -180,6 +180,7 @@ QString QtExpandableWalletCard::getCryptoIconUrl(const QString &symbol) {
   // Format: https://assets.coingecko.com/coins/images/{id}/large/{coin}.png
   static const QMap<QString, QString> symbolToImagePath = {
       {"BTC", "1/large/bitcoin.png"},
+      {"LTC", "2/large/litecoin.png"},
       {"ETH", "279/large/ethereum.png"},
       {"USDT", "325/large/tether.png"},
       {"BNB", "825/large/binance-coin-logo.png"},
@@ -208,20 +209,30 @@ void QtExpandableWalletCard::onIconDownloaded(QNetworkReply *reply) {
     if (pixmap.loadFromData(imageData)) {
       // Get device pixel ratio for high DPI support
       qreal dpr = devicePixelRatioF();
-      int iconSize = 48; // Increased from 40 for better clarity
-
-      // Scale pixmap with high DPI support
-      QPixmap scaledPixmap = pixmap.scaled(
-          qRound(iconSize * dpr), qRound(iconSize * dpr),
+      int iconSize = 48; // Display size in logical pixels
+      
+      // Calculate the target size in device pixels for crisp rendering
+      int targetSize = qRound(iconSize * dpr);
+      
+      // Create a high-quality scaled pixmap using QImage for better interpolation
+      QImage sourceImage = pixmap.toImage();
+      
+      // Scale using high-quality bilinear/bicubic interpolation
+      QImage scaledImage = sourceImage.scaled(
+          targetSize, targetSize,
           Qt::KeepAspectRatio,
           Qt::SmoothTransformation
       );
+      
+      // Convert back to pixmap and set device pixel ratio
+      QPixmap scaledPixmap = QPixmap::fromImage(scaledImage);
       scaledPixmap.setDevicePixelRatio(dpr);
 
       m_cryptoLogo->setPixmap(scaledPixmap);
       m_cryptoLogo->setStyleSheet("background: transparent; border: none;");
 
-      qDebug() << "Successfully loaded wallet icon from" << reply->url().toString();
+      qDebug() << "Successfully loaded wallet icon from" << reply->url().toString()
+               << "Original size:" << pixmap.size() << "Scaled to:" << scaledImage.size();
     } else {
       qDebug() << "Failed to load image data from" << reply->url().toString();
       setFallbackIcon();

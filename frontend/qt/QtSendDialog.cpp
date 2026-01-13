@@ -21,6 +21,8 @@ QtSendDialog::QtSendDialog(ChainType chainType, double currentBalance, double pr
     // Set window title based on chain type
     if (m_chainType == ChainType::BITCOIN) {
         setWindowTitle("Send Bitcoin");
+    } else if (m_chainType == ChainType::LITECOIN) {
+        setWindowTitle("Send Litecoin");
     } else {
         setWindowTitle("Send Ethereum");
     }
@@ -46,18 +48,23 @@ void QtSendDialog::setupUI() {
     );
 
     const bool isBitcoin = (m_chainType == ChainType::BITCOIN);
-    const QString coinSymbol = isBitcoin ? "BTC" : "ETH";
+    const bool isLitecoin = (m_chainType == ChainType::LITECOIN);
+    const bool isBitcoinLike = isBitcoin || isLitecoin;
+    const QString coinSymbol = isBitcoin ? "BTC" : (isLitecoin ? "LTC" : "ETH");
 
     // === Recipient Section ===
     QGroupBox* recipientGroup = new QGroupBox("Recipient");
     QVBoxLayout* recipientLayout = new QVBoxLayout(recipientGroup);
 
-    m_recipientLabel = new QLabel(isBitcoin ? "Bitcoin Address:" : "Ethereum Address:");
+    QString addrLabel = isBitcoin ? "Bitcoin Address:" : (isLitecoin ? "Litecoin Address:" : "Ethereum Address:");
+    m_recipientLabel = new QLabel(addrLabel);
     recipientLayout->addWidget(m_recipientLabel);
 
     m_recipientInput = new QLineEdit();
     if (isBitcoin) {
         m_recipientInput->setPlaceholderText("Enter Bitcoin address (e.g., 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)");
+    } else if (isLitecoin) {
+        m_recipientInput->setPlaceholderText("Enter Litecoin address (e.g., LZKqVn1CnZUjz5pN1jLjE8Q6NR3q5jQX9e)");
     } else {
         m_recipientInput->setPlaceholderText("Enter Ethereum address (e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb)");
     }
@@ -80,11 +87,11 @@ void QtSendDialog::setupUI() {
 
     QHBoxLayout* amountInputLayout = new QHBoxLayout();
     m_amountInput = new QDoubleSpinBox();
-    m_amountInput->setDecimals(isBitcoin ? 8 : 18);  // BTC: 8 decimals, ETH: 18 decimals
-    m_amountInput->setMinimum(isBitcoin ? 0.00000001 : 0.000000000000000001);  // 1 satoshi or 1 wei
+    m_amountInput->setDecimals(isBitcoinLike ? 8 : 18);  // BTC/LTC: 8 decimals, ETH: 18 decimals
+    m_amountInput->setMinimum(isBitcoinLike ? 0.00000001 : 0.000000000000000001);  // 1 satoshi/litoshi or 1 wei
     m_amountInput->setMaximum(m_currentBalance);
-    m_amountInput->setSingleStep(isBitcoin ? 0.001 : 0.01);
-    m_amountInput->setValue(isBitcoin ? 0.001 : 0.01);
+    m_amountInput->setSingleStep(isBitcoinLike ? 0.001 : 0.01);
+    m_amountInput->setValue(isBitcoinLike ? 0.001 : 0.01);
     amountInputLayout->addWidget(m_amountInput);
 
     m_maxButton = new QPushButton("MAX");
@@ -107,7 +114,7 @@ void QtSendDialog::setupUI() {
     m_mainLayout->addWidget(amountGroup);
 
     // === Ethereum Gas Controls ===
-    if (!isBitcoin) {
+    if (!isBitcoinLike) {
         QGroupBox* gasGroup = new QGroupBox("Gas Settings");
         QVBoxLayout* gasLayout = new QVBoxLayout(gasGroup);
 
@@ -148,7 +155,7 @@ void QtSendDialog::setupUI() {
 
     // === Fee Section ===
     QHBoxLayout* feeLayout = new QHBoxLayout();
-    m_feeLabel = new QLabel(isBitcoin ? "Network Fee:" : "Gas Fee:");
+    m_feeLabel = new QLabel(isBitcoinLike ? "Network Fee:" : "Gas Fee:");
     m_feeValue = new QLabel();
     feeLayout->addWidget(m_feeLabel);
     feeLayout->addStretch();
@@ -287,10 +294,10 @@ void QtSendDialog::onAmountChanged(double value) {
 void QtSendDialog::onSendMaxClicked() {
     double maxAmount = 0.0;
 
-    if (m_chainType == ChainType::BITCOIN) {
+    if (m_chainType == ChainType::BITCOIN || m_chainType == ChainType::LITECOIN) {
         // Calculate max sendable amount (balance - fee)
-        double feeBTC = m_estimatedFeeSatoshis / 100000000.0;
-        maxAmount = m_currentBalance - feeBTC;
+        double fee = m_estimatedFeeSatoshis / 100000000.0;
+        maxAmount = m_currentBalance - fee;
     } else {
         // For Ethereum, calculate gas cost and subtract from balance
         QString gasPrice = m_proposeGasPrice;  // Use currently selected gas price
@@ -328,25 +335,31 @@ void QtSendDialog::onConfirmClicked() {
     QString summary;
     double amount = m_amountInput->value();
 
-    if (m_chainType == ChainType::BITCOIN) {
-        // Bitcoin confirmation summary
-        double feeBTC = m_estimatedFeeSatoshis / 100000000.0;
-        double totalBTC = amount + feeBTC;
+    if (m_chainType == ChainType::BITCOIN || m_chainType == ChainType::LITECOIN) {
+        // Bitcoin/Litecoin confirmation summary
+        QString coinName = (m_chainType == ChainType::BITCOIN) ? "Bitcoin" : "Litecoin";
+        QString coinSymbol = (m_chainType == ChainType::BITCOIN) ? "BTC" : "LTC";
+        double fee = m_estimatedFeeSatoshis / 100000000.0;
+        double totalAmount = amount + fee;
 
         summary = QString(
-            "<b>Bitcoin Transaction Summary</b><br><br>"
-            "Recipient: %1<br>"
-            "Amount: %2 BTC (%3)<br>"
-            "Fee: %4 BTC (%5)<br>"
-            "<b>Total: %6 BTC (%7)</b><br><br>"
+            "<b>%1 Transaction Summary</b><br><br>"
+            "Recipient: %2<br>"
+            "Amount: %3 %4 (%5)<br>"
+            "Fee: %6 %7 (%8)<br>"
+            "<b>Total: %9 %10 (%11)</b><br><br>"
             "Are you sure you want to send this transaction?"
-        ).arg(m_recipientInput->text())
+        ).arg(coinName)
+         .arg(m_recipientInput->text())
          .arg(formatCrypto(amount))
+         .arg(coinSymbol)
          .arg(formatUSD(amount * m_cryptoPrice))
-         .arg(formatCrypto(feeBTC))
-         .arg(formatUSD(feeBTC * m_cryptoPrice))
-         .arg(formatCrypto(totalBTC))
-         .arg(formatUSD(totalBTC * m_cryptoPrice));
+         .arg(formatCrypto(fee))
+         .arg(coinSymbol)
+         .arg(formatUSD(fee * m_cryptoPrice))
+         .arg(formatCrypto(totalAmount))
+         .arg(coinSymbol)
+         .arg(formatUSD(totalAmount * m_cryptoPrice));
     } else {
         // Ethereum confirmation summary
         QString gasPrice = m_proposeGasPrice;
@@ -419,7 +432,27 @@ void QtSendDialog::onConfirmClicked() {
         txData.estimatedFeeSatoshis = m_estimatedFeeSatoshis;
         txData.totalSatoshis = txData.amountSatoshis + m_estimatedFeeSatoshis;
 
-        // Initialize Ethereum fields to defaults
+        // Initialize Litecoin and Ethereum fields to defaults
+        txData.amountLTC = 0.0;
+        txData.amountLitoshis = 0;
+        txData.estimatedFeeLitoshis = 0;
+        txData.totalLitoshis = 0;
+        txData.amountETH = 0.0;
+        txData.gasPriceGwei = "";
+        txData.gasLimit = 0;
+        txData.totalCostWei = "";
+        txData.totalCostETH = 0.0;
+    } else if (m_chainType == ChainType::LITECOIN) {
+        txData.amountLTC = amount;
+        txData.amountLitoshis = static_cast<uint64_t>(amount * 100000000);
+        txData.estimatedFeeLitoshis = m_estimatedFeeSatoshis;  // Use same fee field
+        txData.totalLitoshis = txData.amountLitoshis + m_estimatedFeeSatoshis;
+
+        // Initialize Bitcoin and Ethereum fields to defaults
+        txData.amountBTC = 0.0;
+        txData.amountSatoshis = 0;
+        txData.estimatedFeeSatoshis = 0;
+        txData.totalSatoshis = 0;
         txData.amountETH = 0.0;
         txData.gasPriceGwei = "";
         txData.gasLimit = 0;
@@ -446,11 +479,15 @@ void QtSendDialog::onConfirmClicked() {
         // Convert total cost to Wei (approximate - for display purposes)
         txData.totalCostWei = QString::number(static_cast<uint64_t>(totalETH * 1e18));
 
-        // Initialize Bitcoin fields to defaults
+        // Initialize Bitcoin and Litecoin fields to defaults
         txData.amountBTC = 0.0;
         txData.amountSatoshis = 0;
         txData.estimatedFeeSatoshis = 0;
         txData.totalSatoshis = 0;
+        txData.amountLTC = 0.0;
+        txData.amountLitoshis = 0;
+        txData.estimatedFeeLitoshis = 0;
+        txData.totalLitoshis = 0;
     }
 
     m_transactionData = txData;
@@ -477,16 +514,17 @@ void QtSendDialog::updateEstimates() {
     double amountUSD = amount * m_cryptoPrice;
     m_amountUSD->setText(QString("≈ %1").arg(formatUSD(amountUSD)));
 
-    if (m_chainType == ChainType::BITCOIN) {
-        // Bitcoin fee estimation
-        double feeBTC = m_estimatedFeeSatoshis / 100000000.0;
-        double feeUSD = feeBTC * m_cryptoPrice;
-        m_feeValue->setText(QString("%1 BTC (%2)").arg(formatCrypto(feeBTC)).arg(formatUSD(feeUSD)));
+    if (m_chainType == ChainType::BITCOIN || m_chainType == ChainType::LITECOIN) {
+        // Bitcoin/Litecoin fee estimation
+        QString coinSymbol = (m_chainType == ChainType::BITCOIN) ? "BTC" : "LTC";
+        double fee = m_estimatedFeeSatoshis / 100000000.0;
+        double feeUSD = fee * m_cryptoPrice;
+        m_feeValue->setText(QString("%1 %2 (%3)").arg(formatCrypto(fee)).arg(coinSymbol).arg(formatUSD(feeUSD)));
 
         // Update total
-        double totalBTC = amount + feeBTC;
-        double totalUSD = totalBTC * m_cryptoPrice;
-        m_totalValue->setText(QString("%1 BTC (%2)").arg(formatCrypto(totalBTC)).arg(formatUSD(totalUSD)));
+        double total = amount + fee;
+        double totalUSD = total * m_cryptoPrice;
+        m_totalValue->setText(QString("%1 %2 (%3)").arg(formatCrypto(total)).arg(coinSymbol).arg(formatUSD(totalUSD)));
     } else {
         // Ethereum gas fee estimation
         QString gasPrice = m_proposeGasPrice;
@@ -535,6 +573,12 @@ bool QtSendDialog::validateInputs() {
                 m_recipientError->show();
                 valid = false;
             }
+        } else if (m_chainType == ChainType::LITECOIN) {
+            if (!validateLitecoinAddress(recipientAddr)) {
+                m_recipientError->setText("Invalid Litecoin address format");
+                m_recipientError->show();
+                valid = false;
+            }
         } else {
             if (!validateEthereumAddress(recipientAddr)) {
                 m_recipientError->setText("Invalid Ethereum address format (must start with 0x and contain 40 hex characters)");
@@ -551,12 +595,14 @@ bool QtSendDialog::validateInputs() {
         m_amountError->show();
         valid = false;
     } else {
-        if (m_chainType == ChainType::BITCOIN) {
-            double feeBTC = m_estimatedFeeSatoshis / 100000000.0;
-            double totalBTC = amount + feeBTC;
-            if (totalBTC > m_currentBalance) {
-                m_amountError->setText(QString("Insufficient balance. You need %1 BTC (including fee)")
-                    .arg(formatCrypto(totalBTC)));
+        if (m_chainType == ChainType::BITCOIN || m_chainType == ChainType::LITECOIN) {
+            QString coinSymbol = (m_chainType == ChainType::BITCOIN) ? "BTC" : "LTC";
+            double fee = m_estimatedFeeSatoshis / 100000000.0;
+            double total = amount + fee;
+            if (total > m_currentBalance) {
+                m_amountError->setText(QString("Insufficient balance. You need %1 %2 (including fee)")
+                    .arg(formatCrypto(total))
+                    .arg(coinSymbol));
                 m_amountError->show();
                 valid = false;
             }
@@ -593,7 +639,7 @@ std::optional<QtSendDialog::TransactionData> QtSendDialog::getTransactionData() 
 }
 
 QString QtSendDialog::formatCrypto(double amount) const {
-    if (m_chainType == ChainType::BITCOIN) {
+    if (m_chainType == ChainType::BITCOIN || m_chainType == ChainType::LITECOIN) {
         return QString::number(amount, 'f', 8);
     } else {
         // For Ethereum, use up to 18 decimals but remove trailing zeros
@@ -632,6 +678,33 @@ bool QtSendDialog::validateBitcoinAddress(const QString& address) const {
     if (address.startsWith("bc1")) {
         // Bech32 validation (simplified)
         QRegularExpression bech32Regex("^bc1[a-z0-9]{39,87}$", QRegularExpression::CaseInsensitiveOption);
+        return bech32Regex.match(address).hasMatch();
+    } else {
+        // Base58 validation (no 0, O, I, l)
+        QRegularExpression base58Regex("^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$");
+        return base58Regex.match(address).hasMatch();
+    }
+}
+
+bool QtSendDialog::validateLitecoinAddress(const QString& address) const {
+    // Basic Litecoin address validation
+    // Legacy addresses start with L or M and are 26-35 characters
+    // P2SH addresses start with 3 and are 26-35 characters (same as Bitcoin)
+    // Bech32 addresses start with ltc1
+    if (address.length() < 26 || address.length() > 90) {
+        return false;
+    }
+
+    // Check if starts with valid Litecoin prefix
+    if (!address.startsWith('L') && !address.startsWith('M') && 
+        !address.startsWith('3') && !address.startsWith("ltc1")) {
+        return false;
+    }
+
+    // Check for valid characters
+    if (address.startsWith("ltc1")) {
+        // Bech32 validation (simplified)
+        QRegularExpression bech32Regex("^ltc1[a-z0-9]{39,87}$", QRegularExpression::CaseInsensitiveOption);
         return bech32Regex.match(address).hasMatch();
     } else {
         // Base58 validation (no 0, O, I, l)

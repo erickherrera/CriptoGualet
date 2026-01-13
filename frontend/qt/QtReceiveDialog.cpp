@@ -23,6 +23,8 @@ QtReceiveDialog::QtReceiveDialog(ChainType chainType, const QString& address, QW
     // Set window title based on chain type
     if (m_chainType == ChainType::BITCOIN) {
         setWindowTitle("Receive Bitcoin");
+    } else if (m_chainType == ChainType::LITECOIN) {
+        setWindowTitle("Receive Litecoin");
     } else {
         setWindowTitle("Receive Ethereum");
     }
@@ -50,8 +52,10 @@ void QtReceiveDialog::setupUI() {
     );
 
     const bool isBitcoin = (m_chainType == ChainType::BITCOIN);
-    const QString coinSymbol = isBitcoin ? "BTC" : "ETH";
-    const QString coinName = isBitcoin ? "Bitcoin" : "Ethereum";
+    const bool isLitecoin = (m_chainType == ChainType::LITECOIN);
+    const bool isBitcoinLike = isBitcoin || isLitecoin;
+    const QString coinSymbol = isBitcoin ? "BTC" : (isLitecoin ? "LTC" : "ETH");
+    const QString coinName = isBitcoin ? "Bitcoin" : (isLitecoin ? "Litecoin" : "Ethereum");
 
     // === Title Section ===
     m_titleLabel = new QLabel(QString("Receive %1").arg(coinName));
@@ -125,11 +129,11 @@ void QtReceiveDialog::setupUI() {
     amountLayout->addWidget(m_amountLabel);
 
     m_amountInput = new QDoubleSpinBox();
-    m_amountInput->setDecimals(isBitcoin ? 8 : 18);  // BTC: 8 decimals, ETH: 18 decimals
-    m_amountInput->setMinimum(isBitcoin ? 0.00000001 : 0.000000000000000001);  // 1 satoshi or 1 wei
+    m_amountInput->setDecimals(isBitcoinLike ? 8 : 18);  // BTC/LTC: 8 decimals, ETH: 18 decimals
+    m_amountInput->setMinimum(isBitcoinLike ? 0.00000001 : 0.000000000000000001);  // 1 satoshi/litoshi or 1 wei
     m_amountInput->setMaximum(1000000.0);  // Reasonable maximum
-    m_amountInput->setSingleStep(isBitcoin ? 0.001 : 0.01);
-    m_amountInput->setValue(isBitcoin ? 0.001 : 0.01);
+    m_amountInput->setSingleStep(isBitcoinLike ? 0.001 : 0.01);
+    m_amountInput->setValue(isBitcoinLike ? 0.001 : 0.01);
     m_amountInput->setEnabled(false);
     amountLayout->addWidget(m_amountInput);
 
@@ -372,6 +376,11 @@ QString QtReceiveDialog::getPaymentURI() const {
         return QString("bitcoin:%1?amount=%2")
             .arg(m_address)
             .arg(formatCrypto(m_requestAmount));
+    } else if (m_chainType == ChainType::LITECOIN) {
+        // Litecoin URI: litecoin:address?amount=value
+        return QString("litecoin:%1?amount=%2")
+            .arg(m_address)
+            .arg(formatCrypto(m_requestAmount));
     } else {
         // Ethereum URI: ethereum:address?value=value_in_wei
         // Convert ETH to Wei (1 ETH = 10^18 Wei)
@@ -382,7 +391,7 @@ QString QtReceiveDialog::getPaymentURI() const {
 }
 
 QString QtReceiveDialog::formatCrypto(double amount) const {
-    if (m_chainType == ChainType::BITCOIN) {
+    if (m_chainType == ChainType::BITCOIN || m_chainType == ChainType::LITECOIN) {
         return QString::number(amount, 'f', 8);
     } else {
         // For Ethereum, use up to 18 decimals but remove trailing zeros

@@ -238,9 +238,10 @@ static bool testMultiChainAddressDerivation(const std::vector<std::string>& word
   Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
 
   std::vector<Crypto::ChainType> chains = {
-      Crypto::ChainType::BITCOIN,   Crypto::ChainType::ETHEREUM,
-      Crypto::ChainType::BNB_CHAIN, Crypto::ChainType::POLYGON,
-      Crypto::ChainType::AVALANCHE, Crypto::ChainType::ARBITRUM};
+      Crypto::ChainType::BITCOIN,   Crypto::ChainType::LITECOIN,
+      Crypto::ChainType::ETHEREUM,  Crypto::ChainType::BNB_CHAIN,
+      Crypto::ChainType::POLYGON,   Crypto::ChainType::AVALANCHE,
+      Crypto::ChainType::ARBITRUM};
 
   for (auto chain : chains) {
     std::string address;
@@ -251,6 +252,40 @@ static bool testMultiChainAddressDerivation(const std::vector<std::string>& word
       std::cerr << "    ERROR: Failed to derive address for "
                 << Crypto::GetChainName(chain) << std::endl;
     }
+  }
+
+  TEST_PASS();
+}
+
+static bool testDeriveLitecoinAddresses(const std::vector<std::string>& wordlist) {
+  TEST_START("Derive Litecoin Addresses (BIP44)");
+
+  std::vector<uint8_t> entropy;
+  Crypto::GenerateEntropy(128, entropy);
+
+  std::vector<std::string> mnemonic;
+  Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
+
+  std::array<uint8_t, 64> seed;
+  Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
+
+  Crypto::BIP32ExtendedKey masterKey;
+  Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
+
+  // Litecoin uses BIP44 coin type 2: m/44'/2'/0'/0/x
+  std::vector<std::string> ltc_addresses;
+  for (uint32_t i = 0; i < 5; i++) {
+    std::string address;
+    if (Crypto::DeriveChainAddress(masterKey, Crypto::ChainType::LITECOIN, 0, false, i, address)) {
+      ltc_addresses.push_back(address);
+    }
+  }
+
+  TEST_ASSERT(ltc_addresses.size() == 5, "Should generate 5 Litecoin addresses");
+
+  std::cout << "    Generated 5 Litecoin addresses (m/44'/2'/0'/0/x):" << std::endl;
+  for (size_t i = 0; i < ltc_addresses.size(); i++) {
+    std::cout << "      Address " << i << ": " << ltc_addresses[i] << std::endl;
   }
 
   TEST_PASS();
@@ -501,6 +536,7 @@ int main() {
     testGenerateBIP32MasterKey(wordlist);
     testDeriveEthereumAddresses(wordlist);
     testDeriveBitcoinAddresses(wordlist);
+    testDeriveLitecoinAddresses(wordlist);
     testMultiChainAddressDerivation(wordlist);
     testKeccak256TestVector();
   } else {
