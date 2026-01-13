@@ -648,18 +648,48 @@ void QtTopCryptosPage::fetchTopCryptos() {
     m_sortDropdown->setEnabled(false);
     m_refreshButton->setEnabled(false);
 
-    // Fetch data (this is a blocking call)
-    m_cryptoData = m_priceFetcher->GetTopCryptosByMarketCap(100);
+    // Use QTimer to move the blocking call to a separate event loop iteration
+    // This prevents UI freezing while still being synchronous
+    QTimer::singleShot(0, this, [this]() {
+        try {
+            // Fetch data (this is a blocking call but now runs in separate event loop)
+            m_cryptoData = m_priceFetcher->GetTopCryptosByMarketCap(100);
 
-    qDebug() << "Fetch complete. Retrieved" << m_cryptoData.size() << "items";
+            qDebug() << "Fetch complete. Retrieved" << m_cryptoData.size() << "items";
 
-    // Re-enable controls
-    m_searchBox->setEnabled(true);
-    m_sortDropdown->setEnabled(true);
-    m_refreshButton->setEnabled(true);
+            // Re-enable controls
+            m_searchBox->setEnabled(true);
+            m_sortDropdown->setEnabled(true);
+            m_refreshButton->setEnabled(true);
 
-    // Apply filters and sorting
-    filterAndSortData();
+            // Apply filters and sorting
+            filterAndSortData();
+        } catch (const std::exception& e) {
+            qDebug() << "Exception during fetch:" << e.what();
+            
+            // Handle error gracefully
+            m_cryptoData.clear();
+            m_searchBox->setEnabled(true);
+            m_sortDropdown->setEnabled(true);
+            m_refreshButton->setEnabled(true);
+            
+            // Show error state
+            m_subtitleLabel->setText("Failed to load data. Click refresh to try again.");
+            QString errorColor = m_themeManager->errorColor().name();
+            QFont errorFont = m_themeManager->textFont();
+            errorFont.setPointSize(12);
+            errorFont.setBold(true);
+            m_subtitleLabel->setFont(errorFont);
+            m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(errorColor));
+            
+            // Hide all cards
+            for (auto* card : m_cryptoCards) {
+                card->setVisible(false);
+            }
+            
+            m_resultCounterLabel->setText("Error loading data");
+        }
+    });
 }
 
 void QtTopCryptosPage::updateCards() {
