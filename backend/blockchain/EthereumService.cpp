@@ -221,6 +221,62 @@ std::optional<uint64_t> EthereumClient::GetTransactionCount(const std::string& a
     return std::nullopt;
 }
 
+std::optional<TokenInfo> EthereumClient::GetTokenInfo(const std::string& contractAddress) {
+    if (!IsValidAddress(contractAddress)) {
+        return std::nullopt;
+    }
+
+    std::string endpoint = "?module=token&action=tokeninfo&contractaddress=" + contractAddress;
+    std::string response = makeRequest(endpoint);
+
+    if (response.empty()) {
+        return std::nullopt;
+    }
+
+    try {
+        json data = json::parse(response);
+
+        if (data["status"] == "1" && data.contains("result") && data["result"].is_array() && !data["result"].empty()) {
+            auto token_data = data["result"][0];
+            TokenInfo tokenInfo;
+            tokenInfo.contract_address = token_data.value("contractAddress", "");
+            tokenInfo.name = token_data.value("tokenName", "");
+            tokenInfo.symbol = token_data.value("symbol", "");
+            tokenInfo.decimals = std::stoi(token_data.value("divisor", "0"));
+            return tokenInfo;
+        }
+    } catch (const json::exception& e) {
+        return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<std::string> EthereumClient::GetTokenBalance(const std::string& contractAddress, const std::string& userAddress) {
+    if (!IsValidAddress(contractAddress) || !IsValidAddress(userAddress)) {
+        return std::nullopt;
+    }
+
+    std::string endpoint = "?module=account&action=tokenbalance&contractaddress=" + contractAddress + "&address=" + userAddress + "&tag=latest";
+    std::string response = makeRequest(endpoint);
+
+    if (response.empty()) {
+        return std::nullopt;
+    }
+
+    try {
+        json data = json::parse(response);
+        if (data["status"] == "1" && data.contains("result")) {
+            return data["result"].get<std::string>();
+        }
+    } catch (const json::exception& e) {
+        return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
+
 bool EthereumClient::IsValidAddress(const std::string& address) {
     // Ethereum address format: 0x followed by 40 hexadecimal characters
     std::regex eth_address_pattern("^0x[0-9a-fA-F]{40}$");

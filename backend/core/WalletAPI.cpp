@@ -341,6 +341,44 @@ std::string EthereumWallet::ConvertEthToWei(double eth) {
     return EthereumService::EthereumClient::EthToWei(eth);
 }
 
+ImportTokenResult EthereumWallet::importERC20Token(int walletId, const std::string& contractAddress, Repository::TokenRepository& tokenRepo) {
+    if (!client) {
+        return {false, "Ethereum client not initialized."};
+    }
+
+    if (!client->IsValidAddress(contractAddress)) {
+        return {false, "Invalid contract address."};
+    }
+
+    // Check if token already exists in the repository
+    auto existingToken = tokenRepo.getToken(walletId, contractAddress);
+    if (existingToken.success) {
+        // If token already exists, fetch its info to return it
+        auto tokenInfoOpt = client->GetTokenInfo(contractAddress);
+        if (tokenInfoOpt) {
+            return {false, "Token already imported.", tokenInfoOpt.value()};
+        }
+        // If we can't get info, but it's in the DB, it's a strange state
+        return {false, "Token already exists in DB, but could not fetch info."};
+    }
+
+    // Get token info from blockchain
+    auto tokenInfoOpt = client->GetTokenInfo(contractAddress);
+    if (!tokenInfoOpt.has_value()) {
+        return {false, "Failed to retrieve token information from the blockchain."};
+    }
+
+    auto& tokenInfo = tokenInfoOpt.value();
+
+    // Save token to repository
+    auto createResult = tokenRepo.createToken(walletId, tokenInfo.contract_address, tokenInfo.symbol, tokenInfo.name, tokenInfo.decimals);
+    if (!createResult.success) {
+        return {false, "Failed to save token to the database."};
+    }
+
+    return {true, "Token imported successfully.", tokenInfo};
+}
+
 EthereumSendResult EthereumWallet::SendFunds(
     const std::string& from_address,
     const std::string& to_address,

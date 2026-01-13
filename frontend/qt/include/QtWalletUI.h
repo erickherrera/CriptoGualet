@@ -2,6 +2,8 @@
 
 #include "../../../backend/blockchain/include/EthereumService.h"
 #include "../../../backend/blockchain/include/PriceService.h"
+#include "../../../backend/core/include/Crypto.h"
+#include "../../../backend/repository/include/Repository/TokenRepository.h"
 #include "../../../backend/core/include/WalletAPI.h"
 #include "../../../backend/repository/include/Repository/UserRepository.h"
 #include "../../../backend/repository/include/Repository/WalletRepository.h"
@@ -63,6 +65,7 @@ class QtWalletUI : public QWidget {
     void setEthereumAddress(const QString& address);
     void setRepositories(Repository::UserRepository* userRepo,
                          Repository::WalletRepository* walletRepo);
+    void setTokenRepository(Repository::TokenRepository* tokenRepo);
     void setCurrentUserId(int userId);
     bool authenticateMockUser(const QString& username, const QString& password);
     void setMockUser(const QString& username);
@@ -98,6 +101,7 @@ class QtWalletUI : public QWidget {
     void onRefreshClicked();      // PHASE 3: Manual refresh
     void onPriceUpdateTimer();    // PHASE 2
     void onBalanceUpdateTimer();  // Refresh balances periodically
+    void onImportTokenClicked();
 
   private:
     void updateStyles();
@@ -152,6 +156,7 @@ class QtWalletUI : public QWidget {
     class QtExpandableWalletCard* m_bitcoinWalletCard;
     class QtExpandableWalletCard* m_litecoinWalletCard;
     class QtExpandableWalletCard* m_ethereumWalletCard;
+    QPushButton* m_importTokenButton;
     QLabel* m_statusLabel;  // PHASE 2
 
     // State
@@ -171,6 +176,7 @@ class QtWalletUI : public QWidget {
     double m_realBalanceETH;
     Repository::UserRepository* m_userRepository;
     Repository::WalletRepository* m_walletRepository;
+    Repository::TokenRepository* m_tokenRepository;
     int m_currentUserId;
 
     // Price Service

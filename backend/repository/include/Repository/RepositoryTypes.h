@@ -20,8 +20,8 @@ struct Result {
 
     Result() : success(false), errorCode(0) {}
     Result(const T& value) : success(true), data(value), errorCode(0) {}
-    Result(const std::string& error, int code = 0)
-        : success(false), errorMessage(error), errorCode(code) {}
+    Result(const std::string& error, int errCode = 0)
+        : success(false), errorMessage(error), errorCode(errCode) {}
 
     operator bool() const { return success; }
     const T& operator*() const { return data; }

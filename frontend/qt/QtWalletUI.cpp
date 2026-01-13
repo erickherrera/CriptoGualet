@@ -56,6 +56,7 @@ QtWalletUI::QtWalletUI(QWidget* parent)
       m_realBalanceETH(0.0),
       m_userRepository(nullptr),
       m_walletRepository(nullptr),
+      m_tokenRepository(nullptr),
       m_currentUserId(-1),
       m_priceFetcher(nullptr),
       m_priceUpdateTimer(nullptr),
@@ -285,6 +286,24 @@ void QtWalletUI::createActionButtons() {
             &QtWalletUI::onReceiveEthereumClicked);
 
     m_contentLayout->addWidget(m_ethereumWalletCard);
+
+    // PHASE 4: Add "Import Token" button for Ethereum ecosystem
+    QHBoxLayout* tokenActionsLayout = new QHBoxLayout();
+    tokenActionsLayout->setSpacing(10);
+    tokenActionsLayout->setAlignment(Qt::AlignCenter);
+
+    m_importTokenButton = new QPushButton("Import Token", this);
+    m_importTokenButton->setToolTip("Import an ERC20 token to your Ethereum wallet.");
+    m_importTokenButton->setCursor(Qt::PointingHandCursor);
+    m_importTokenButton->setObjectName("importTokenButton");
+
+    connect(m_importTokenButton, &QPushButton::clicked, this, &QtWalletUI::onImportTokenClicked);
+
+    tokenActionsLayout->addStretch();
+    tokenActionsLayout->addWidget(m_importTokenButton);
+    tokenActionsLayout->addStretch();
+
+    m_contentLayout->addLayout(tokenActionsLayout);
 }
 
 void QtWalletUI::setUserInfo(const QString& username, const QString& address) {
@@ -613,6 +632,80 @@ void QtWalletUI::onThemeChanged() {
     }
 }
 
+void QtWalletUI::onImportTokenClicked() {
+    if (!m_ethereumWallet) {
+        QMessageBox::warning(this, "Ethereum Wallet Not Available",
+                             "Please ensure your Ethereum wallet is initialized before importing tokens.");
+        return;
+    }
+
+    QInputDialog* dialog = new QInputDialog(this);
+    dialog->setLabelText("Enter ERC20 Token Contract Address:");
+    dialog->setWindowTitle("Import Token");
+    dialog->setTextValue("");
+    dialog->setOkButtonText("Import");
+
+    if (m_themeManager) {
+        dialog->setStyleSheet(m_themeManager->getMainWindowStyleSheet() + " QInputDialog { background-color: " + m_themeManager->surfaceColor().name() + "; }");
+    }
+
+    if (dialog->exec() == QDialog::Accepted) {
+        QString tokenAddress = dialog->textValue().trimmed();
+        if (tokenAddress.isEmpty() || !tokenAddress.startsWith("0x") || tokenAddress.length() != 42) {
+            QMessageBox::warning(this, "Invalid Address", "Please enter a valid Ethereum contract address (42 characters, starting with '0x').");
+            return;
+        }
+
+        // TODO: Implement backend logic to add the token to the user's list
+        // For now, just show a confirmation message
+        // QMessageBox::information(this, "Token Import",
+        //                          QString("Attempting to import token with address:\n%1").arg(tokenAddress));
+
+        if (!m_tokenRepository || m_currentUserId < 0) {
+            QMessageBox::critical(this, "Error", "Repositories not initialized. Cannot import token.");
+            return;
+        }
+
+        // Fetch the Ethereum wallet ID for the current user
+        // This assumes there's one Ethereum wallet per user. A more robust solution
+        // would allow the user to select which wallet to import to.
+        auto userWalletsResult = m_walletRepository->getWalletsByUserId(m_currentUserId);
+        if (!userWalletsResult.success) {
+            QMessageBox::critical(this, "Error", QString("Failed to retrieve wallets for user: %1").arg(QString::fromStdString(userWalletsResult.errorMessage)));
+            return;
+        }
+
+        int ethereumWalletId = -1;
+        for (const auto& wallet : userWalletsResult.data) {
+            if (wallet.walletType == "ethereum") {
+                ethereumWalletId = wallet.id;
+                break;
+            }
+        }
+
+        if (ethereumWalletId == -1) {
+            QMessageBox::warning(this, "Error", "No Ethereum wallet found for the current user.");
+            return;
+        }
+
+        // Call the backend API to import the token
+        WalletAPI::ImportTokenResult importResult = m_ethereumWallet->importERC20Token(ethereumWalletId, tokenAddress.toStdString(), *m_tokenRepository);
+
+        if (importResult.success) {
+            QString successMessage = QString("Successfully imported token:\nSymbol: %1\nName: %2\nDecimals: %3")
+                                         .arg(QString::fromStdString(importResult.token_info->symbol))
+                                         .arg(QString::fromStdString(importResult.token_info->name))
+                                         .arg(importResult.token_info->decimals);
+            QMessageBox::information(this, "Token Import Successful", successMessage);
+            // TODO: Refresh UI to show the new token balance/info
+        } else {
+            QMessageBox::critical(this, "Token Import Failed", QString("Failed to import token: %1").arg(QString::fromStdString(importResult.error_message)));
+        }
+    }
+
+    delete dialog;
+}
+
 void QtWalletUI::applyTheme() { updateStyles(); }
 
 QIcon QtWalletUI::createColoredIcon(const QString& svgPath, const QColor& color) {
@@ -871,15 +964,38 @@ void QtWalletUI::updateStyles() {
         }
     )")
                                          .arg(m_themeManager->secondaryColor().name())
-                                         .arg(toggleButtonSize);
-        m_refreshButton->setStyleSheet(refreshButtonStyle);
-    }
-
-    // Status label styling - ensure proper contrast
-    if (m_statusLabel && m_statusLabel->isVisible()) {
-        updateStatusLabel();
-    }
-}
+                                                                                   .arg(toggleButtonSize);
+                                                 m_refreshButton->setStyleSheet(refreshButtonStyle);
+                                             }
+                                         
+                                             if (m_importTokenButton) {
+                                                 QString importButtonStyle = QString(R"(
+                                                     QPushButton {
+                                                         background-color: %1;
+                                                         color: %2;
+                                                         border: 1px solid %3;
+                                                         padding: 8px 16px;
+                                                         border-radius: 4px;
+                                                         font-weight: 600;
+                                                     }
+                                                                 QPushButton:hover {
+                                                                     background-color: %4;
+                                                                 }
+                                                                 QPushButton:pressed {
+                                                                     background-color: %5;
+                                                                 }
+                                                             )")
+                                                             .arg(m_themeManager->surfaceColor().name())
+                                                             .arg(m_themeManager->textColor().name())
+                                                             .arg(m_themeManager->accentColor().name())
+                                                             .arg(m_themeManager->secondaryColor().name())
+                                                             .arg(m_themeManager->accentColor().name());
+                                                             m_importTokenButton->setStyleSheet(importButtonStyle);
+                                                         }                                         
+                                             // Status label styling - ensure proper contrast
+                                             if (m_statusLabel && m_statusLabel->isVisible()) {
+                                                 updateStatusLabel();
+                                             }}
 
 void QtWalletUI::onLogoutClicked() { emit logoutRequested(); }
 
@@ -1597,6 +1713,10 @@ void QtWalletUI::setRepositories(Repository::UserRepository* userRepo,
                                  Repository::WalletRepository* walletRepo) {
     m_userRepository = userRepo;
     m_walletRepository = walletRepo;
+}
+
+void QtWalletUI::setTokenRepository(Repository::TokenRepository* tokenRepo) {
+    m_tokenRepository = tokenRepo;
 }
 
 void QtWalletUI::setCurrentUserId(int userId) { m_currentUserId = userId; }

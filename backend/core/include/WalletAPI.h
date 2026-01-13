@@ -2,6 +2,7 @@
 
 #include "../../blockchain/include/BlockCypher.h"
 #include "../../blockchain/include/EthereumService.h"
+#include "../../repository/include/Repository/TokenRepository.h"
 #include "Crypto.h"
 #include <functional>
 #include <memory>
@@ -69,6 +70,13 @@ struct EthereumSendResult {
   double total_cost_eth;
 };
 
+// Result of importing an ERC20 token
+struct ImportTokenResult {
+    bool success;
+    std::string error_message;
+    std::optional<EthereumService::TokenInfo> token_info;
+};
+
 // Ethereum Wallet class
 class EthereumWallet {
 private:
@@ -100,6 +108,9 @@ public:
 
   // Gas price estimation
   std::optional<EthereumService::GasPrice> GetGasPrice();
+
+  // Token functionality
+  ImportTokenResult importERC20Token(int walletId, const std::string& contractAddress, Repository::TokenRepository& tokenRepo);
 
   // Utility functions
   bool ValidateAddress(const std::string &address);
