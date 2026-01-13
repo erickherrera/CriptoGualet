@@ -82,6 +82,7 @@ class QtLoginUI : public QWidget {
     // Register tab widgets
     QLineEdit* m_usernameEdit;
     QLineEdit* m_passwordEdit;
+    QLineEdit* m_confirmPasswordEdit;
     QPushButton* m_passwordToggleButton;
     QPushButton* m_registerButton;
 

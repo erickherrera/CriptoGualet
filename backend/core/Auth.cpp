@@ -686,21 +686,31 @@ bool IsValidUsername(const std::string &username) {
 }
 
 bool IsValidPassword(const std::string &password) {
-  // More relaxed but still secure requirements
-  if (password.size() < 6 || password.size() > 128)
+  if (password.length() < 12 || password.length() > 128) {
     return false;
-
-  bool hasLetter = false, hasDigit = false;
-
-  for (char c : password) {
-    if (std::isalpha((unsigned char)c))
-      hasLetter = true;
-    else if (std::isdigit((unsigned char)c))
-      hasDigit = true;
   }
 
-  // Require at least one letter and one digit
-  return hasLetter && hasDigit;
+  bool hasUpper = false;
+  bool hasLower = false;
+  bool hasDigit = false;
+  bool hasSpecial = false;
+
+  // Stricter check for what constitutes a special character
+  const std::string special_chars = R"(`!@#$%^&*()_+-=[]{};':"\|,.<>/?~ )";
+
+  for (char c : password) {
+    if (std::isupper(static_cast<unsigned char>(c))) {
+      hasUpper = true;
+    } else if (std::islower(static_cast<unsigned char>(c))) {
+      hasLower = true;
+    } else if (std::isdigit(static_cast<unsigned char>(c))) {
+      hasDigit = true;
+    } else if (special_chars.find(c) != std::string::npos) {
+      hasSpecial = true;
+    }
+  }
+
+  return hasUpper && hasLower && hasDigit && hasSpecial;
 }
 
 bool IsRateLimited(const std::string &identifier) {
@@ -919,19 +929,12 @@ AuthResponse RegisterUser(const std::string &username,
             "or dash."};
   }
 
-  // Validate password with simplified requirements
-  if (password.size() < 6) {
-    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password too short\n");
-    return {AuthResult::WEAK_PASSWORD,
-            "Password must be at least 6 characters long."};
-  }
-
   if (!IsValidPassword(password)) {
-    AUTH_DEBUG_LOG_WRITE(
-        logFile,
-        "Result: Password validation failed (missing letter or digit)\n");
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password validation failed\n");
     return {AuthResult::WEAK_PASSWORD,
-            "Password must contain at least one letter and one number."};
+            "Password must be 12-128 characters and include at least one "
+            "uppercase letter, one lowercase letter, one number, and one "
+            "special character."};
   }
 
   // Initialize database and repository layer (single source of truth)
@@ -1086,17 +1089,12 @@ AuthResponse RegisterUser(const std::string &username, const std::string &email,
             "underscores only."};
   }
 
-  // Validate password
-  if (password.size() < 6) {
-    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password too short\n");
-    return {AuthResult::WEAK_PASSWORD,
-            "Password must be at least 6 characters long."};
-  }
-
   if (!IsValidPassword(password)) {
     AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password validation failed\n");
     return {AuthResult::WEAK_PASSWORD,
-            "Password must contain at least one letter and one number."};
+            "Password must be 12-128 characters and include at least one "
+            "uppercase letter, one lowercase letter, one number, and one "
+            "special character."};
   }
 
   // Initialize database
@@ -1182,19 +1180,12 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
             "or dash."};
   }
 
-  // Validate password with simplified requirements
-  if (password.size() < 6) {
-    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password too short\n");
-    return {AuthResult::WEAK_PASSWORD,
-            "Password must be at least 6 characters long."};
-  }
-
   if (!IsValidPassword(password)) {
-    AUTH_DEBUG_LOG_WRITE(
-        logFile,
-        "Result: Password validation failed (missing letter or digit)\n");
+    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password validation failed\n");
     return {AuthResult::WEAK_PASSWORD,
-            "Password must contain at least one letter and one number."};
+            "Password must be 12-128 characters and include at least one "
+            "uppercase letter, one lowercase letter, one number, and one "
+            "special character."};
   }
 
   // Initialize database and repository layer (single source of truth)

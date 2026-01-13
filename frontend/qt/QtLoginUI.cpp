@@ -205,13 +205,18 @@ void QtLoginUI::createLoginCard() {
     m_usernameEdit->setMinimumHeight(44);
 
     m_passwordEdit = new QLineEdit(registerTab);
-    m_passwordEdit->setPlaceholderText("Password (6+ chars with letters and numbers)");
+    m_passwordEdit->setPlaceholderText("Password");
     m_passwordEdit->setEchoMode(QLineEdit::Password);
     m_passwordEdit->setMinimumHeight(44);
     m_passwordEdit->setToolTip(
-        "Password must contain:\n• At least 6 characters\n• At least one "
-        "letter\n• At least one "
-        "number");
+        "Password must contain:\n• At least 12 characters\n• At least one "
+        "uppercase letter\n• At least one lowercase letter\n• At least one "
+        "number\n• At least one special character");
+
+    m_confirmPasswordEdit = new QLineEdit(registerTab);
+    m_confirmPasswordEdit->setPlaceholderText("Confirm Password");
+    m_confirmPasswordEdit->setEchoMode(QLineEdit::Password);
+    m_confirmPasswordEdit->setMinimumHeight(44);
 
     // Create password toggle button for register
     m_passwordToggleButton = new QPushButton("Show", m_passwordEdit);
@@ -242,6 +247,7 @@ void QtLoginUI::createLoginCard() {
 
     registerLayout->addWidget(m_usernameEdit);
     registerLayout->addWidget(m_passwordEdit);
+    registerLayout->addWidget(m_confirmPasswordEdit);
     registerLayout->addSpacing(8);
     registerLayout->addWidget(m_registerButton);
     registerLayout->addStretch();
@@ -303,6 +309,7 @@ void QtLoginUI::createLoginCard() {
     connect(m_registerButton, &QPushButton::clicked, this, &QtLoginUI::onRegisterClicked);
     connect(m_usernameEdit, &QLineEdit::textChanged, this, &QtLoginUI::validateRegisterForm);
     connect(m_passwordEdit, &QLineEdit::textChanged, this, &QtLoginUI::validateRegisterForm);
+    connect(m_confirmPasswordEdit, &QLineEdit::textChanged, this, &QtLoginUI::validateRegisterForm);
     connect(m_usernameEdit, &QLineEdit::returnPressed, this, &QtLoginUI::onRegisterClicked);
     connect(m_passwordEdit, &QLineEdit::returnPressed, this, &QtLoginUI::onRegisterClicked);
     connect(m_passwordToggleButton, &QPushButton::clicked, this,
@@ -334,8 +341,14 @@ void QtLoginUI::onLoginClicked() {
 void QtLoginUI::onRegisterClicked() {
     const QString username = m_usernameEdit->text().trimmed();
     const QString password = m_passwordEdit->text();
+    const QString confirmPassword = m_confirmPasswordEdit->text();
 
     clearMessage();
+
+    if (password != confirmPassword) {
+        showMessage("Passwords do not match.", true);
+        return;
+    }
 
     if (username.isEmpty() || password.isEmpty()) {
         showMessage("Please enter username and password", true);
@@ -424,6 +437,7 @@ void QtLoginUI::onRegisterResult(bool success, const QString& message) {
         // Clear registration fields
         m_usernameEdit->clear();
         m_passwordEdit->clear();
+        m_confirmPasswordEdit->clear();
 
         // Switch to Sign In tab
         m_tabBar->setCurrentIndex(0);
@@ -432,6 +446,7 @@ void QtLoginUI::onRegisterResult(bool success, const QString& message) {
     } else {
         // Registration failed - clear password but keep username for retry
         m_passwordEdit->clear();
+        m_confirmPasswordEdit->clear();
     }
 }
 
@@ -836,12 +851,12 @@ void QtLoginUI::updateStyles() {
                                      m_themeManager->subtitleColor().name(),     // disabled text
                                      m_themeManager->subtitleColor().name());    // placeholder
 
-    // Apply to Sign In tab fields
     m_loginUsernameEdit->setStyleSheet(lineEditStyle);
     m_loginPasswordEdit->setStyleSheet(lineEditStyle);
     // Apply to Register tab fields
     m_usernameEdit->setStyleSheet(lineEditStyle);
     m_passwordEdit->setStyleSheet(lineEditStyle);
+    m_confirmPasswordEdit->setStyleSheet(lineEditStyle);
 
     // Enhanced button styling with proper contrast
     QString whiteText = QColor(Qt::white).name();
@@ -1008,10 +1023,11 @@ void QtLoginUI::onPasswordVisibilityToggled() {
 }
 
 void QtLoginUI::validateRegisterForm() {
-    // Enable Register button only if username and password are filled
-    const bool allFieldsFilled =
-        !m_usernameEdit->text().trimmed().isEmpty() && !m_passwordEdit->text().isEmpty();
-    m_registerButton->setEnabled(allFieldsFilled);
+    const bool usernameFilled = !m_usernameEdit->text().trimmed().isEmpty();
+    const bool passwordsFilled = !m_passwordEdit->text().isEmpty() && !m_confirmPasswordEdit->text().isEmpty();
+    const bool passwordsMatch = m_passwordEdit->text() == m_confirmPasswordEdit->text();
+
+    m_registerButton->setEnabled(usernameFilled && passwordsFilled && passwordsMatch);
 }
 
 void QtLoginUI::clearLoginFields() {
