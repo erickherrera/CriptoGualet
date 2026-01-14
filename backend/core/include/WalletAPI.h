@@ -111,6 +111,8 @@ public:
 
   // Token functionality
   ImportTokenResult importERC20Token(int walletId, const std::string& contractAddress, Repository::TokenRepository& tokenRepo);
+  std::optional<std::string> GetTokenBalance(const std::string& walletAddress, const std::string& contractAddress);
+  std::optional<EthereumService::TokenInfo> GetTokenInfo(const std::string& contractAddress);
 
   // Utility functions
   bool ValidateAddress(const std::string &address);

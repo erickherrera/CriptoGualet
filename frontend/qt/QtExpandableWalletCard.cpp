@@ -1,5 +1,6 @@
 #include "QtExpandableWalletCard.h"
 #include "QtThemeManager.h"
+#include "QtTokenListWidget.h"
 #include <QEvent>
 #include <QMouseEvent>
 #include <QNetworkRequest>
@@ -123,6 +124,12 @@ void QtExpandableWalletCard::setupUI() {
   actionsLayout->addWidget(m_receiveButton);
   expandedLayout->addLayout(actionsLayout);
 
+  // Token list section (for Ethereum wallet)
+  m_tokenListWidget = new QtTokenListWidget(m_themeManager, m_expandedContent);
+  m_tokenListWidget->setMaximumHeight(300);
+  m_tokenListWidget->hide();
+  expandedLayout->addWidget(m_tokenListWidget);
+
   // Transaction history section
   QWidget *historySection = new QWidget(m_expandedContent);
   historySection->setObjectName("historySection");
@@ -173,6 +180,21 @@ void QtExpandableWalletCard::setBalance(const QString &balance) {
 
 void QtExpandableWalletCard::setTransactionHistory(const QString &historyHtml) {
   m_historyText->setHtml(historyHtml);
+}
+
+void QtExpandableWalletCard::setTokenListWidget(QtTokenListWidget* tokenListWidget) {
+  if (m_tokenListWidget) {
+    delete m_tokenListWidget;
+  }
+
+  m_tokenListWidget = tokenListWidget;
+  if (m_tokenListWidget) {
+    QVBoxLayout* layout = qobject_cast<QVBoxLayout*>(m_expandedContent->layout());
+    if (layout) {
+      layout->insertWidget(1, m_tokenListWidget);
+    }
+    m_tokenListWidget->show();
+  }
 }
 
 QString QtExpandableWalletCard::getCryptoIconUrl(const QString &symbol) {

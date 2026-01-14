@@ -7,6 +7,7 @@
 #include "../../../backend/core/include/WalletAPI.h"
 #include "../../../backend/repository/include/Repository/UserRepository.h"
 #include "../../../backend/repository/include/Repository/WalletRepository.h"
+#include "QtTokenCard.h"
 #include <QTextEdit>
 #include <QTimer>
 #include <QColor>
@@ -30,6 +31,8 @@
 // Forward declarations
 class QtThemeManager;
 class QResizeEvent;
+class QtTokenImportDialog;
+class QtTokenListWidget;
 
 // Mock user data structure
 struct MockTransaction {
@@ -126,6 +129,14 @@ class QtWalletUI : public QWidget {
     void setErrorState(const QString& errorMessage);           // PHASE 2
     void clearErrorState();                                    // PHASE 2
 
+    // Token management
+    void setupTokenManagement();
+    void loadImportedTokens();
+    void updateTokenBalances();
+    void onTokenImported(const TokenCardData& tokenData);
+    void onTokenDeleted(const QString& contractAddress);
+    int getEthereumWalletId();
+
     // PHASE 3: Formatting helpers
     QString formatBitcoinTransactionHistory(const std::vector<std::string>& txHashes);
     QString formatEthereumTransactionHistory(const std::vector<EthereumService::Transaction>& txs,
@@ -178,6 +189,10 @@ class QtWalletUI : public QWidget {
     Repository::WalletRepository* m_walletRepository;
     Repository::TokenRepository* m_tokenRepository;
     int m_currentUserId;
+
+    // Token management
+    QtTokenImportDialog* m_tokenImportDialog;
+    QtTokenListWidget* m_tokenListWidget;
 
     // Price Service
     std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;

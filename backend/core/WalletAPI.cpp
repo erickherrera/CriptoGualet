@@ -379,6 +379,20 @@ ImportTokenResult EthereumWallet::importERC20Token(int walletId, const std::stri
     return {true, "Token imported successfully.", tokenInfo};
 }
 
+std::optional<std::string> EthereumWallet::GetTokenBalance(const std::string& walletAddress, const std::string& contractAddress) {
+    if (!client) {
+        return std::nullopt;
+    }
+    return client->GetTokenBalance(walletAddress, contractAddress);
+}
+
+std::optional<EthereumService::TokenInfo> EthereumWallet::GetTokenInfo(const std::string& contractAddress) {
+    if (!client) {
+        return std::nullopt;
+    }
+    return client->GetTokenInfo(contractAddress);
+}
+
 EthereumSendResult EthereumWallet::SendFunds(
     const std::string& from_address,
     const std::string& to_address,

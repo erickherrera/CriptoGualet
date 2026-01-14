@@ -8,6 +8,9 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QNetworkAccessManager>
+#include <QScrollArea>
+
+#include "QtTokenListWidget.h"
 
 // Forward declarations
 class QtThemeManager;
@@ -24,6 +27,7 @@ public:
                          const QString &logoText);
   void setBalance(const QString &balance);
   void setTransactionHistory(const QString &historyHtml);
+  void setTokenListWidget(QtTokenListWidget* tokenListWidget);
   void applyTheme();
 
   // Access to buttons for signal connections
@@ -62,6 +66,7 @@ private:
   QWidget *m_expandedContent;
   QPushButton *m_sendButton;
   QPushButton *m_receiveButton;
+  QtTokenListWidget *m_tokenListWidget;
   QLabel *m_historyTitleLabel;
   QTextEdit *m_historyText;
 

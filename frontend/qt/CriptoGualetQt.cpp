@@ -77,6 +77,7 @@ CriptoGualetQt::CriptoGualetQt(QWidget* parent)
         } else {
             m_userRepository = std::make_unique<Repository::UserRepository>(dbManager);
             m_walletRepository = std::make_unique<Repository::WalletRepository>(dbManager);
+            m_tokenRepository = std::make_unique<Repository::TokenRepository>(dbManager);
         }
     } catch (const std::exception& e) {
         qCritical() << "Exception during database initialization:" << e.what();
@@ -146,6 +147,9 @@ void CriptoGualetQt::setupUI() {
     m_walletUI->setEthereumWallet(m_ethereumWallet.get());  // PHASE 1 FIX
     if (m_userRepository && m_walletRepository) {
         m_walletUI->setRepositories(m_userRepository.get(), m_walletRepository.get());
+    }
+    if (m_tokenRepository) {
+        m_walletUI->setTokenRepository(m_tokenRepository.get());
     }
 
     m_stackedWidget->addWidget(m_loginUI);

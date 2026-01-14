@@ -4,6 +4,7 @@
 #include "../../../backend/database/include/Database/DatabaseManager.h"
 #include "../../../backend/repository/include/Repository/UserRepository.h"
 #include "../../../backend/repository/include/Repository/WalletRepository.h"
+#include "../../../backend/repository/include/Repository/TokenRepository.h"
 #include <QApplication>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -63,4 +64,5 @@ class CriptoGualetQt : public QMainWindow {
     std::unique_ptr<WalletAPI::EthereumWallet> m_ethereumWallet;  // PHASE 1 FIX
     std::unique_ptr<Repository::UserRepository> m_userRepository;
     std::unique_ptr<Repository::WalletRepository> m_walletRepository;
+    std::unique_ptr<Repository::TokenRepository> m_tokenRepository;
 };

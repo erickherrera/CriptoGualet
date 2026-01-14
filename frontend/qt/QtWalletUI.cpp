@@ -6,6 +6,9 @@
 #include "QtReceiveDialog.h"
 #include "QtSendDialog.h"
 #include "QtThemeManager.h"
+#include "QtTokenImportDialog.h"
+#include "QtTokenListWidget.h"
+#include "QtTokenCard.h"
 
 #include <QTextEdit>
 #include <QTimer>
@@ -58,6 +61,8 @@ QtWalletUI::QtWalletUI(QWidget* parent)
       m_walletRepository(nullptr),
       m_tokenRepository(nullptr),
       m_currentUserId(-1),
+      m_tokenImportDialog(nullptr),
+      m_tokenListWidget(nullptr),
       m_priceFetcher(nullptr),
       m_priceUpdateTimer(nullptr),
       m_currentBTCPrice(43000.0),
@@ -633,77 +638,289 @@ void QtWalletUI::onThemeChanged() {
 }
 
 void QtWalletUI::onImportTokenClicked() {
+    // Validate prerequisites
     if (!m_ethereumWallet) {
-        QMessageBox::warning(this, "Ethereum Wallet Not Available",
-                             "Please ensure your Ethereum wallet is initialized before importing tokens.");
+        QMessageBox::warning(this, "Wallet Unavailable",
+                             "Your Ethereum wallet is not initialized.\n\n"
+                             "Please restart the application and try again.");
         return;
     }
 
-    QInputDialog* dialog = new QInputDialog(this);
-    dialog->setLabelText("Enter ERC20 Token Contract Address:");
-    dialog->setWindowTitle("Import Token");
-    dialog->setTextValue("");
-    dialog->setOkButtonText("Import");
-
-    if (m_themeManager) {
-        dialog->setStyleSheet(m_themeManager->getMainWindowStyleSheet() + " QInputDialog { background-color: " + m_themeManager->surfaceColor().name() + "; }");
+    if (!m_tokenRepository || !m_walletRepository) {
+        QMessageBox::critical(this, "Configuration Error",
+                              "Token storage is not configured properly.\n\n"
+                              "Please restart the application.");
+        return;
     }
 
-    if (dialog->exec() == QDialog::Accepted) {
-        QString tokenAddress = dialog->textValue().trimmed();
-        if (tokenAddress.isEmpty() || !tokenAddress.startsWith("0x") || tokenAddress.length() != 42) {
-            QMessageBox::warning(this, "Invalid Address", "Please enter a valid Ethereum contract address (42 characters, starting with '0x').");
-            return;
-        }
+    if (m_currentUserId < 0) {
+        QMessageBox::warning(this, "Not Logged In",
+                             "Please log in to import tokens.");
+        return;
+    }
 
-        // TODO: Implement backend logic to add the token to the user's list
-        // For now, just show a confirmation message
-        // QMessageBox::information(this, "Token Import",
-        //                          QString("Attempting to import token with address:\n%1").arg(tokenAddress));
+    // Get Ethereum wallet ID upfront to fail fast
+    int ethereumWalletId = getEthereumWalletId();
+    if (ethereumWalletId == -1) {
+        QMessageBox::warning(this, "No Ethereum Wallet",
+                             "No Ethereum wallet found for your account.\n\n"
+                             "Please create an Ethereum wallet first.");
+        return;
+    }
 
-        if (!m_tokenRepository || m_currentUserId < 0) {
-            QMessageBox::critical(this, "Error", "Repositories not initialized. Cannot import token.");
-            return;
-        }
+    // Create and show the import dialog
+    QtTokenImportDialog* dialog = new QtTokenImportDialog(this);
+    dialog->setThemeManager(m_themeManager);
+    dialog->setEthereumWallet(m_ethereumWallet);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
 
-        // Fetch the Ethereum wallet ID for the current user
-        // This assumes there's one Ethereum wallet per user. A more robust solution
-        // would allow the user to select which wallet to import to.
-        auto userWalletsResult = m_walletRepository->getWalletsByUserId(m_currentUserId);
-        if (!userWalletsResult.success) {
-            QMessageBox::critical(this, "Error", QString("Failed to retrieve wallets for user: %1").arg(QString::fromStdString(userWalletsResult.errorMessage)));
-            return;
-        }
+    if (dialog->exec() != QDialog::Accepted) {
+        return;
+    }
 
-        int ethereumWalletId = -1;
-        for (const auto& wallet : userWalletsResult.data) {
-            if (wallet.walletType == "ethereum") {
-                ethereumWalletId = wallet.id;
-                break;
-            }
-        }
+    auto importData = dialog->getImportData();
+    if (!importData.has_value()) {
+        return;
+    }
 
-        if (ethereumWalletId == -1) {
-            QMessageBox::warning(this, "Error", "No Ethereum wallet found for the current user.");
-            return;
-        }
+    // Show progress indicator
+    setLoadingState(true, "ETH");
+    m_importTokenButton->setEnabled(false);
+    m_importTokenButton->setText("Importing...");
+    QApplication::processEvents();
 
-        // Call the backend API to import the token
-        WalletAPI::ImportTokenResult importResult = m_ethereumWallet->importERC20Token(ethereumWalletId, tokenAddress.toStdString(), *m_tokenRepository);
+    // Perform the import
+    QString tokenAddress = importData->contractAddress;
+    WalletAPI::ImportTokenResult importResult = m_ethereumWallet->importERC20Token(
+        ethereumWalletId, tokenAddress.toStdString(), *m_tokenRepository);
 
-        if (importResult.success) {
-            QString successMessage = QString("Successfully imported token:\nSymbol: %1\nName: %2\nDecimals: %3")
-                                         .arg(QString::fromStdString(importResult.token_info->symbol))
-                                         .arg(QString::fromStdString(importResult.token_info->name))
-                                         .arg(importResult.token_info->decimals);
-            QMessageBox::information(this, "Token Import Successful", successMessage);
-            // TODO: Refresh UI to show the new token balance/info
+    // Reset loading state
+    setLoadingState(false, "ETH");
+    m_importTokenButton->setEnabled(true);
+    m_importTokenButton->setText("Import Token");
+
+    if (!importResult.success) {
+        QString errorMsg = QString::fromStdString(importResult.error_message);
+
+        // Provide user-friendly error messages
+        if (errorMsg.contains("already")) {
+            QMessageBox::information(this, "Token Already Imported",
+                                     "This token is already in your wallet.");
+        } else if (errorMsg.contains("invalid") || errorMsg.contains("Invalid")) {
+            QMessageBox::warning(this, "Invalid Token",
+                                 "The contract address does not appear to be a valid ERC20 token.\n\n"
+                                 "Please verify the address and try again.");
         } else {
-            QMessageBox::critical(this, "Token Import Failed", QString("Failed to import token: %1").arg(QString::fromStdString(importResult.error_message)));
+            QMessageBox::critical(this, "Import Failed",
+                                  QString("Failed to import token:\n\n%1").arg(errorMsg));
+        }
+        return;
+    }
+
+    // Create token card data
+    TokenCardData tokenData;
+    tokenData.contractAddress = tokenAddress;
+    tokenData.name = QString::fromStdString(importResult.token_info->name);
+    tokenData.symbol = QString::fromStdString(importResult.token_info->symbol);
+    tokenData.decimals = importResult.token_info->decimals;
+    tokenData.balance = "Loading...";
+    tokenData.balanceUSD = "";
+
+    // Add to token list widget
+    if (m_tokenListWidget) {
+        m_tokenListWidget->addToken(tokenData);
+    }
+
+    // Show success notification
+    QMessageBox::information(this, "Token Imported",
+                             QString("%1 (%2) has been added to your wallet.\n\n"
+                                     "Your token balance will be updated shortly.")
+                                 .arg(tokenData.name)
+                                 .arg(tokenData.symbol));
+
+    // Fetch and update token balance asynchronously
+    QTimer::singleShot(500, this, &QtWalletUI::updateTokenBalances);
+}
+
+int QtWalletUI::getEthereumWalletId() {
+    if (!m_walletRepository || m_currentUserId < 0) {
+        return -1;
+    }
+
+    auto userWalletsResult = m_walletRepository->getWalletsByUserId(m_currentUserId);
+    if (!userWalletsResult.success) {
+        return -1;
+    }
+
+    for (const auto& wallet : userWalletsResult.data) {
+        if (wallet.walletType == "ethereum") {
+            return wallet.id;
         }
     }
 
-    delete dialog;
+    return -1;
+}
+
+void QtWalletUI::setupTokenManagement() {
+    // Create token list widget for Ethereum wallet
+    m_tokenListWidget = new QtTokenListWidget(m_themeManager, this);
+    m_tokenListWidget->setEmptyMessage("No ERC20 tokens imported yet.\nClick 'Import Token' to add tokens.");
+
+    // Connect token list signals
+    connect(m_tokenListWidget, &QtTokenListWidget::importTokenRequested, this, &QtWalletUI::onImportTokenClicked);
+    connect(m_tokenListWidget, &QtTokenListWidget::deleteTokenClicked, this, &QtWalletUI::onTokenDeleted);
+
+    // Add token list to Ethereum wallet card
+    if (m_ethereumWalletCard) {
+        m_ethereumWalletCard->setTokenListWidget(m_tokenListWidget);
+    }
+
+    // Load any previously imported tokens
+    loadImportedTokens();
+}
+
+void QtWalletUI::loadImportedTokens() {
+    if (!m_tokenRepository || !m_tokenListWidget) {
+        return;
+    }
+
+    int ethereumWalletId = getEthereumWalletId();
+    if (ethereumWalletId == -1) {
+        return;
+    }
+
+    // Get tokens for wallet
+    auto tokensResult = m_tokenRepository->getTokensForWallet(ethereumWalletId);
+    if (!tokensResult.success) {
+        return;
+    }
+
+    // Clear existing tokens first
+    m_tokenListWidget->clearTokens();
+
+    // Add each token to the list widget
+    for (const auto& token : tokensResult.data) {
+        TokenCardData tokenData;
+        tokenData.contractAddress = QString::fromStdString(token.contract_address);
+        tokenData.name = QString::fromStdString(token.name);
+        tokenData.symbol = QString::fromStdString(token.symbol);
+        tokenData.decimals = token.decimals;
+        tokenData.balance = "Loading...";
+        tokenData.balanceUSD = "";
+
+        m_tokenListWidget->addToken(tokenData);
+    }
+
+    // Update balances after loading
+    if (!tokensResult.data.empty()) {
+        QTimer::singleShot(100, this, &QtWalletUI::updateTokenBalances);
+    }
+}
+
+void QtWalletUI::updateTokenBalances() {
+    if (!m_ethereumWallet || m_ethereumAddress.isEmpty()) {
+        return;
+    }
+
+    if (!m_tokenRepository || !m_tokenListWidget) {
+        return;
+    }
+
+    int ethereumWalletId = getEthereumWalletId();
+    if (ethereumWalletId == -1) {
+        return;
+    }
+
+    // Get tokens for wallet
+    auto tokensResult = m_tokenRepository->getTokensForWallet(ethereumWalletId);
+    if (!tokensResult.success) {
+        return;
+    }
+
+    // Update balance for each token
+    for (const auto& token : tokensResult.data) {
+        QString contractAddress = QString::fromStdString(token.contract_address);
+
+        // Fetch token balance from blockchain
+        auto balanceOpt = m_ethereumWallet->GetTokenBalance(
+            m_ethereumAddress.toStdString(),
+            token.contract_address
+        );
+
+        if (balanceOpt.has_value()) {
+            // Format the balance based on token decimals
+            QString rawBalance = QString::fromStdString(balanceOpt.value());
+            double balanceValue = rawBalance.toDouble();
+
+            // Apply decimals formatting
+            double formattedBalance = balanceValue / std::pow(10.0, token.decimals);
+            QString balanceStr = QString::number(formattedBalance, 'f', qMin(token.decimals, 8));
+
+            // Update the token card
+            m_tokenListWidget->updateTokenBalance(contractAddress, balanceStr);
+        } else {
+            // If balance fetch fails, show error state
+            m_tokenListWidget->updateTokenBalance(contractAddress, "Error", "");
+        }
+    }
+}
+
+void QtWalletUI::onTokenImported(const TokenCardData& tokenData) {
+    if (m_tokenListWidget) {
+        m_tokenListWidget->addToken(tokenData);
+    }
+    updateTokenBalances();
+}
+
+void QtWalletUI::onTokenDeleted(const QString& contractAddress) {
+    if (!m_tokenRepository || !m_tokenListWidget) {
+        return;
+    }
+
+    int ethereumWalletId = getEthereumWalletId();
+    if (ethereumWalletId == -1) {
+        QMessageBox::warning(this, "Error", "Could not find your Ethereum wallet.");
+        return;
+    }
+
+    // Get token info for confirmation message
+    auto tokenResult = m_tokenRepository->getToken(ethereumWalletId, contractAddress.toStdString());
+    QString tokenName = tokenResult.success ? QString::fromStdString(tokenResult.data.symbol) : "this token";
+
+    // Confirm deletion with token name
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "Remove Token",
+        QString("Are you sure you want to remove %1 from your wallet?\n\n"
+                "This only removes the token from your view. "
+                "Your actual token balance on the blockchain is not affected.")
+            .arg(tokenName),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No
+    );
+
+    if (reply != QMessageBox::Yes) {
+        return;
+    }
+
+    // Delete from repository
+    auto deleteResult = m_tokenRepository->deleteToken(ethereumWalletId, contractAddress.toStdString());
+    if (deleteResult.success) {
+        m_tokenListWidget->removeToken(contractAddress);
+        // Brief visual feedback without blocking message box
+        if (m_statusLabel) {
+            m_statusLabel->setText(QString("%1 removed from wallet").arg(tokenName));
+            m_statusLabel->setVisible(true);
+            QTimer::singleShot(3000, this, [this]() {
+                if (m_statusLabel) {
+                    m_statusLabel->setVisible(false);
+                }
+            });
+        }
+    } else {
+        QMessageBox::warning(this, "Error",
+                             "Failed to remove token. Please try again.");
+    }
 }
 
 void QtWalletUI::applyTheme() { updateStyles(); }
@@ -1717,6 +1934,11 @@ void QtWalletUI::setRepositories(Repository::UserRepository* userRepo,
 
 void QtWalletUI::setTokenRepository(Repository::TokenRepository* tokenRepo) {
     m_tokenRepository = tokenRepo;
+
+    // Setup token management after repository is set
+    if (m_tokenRepository && m_ethereumWallet && m_ethereumWalletCard) {
+        setupTokenManagement();
+    }
 }
 
 void QtWalletUI::setCurrentUserId(int userId) { m_currentUserId = userId; }
