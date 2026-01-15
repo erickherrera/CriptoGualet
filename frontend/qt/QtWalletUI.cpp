@@ -61,8 +61,12 @@ QtWalletUI::QtWalletUI(QWidget* parent)
       m_walletRepository(nullptr),
       m_tokenRepository(nullptr),
       m_currentUserId(-1),
-      m_tokenImportDialog(nullptr),
-      m_tokenListWidget(nullptr),
+       m_tokenImportDialog(nullptr),
+       m_tokenListWidget(nullptr),
+       m_stablecoinSectionHeader(nullptr),
+       m_usdtWalletCard(nullptr),
+       m_usdcWalletCard(nullptr),
+       m_daiWalletCard(nullptr),
       m_priceFetcher(nullptr),
       m_priceUpdateTimer(nullptr),
       m_currentBTCPrice(43000.0),
@@ -292,13 +296,13 @@ void QtWalletUI::createActionButtons() {
 
     m_contentLayout->addWidget(m_ethereumWalletCard);
 
-    // PHASE 4: Add "Import Token" button for Ethereum ecosystem
+    // Import ERC20 Token button for Ethereum ecosystem
     QHBoxLayout* tokenActionsLayout = new QHBoxLayout();
     tokenActionsLayout->setSpacing(10);
     tokenActionsLayout->setAlignment(Qt::AlignCenter);
 
-    m_importTokenButton = new QPushButton("Import Token", this);
-    m_importTokenButton->setToolTip("Import an ERC20 token to your Ethereum wallet.");
+    m_importTokenButton = new QPushButton("Import ERC20 Token", this);
+    m_importTokenButton->setToolTip("Import any ERC20 token by contract address to your Ethereum wallet.");
     m_importTokenButton->setCursor(Qt::PointingHandCursor);
     m_importTokenButton->setObjectName("importTokenButton");
 
@@ -309,6 +313,64 @@ void QtWalletUI::createActionButtons() {
     tokenActionsLayout->addStretch();
 
     m_contentLayout->addLayout(tokenActionsLayout);
+
+    // ============================================
+    // STABLECOINS SECTION
+    // ============================================
+    
+    // Section header for Stablecoins
+    m_stablecoinSectionHeader = new QLabel("Stablecoins", m_scrollContent);
+    m_stablecoinSectionHeader->setObjectName("sectionHeader");
+    m_stablecoinSectionHeader->setAlignment(Qt::AlignLeft);
+    m_contentLayout->addWidget(m_stablecoinSectionHeader);
+
+    // Create USDT wallet card
+    m_usdtWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+    m_usdtWalletCard->setCryptocurrency("Tether USD", "USDT", "$");
+    m_usdtWalletCard->setBalance("0.00 USDT");
+    m_usdtWalletCard->setTransactionHistory(
+        "No transactions yet.<br><br>USDT (Tether) is a stablecoin pegged to the US Dollar. "
+        "It operates on the Ethereum network as an ERC20 token.");
+
+    // Connect USDT signals
+    connect(m_usdtWalletCard, &QtExpandableWalletCard::sendRequested, this,
+            &QtWalletUI::onSendUSDTClicked);
+    connect(m_usdtWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+            &QtWalletUI::onReceiveUSDTClicked);
+
+    m_contentLayout->addWidget(m_usdtWalletCard);
+
+    // Create USDC wallet card
+    m_usdcWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+    m_usdcWalletCard->setCryptocurrency("USD Coin", "USDC", "$");
+    m_usdcWalletCard->setBalance("0.00 USDC");
+    m_usdcWalletCard->setTransactionHistory(
+        "No transactions yet.<br><br>USDC (USD Coin) is a stablecoin pegged to the US Dollar. "
+        "It operates on the Ethereum network as an ERC20 token.");
+
+    // Connect USDC signals
+    connect(m_usdcWalletCard, &QtExpandableWalletCard::sendRequested, this,
+            &QtWalletUI::onSendUSDCClicked);
+    connect(m_usdcWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+            &QtWalletUI::onReceiveUSDCClicked);
+
+    m_contentLayout->addWidget(m_usdcWalletCard);
+
+    // Create DAI wallet card
+    m_daiWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+    m_daiWalletCard->setCryptocurrency("Dai Stablecoin", "DAI", "◈");
+    m_daiWalletCard->setBalance("0.00 DAI");
+    m_daiWalletCard->setTransactionHistory(
+        "No transactions yet.<br><br>DAI is a decentralized stablecoin pegged to the US Dollar. "
+        "It operates on the Ethereum network as an ERC20 token.");
+
+    // Connect DAI signals
+    connect(m_daiWalletCard, &QtExpandableWalletCard::sendRequested, this,
+            &QtWalletUI::onSendDAIClicked);
+    connect(m_daiWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+            &QtWalletUI::onReceiveDAIClicked);
+
+    m_contentLayout->addWidget(m_daiWalletCard);
 }
 
 void QtWalletUI::setUserInfo(const QString& username, const QString& address) {
@@ -635,10 +697,112 @@ void QtWalletUI::onThemeChanged() {
     if (m_ethereumWalletCard) {
         m_ethereumWalletCard->applyTheme();
     }
+    // Apply theme to stablecoin cards
+    if (m_usdtWalletCard) {
+        m_usdtWalletCard->applyTheme();
+    }
+    if (m_usdcWalletCard) {
+        m_usdcWalletCard->applyTheme();
+    }
+    if (m_daiWalletCard) {
+        m_daiWalletCard->applyTheme();
+    }
+}
+
+// ============================================
+// STABLECOIN HANDLERS
+// ============================================
+
+void QtWalletUI::onSendUSDTClicked() {
+    // USDT uses the same Ethereum address - show info that this is an ERC20 token
+    if (m_ethereumAddress.isEmpty()) {
+        QMessageBox::warning(this, "No Ethereum Address",
+                             "Ethereum address not available. USDT is an ERC20 token on Ethereum.\n\n"
+                             "Please ensure your Ethereum wallet is set up correctly.");
+        return;
+    }
+    
+    QMessageBox::information(this, "Send USDT",
+                             "To send USDT, use your Ethereum wallet.\n\n"
+                             "USDT (Tether) is an ERC20 token that operates on the Ethereum network. "
+                             "You will need ETH in your wallet to pay for gas fees.\n\n"
+                             "Contract Address:\n0xdAC17F958D2ee523a2206206994597C13D831ec7");
+}
+
+void QtWalletUI::onReceiveUSDTClicked() {
+    if (m_ethereumAddress.isEmpty()) {
+        QMessageBox::warning(this, "No Ethereum Address",
+                             "Ethereum address not available. USDT uses the same address as Ethereum.\n\n"
+                             "Please ensure your Ethereum wallet is set up correctly.");
+        return;
+    }
+    
+    // USDT uses the same address as Ethereum
+    QtReceiveDialog dialog(QtReceiveDialog::ChainType::ETHEREUM, m_ethereumAddress, this);
+    dialog.setWindowTitle("Receive USDT");
+    dialog.exec();
+}
+
+void QtWalletUI::onSendUSDCClicked() {
+    if (m_ethereumAddress.isEmpty()) {
+        QMessageBox::warning(this, "No Ethereum Address",
+                             "Ethereum address not available. USDC is an ERC20 token on Ethereum.\n\n"
+                             "Please ensure your Ethereum wallet is set up correctly.");
+        return;
+    }
+    
+    QMessageBox::information(this, "Send USDC",
+                             "To send USDC, use your Ethereum wallet.\n\n"
+                             "USDC (USD Coin) is an ERC20 token that operates on the Ethereum network. "
+                             "You will need ETH in your wallet to pay for gas fees.\n\n"
+                             "Contract Address:\n0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
+}
+
+void QtWalletUI::onReceiveUSDCClicked() {
+    if (m_ethereumAddress.isEmpty()) {
+        QMessageBox::warning(this, "No Ethereum Address",
+                             "Ethereum address not available. USDC uses the same address as Ethereum.\n\n"
+                             "Please ensure your Ethereum wallet is set up correctly.");
+        return;
+    }
+    
+    // USDC uses the same address as Ethereum
+    QtReceiveDialog dialog(QtReceiveDialog::ChainType::ETHEREUM, m_ethereumAddress, this);
+    dialog.setWindowTitle("Receive USDC");
+    dialog.exec();
+}
+
+void QtWalletUI::onSendDAIClicked() {
+    if (m_ethereumAddress.isEmpty()) {
+        QMessageBox::warning(this, "No Ethereum Address",
+                             "Ethereum address not available. DAI is an ERC20 token on Ethereum.\n\n"
+                             "Please ensure your Ethereum wallet is set up correctly.");
+        return;
+    }
+    
+    QMessageBox::information(this, "Send DAI",
+                             "To send DAI, use your Ethereum wallet.\n\n"
+                             "DAI is an ERC20 token that operates on the Ethereum network. "
+                             "You will need ETH in your wallet to pay for gas fees.\n\n"
+                             "Contract Address:\n0x6B175474E89094C44Da98b954EedeAC495271d0F");
+}
+
+void QtWalletUI::onReceiveDAIClicked() {
+    if (m_ethereumAddress.isEmpty()) {
+        QMessageBox::warning(this, "No Ethereum Address",
+                             "Ethereum address not available. DAI uses the same address as Ethereum.\n\n"
+                             "Please ensure your Ethereum wallet is set up correctly.");
+        return;
+    }
+    
+    // DAI uses the same address as Ethereum
+    QtReceiveDialog dialog(QtReceiveDialog::ChainType::ETHEREUM, m_ethereumAddress, this);
+    dialog.setWindowTitle("Receive DAI");
+    dialog.exec();
 }
 
 void QtWalletUI::onImportTokenClicked() {
-    // Validate prerequisites
+    // Validate prerequisites with comprehensive checks
     if (!m_ethereumWallet) {
         QMessageBox::warning(this, "Wallet Unavailable",
                              "Your Ethereum wallet is not initialized.\n\n"
@@ -683,37 +847,78 @@ void QtWalletUI::onImportTokenClicked() {
         return;
     }
 
-    // Show progress indicator
+    // Validate contract address format
+    QString tokenAddress = importData->contractAddress.trimmed();
+    if (tokenAddress.isEmpty() || tokenAddress.length() != 42 || !tokenAddress.startsWith("0x")) {
+        QMessageBox::warning(this, "Invalid Address",
+                             "The contract address format is invalid.\n\n"
+                             "Please enter a valid Ethereum address (42 characters starting with 0x).");
+        return;
+    }
+
+    // Show progress indicator with null check
     setLoadingState(true, "ETH");
-    m_importTokenButton->setEnabled(false);
-    m_importTokenButton->setText("Importing...");
+    if (m_importTokenButton) {
+        m_importTokenButton->setEnabled(false);
+        m_importTokenButton->setText("Importing...");
+    }
     QApplication::processEvents();
 
-    // Perform the import
-    QString tokenAddress = importData->contractAddress;
-    WalletAPI::ImportTokenResult importResult = m_ethereumWallet->importERC20Token(
-        ethereumWalletId, tokenAddress.toStdString(), *m_tokenRepository);
+    // Perform the import with exception handling
+    WalletAPI::ImportTokenResult importResult;
+    try {
+        importResult = m_ethereumWallet->importERC20Token(
+            ethereumWalletId, tokenAddress.toStdString(), *m_tokenRepository);
+    } catch (const std::exception& e) {
+        // Reset loading state
+        setLoadingState(false, "ETH");
+        if (m_importTokenButton) {
+            m_importTokenButton->setEnabled(true);
+            m_importTokenButton->setText("Import ERC20 Token");
+        }
+        QMessageBox::critical(this, "Import Error",
+                              QString("An unexpected error occurred while importing the token:\n\n%1")
+                                  .arg(e.what()));
+        return;
+    }
 
     // Reset loading state
     setLoadingState(false, "ETH");
-    m_importTokenButton->setEnabled(true);
-    m_importTokenButton->setText("Import Token");
+    if (m_importTokenButton) {
+        m_importTokenButton->setEnabled(true);
+        m_importTokenButton->setText("Import ERC20 Token");
+    }
 
     if (!importResult.success) {
         QString errorMsg = QString::fromStdString(importResult.error_message);
 
         // Provide user-friendly error messages
-        if (errorMsg.contains("already")) {
+        if (errorMsg.contains("already", Qt::CaseInsensitive)) {
             QMessageBox::information(this, "Token Already Imported",
                                      "This token is already in your wallet.");
-        } else if (errorMsg.contains("invalid") || errorMsg.contains("Invalid")) {
+        } else if (errorMsg.contains("invalid", Qt::CaseInsensitive) || 
+                   errorMsg.contains("not found", Qt::CaseInsensitive) ||
+                   errorMsg.contains("contract", Qt::CaseInsensitive)) {
             QMessageBox::warning(this, "Invalid Token",
                                  "The contract address does not appear to be a valid ERC20 token.\n\n"
                                  "Please verify the address and try again.");
+        } else if (errorMsg.contains("network", Qt::CaseInsensitive) || 
+                   errorMsg.contains("connection", Qt::CaseInsensitive)) {
+            QMessageBox::warning(this, "Network Error",
+                                 "Unable to connect to the Ethereum network.\n\n"
+                                 "Please check your internet connection and try again.");
         } else {
             QMessageBox::critical(this, "Import Failed",
                                   QString("Failed to import token:\n\n%1").arg(errorMsg));
         }
+        return;
+    }
+
+    // Validate token_info before accessing
+    if (!importResult.token_info) {
+        QMessageBox::critical(this, "Import Error",
+                              "Token was imported but token information is unavailable.\n\n"
+                              "Please try refreshing your token list.");
         return;
     }
 
@@ -764,10 +969,9 @@ int QtWalletUI::getEthereumWalletId() {
 void QtWalletUI::setupTokenManagement() {
     // Create token list widget for Ethereum wallet
     m_tokenListWidget = new QtTokenListWidget(m_themeManager, this);
-    m_tokenListWidget->setEmptyMessage("No ERC20 tokens imported yet.\nClick 'Import Token' to add tokens.");
+    m_tokenListWidget->setEmptyMessage("No custom tokens imported yet.");
 
     // Connect token list signals
-    connect(m_tokenListWidget, &QtTokenListWidget::importTokenRequested, this, &QtWalletUI::onImportTokenClicked);
     connect(m_tokenListWidget, &QtTokenListWidget::deleteTokenClicked, this, &QtWalletUI::onTokenDeleted);
 
     // Add token list to Ethereum wallet card
@@ -1185,34 +1389,56 @@ void QtWalletUI::updateStyles() {
                                                  m_refreshButton->setStyleSheet(refreshButtonStyle);
                                              }
                                          
-                                             if (m_importTokenButton) {
-                                                 QString importButtonStyle = QString(R"(
-                                                     QPushButton {
-                                                         background-color: %1;
-                                                         color: %2;
-                                                         border: 1px solid %3;
-                                                         padding: 8px 16px;
-                                                         border-radius: 4px;
-                                                         font-weight: 600;
-                                                     }
-                                                                 QPushButton:hover {
-                                                                     background-color: %4;
-                                                                 }
-                                                                 QPushButton:pressed {
-                                                                     background-color: %5;
-                                                                 }
-                                                             )")
-                                                             .arg(m_themeManager->surfaceColor().name())
-                                                             .arg(m_themeManager->textColor().name())
-                                                             .arg(m_themeManager->accentColor().name())
-                                                             .arg(m_themeManager->secondaryColor().name())
-                                                             .arg(m_themeManager->accentColor().name());
-                                                             m_importTokenButton->setStyleSheet(importButtonStyle);
-                                                         }                                         
-                                             // Status label styling - ensure proper contrast
-                                             if (m_statusLabel && m_statusLabel->isVisible()) {
-                                                 updateStatusLabel();
-                                             }}
+    if (m_importTokenButton) {
+        QString importButtonStyle = QString(R"(
+            QPushButton {
+                background-color: %1;
+                color: %2;
+                border: 1px solid %3;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: %4;
+            }
+            QPushButton:pressed {
+                background-color: %5;
+            }
+        )")
+        .arg(m_themeManager->surfaceColor().name())
+        .arg(m_themeManager->textColor().name())
+        .arg(m_themeManager->accentColor().name())
+        .arg(m_themeManager->secondaryColor().name())
+        .arg(m_themeManager->accentColor().name());
+        m_importTokenButton->setStyleSheet(importButtonStyle);
+    }
+    
+    // Stablecoin section header styling
+    if (m_stablecoinSectionHeader) {
+        QString sectionHeaderStyle = QString(R"(
+            QLabel#sectionHeader {
+                color: %1;
+                font-size: 18px;
+                font-weight: 700;
+                background-color: transparent;
+                padding: 16px 0 8px 0;
+                margin-top: 16px;
+            }
+        )").arg(text);
+        m_stablecoinSectionHeader->setStyleSheet(sectionHeaderStyle);
+        
+        QFont sectionFont = m_themeManager->titleFont();
+        sectionFont.setPointSize(18);
+        sectionFont.setBold(true);
+        m_stablecoinSectionHeader->setFont(sectionFont);
+    }
+    
+    // Status label styling - ensure proper contrast
+    if (m_statusLabel && m_statusLabel->isVisible()) {
+        updateStatusLabel();
+    }
+}
 
 void QtWalletUI::onLogoutClicked() { emit logoutRequested(); }
 

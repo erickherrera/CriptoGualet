@@ -50,6 +50,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     Qt6::Gui
     Qt6::Svg
     Qt6::Network
+    Qt6::Concurrent
   )
 
   # Add Windows-specific libraries
@@ -81,6 +82,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     ${Qt6Gui_INCLUDE_DIRS}
     ${Qt6Svg_INCLUDE_DIRS}
     ${Qt6Network_INCLUDE_DIRS}
+    ${Qt6Concurrent_INCLUDE_DIRS}
   )
 
   # Cross-platform compiler flags with security for Qt target

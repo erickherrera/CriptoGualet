@@ -215,7 +215,7 @@ if(BUILD_GUI_QT)
     endforeach()
   endif()
 
-  find_package(Qt6 QUIET COMPONENTS Core Widgets Gui Svg Network)
+  find_package(Qt6 QUIET COMPONENTS Core Widgets Gui Svg Network Concurrent)
   if(Qt6_FOUND)
     qt6_standard_project_setup()
     message(STATUS "Qt6 found at ${Qt6_DIR}")

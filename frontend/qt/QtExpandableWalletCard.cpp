@@ -208,6 +208,7 @@ QString QtExpandableWalletCard::getCryptoIconUrl(const QString &symbol) {
       {"BNB", "825/large/binance-coin-logo.png"},
       {"SOL", "4128/large/solana.png"},
       {"USDC", "6319/large/usd-coin.png"},
+      {"DAI", "9956/large/Badge_Dai.png"},
       {"XRP", "44/large/xrp.png"},
       {"DOGE", "5/large/dogecoin.png"},
       {"ADA", "975/large/cardano.png"},

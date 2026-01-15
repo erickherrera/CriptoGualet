@@ -104,7 +104,15 @@ class QtWalletUI : public QWidget {
     void onRefreshClicked();      // PHASE 3: Manual refresh
     void onPriceUpdateTimer();    // PHASE 2
     void onBalanceUpdateTimer();  // Refresh balances periodically
-    void onImportTokenClicked();
+     void onImportTokenClicked();
+     
+     // Stablecoin handlers
+     void onSendUSDTClicked();
+     void onReceiveUSDTClicked();
+     void onSendUSDCClicked();
+     void onReceiveUSDCClicked();
+     void onSendDAIClicked();
+     void onReceiveDAIClicked();
 
   private:
     void updateStyles();
@@ -167,6 +175,13 @@ class QtWalletUI : public QWidget {
     class QtExpandableWalletCard* m_bitcoinWalletCard;
     class QtExpandableWalletCard* m_litecoinWalletCard;
     class QtExpandableWalletCard* m_ethereumWalletCard;
+    
+    // Stablecoin section
+    QLabel* m_stablecoinSectionHeader;
+    class QtExpandableWalletCard* m_usdtWalletCard;
+    class QtExpandableWalletCard* m_usdcWalletCard;
+    class QtExpandableWalletCard* m_daiWalletCard;
+    
     QPushButton* m_importTokenButton;
     QLabel* m_statusLabel;  // PHASE 2
 
