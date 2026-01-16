@@ -27,7 +27,11 @@ QtTokenImportDialog::QtTokenImportDialog(QWidget* parent)
       m_importButton(nullptr),
       m_cancelButton(nullptr)
 {
+    setModal(true);
+    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+
     setupUI();
+
     connect(m_addressInput, &QLineEdit::textChanged, this, &QtTokenImportDialog::onAddressChanged);
     connect(m_importButton, &QPushButton::clicked, this, [this]() {
         if (m_addressInput->text().isEmpty()) return;
@@ -35,74 +39,136 @@ QtTokenImportDialog::QtTokenImportDialog(QWidget* parent)
         accept();
     });
     connect(m_cancelButton, &QPushButton::clicked, this, &QtTokenImportDialog::reject);
-    
+
     // This signal is used to get the result from the worker thread
     qRegisterMetaType<EthereumService::TokenInfo>("EthereumService::TokenInfo");
     connect(this, &QtTokenImportDialog::tokenInfoFetched, this, &QtTokenImportDialog::onTokenInfoFetched);
+
+    // Initialize UI state
+    m_statusLabel->setText("Enter a valid ERC20 contract address.");
+    m_statusLabel->setProperty("statusType", "neutral");
 }
 
 QtTokenImportDialog::~QtTokenImportDialog() {}
 
 void QtTokenImportDialog::setupUI() {
     setWindowTitle("Import Token");
-    setMinimumWidth(450);
+    setMinimumWidth(500);
+    setMaximumWidth(600);
+    setSizeGripEnabled(false);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 20, 20, 20);
-    mainLayout->setSpacing(20);
+    mainLayout->setContentsMargins(24, 24, 24, 24);
+    mainLayout->setSpacing(16);
 
-    // Title
-    m_titleLabel = new QLabel("Import Custom Token", this);
-    m_titleLabel->setObjectName("h2");
+    // Header section with title and description
+    m_titleLabel = new QLabel("Import ERC20 Token", this);
+    m_titleLabel->setObjectName("title");
     mainLayout->addWidget(m_titleLabel);
 
-    // Address input
-    QVBoxLayout* addressLayout = new QVBoxLayout();
-    addressLayout->setSpacing(5);
-    m_addressLabel = new QLabel("Token Contract Address", this);
-    m_addressLabel->setObjectName("inputLabel");
+    QLabel* descriptionLabel = new QLabel(
+        "Enter a token contract address to add a custom ERC20 token to your wallet.",
+        this
+    );
+    descriptionLabel->setObjectName("description");
+    descriptionLabel->setWordWrap(true);
+    mainLayout->addWidget(descriptionLabel);
+
+    // Address input section with better visual grouping
+    QFrame* addressSection = new QFrame(this);
+    addressSection->setObjectName("inputSection");
+    QVBoxLayout* addressSectionLayout = new QVBoxLayout(addressSection);
+    addressSectionLayout->setContentsMargins(0, 0, 0, 0);
+    addressSectionLayout->setSpacing(8);
+
+    m_addressLabel = new QLabel("Contract Address", this);
+    m_addressLabel->setObjectName("fieldLabel");
+    addressSectionLayout->addWidget(m_addressLabel);
+
     m_addressInput = new QLineEdit(this);
     m_addressInput->setPlaceholderText("0x...");
-    addressLayout->addWidget(m_addressLabel);
-    addressLayout->addWidget(m_addressInput);
-    mainLayout->addLayout(addressLayout);
+    m_addressInput->setObjectName("addressInput");
+    m_addressInput->setMaxLength(42);
+    addressSectionLayout->addWidget(m_addressInput);
 
-    // Status label
-    m_statusLabel = new QLabel("Enter a valid ERC20 contract address.", this);
+    mainLayout->addWidget(addressSection);
+
+    // Help hint
+    QLabel* hintLabel = new QLabel("💡 You can find contract addresses on Etherscan or token websites.", this);
+    hintLabel->setObjectName("hintLabel");
+    hintLabel->setWordWrap(true);
+    mainLayout->addWidget(hintLabel);
+
+    // Status label with better visual feedback
+    m_statusLabel = new QLabel("", this);
+    m_statusLabel->setObjectName("statusLabel");
     m_statusLabel->setWordWrap(true);
+    m_statusLabel->setAlignment(Qt::AlignLeft);
     mainLayout->addWidget(m_statusLabel);
 
-    // Token info display card
+    // Token info display card - enhanced design
     m_infoFrame = new QFrame(this);
     m_infoFrame->setObjectName("infoCard");
-    m_infoFrame->setContentsMargins(15, 15, 15, 15);
+    m_infoFrame->setContentsMargins(20, 16, 20, 20);
     QVBoxLayout* infoFrameLayout = new QVBoxLayout(m_infoFrame);
+    infoFrameLayout->setSpacing(12);
+
+    // Card header
+    QLabel* infoHeaderLabel = new QLabel("Token Information", this);
+    infoHeaderLabel->setObjectName("infoCardHeader");
+    infoFrameLayout->addWidget(infoHeaderLabel);
+
+    // Separator line
+    QFrame* separator = new QFrame(this);
+    separator->setObjectName("cardSeparator");
+    separator->setFrameShape(QFrame::HLine);
+    separator->setFrameShadow(QFrame::Sunken);
+    infoFrameLayout->addWidget(separator);
+
     QFormLayout* infoLayout = new QFormLayout();
-    
-    m_symbolLabel = new QLabel("Symbol:", m_infoFrame);
+    infoLayout->setSpacing(8);
+    infoLayout->setContentsMargins(0, 0, 0, 0);
+    infoLayout->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    infoLayout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
+
+    m_symbolLabel = new QLabel("Symbol", m_infoFrame);
+    m_symbolLabel->setObjectName("infoLabel");
     m_symbolValueLabel = new QLabel("", m_infoFrame);
+    m_symbolValueLabel->setObjectName("infoValue");
     infoLayout->addRow(m_symbolLabel, m_symbolValueLabel);
 
-    m_nameLabel = new QLabel("Name:", m_infoFrame);
+    m_nameLabel = new QLabel("Token Name", m_infoFrame);
+    m_nameLabel->setObjectName("infoLabel");
     m_nameValueLabel = new QLabel("", m_infoFrame);
+    m_nameValueLabel->setObjectName("infoValue");
     infoLayout->addRow(m_nameLabel, m_nameValueLabel);
 
-    m_decimalsLabel = new QLabel("Decimals:", m_infoFrame);
+    m_decimalsLabel = new QLabel("Decimals", m_infoFrame);
+    m_decimalsLabel->setObjectName("infoLabel");
     m_decimalsValueLabel = new QLabel("", m_infoFrame);
+    m_decimalsValueLabel->setObjectName("infoValue");
     infoLayout->addRow(m_decimalsLabel, m_decimalsValueLabel);
-    
+
     infoFrameLayout->addLayout(infoLayout);
     mainLayout->addWidget(m_infoFrame);
     m_infoFrame->setVisible(false);
 
     mainLayout->addStretch();
 
-    // Buttons
+    // Buttons with better spacing and hierarchy
     QHBoxLayout* buttonLayout = new QHBoxLayout();
-    buttonLayout->setSpacing(10);
+    buttonLayout->setSpacing(12);
+
     m_cancelButton = new QPushButton("Cancel", this);
-    m_importButton = new QPushButton("Import", this);
+    m_cancelButton->setObjectName("cancelButton");
+    m_cancelButton->setMinimumWidth(100);
+
+    m_importButton = new QPushButton("Import Token", this);
+    m_importButton->setObjectName("importButton");
     m_importButton->setEnabled(false);
+    m_importButton->setMinimumWidth(120);
+    m_importButton->setDefault(true);
+
     buttonLayout->addStretch();
     buttonLayout->addWidget(m_cancelButton);
     buttonLayout->addWidget(m_importButton);
@@ -133,144 +199,354 @@ void QtTokenImportDialog::onAddressChanged(const QString& address) {
     m_nameValueLabel->setText("");
     m_symbolValueLabel->setText("");
     m_decimalsValueLabel->setText("");
-    m_statusLabel->setText("Enter a valid ERC20 contract address.");
-    
-    if (m_ethereumWallet && m_ethereumWallet->ValidateAddress(address.toStdString())) {
-        m_statusLabel->setText("Validating address...");
-        fetchTokenInfo(address);
-    } else {
-        m_statusLabel->setText("Invalid address format.");
+
+    if (address.isEmpty()) {
+        m_statusLabel->setText("Enter a valid ERC20 contract address.");
+        m_statusLabel->setProperty("statusType", "neutral");
+        m_addressInput->setProperty("errorState", false);
+        applyTheme();
+        return;
     }
+
+    bool isValidFormat = m_ethereumWallet && m_ethereumWallet->ValidateAddress(address.toStdString());
+
+    if (!isValidFormat) {
+        m_statusLabel->setText("Invalid address format. Must be 42 characters starting with '0x'.");
+        m_statusLabel->setProperty("statusType", "error");
+        m_addressInput->setProperty("errorState", true);
+        applyTheme();
+        return;
+    }
+
+    m_addressInput->setProperty("errorState", false);
+    m_statusLabel->setText("Validating address...");
+    m_statusLabel->setProperty("statusType", "loading");
+    applyTheme();
+
+    fetchTokenInfo(address);
 }
 
 void QtTokenImportDialog::fetchTokenInfo(const QString& address) {
     if (address == m_lastQueriedAddress) return;
     m_lastQueriedAddress = address;
 
-    m_statusLabel->setText("Fetching token information...");
+    m_statusLabel->setText("⏳ Fetching token information...");
+    m_statusLabel->setProperty("statusType", "loading");
+    applyTheme();
 
-    // Fetch token info in a background thread
+    // Disable input during fetch to prevent multiple requests
+    m_addressInput->setEnabled(false);
+    m_importButton->setEnabled(false);
+
+    // Fetch token info in a background thread with slight delay for visual feedback
     (void)QtConcurrent::run([this, address]() {
         if (m_ethereumWallet) {
             auto tokenInfoOpt = m_ethereumWallet->GetTokenInfo(address.toStdString());
-            if (tokenInfoOpt.has_value()) {
-                emit tokenInfoFetched(true, tokenInfoOpt.value());
-            } else {
-                emit tokenInfoFetched(false, {});
-            }
+            emit tokenInfoFetched(tokenInfoOpt.has_value(), tokenInfoOpt.has_value() ? tokenInfoOpt.value() : EthereumService::TokenInfo{});
+        } else {
+            emit tokenInfoFetched(false, {});
         }
     });
 }
 
 void QtTokenImportDialog::onTokenInfoFetched(bool success, const EthereumService::TokenInfo& tokenInfo) {
+    m_addressInput->setEnabled(true);
+
     if (success) {
         m_nameValueLabel->setText(QString::fromStdString(tokenInfo.name));
         m_symbolValueLabel->setText(QString::fromStdString(tokenInfo.symbol));
         m_decimalsValueLabel->setText(QString::number(tokenInfo.decimals));
-        
-        m_infoFrame->setVisible(true);
 
-        m_statusLabel->setText("Token information loaded.");
+        m_infoFrame->setVisible(true);
+        m_statusLabel->setText("✓ Token information loaded successfully.");
+        m_statusLabel->setProperty("statusType", "success");
         m_importButton->setEnabled(true);
-        m_addressInput->setStyleSheet(""); // Reset style
+        m_addressInput->setProperty("errorState", false);
     } else {
-        m_statusLabel->setText("Could not fetch token information. Check the contract address.");
+        m_statusLabel->setText("✕ Could not fetch token information. Please verify the contract address.");
+        m_statusLabel->setProperty("statusType", "error");
         m_infoFrame->setVisible(false);
         m_importButton->setEnabled(false);
-        if (m_themeManager) {
-             m_addressInput->setStyleSheet(QString("border: 1px solid %1;").arg(m_themeManager->errorColor().name()));
-        }
+        m_addressInput->setProperty("errorState", true);
     }
+
+    applyTheme();
 }
 
 void QtTokenImportDialog::applyTheme() {
     if (!m_themeManager) return;
 
-    this->setStyleSheet(QString("QDialog { background-color: %1; }")
-                        .arg(m_themeManager->backgroundColor().name()));
-    
+    const auto& tm = *m_themeManager;
+    QString bg = tm.backgroundColor().name();
+    QString surface = tm.surfaceColor().name();
+    QString text = tm.textColor().name();
+    QString accent = tm.accentColor().name();
+    QString secondary = tm.secondaryColor().name();
+    QString dimmed = tm.dimmedTextColor().name();
+    QString error = tm.errorColor().name();
+    QString success = tm.successColor().name();
+    QString focusBorder = tm.focusBorderColor().name();
+    QString subtitle = tm.subtitleColor().name();
+    QString disabledText = tm.disabledTextColor().name();
+    QString lightError = tm.lightError().name();
+    QString lightPositive = tm.lightPositive().name();
+
+    QColor accentColor = tm.accentColor();
+    QColor secondaryColor = tm.secondaryColor();
+    QColor surfaceColor = tm.surfaceColor();
+
+    // Dialog background
+    this->setStyleSheet(QString("QDialog { background-color: %1; }").arg(bg));
+
+    // Title styling - prominent and bold
     if (m_titleLabel) {
-        m_titleLabel->setStyleSheet(QString("font-size: 20px; font-weight: bold; color: %1;")
-                                 .arg(m_themeManager->textColor().name()));
-    }
-
-    if (m_addressLabel) {
-        m_addressLabel->setStyleSheet(QString("font-weight: bold; color: %1;").arg(m_themeManager->textColor().name()));
-    }
-    
-    if (m_addressInput) {
-        m_addressInput->setStyleSheet(m_themeManager->getLineEditStyleSheet());
-    }
-
-    m_statusLabel->setStyleSheet(QString("color: %1;").arg(m_themeManager->dimmedTextColor().name()));
-
-    if (m_infoFrame) {
-        m_infoFrame->setStyleSheet(QString(
-            "QFrame#infoCard {"
-            "   background-color: %1;"
-            "   border: 1px solid %2;"
-            "   border-radius: 8px;"
+        m_titleLabel->setStyleSheet(QString(
+            "QLabel#title {"
+            "   font-size: 24px;"
+            "   font-weight: 700;"
+            "   color: %1;"
+            "   background-color: transparent;"
+            "   padding-bottom: 4px;"
             "}"
-        ).arg(m_themeManager->surfaceColor().name()).arg(m_themeManager->secondaryColor().name()));
+        ).arg(text));
     }
-    
-    auto setLabelStyle = [this](QLabel* label) {
-        if (label) label->setStyleSheet(QString("color: %1; font-weight: bold; background: transparent;")
-                             .arg(m_themeManager->textColor().name()));
-    };
-    setLabelStyle(m_nameLabel);
-    setLabelStyle(m_symbolLabel);
-    setLabelStyle(m_decimalsLabel);
 
-    auto setValueLabelStyle = [this](QLabel* label) {
-        if (label) label->setStyleSheet(QString("color: %1; background: transparent;")
-                            .arg(m_themeManager->textColor().name()));
-    };
-    setValueLabelStyle(m_nameValueLabel);
-    setValueLabelStyle(m_symbolValueLabel);
-    setValueLabelStyle(m_decimalsValueLabel);
+    // Description label styling
+    for (auto* widget : findChildren<QLabel*>()) {
+        if (widget->objectName() == "description") {
+            widget->setStyleSheet(QString(
+                "QLabel#description {"
+                "   font-size: 13px;"
+                "   color: %1;"
+                "   background-color: transparent;"
+                "   padding-bottom: 8px;"
+                "}"
+            ).arg(subtitle));
+        }
+    }
 
+    // Field label styling
+    if (m_addressLabel) {
+        m_addressLabel->setStyleSheet(QString(
+            "QLabel#fieldLabel {"
+            "   font-size: 13px;"
+            "   font-weight: 600;"
+            "   color: %1;"
+            "   background-color: transparent;"
+            "}"
+        ).arg(text));
+    }
+
+    // Input field styling with enhanced focus and error states
+    if (m_addressInput) {
+        QString currentStyle = m_addressInput->property("errorState").toBool() ?
+            QString("border: 2px solid %1;").arg(error) :
+            QString("border: 2px solid %1;").arg(secondary);
+
+        m_addressInput->setStyleSheet(QString(R"(
+            QLineEdit#addressInput {
+                background-color: %1;
+                color: %2;
+                border: 2px solid %3;
+                border-radius: 8px;
+                padding: 12px 14px;
+                font-size: 14px;
+                font-family: %4;
+                selection-background-color: %5;
+            }
+            QLineEdit#addressInput:focus {
+                border-color: %6;
+                background-color: %1;
+            }
+            QLineEdit#addressInput:disabled {
+                background-color: %7;
+                color: %8;
+                border-color: %9;
+            }
+            QLineEdit#addressInput:disabled:hover {
+                border-color: %9;
+            }
+        )")
+        .arg(surface)
+        .arg(text)
+        .arg(currentStyle)
+        .arg(tm.textFont().family())
+        .arg(accent)
+        .arg(focusBorder)
+        .arg(surfaceColor.darker(120).name())
+        .arg(disabledText)
+        .arg(secondary));
+    }
+
+    // Hint label styling
+    for (auto* widget : findChildren<QLabel*>()) {
+        if (widget->objectName() == "hintLabel") {
+            widget->setStyleSheet(QString(
+                "QLabel#hintLabel {"
+                "   font-size: 12px;"
+                "   color: %1;"
+                "   background-color: transparent;"
+                "   padding: 4px 0;"
+                "}"
+            ).arg(subtitle));
+        }
+    }
+
+    // Status label styling
+    if (m_statusLabel) {
+        QString statusColor = dimmed;
+        QString statusBg = "transparent";
+        if (m_statusLabel->property("statusType").toString() == "error") {
+            statusColor = error;
+            statusBg = lightError;
+        } else if (m_statusLabel->property("statusType").toString() == "success") {
+            statusColor = success;
+            statusBg = lightPositive;
+        } else if (m_statusLabel->property("statusType").toString() == "loading") {
+            statusColor = accent;
+        }
+
+        m_statusLabel->setStyleSheet(QString(
+            "QLabel#statusLabel {"
+            "   font-size: 13px;"
+            "   color: %1;"
+            "   background-color: %2;"
+            "   padding: 8px 12px;"
+            "   border-radius: 6px;"
+            "}"
+        ).arg(statusColor).arg(statusBg));
+    }
+
+    // Info card styling - enhanced with shadow and better borders
+    if (m_infoFrame) {
+        m_infoFrame->setStyleSheet(QString(R"(
+            QFrame#infoCard {
+                background-color: %1;
+                border: 1px solid %2;
+                border-radius: 12px;
+            }
+        )").arg(surface).arg(secondary));
+    }
+
+    // Info card header styling
+    for (auto* widget : findChildren<QLabel*>()) {
+        if (widget->objectName() == "infoCardHeader") {
+            widget->setStyleSheet(QString(
+                "QLabel#infoCardHeader {"
+                "   font-size: 15px;"
+                "   font-weight: 600;"
+                "   color: %1;"
+                "   background-color: transparent;"
+                "}"
+            ).arg(text));
+        }
+    }
+
+    // Separator styling
+    for (auto* widget : findChildren<QFrame*>()) {
+        if (widget->objectName() == "cardSeparator") {
+            widget->setStyleSheet(QString(
+                "QFrame#cardSeparator {"
+                "   background-color: %1;"
+                "   max-height: 1px;"
+                "   border: none;"
+                "}"
+            ).arg(secondary));
+        }
+    }
+
+    // Info labels styling
+    auto setInfoLabelStyle = [text](QLabel* label) {
+        if (label) {
+            label->setStyleSheet(QString(
+                "QLabel#infoLabel {"
+                "   font-size: 13px;"
+                "   font-weight: 600;"
+                "   color: %1;"
+                "   background-color: transparent;"
+                "}"
+            ).arg(text));
+        }
+    };
+    setInfoLabelStyle(m_nameLabel);
+    setInfoLabelStyle(m_symbolLabel);
+    setInfoLabelStyle(m_decimalsLabel);
+
+    auto setInfoValueStyle = [text](QLabel* label) {
+        if (label) {
+            label->setStyleSheet(QString(
+                "QLabel#infoValue {"
+                "   font-size: 13px;"
+                "   font-weight: 400;"
+                "   color: %1;"
+                "   background-color: transparent;"
+                "}"
+            ).arg(text));
+        }
+    };
+    setInfoValueStyle(m_nameValueLabel);
+    setInfoValueStyle(m_symbolValueLabel);
+    setInfoValueStyle(m_decimalsValueLabel);
+
+    // Primary button (Import) styling
     QString primaryButtonStyle = QString(R"(
-        QPushButton {
+        QPushButton#importButton {
             background-color: %1;
             color: %2;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
             font-weight: 600;
+            font-family: %3;
         }
-        QPushButton:hover {
-            background-color: %3;
-        }
-        QPushButton:disabled {
+        QPushButton#importButton:hover {
             background-color: %4;
-            color: %5;
+        }
+        QPushButton#importButton:pressed {
+            background-color: %5;
+        }
+        QPushButton#importButton:disabled {
+            background-color: %6;
+            color: %7;
+            border: none;
         }
     )")
-    .arg(m_themeManager->accentColor().name())
-    .arg(m_themeManager->backgroundColor().name())
-    .arg(m_themeManager->accentColor().darker(110).name())
-    .arg(m_themeManager->secondaryColor().name())
-    .arg(m_themeManager->disabledTextColor().name());
+    .arg(accent)
+    .arg(bg)
+    .arg(tm.buttonFont().family())
+    .arg(accentColor.lighter(120).name())
+    .arg(accentColor.darker(120).name())
+    .arg(secondary)
+    .arg(disabledText);
     m_importButton->setStyleSheet(primaryButtonStyle);
 
+    // Secondary button (Cancel) styling
     QString secondaryButtonStyle = QString(R"(
-        QPushButton {
-            background-color: %1;
-            color: %2;
-            border: 1px solid %3;
-            padding: 8px 16px;
-            border-radius: 4px;
+        QPushButton#cancelButton {
+            background-color: transparent;
+            color: %1;
+            border: 2px solid %2;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
             font-weight: 600;
+            font-family: %3;
         }
-        QPushButton:hover {
+        QPushButton#cancelButton:hover {
             background-color: %4;
-            border-color: %4;
+            border-color: %5;
+        }
+        QPushButton#cancelButton:pressed {
+            background-color: %6;
+            border-color: %6;
         }
     )")
-    .arg(m_themeManager->surfaceColor().name())
-    .arg(m_themeManager->textColor().name())
-    .arg(m_themeManager->secondaryColor().name())
-    .arg(m_themeManager->secondaryColor().name());
+    .arg(text)
+    .arg(secondary)
+    .arg(tm.buttonFont().family())
+    .arg(secondaryColor.lighter(110).name())
+    .arg(secondaryColor.lighter(130).name())
+    .arg(secondary);
     m_cancelButton->setStyleSheet(secondaryButtonStyle);
 }
