@@ -11,6 +11,11 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QTimer>
 #include <QFrame>
+#include <QGraphicsDropShadowEffect>
+#include <QPainter>
+#include <QPaintEvent>
+#include <QGuiApplication>
+#include <QScreen>
 
 QtTokenImportDialog::QtTokenImportDialog(QWidget* parent)
     : QDialog(parent),
@@ -28,7 +33,17 @@ QtTokenImportDialog::QtTokenImportDialog(QWidget* parent)
       m_cancelButton(nullptr)
 {
     setModal(true);
-    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+
+    // Resize to the entire screen for a fullscreen overlay effect
+    if (auto* screen = QGuiApplication::primaryScreen()) {
+        this->resize(screen->size());
+    } else if (parent) {
+        this->resize(parent->size()); // Fallback to parent size
+    }
+
+    // Remove default window decorations and enable translucency for a modern, floating card look
+    setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
+    setAttribute(Qt::WA_TranslucentBackground);
 
     setupUI();
 
@@ -51,20 +66,40 @@ QtTokenImportDialog::QtTokenImportDialog(QWidget* parent)
 
 QtTokenImportDialog::~QtTokenImportDialog() {}
 
+void QtTokenImportDialog::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event);
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    // Fill the background with a semi-transparent color to create a "dimmed" effect
+    painter.fillRect(rect(), QColor(0, 0, 0, 150));
+}
+
 void QtTokenImportDialog::setupUI() {
     setWindowTitle("Import Token");
-    setMinimumWidth(500);
-    setMaximumWidth(600);
     setSizeGripEnabled(false);
 
-    QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 24, 24, 24);
-    mainLayout->setSpacing(16);
+    // Main container for the dialog content, styled as a floating card
+    QFrame* card = new QFrame(this);
+    card->setObjectName("card");
+
+    // Make the card responsive
+    card->setMinimumWidth(500);
+    if (auto* screen = QGuiApplication::primaryScreen()) {
+        int screenWidth = screen->size().width();
+        card->setMaximumWidth(std::min(800, screenWidth / 2));
+    } else {
+        card->setMaximumWidth(600);
+    }
+
+    QVBoxLayout* cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(24, 24, 24, 24);
+    cardLayout->setSpacing(16);
 
     // Header section with title and description
     m_titleLabel = new QLabel("Import ERC20 Token", this);
     m_titleLabel->setObjectName("title");
-    mainLayout->addWidget(m_titleLabel);
+    cardLayout->addWidget(m_titleLabel);
 
     QLabel* descriptionLabel = new QLabel(
         "Enter a token contract address to add a custom ERC20 token to your wallet.",
@@ -72,7 +107,7 @@ void QtTokenImportDialog::setupUI() {
     );
     descriptionLabel->setObjectName("description");
     descriptionLabel->setWordWrap(true);
-    mainLayout->addWidget(descriptionLabel);
+    cardLayout->addWidget(descriptionLabel);
 
     // Address input section with better visual grouping
     QFrame* addressSection = new QFrame(this);
@@ -91,20 +126,20 @@ void QtTokenImportDialog::setupUI() {
     m_addressInput->setMaxLength(42);
     addressSectionLayout->addWidget(m_addressInput);
 
-    mainLayout->addWidget(addressSection);
+    cardLayout->addWidget(addressSection);
 
     // Help hint
     QLabel* hintLabel = new QLabel("💡 You can find contract addresses on Etherscan or token websites.", this);
     hintLabel->setObjectName("hintLabel");
     hintLabel->setWordWrap(true);
-    mainLayout->addWidget(hintLabel);
+    cardLayout->addWidget(hintLabel);
 
     // Status label with better visual feedback
     m_statusLabel = new QLabel("", this);
     m_statusLabel->setObjectName("statusLabel");
     m_statusLabel->setWordWrap(true);
     m_statusLabel->setAlignment(Qt::AlignLeft);
-    mainLayout->addWidget(m_statusLabel);
+    cardLayout->addWidget(m_statusLabel);
 
     // Token info display card - enhanced design
     m_infoFrame = new QFrame(this);
@@ -150,10 +185,10 @@ void QtTokenImportDialog::setupUI() {
     infoLayout->addRow(m_decimalsLabel, m_decimalsValueLabel);
 
     infoFrameLayout->addLayout(infoLayout);
-    mainLayout->addWidget(m_infoFrame);
+    cardLayout->addWidget(m_infoFrame);
     m_infoFrame->setVisible(false);
 
-    mainLayout->addStretch();
+    cardLayout->addStretch();
 
     // Buttons with better spacing and hierarchy
     QHBoxLayout* buttonLayout = new QHBoxLayout();
@@ -172,9 +207,19 @@ void QtTokenImportDialog::setupUI() {
     buttonLayout->addStretch();
     buttonLayout->addWidget(m_cancelButton);
     buttonLayout->addWidget(m_importButton);
-    mainLayout->addLayout(buttonLayout);
+    cardLayout->addLayout(buttonLayout);
 
+    // The main layout of the dialog centers the card
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    mainLayout->addWidget(card, 0, Qt::AlignCenter);
     setLayout(mainLayout);
+
+    // Add drop shadow for a floating effect
+    QGraphicsDropShadowEffect* shadowEffect = new QGraphicsDropShadowEffect(this);
+    shadowEffect->setBlurRadius(30);
+    shadowEffect->setColor(QColor(0, 0, 0, 100));
+    shadowEffect->setOffset(0, 0);
+    card->setGraphicsEffect(shadowEffect);
 }
 
 void QtTokenImportDialog::setEthereumWallet(WalletAPI::EthereumWallet* ethereumWallet) {
@@ -295,8 +340,18 @@ void QtTokenImportDialog::applyTheme() {
     QColor secondaryColor = tm.secondaryColor();
     QColor surfaceColor = tm.surfaceColor();
 
-    // Dialog background
-    this->setStyleSheet(QString("QDialog { background-color: %1; }").arg(bg));
+    // Dialog is transparent, card gets the background color
+    this->setStyleSheet("QDialog { background-color: transparent; }");
+    
+    // Card styling
+    if (auto* card = findChild<QFrame*>("card")) {
+        card->setStyleSheet(QString(
+            "QFrame#card {"
+            "   background-color: %1;"
+            "   border-radius: 16px;"
+            "}"
+        ).arg(bg));
+    }
 
     // Title styling - prominent and bold
     if (m_titleLabel) {
@@ -488,6 +543,14 @@ void QtTokenImportDialog::applyTheme() {
     setInfoValueStyle(m_symbolValueLabel);
     setInfoValueStyle(m_decimalsValueLabel);
 
+    // Determine contrasting text color for accent background
+    int luminance = (0.299 * accentColor.red() + 0.587 * accentColor.green() + 0.114 * accentColor.blue());
+    QString textOnAccent = (luminance > 128) ? "#000000" : "#FFFFFF";
+
+    // Determine contrasting text color for disabled background
+    int disabledLuminance = (0.299 * secondaryColor.red() + 0.587 * secondaryColor.green() + 0.114 * secondaryColor.blue());
+    QString textOnDisabled = (disabledLuminance > 128) ? "#000000" : "#FFFFFF";
+
     // Primary button (Import) styling
     QString primaryButtonStyle = QString(R"(
         QPushButton#importButton {
@@ -513,12 +576,12 @@ void QtTokenImportDialog::applyTheme() {
         }
     )")
     .arg(accent)
-    .arg(bg)
+    .arg(textOnAccent)
     .arg(tm.buttonFont().family())
     .arg(accentColor.lighter(120).name())
     .arg(accentColor.darker(120).name())
     .arg(secondary)
-    .arg(disabledText);
+    .arg(textOnDisabled);
     m_importButton->setStyleSheet(primaryButtonStyle);
 
     // Secondary button (Cancel) styling

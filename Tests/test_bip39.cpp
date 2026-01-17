@@ -318,7 +318,7 @@ bool test_MnemonicConsistency() {
 
 bool test_UserRegistration() {
     std::string testUser = "testuser_" + std::to_string(std::time(nullptr));
-    std::string testPassword = "testpass123";
+    std::string testPassword = "ValidPass123!";
     
     // Clear any existing user
     g_users.erase(testUser);
@@ -344,7 +344,7 @@ bool test_UserRegistration() {
 
 bool test_SeedReveal() {
     std::string testUser = "seedtest_" + std::to_string(std::time(nullptr));
-    std::string testPassword = "testpass123";
+    std::string testPassword = "ValidPass123!";
     
     // Create user first
     g_users.erase(testUser);
@@ -373,7 +373,7 @@ bool test_SeedReveal() {
 
 bool test_SeedRestore() {
     std::string testUser = "restoretest_" + std::to_string(std::time(nullptr));
-    std::string testPassword = "testpass123";
+    std::string testPassword = "ValidPass123!";
     
     // Create user first
     g_users.erase(testUser);
@@ -399,7 +399,7 @@ bool test_SeedRestore() {
 
 bool test_InvalidMnemonics() {
     std::string testUser = "invalidtest_" + std::to_string(std::time(nullptr));
-    std::string testPassword = "testpass123";
+    std::string testPassword = "ValidPass123!";
     
     // Create user first
     g_users.erase(testUser);
@@ -432,15 +432,17 @@ bool test_InvalidMnemonics() {
 
 bool test_PasswordValidation() {
     std::vector<std::pair<std::string, bool>> testCases = {
-        {"", false},                    // Empty
-        {"123", false},                 // Too short
-        {"abc", false},                 // Too short, no digits
-        {"123456", false},              // No letters
-        {"abcdef", false},              // No digits
-        {"abc123", true},               // Valid: has letters and digits
-        {"Password123", true},          // Valid
-        {"Test1", false},               // Too short
-        {"VeryLongPasswordWith123Numbers", true}  // Valid long password
+        {"", false},                                // Empty
+        {"short", false},                            // Too short
+        {"nouppercase1!", false},                    // No uppercase
+        {"NOLOWERCASE1!", false},                    // No lowercase
+        {"NoDigit!", false},                         // No digit
+        {"NoSpecial1", false},                       // No special char
+        {"ValidPassword123!", true},                // Valid
+        {"Another_Valid-Pass123", true},             // Valid with different special chars
+        {std::string(129, 'a'), false},              // Too long
+        {"BadLength1!", false},                      // 11 chars, too short
+        {"GoodLength12!", true}                     // 12 chars, valid
     };
     
     for (const auto& testCase : testCases) {
@@ -486,7 +488,7 @@ bool test_UsernameValidation() {
 bool test_MultipleUserRegistrations() {
     std::vector<std::string> testUsers;
     std::string baseUser = "multitest_" + std::to_string(std::time(nullptr));
-    std::string password = "testpass123";
+    std::string password = "ValidPass123!";
     
     // Create multiple users
     for (int i = 0; i < 5; i++) {
@@ -535,7 +537,7 @@ bool test_MultipleUserRegistrations() {
 
 bool test_RateLimiting() {
     std::string testUser = "ratelimittest_" + std::to_string(std::time(nullptr));
-    std::string correctPassword = "testpass123";
+    std::string correctPassword = "CorrectPassword123!";
     std::string wrongPassword = "wrongpass";
 
     // Create user
@@ -1106,8 +1108,5 @@ int main() {
     // REMOVED: Auth::SaveUserDatabase() - insecure plaintext database function
     // Tests use in-memory data; production should persist via Repository layer
 
-    std::cout << "\nTest run completed. Press any key to continue...\n";
-    std::cin.get();
-    
     return runner.allTestsPassed() ? 0 : 1;
 }

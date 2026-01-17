@@ -2,6 +2,7 @@
 
 #include <QDialog>
 #include <optional>
+#include <QPaintEvent>
 
 #include "EthereumService.h"
 
@@ -32,6 +33,9 @@ public:
 
 signals:
     void tokenInfoFetched(bool success, const EthereumService::TokenInfo& tokenInfo);
+
+protected:
+    void paintEvent(QPaintEvent* event) override;
 
 private slots:
     void onAddressChanged(const QString& address);
