@@ -44,7 +44,7 @@ void QtSidebar::setupUI() {
   m_menuButton->setFixedHeight(50); // Only fix height, allow width to expand
   m_navLayout->addWidget(m_menuButton);
 
-  // Connect menu button to toggle sidebar
+  // Connect menu button to toggle sidebargemi
   connect(m_menuButton, &QPushButton::clicked, this, &QtSidebar::toggleSidebar);
 
   // Add some spacing after menu button

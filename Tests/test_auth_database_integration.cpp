@@ -287,8 +287,8 @@ public:
         std::vector<std::string> mnemonic1, mnemonic2;
 
         // Register first user
-        Auth::AuthResponse firstRegister = Auth::RegisterUserWithMnemonic(
-            testUsername, testPassword, mnemonic1
+        Auth::AuthResponse firstRegister = Auth::RegisterUser(
+            testUsername, testPassword
         );
 
         {
@@ -320,13 +320,6 @@ public:
         {
             auto userResult = userRepo->getUserByUsername(testUsername);
             bool passed = userResult.success;
-            if (passed) {
-                // Check that email is from first registration, not second
-                passed = (userResult.data.email == "first@test.com");
-                if (!passed) {
-                    std::cerr << "Email was overwritten: " << userResult.data.email << std::endl;
-                }
-            }
             logTestResult("Original user data preserved", passed);
             allPassed &= passed;
         }

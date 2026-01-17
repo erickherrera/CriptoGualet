@@ -143,7 +143,6 @@ static bool InitializeDatabase() {
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
-        email TEXT,
         password_hash TEXT NOT NULL,
         salt BLOB NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -982,8 +981,7 @@ AuthResponse RegisterUser(const std::string &username,
   // Create user in database (single source of truth)
   int userId = 0;
   try {
-    auto createResult = g_userRepo->createUser(
-        username, "", password); // Empty email for this overload
+    auto createResult = g_userRepo->createUser(username, password);
 
     if (!createResult.success) {
       AUTH_DEBUG_LOG_STREAM(logFile)
@@ -1032,7 +1030,6 @@ AuthResponse RegisterUser(const std::string &username,
     // Populate in-memory cache for frontend compatibility
     User cachedUser;
     cachedUser.username = username;
-    cachedUser.email = "";
     cachedUser.passwordHash = createResult.data.passwordHash;
     cachedUser.privateKey = privateKeyWIF;
     cachedUser.walletAddress = walletAddress;
@@ -1062,98 +1059,7 @@ AuthResponse RegisterUser(const std::string &username,
   }
 }
 
-// Overloaded RegisterUser function with email support (simplified - no seed
-// generation) NOTE: This function is deprecated. Use RegisterUserWithMnemonic
-// for full wallet functionality.
-AuthResponse RegisterUser(const std::string &username, const std::string &email,
-                          const std::string &password) {
-  AUTH_DEBUG_LOG_OPEN(logFile);
-  AUTH_DEBUG_LOG_STREAM(logFile)
-      << "\n=== Simple Registration Attempt (with email, no seed) ===\n"
-      << "Username: '" << username << "'\n"
-      << "Email: '" << email << "'\n"
-      << "Password length: " << password.length() << "\n";
-  AUTH_DEBUG_LOG_FLUSH(logFile);
 
-  // Basic input validation
-  if (username.empty() || password.empty()) {
-    return {AuthResult::INVALID_CREDENTIALS,
-            "Username and password cannot be empty."};
-  }
-
-  // Validate username
-  if (!IsValidUsername(username)) {
-    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Username validation failed\n");
-    return {AuthResult::INVALID_USERNAME,
-            "Invalid username. Must be 3-50 characters, letters, numbers, and "
-            "underscores only."};
-  }
-
-  if (!IsValidPassword(password)) {
-    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Password validation failed\n");
-    return {AuthResult::WEAK_PASSWORD,
-            "Password must be 12-128 characters and include at least one "
-            "uppercase letter, one lowercase letter, one number, and one "
-            "special character."};
-  }
-
-  // Initialize database
-  if (!InitializeDatabase() || !g_userRepo) {
-    AUTH_DEBUG_LOG_WRITE(logFile, "Result: Database initialization failed\n");
-    return {AuthResult::SYSTEM_ERROR,
-            "Failed to initialize database. Please try again."};
-  }
-
-  // Check if user already exists in database
-  try {
-    auto existingUser = g_userRepo->getUserByUsername(username);
-    if (existingUser.success) {
-      AUTH_DEBUG_LOG_WRITE(logFile,
-                           "Result: Username already exists in database\n");
-      return {AuthResult::USER_ALREADY_EXISTS,
-              "Username already exists. Please choose a different username."};
-    }
-  } catch (const std::exception &e) {
-    AUTH_DEBUG_LOG_STREAM(logFile)
-        << "Database: Exception checking existing user: " << e.what() << "\n";
-    AUTH_DEBUG_LOG_FLUSH(logFile);
-    return {AuthResult::SYSTEM_ERROR, "Database error. Please try again."};
-  }
-
-  // Create user in database
-  try {
-    auto createResult = g_userRepo->createUser(username, email, password);
-
-    if (!createResult.success) {
-      AUTH_DEBUG_LOG_STREAM(logFile)
-          << "Database: ERROR - Failed to create user: "
-          << createResult.errorMessage << "\n";
-      AUTH_DEBUG_LOG_FLUSH(logFile);
-      return {AuthResult::SYSTEM_ERROR,
-              "Failed to create account. Please try again."};
-    }
-
-    // Populate in-memory cache for frontend compatibility (no wallet keys)
-    User cachedUser;
-    cachedUser.username = username;
-    cachedUser.email = email;
-    cachedUser.passwordHash = createResult.data.passwordHash;
-    cachedUser.privateKey = ""; // No wallet in this simplified registration
-    cachedUser.walletAddress = "";
-    g_users[username] = cachedUser;
-
-    AUTH_DEBUG_LOG_WRITE(
-        logFile, "Result: SUCCESS - Simple user registered (no wallet)\n");
-
-  } catch (const std::exception &e) {
-    AUTH_DEBUG_LOG_STREAM(logFile)
-        << "Database: EXCEPTION during registration: " << e.what() << "\n";
-    AUTH_DEBUG_LOG_FLUSH(logFile);
-    return {AuthResult::SYSTEM_ERROR, "Registration failed. Please try again."};
-  }
-
-  return {AuthResult::SUCCESS, "Account created successfully."};
-}
 
 AuthResponse RegisterUserWithMnemonic(const std::string &username,
                                       const std::string &password,
@@ -1242,7 +1148,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
   // Create user in database (single source of truth)
   int userId = 0;
   try {
-    auto createResult = g_userRepo->createUser(username, "", password);
+    auto createResult = g_userRepo->createUser(username, password);
 
     if (!createResult.success) {
       AUTH_DEBUG_LOG_STREAM(logFile)
@@ -1317,7 +1223,6 @@ AuthResponse RegisterUserWithMnemonic(const std::string &username,
     // Populate in-memory cache for frontend compatibility
     User cachedUser;
     cachedUser.username = username;
-    cachedUser.email = "";
     cachedUser.passwordHash = createResult.data.passwordHash;
     cachedUser.privateKey = privateKeyWIF;
     cachedUser.walletAddress = walletAddress;

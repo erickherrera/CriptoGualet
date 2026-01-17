@@ -34,11 +34,10 @@ public:
     /**
      * @brief Create a new user account
      * @param username Unique username (minimum 3 characters)
-     * @param email User email address
      * @param password User password (will be hashed with salt)
      * @return Result containing the created user or error information
      */
-    Result<User> createUser(const std::string& username, const std::string& email, const std::string& password);
+    Result<User> createUser(const std::string& username, const std::string& password);
 
     /**
      * @brief Authenticate a user with username and password
@@ -151,6 +150,8 @@ private:
      * @return Result indicating if username is valid
      */
     Result<bool> validateUsername(const std::string& username);
+
+
 
     /**
      * @brief Generate secure random salt

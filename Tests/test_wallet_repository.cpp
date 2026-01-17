@@ -14,7 +14,7 @@ constexpr const char* TEST_DB_PATH = "test_wallet_repo.db";
 
 // Helper: Create test user
 static int createTestUser(Repository::UserRepository& userRepo, const std::string& username) {
-    auto result = userRepo.createUser(username, username + "@example.com", "SecurePass123!");
+    auto result = userRepo.createUser(username, "SecurePass123!");
     return result.hasValue() ? result->id : -1;
 }
 

@@ -38,9 +38,6 @@ bool VerifyPassword(const std::string &password, const std::string &stored);
 // High-level user flows with detailed error messages:
 AuthResponse RegisterUser(const std::string &username,
                           const std::string &password);
-AuthResponse RegisterUser(const std::string &username,
-                          const std::string &email,
-                          const std::string &password);
 
 // Extended registration that also returns the mnemonic for secure display
 AuthResponse RegisterUserWithMnemonic(const std::string &username,

@@ -92,7 +92,6 @@ inline bool createFullSchema(Database::DatabaseManager& dbManager) {
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL UNIQUE,
-            email TEXT NOT NULL,
             password_hash TEXT NOT NULL,
             salt BLOB NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -257,7 +256,7 @@ inline bool initializeTestDatabase(Database::DatabaseManager& dbManager,
 inline int createTestUser(Repository::UserRepository& userRepo,
                          const std::string& username,
                          const std::string& password = "SecurePass123!") {
-    auto result = userRepo.createUser(username, username + "@example.com", password);
+    auto result = userRepo.createUser(username, password);
     return result.hasValue() ? result->id : -1;
 }
 

@@ -31,7 +31,7 @@ int main() {
     std::cout << "\n1. Testing registration with mnemonic generation..." << std::endl;
 
     std::vector<std::string> mnemonic;
-    Auth::AuthResponse response = Auth::RegisterUserWithMnemonic("testuser_secure", "password123", mnemonic);
+    Auth::AuthResponse response = Auth::RegisterUserWithMnemonic("testuser_secure", "Password123!", mnemonic);
 
     if (response.success()) {
         std::cout << "   ✅ Registration successful: " << response.message << std::endl;
@@ -100,7 +100,7 @@ int main() {
 
     std::string seedHex;
     std::optional<std::string> retrievedMnemonic;
-    Auth::AuthResponse revealResponse = Auth::RevealSeed("testuser_secure", "password123", seedHex, retrievedMnemonic);
+    Auth::AuthResponse revealResponse = Auth::RevealSeed("testuser_secure", "Password123!", seedHex, retrievedMnemonic);
 
     if (revealResponse.success()) {
         std::cout << "   ✅ Seed retrieval successful" << std::endl;

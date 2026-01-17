@@ -23,7 +23,7 @@ bool testCompleteUserWalletWorkflow(Repository::UserRepository& userRepo,
 
     // Step 1: Create User
     TEST_STEP("Creating user 'alice'");
-    auto userResult = userRepo.createUser("alice", "alice@example.com", "SecurePass123!");
+    auto userResult = userRepo.createUser("alice", "SecurePass123!");
     TEST_ASSERT(userResult.hasValue(), "User creation should succeed");
     int userId = userResult->id;
     std::cout << "    User ID: " << userId << std::endl;
@@ -167,12 +167,12 @@ bool testMultiUserScenario(Repository::UserRepository& userRepo,
 
     // Create User 1
     TEST_STEP("Creating User 1 (bob)");
-    auto user1 = userRepo.createUser("bob", "bob@example.com", "BobPass123!");
+    auto user1 = userRepo.createUser("bob", "BobPass123!");
     TEST_ASSERT(user1.hasValue(), "User 1 creation should succeed");
 
     // Create User 2
     TEST_STEP("Creating User 2 (carol)");
-    auto user2 = userRepo.createUser("carol", "carol@example.com", "CarolPass123!");
+    auto user2 = userRepo.createUser("carol", "CarolPass123!");
     TEST_ASSERT(user2.hasValue(), "User 2 creation should succeed");
 
     // Create wallets for both users
@@ -223,8 +223,8 @@ bool testErrorHandlingAndRollback(Repository::UserRepository& userRepo,
 
     // Test duplicate username
     TEST_STEP("Testing duplicate username detection");
-    userRepo.createUser("duplicate", "duplicate@example.com", "Pass123!");
-    auto duplicateResult = userRepo.createUser("duplicate", "different@example.com", "Pass123!");
+    userRepo.createUser("duplicate", "Pass123!");
+    auto duplicateResult = userRepo.createUser("duplicate", "Pass123!");
     TEST_ASSERT(!duplicateResult.hasValue(), "Duplicate username should fail");
     TEST_ASSERT(duplicateResult.errorCode == 409, "Error code should be 409");
 
@@ -236,7 +236,7 @@ bool testErrorHandlingAndRollback(Repository::UserRepository& userRepo,
 
     // Test invalid wallet name
     TEST_STEP("Testing invalid wallet creation");
-    auto user = userRepo.createUser("testuser", "test@example.com", "Pass123!");
+    auto user = userRepo.createUser("testuser", "Pass123!");
     auto invalidWallet = walletRepo.createWallet(user->id, "", "bitcoin"); // Empty name
     TEST_ASSERT(!invalidWallet.hasValue(), "Empty wallet name should fail");
 
