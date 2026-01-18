@@ -3,6 +3,9 @@
 #include "Auth.h"
 #include "SessionManager.h"
 
+// Forward declaration for Qt dialog
+class QtSeedDisplayDialog;
+
 namespace Auth {
 
 class AuthManager {

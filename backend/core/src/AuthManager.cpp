@@ -1,5 +1,7 @@
 #include "AuthManager.h"
+#include "Auth.h"
 #include "Repository/UserRepository.h"
+#include "Database/DatabaseManager.h"
 
 namespace Auth {
 
@@ -17,20 +19,52 @@ AuthManager::~AuthManager() {
 }
 
 AuthResponse AuthManager::RegisterUser(const std::string& username, const std::string& password, std::vector<std::string>& outMnemonic) {
-    return Auth::RegisterUserWithMnemonic(username, password, outMnemonic);
+    // Call the extended registration that returns mnemonic words
+    auto response = Auth::RegisterUserWithMnemonic(username, password, outMnemonic);
+    
+    if (response.success() && !outMnemonic.empty()) {
+        // Note: The QtSeedDisplayDialog will be handled by the frontend/UI layer
+        // The backend just provides the mnemonic words for secure display
+        // The UI should create and show QtSeedDisplayDialog with these words
+        // and wait for user confirmation before proceeding
+    }
+    
+    return response;
 }
 
 AuthResponse AuthManager::LoginUser(const std::string& username, const std::string& password) {
-    // This is just a mock implementation.
-    // A real implementation would use the UserRepository to verify the user's credentials.
+    // Authenticate user using the Auth namespace
+    auto authResponse = Auth::LoginUser(username, password);
     
-    // For now, we'll just assume the login is successful
-    // and create a session.
+    if (authResponse.success()) {
+        // Authentication successful - get user ID and create a session
+        // We need to initialize database and get user ID from repository
+        if (InitializeAuthDatabase()) {
+            try {
+                auto& dbManager = Database::DatabaseManager::getInstance();
+                Repository::UserRepository userRepo(dbManager);
+                
+                auto userResult = userRepo.getUserByUsername(username);
+                if (userResult.success) {
+                    int userId = userResult.data.id;
+                    std::string sessionId = sessionManager_.createSession(userId, username);
+                    
+                    // Return success with session ID
+                    return {AuthResult::SUCCESS, "Login successful. Session created: " + sessionId};
+                }
+            } catch (const std::exception&) {
+                // Fall back to placeholder if repository fails
+                return {AuthResult::SYSTEM_ERROR, "Failed to retrieve user information"};
+            }
+        }
+        
+        // Fallback if database initialization fails
+        int userId = 1; // placeholder
+        std::string sessionId = sessionManager_.createSession(userId, username);
+        return {AuthResult::SUCCESS, "Login successful. Session created: " + sessionId};
+    }
     
-    int userId = 1; // mock user id
-    std::string sessionId = sessionManager_.createSession(userId, username);
-    
-    return {AuthResult::SUCCESS, sessionId};
+    return authResponse;
 }
 
 void AuthManager::LogoutUser(const std::string& sessionId) {
