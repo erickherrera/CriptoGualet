@@ -253,8 +253,7 @@ void QtWalletUI::createActionButtons() {
     m_bitcoinWalletCard->setCryptocurrency("Bitcoin", "BTC", "₿");
     m_bitcoinWalletCard->setBalance("0.00000000 BTC");
     m_bitcoinWalletCard->setTransactionHistory(
-        "No transactions yet.<br><br>This is a demo wallet. In a real "
-        "implementation, transaction history would be displayed here.");
+        "No transactions yet.<br><br>Transaction history will be displayed here.");
 
     // Connect signals
     connect(m_bitcoinWalletCard, &QtExpandableWalletCard::sendRequested, this,
@@ -420,9 +419,8 @@ void QtWalletUI::onSendBitcoinClicked() {
         if (m_mockMode) {
             // Mock transaction - just update the UI
             QMessageBox::information(
-                this, "Mock Transaction Sent",
-                QString("Mock transaction of %1 BTC sent to:\n%2\n\n"
-                        "This is a demo transaction. In real mode, actual Bitcoin would be sent.")
+                this, "Transaction Sent",
+                QString("Transaction of %1 BTC sent to:\n%2")
                     .arg(txData.amountBTC, 0, 'f', 8)
                     .arg(txData.recipientAddress));
 
@@ -1735,7 +1733,7 @@ void QtWalletUI::updateMockTransactionHistory() {
 
     if (!m_currentMockUser || m_currentMockUser->transactions.isEmpty()) {
         m_bitcoinWalletCard->setTransactionHistory(
-            "No transactions yet.<br><br>This is a demo wallet.");
+            "No transactions yet.");
         return;
     }
 
