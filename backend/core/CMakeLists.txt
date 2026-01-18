@@ -30,9 +30,9 @@ endif()
 add_library(Auth STATIC
   "Auth.cpp"
   "include/Auth.h"
-  "src/SessionManager.cpp"
+  "SessionManager.cpp"
   "include/SessionManager.h"
-  "src/AuthManager.cpp"
+  "AuthManager.cpp"
   "include/AuthManager.h"
 )
 target_include_directories(Auth PUBLIC
