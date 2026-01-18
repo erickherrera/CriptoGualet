@@ -32,7 +32,7 @@ class CriptoGualetQt : public QMainWindow {
 
   public slots:
     void showLoginScreen();
-    void showWalletScreen();
+    void showWalletScreen(const QString& sessionId = "");
     void showSettingsScreen();
     void showTopCryptosPage();
     void onThemeChanged();

@@ -6,12 +6,14 @@ add_library(Repository STATIC
   "src/TransactionRepository.cpp"
   "src/TokenRepository.cpp"
   "src/Logger.cpp"
+  "src/SessionRepository.cpp"
   "include/Repository/UserRepository.h"
   "include/Repository/WalletRepository.h"
   "include/Repository/TransactionRepository.h"
   "include/Repository/TokenRepository.h"
   "include/Repository/Logger.h"
   "include/Repository/RepositoryTypes.h"
+  "include/Repository/SessionRepository.h"
 )
 target_include_directories(Repository PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"

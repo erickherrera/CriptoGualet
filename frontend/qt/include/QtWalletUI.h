@@ -70,6 +70,7 @@ class QtWalletUI : public QWidget {
                          Repository::WalletRepository* walletRepo);
     void setTokenRepository(Repository::TokenRepository* tokenRepo);
     void setCurrentUserId(int userId);
+    void setSessionId(const QString& sessionId);
     bool authenticateMockUser(const QString& username, const QString& password);
     void setMockUser(const QString& username);
     void applyTheme();
@@ -186,6 +187,7 @@ class QtWalletUI : public QWidget {
     QLabel* m_statusLabel;  // PHASE 2
 
     // State
+    QString m_sessionId;
     QString m_currentUsername;
     QString m_currentAddress;
     QString m_litecoinAddress;

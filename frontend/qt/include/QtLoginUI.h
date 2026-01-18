@@ -35,6 +35,7 @@ class QtLoginUI : public QWidget {
     void registerRequested(const QString& username, const QString& password);
     void totpVerificationRequired(const QString& username, const QString& password,
                                   const QString& totpCode);
+    void loginSuccessful(const QString& sessionId);
 
   public slots:
     void onLoginResult(bool success, const QString& message);

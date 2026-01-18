@@ -30,6 +30,10 @@ endif()
 add_library(Auth STATIC
   "Auth.cpp"
   "include/Auth.h"
+  "src/SessionManager.cpp"
+  "include/SessionManager.h"
+  "src/AuthManager.cpp"
+  "include/AuthManager.h"
 )
 target_include_directories(Auth PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"

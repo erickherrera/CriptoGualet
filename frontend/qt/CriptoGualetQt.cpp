@@ -108,7 +108,7 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   connect(m_themeManager, &QtThemeManager::themeChanged, this,
           &CriptoGualetQt::onThemeChanged);
 
-  showLoginScreen();
+    connect(m_loginUI, &QtLoginUI::loginSuccessful, this, &CriptoGualetQt::showWalletScreen);
 }
 
 void CriptoGualetQt::setupUI() {
@@ -537,16 +537,18 @@ void CriptoGualetQt::setupUI() {
   });
 
   // Connect top cryptos page back button
-  connect(m_topCryptosPage, &QtTopCryptosPage::backRequested, this,
-          &CriptoGualetQt::showWalletScreen);
+  connect(m_topCryptosPage, &QtTopCryptosPage::backRequested, this, [this]() {
+      showWalletScreen("");
+  });
 }
 
 void CriptoGualetQt::createSidebar() {
   // Sidebar is now created in setupUI() since it needs to be a child of
   // horizontalContainer
   // Connect navigation signals
-  connect(m_sidebar, &QtSidebar::navigateToWallet, this,
-          &CriptoGualetQt::showWalletScreen);
+  connect(m_sidebar, &QtSidebar::navigateToWallet, this, [this]() {
+    showWalletScreen("");
+});
   connect(m_sidebar, &QtSidebar::navigateToTopCryptos, this,
           &CriptoGualetQt::showTopCryptosPage);
   connect(m_sidebar, &QtSidebar::navigateToSettings, this,
@@ -602,7 +604,10 @@ void CriptoGualetQt::showLoginScreen() {
   statusBar()->showMessage("Please log in or create an account");
 }
 
-void CriptoGualetQt::showWalletScreen() {
+void CriptoGualetQt::showWalletScreen(const QString& sessionId) {
+  if (!sessionId.isEmpty()) {
+    m_walletUI->setSessionId(sessionId);
+  }
   m_stackedWidget->setCurrentWidget(m_walletUI);
   updateSidebarVisibility();
   statusBar()->showMessage(

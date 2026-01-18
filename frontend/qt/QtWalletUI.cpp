@@ -1,5 +1,6 @@
 // QtWalletUI.cpp
 #include "QtWalletUI.h"
+#include "../../backend/core/include/AuthManager.h"
 #include "../../backend/blockchain/include/PriceService.h"
 #include "../../backend/core/include/Crypto.h"
 #include "QtExpandableWalletCard.h"
@@ -376,6 +377,17 @@ void QtWalletUI::setUserInfo(const QString& username, const QString& address) {
     m_currentUsername = username;
     m_currentAddress = address;
 
+    UserSession* session = Auth::AuthManager::getInstance().getSession(m_sessionId.toStdString());
+    if (session) {
+        m_realBalanceBTC = session->walletData.btcBalance;
+        m_realBalanceLTC = session->walletData.ltcBalance;
+        m_realBalanceETH = session->walletData.ethBalance;
+        m_bitcoinWalletCard->setBalance(QString("%1 BTC").arg(m_realBalanceBTC, 0, 'f', 8));
+        m_litecoinWalletCard->setBalance(QString("%1 LTC").arg(m_realBalanceLTC, 0, 'f', 8));
+        m_ethereumWalletCard->setBalance(QString("%1 ETH").arg(m_realBalanceETH, 0, 'f', 8));
+        updateUSDBalance();
+    }
+
     // Fetch real balance when address is set
     if (m_wallet && !address.isEmpty()) {
         fetchRealBalance();
@@ -401,9 +413,13 @@ void QtWalletUI::onViewBalanceClicked() {
 }
 
 void QtWalletUI::onSendBitcoinClicked() {
-    // Determine current balance to use
-    double currentBalance =
-        m_mockMode ? (m_currentMockUser ? m_currentMockUser->balance : 0.0) : m_realBalanceBTC;
+    UserSession* session = Auth::AuthManager::getInstance().getSession(m_sessionId.toStdString());
+    if (!session) {
+        QMessageBox::critical(this, "Error", "Session not found");
+        return;
+    }
+
+    double currentBalance = session->walletData.btcBalance;
 
     // Create and show send dialog
     QtSendDialog dialog(QtSendDialog::ChainType::BITCOIN, currentBalance, m_currentBTCPrice, this);
@@ -415,55 +431,33 @@ void QtWalletUI::onSendBitcoinClicked() {
 
         auto txData = txDataOpt.value();
 
-        // Handle mock mode differently
-        if (m_mockMode) {
-            // Mock transaction - just update the UI
-            QMessageBox::information(
-                this, "Transaction Sent",
-                QString("Transaction of %1 BTC sent to:\n%2")
-                    .arg(txData.amountBTC, 0, 'f', 8)
-                    .arg(txData.recipientAddress));
+        if (!m_wallet) {
+            QMessageBox::critical(this, "Error", "Wallet not initialized");
+            return;
+        }
 
-            // Update mock balance
-            if (m_currentMockUser) {
-                double feeBTC = static_cast<double>(txData.estimatedFeeSatoshis) / 100000000.0;
-                m_currentMockUser->balance -= (txData.amountBTC + feeBTC);
-                updateUSDBalance();
-                if (m_bitcoinWalletCard) {
-                    m_bitcoinWalletCard->setBalance(
-                        QString("%1 BTC").arg(m_currentMockUser->balance, 0, 'f', 8));
-                }
-            }
-        } else {
-            // Real transaction mode
-            if (!m_wallet) {
-                QMessageBox::critical(this, "Error", "Wallet not initialized");
-                return;
-            }
+        try {
+            // Show progress indicator
+            QMessageBox* progressBox = new QMessageBox(this);
+            progressBox->setWindowTitle("Sending Transaction");
+            progressBox->setText("Broadcasting transaction to the network...\nPlease wait.");
+            progressBox->setStandardButtons(QMessageBox::NoButton);
+            progressBox->setModal(true);
+            progressBox->show();
+            QApplication::processEvents();
 
-            try {
-                // Show progress indicator
-                QMessageBox* progressBox = new QMessageBox(this);
-                progressBox->setWindowTitle("Sending Transaction");
-                progressBox->setText("Broadcasting transaction to the network...\nPlease wait.");
-                progressBox->setStandardButtons(QMessageBox::NoButton);
-                progressBox->setModal(true);
-                progressBox->show();
-                QApplication::processEvents();
+            // Send the real transaction
+            sendRealTransaction(txData.recipientAddress, txData.amountSatoshis,
+                                txData.estimatedFeeSatoshis, txData.password);
 
-                // Send the real transaction
-                sendRealTransaction(txData.recipientAddress, txData.amountSatoshis,
-                                    txData.estimatedFeeSatoshis, txData.password);
+            progressBox->close();
+            delete progressBox;
 
-                progressBox->close();
-                delete progressBox;
-
-                // Refresh balance after sending
-                fetchRealBalance();
-            } catch (const std::exception& e) {
-                QMessageBox::critical(this, "Transaction Failed",
-                                      QString("Failed to send transaction:\n%1").arg(e.what()));
-            }
+            // Refresh balance after sending
+            fetchRealBalance();
+        } catch (const std::exception& e) {
+            QMessageBox::critical(this, "Transaction Failed",
+                                  QString("Failed to send transaction:\n%1").arg(e.what()));
         }
     }
 
@@ -2493,3 +2487,4 @@ QString QtWalletUI::formatEthereumTransactionHistory(
     historyHtml += "</div>";
     return historyHtml;
 }
+void QtWalletUI::setSessionId(const QString& sessionId) { m_sessionId = sessionId; }

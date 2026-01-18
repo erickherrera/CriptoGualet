@@ -1,5 +1,6 @@
 // QtLoginUI.cpp
 #include "QtLoginUI.h"
+#include "../../backend/core/include/AuthManager.h"
 #include "../../backend/core/include/Auth.h"
 #include "QtThemeManager.h"
 
@@ -335,7 +336,10 @@ void QtLoginUI::onLoginClicked() {
     }
 
     showMessage("Signing in...", false);
-    emit loginRequested(username, password);
+    
+    Auth::AuthResponse response = Auth::AuthManager::getInstance().LoginUser(username.toStdString(), password.toStdString());
+
+    onLoginResult(response.success(), QString::fromStdString(response.message));
 }
 
 void QtLoginUI::onRegisterClicked() {
@@ -364,7 +368,10 @@ void QtLoginUI::onRegisterClicked() {
     }
 
     showMessage("Creating account... generating your seed phrase securely.", false);
-    emit registerRequested(username, password);
+    
+    Auth::AuthResponse response = Auth::AuthManager::getInstance().RegisterUser(username.toStdString(), password.toStdString());
+
+    onRegisterResult(response.success(), QString::fromStdString(response.message));
 }
 
 void QtLoginUI::onRegisterModeToggled(bool registerMode) {
@@ -389,42 +396,46 @@ void QtLoginUI::onRegisterModeToggled(bool registerMode) {
 }
 
 void QtLoginUI::onLoginResult(bool success, const QString& message) {
-    // Check if login requires TOTP (2FA is enabled)
-    if (!success && message.startsWith("TOTP_REQUIRED:", Qt::CaseSensitive)) {
-        // User exists and password is correct, but 2FA is enabled
-        const QString username = m_loginUsernameEdit->text().trimmed();
-        const QString password = m_loginPasswordEdit->text();
-
-        // Show TOTP input dialog
-        QDialog totpDialog(this);
-        totpDialog.setWindowTitle("Two-Factor Authentication");
-        QVBoxLayout* layout = new QVBoxLayout(&totpDialog);
-        QLabel* label =
-            new QLabel("Enter your 6-digit TOTP code from your authenticator app:", &totpDialog);
-        QLineEdit* codeEdit = new QLineEdit(&totpDialog);
-        codeEdit->setPlaceholderText("000000");
-        QDialogButtonBox* box = new QDialogButtonBox(
-            QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &totpDialog);
-        layout->addWidget(label);
-        layout->addWidget(codeEdit);
-        layout->addWidget(box);
-        connect(box, &QDialogButtonBox::accepted, &totpDialog, &QDialog::accept);
-        connect(box, &QDialogButtonBox::rejected, &totpDialog, &QDialog::reject);
-
-        if (totpDialog.exec() == QDialog::Accepted) {
-            QString totpCode = codeEdit->text();
-            showMessage("Verifying TOTP code...", false);
-            emit totpVerificationRequired(username, password, totpCode);
-        } else {
-            showMessage("Login cancelled.", true);
-        }
+    if (success) {
+        emit loginSuccessful(message);
     } else {
-        // Normal login result - show the message as-is
-        showMessage(message, !success);
-    }
+        // Check if login requires TOTP (2FA is enabled)
+        if (message.startsWith("TOTP_REQUIRED:", Qt::CaseSensitive)) {
+            // User exists and password is correct, but 2FA is enabled
+            const QString username = m_loginUsernameEdit->text().trimmed();
+            const QString password = m_loginPasswordEdit->text();
 
-    if (!success) {
-        m_loginPasswordEdit->clear();
+            // Show TOTP input dialog
+            QDialog totpDialog(this);
+            totpDialog.setWindowTitle("Two-Factor Authentication");
+            QVBoxLayout* layout = new QVBoxLayout(&totpDialog);
+            QLabel* label =
+                new QLabel("Enter your 6-digit TOTP code from your authenticator app:", &totpDialog);
+            QLineEdit* codeEdit = new QLineEdit(&totpDialog);
+            codeEdit->setPlaceholderText("000000");
+            QDialogButtonBox* box = new QDialogButtonBox(
+                QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &totpDialog);
+            layout->addWidget(label);
+            layout->addWidget(codeEdit);
+            layout->addWidget(box);
+            connect(box, &QDialogButtonBox::accepted, &totpDialog, &QDialog::accept);
+            connect(box, &QDialogButtonBox::rejected, &totpDialog, &QDialog::reject);
+
+            if (totpDialog.exec() == QDialog::Accepted) {
+                QString totpCode = codeEdit->text();
+                showMessage("Verifying TOTP code...", false);
+                emit totpVerificationRequired(username, password, totpCode);
+            } else {
+                showMessage("Login cancelled.", true);
+            }
+        } else {
+            // Normal login result - show the message as-is
+            showMessage(message, !success);
+        }
+
+        if (!success) {
+            m_loginPasswordEdit->clear();
+        }
     }
 }
 
