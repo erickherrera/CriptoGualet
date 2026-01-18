@@ -16,10 +16,8 @@ AuthManager::~AuthManager() {
     //
 }
 
-AuthResponse AuthManager::RegisterUser(const std::string& username, const std::string& password) {
-    // This is just a mock implementation.
-    // A real implementation would use the UserRepository to store the user.
-    return {AuthResult::SUCCESS, "User registered successfully"};
+AuthResponse AuthManager::RegisterUser(const std::string& username, const std::string& password, std::vector<std::string>& outMnemonic) {
+    return Auth::RegisterUserWithMnemonic(username, password, outMnemonic);
 }
 
 AuthResponse AuthManager::LoginUser(const std::string& username, const std::string& password) {

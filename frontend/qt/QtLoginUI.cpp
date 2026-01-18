@@ -1,5 +1,6 @@
 // QtLoginUI.cpp
 #include "QtLoginUI.h"
+#include "QtSeedDisplayDialog.h"
 #include "../../backend/core/include/AuthManager.h"
 #include "../../backend/core/include/Auth.h"
 #include "QtThemeManager.h"
@@ -369,7 +370,13 @@ void QtLoginUI::onRegisterClicked() {
 
     showMessage("Creating account... generating your seed phrase securely.", false);
     
-    Auth::AuthResponse response = Auth::AuthManager::getInstance().RegisterUser(username.toStdString(), password.toStdString());
+    std::vector<std::string> mnemonic;
+    Auth::AuthResponse response = Auth::AuthManager::getInstance().RegisterUser(username.toStdString(), password.toStdString(), mnemonic);
+
+    if (response.success() && !mnemonic.empty()) {
+        QtSeedDisplayDialog seedDialog(mnemonic, this);
+        seedDialog.exec();
+    }
 
     onRegisterResult(response.success(), QString::fromStdString(response.message));
 }

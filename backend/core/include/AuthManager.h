@@ -9,7 +9,7 @@ class AuthManager {
 public:
     static AuthManager& getInstance();
 
-    AuthResponse RegisterUser(const std::string& username, const std::string& password);
+    AuthResponse RegisterUser(const std::string& username, const std::string& password, std::vector<std::string>& outMnemonic);
     AuthResponse LoginUser(const std::string& username, const std::string& password);
     void LogoutUser(const std::string& sessionId);
     UserSession* getSession(const std::string& sessionId);
