@@ -17,15 +17,16 @@ QtTokenCard::QtTokenCard(QtThemeManager* themeManager, QWidget* parent)
     connect(m_networkManager, &QNetworkAccessManager::finished, this, &QtTokenCard::onIconDownloaded);
 }
 
-void QtTokenCard::setTokenData(const TokenCardData& data) {
-    m_tokenData = data;
+void QtTokenCard::setTokenData(const TokenCardData& tokenData) {
+    m_tokenData = tokenData;
 
-    m_tokenSymbol->setText(data.symbol);
-    m_tokenName->setText(data.name);
-    m_tokenBalance->setText(data.balance);
-    m_tokenBalanceUSD->setText(data.balanceUSD);
+    m_tokenSymbol->setText(tokenData.symbol);
+    m_tokenName->setText(tokenData.name);
+    m_tokenBalance->setText(tokenData.balance);
+    m_tokenBalanceUSD->setText(tokenData.balanceUSD);
 
-    QString iconUrl = getTokenIconUrl(data.symbol);
+    // Load icon for token using symbol-based URL like the other overload
+    QString iconUrl = getTokenIconUrl(tokenData.symbol);
     QNetworkRequest request{QUrl(iconUrl)};
     request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
@@ -97,9 +98,9 @@ void QtTokenCard::onSendClicked() {
 
 void QtTokenCard::onIconDownloaded(QNetworkReply* reply) {
     if (reply->error() == QNetworkReply::NoError) {
-        QByteArray data = reply->readAll();
+        QByteArray iconData = reply->readAll();
         QPixmap pixmap;
-        if (pixmap.loadFromData(data)) {
+        if (pixmap.loadFromData(iconData)) {
             m_tokenIcon->setPixmap(pixmap.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         } else {
             setFallbackIcon();

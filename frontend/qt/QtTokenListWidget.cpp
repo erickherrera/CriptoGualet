@@ -125,6 +125,7 @@ void QtTokenListWidget::onImportClicked() {
 }
 
 void QtTokenListWidget::onSearchChanged(const QString& text) {
+    (void)text; // Suppress unused parameter warning
     updateTokenVisibility();
 }
 
@@ -198,16 +199,16 @@ void QtTokenListWidget::updateTokenVisibility() {
 
     for (auto it = m_tokenCards.begin(); it != m_tokenCards.end(); ++it) {
         QtTokenCard* card = it.value();
-        TokenCardData data = card->getTokenData();
+        TokenCardData tokenData = card->getTokenData();
 
         bool matchesSearch = searchText.isEmpty() ||
-                            data.symbol.toLower().contains(searchText) ||
-                            data.name.toLower().contains(searchText) ||
-                            data.contractAddress.toLower().contains(searchText);
+                            tokenData.symbol.toLower().contains(searchText) ||
+                            tokenData.name.toLower().contains(searchText) ||
+                            tokenData.contractAddress.toLower().contains(searchText);
 
         card->setVisible(matchesSearch);
         if (matchesSearch) {
-            visibleCards.append(qMakePair(data.contractAddress, card));
+            visibleCards.append(qMakePair(tokenData.contractAddress, card));
         }
     }
 
@@ -254,5 +255,7 @@ void QtTokenListWidget::showTokenList() {
 }
 
 QString QtTokenListWidget::calculateTokenUSD(const QString& balance, const QString& symbol) {
+    (void)balance; // Suppress unused parameter warning
+    (void)symbol;  // Suppress unused parameter warning
     return "$0.00";
 }

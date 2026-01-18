@@ -26,7 +26,7 @@ public:
     explicit QtTokenCard(QtThemeManager* themeManager, QWidget* parent = nullptr);
     ~QtTokenCard() override = default;
 
-    void setTokenData(const TokenCardData& data);
+    void setTokenData(const TokenCardData& tokenData);
     void setTokenData(const QString& contractAddress, const QString& name, const QString& symbol, int decimals);
     void setBalance(const QString& balance);
     void setBalanceUSD(const QString& balanceUSD);

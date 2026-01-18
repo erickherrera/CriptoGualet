@@ -445,6 +445,7 @@ static bool testEthereumAddressGeneration(Repository::WalletRepository& walletRe
         std::string addr = addressResult->address;
         bool validFormat = (addr.length() == 42 && addr.substr(0, 2) == "0x");
         std::cout << "    Generated Ethereum address: " << addr << std::endl;
+        std::cout << "    Address format validation: " << (validFormat ? "PASS" : "FAIL") << std::endl;
         TEST_PASS();
     }
 }

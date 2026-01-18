@@ -8,6 +8,7 @@
 #include "QtSeedDisplayDialog.h"
 #include "QtSettingsUI.h"
 #include "QtSidebar.h"
+#include "include/QtSuccessDialog.h"
 #include "QtThemeManager.h"
 #include "QtTopCryptosPage.h"
 #include "QtWalletUI.h"
@@ -265,12 +266,8 @@ void CriptoGualetQt::setupUI() {
                     statusBar()->showMessage("Registration and backup completed", 3000);
 
                     // Registration complete - show success message
-                    QMessageBox::information(
-                        this, "Registration Complete",
-                        QString("Account created for %1!\n\nYour seed phrase has been "
-                                "securely backed up.\n"
-                                "You can now sign in with your credentials.")
-                            .arg(username));
+                    QtSuccessDialog successDialog(username, this);
+                    successDialog.exec();
 
                     // Clear registration fields and switch to sign in
                     m_loginUI->onRegisterResult(true, "Account created and seed phrase backed up!");

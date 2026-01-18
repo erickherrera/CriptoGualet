@@ -412,9 +412,9 @@ void QtLoginUI::onLoginResult(bool success, const QString& message) {
         connect(box, &QDialogButtonBox::rejected, &totpDialog, &QDialog::reject);
 
         if (totpDialog.exec() == QDialog::Accepted) {
-            QString code = codeEdit->text();
+            QString totpCode = codeEdit->text();
             showMessage("Verifying TOTP code...", false);
-            emit totpVerificationRequired(username, password, code);
+            emit totpVerificationRequired(username, password, totpCode);
         } else {
             showMessage("Login cancelled.", true);
         }
