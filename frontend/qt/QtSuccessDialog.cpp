@@ -75,48 +75,51 @@ void QtSuccessDialog::setupUI() {
     m_card = new QFrame(this);
     m_card->setObjectName("successCard");
     
-    // Make card responsive
-    m_card->setMinimumWidth(320);
+    // Make card responsive with better minimum size for content, prevent width conflict
+    m_card->setMinimumWidth(280); // Adjusted from 340
+    m_card->setMinimumHeight(280);
     m_card->setMaximumWidth(m_dialogWidth);
-    m_card->setMaximumHeight(m_dialogHeight);
+    // Prevent card from growing beyond screen height
+    m_card->setMaximumHeight(m_screenGeometry.height());
     
-    // Card layout with better spacing
+    // Card layout with optimized spacing for content fit
     m_cardLayout = new QVBoxLayout(m_card);
-    int margin = std::max(24, std::min(36, static_cast<int>(m_screenGeometry.width() * 0.025)));
+    int margin = std::max(20, std::min(32, static_cast<int>(m_screenGeometry.width() * 0.02)));
     m_cardLayout->setContentsMargins(margin, margin, margin, margin);
-    m_cardLayout->setSpacing(16);
+    m_cardLayout->setSpacing(12); // Reduced from 16 to 12 for better space
     
-    // Success icon with improved design
+    // Success icon with conservative sizing for better fit
     m_successIcon = new QLabel(m_card);
     m_successIcon->setObjectName("successIcon");
     m_successIcon->setAlignment(Qt::AlignCenter);
     m_successIcon->setText("✓");
     
-    // More conservative icon sizing for better fit
-    int iconSize = std::max(32, std::min(42, static_cast<int>(m_screenGeometry.height() * 0.045)));
+    // Reduced icon size to save space
+    int iconSize = std::max(28, std::min(36, static_cast<int>(m_screenGeometry.height() * 0.04)));
     QFont iconFont = m_successIcon->font();
     iconFont.setFamily("Arial");
     iconFont.setPointSize(iconSize);
     iconFont.setBold(true);
     m_successIcon->setFont(iconFont);
     
-    // Calculate responsive font sizes
-    int baseFontSize = std::max(13, std::min(15, static_cast<int>(m_screenGeometry.height() * 0.018)));
-    int titleFontSize = std::max(18, std::min(22, static_cast<int>(m_screenGeometry.height() * 0.023)));
+    // Calculate responsive font sizes - slightly reduced for better fit
+    int baseFontSize = std::max(12, std::min(14, static_cast<int>(m_screenGeometry.height() * 0.016)));
+    int titleFontSize = std::max(16, std::min(20, static_cast<int>(m_screenGeometry.height() * 0.021)));
     
     // Title with improved styling
     m_titleLabel = new QLabel("Account Created Successfully", m_card);
     m_titleLabel->setObjectName("successTitle");
     m_titleLabel->setAlignment(Qt::AlignCenter);
+    m_titleLabel->setWordWrap(true); // Added word wrap for long titles
     QFont titleFont = m_titleLabel->font();
     titleFont.setFamily("Arial");
     titleFont.setPointSize(titleFontSize);
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
     
-    // Message with improved formatting
+    // Message with improved formatting - using proper HTML for spacing
     m_messageLabel = new QLabel(
-        QString("Account created for %1\nYour seed phrase has been securely backed up")
+        QString("Account created for %1<br>Your seed phrase has been securely backed up")
         .arg(m_username), m_card);
     m_messageLabel->setObjectName("successMessage");
     m_messageLabel->setAlignment(Qt::AlignCenter);
@@ -133,19 +136,19 @@ void QtSuccessDialog::setupUI() {
     m_infoLabel->setWordWrap(true);
     QFont infoFont = m_infoLabel->font();
     infoFont.setFamily("Arial");
-    infoFont.setPointSize(baseFontSize - 1);
+    infoFont.setPointSize(baseFontSize);
     m_infoLabel->setFont(infoFont);
     
     // OK button with improved styling
     m_okButton = new QPushButton("OK", m_card);
     m_okButton->setObjectName("successButton");
     
-    // Responsive but more compact button sizing
-    int buttonWidth = std::max(100, std::min(130, static_cast<int>(m_screenGeometry.width() * 0.07)));
-    int buttonHeight = std::max(36, std::min(44, static_cast<int>(m_screenGeometry.height() * 0.05)));
+    // Responsive button sizing
+    int buttonWidth = std::max(100, std::min(120, static_cast<int>(m_screenGeometry.width() * 0.06)));
+    int buttonHeight = std::max(32, std::min(40, static_cast<int>(m_screenGeometry.height() * 0.045)));
     m_okButton->setFixedSize(buttonWidth, buttonHeight);
     
-    // Add widgets to card layout with proper spacing
+    // Add widgets to card layout with optimized spacing
     m_cardLayout->addWidget(m_successIcon, 0, Qt::AlignCenter);
     m_cardLayout->addWidget(m_titleLabel, 0, Qt::AlignCenter);
     m_cardLayout->addWidget(m_messageLabel, 0, Qt::AlignCenter);
@@ -153,7 +156,7 @@ void QtSuccessDialog::setupUI() {
     
     // Button layout with better alignment
     m_buttonLayout = new QHBoxLayout();
-    m_buttonLayout->setContentsMargins(0, 12, 0, 8);
+    m_buttonLayout->setContentsMargins(0, 8, 0, 4); // Reduced top/bottom margins
     m_buttonLayout->addStretch();
     m_buttonLayout->addWidget(m_okButton);
     m_buttonLayout->addStretch();
@@ -206,7 +209,7 @@ void QtSuccessDialog::applyTheme() {
             "QLabel#successIcon {"
             "   color: %1;"
             "   background-color: transparent;"
-            "   padding: 4px;"
+            "   padding: 2px;"
             "}"
         ).arg(successColor.name()));
     }
@@ -215,11 +218,11 @@ void QtSuccessDialog::applyTheme() {
     if (m_titleLabel) {
         m_titleLabel->setStyleSheet(QString(
             "QLabel#successTitle {"
-            "   font-size: 22px;"
+            "   font-size: 18px;"
             "   font-weight: 700;"
             "   color: %1;"
             "   background-color: transparent;"
-            "   padding: 0px 0px 8px 0px;"
+            "   padding: 0px 0px 4px 0px;"
             "}"
         ).arg(textColor.name()));
     }
@@ -228,11 +231,11 @@ void QtSuccessDialog::applyTheme() {
     if (m_messageLabel) {
         m_messageLabel->setStyleSheet(QString(
             "QLabel#successMessage {"
-            "   font-size: 15px;"
+            "   font-size: 14px;"
             "   color: %1;"
             "   background-color: transparent;"
-            "   padding: 8px 0px;"
-            "   line-height: 1.5;"
+            "   padding: 4px 0px;"
+            "   line-height: 1.3;"
             "}"
         ).arg(textColor.name()));
     }
@@ -241,10 +244,10 @@ void QtSuccessDialog::applyTheme() {
     if (m_infoLabel) {
         m_infoLabel->setStyleSheet(QString(
             "QLabel#successInfo {"
-            "   font-size: 14px;"
+            "   font-size: 13px;"
             "   color: %1;"
             "   background-color: transparent;"
-            "   padding: 4px 0px 12px 0px;"
+            "   padding: 2px 0px 6px 0px;"
             "}"
         ).arg(tm.subtitleColor().name()));
     }

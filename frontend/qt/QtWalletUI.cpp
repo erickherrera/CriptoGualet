@@ -178,18 +178,18 @@ void QtWalletUI::createHeaderSection() {
     m_headerSection = new QWidget(m_scrollContent);
 
     QVBoxLayout* headerLayout = new QVBoxLayout(m_headerSection);
-    // Optimized header padding - reduced from 20,30 to 12,20 for better space utilization
-    headerLayout->setContentsMargins(0, 12, 0, 20);
-    headerLayout->setSpacing(10);  // Reduced from 15 for tighter layout
+    // Increased header padding for better visual hierarchy
+    headerLayout->setContentsMargins(0, 15, 0, 25);
+    headerLayout->setSpacing(15);
 
     // Digital Wallets title
     m_headerTitle = new QLabel("Digital Wallets", m_headerSection);
     m_headerTitle->setAlignment(Qt::AlignCenter);
     headerLayout->addWidget(m_headerTitle);
 
-    // Balance section - more compact layout
+    // Balance section
     QVBoxLayout* balanceVerticalLayout = new QVBoxLayout();
-    balanceVerticalLayout->setSpacing(3);  // Reduced from 5 for tighter spacing
+    balanceVerticalLayout->setSpacing(5);
 
     m_balanceTitle = new QLabel("Total Balance", m_headerSection);
     m_balanceTitle->setAlignment(Qt::AlignCenter);
@@ -1228,58 +1228,58 @@ void QtWalletUI::updateStyles() {
     )"));
     }
 
-    // Calculate responsive font sizes based on window width - optimized for more compact layout
+    // Calculate responsive font sizes based on window width
     int windowWidth = this->width();
     int headerTitleSize, balanceTitleSize, balanceAmountSize, toggleButtonSize;
 
     if (windowWidth <= 480) {
         // Very small screens - compact sizing
-        headerTitleSize = 20;    // Reduced from 24
-        balanceTitleSize = 11;   // Reduced from 12
-        balanceAmountSize = 18;  // Reduced from 20
-        toggleButtonSize = 20;   // Reduced from 22
+        headerTitleSize = 20;
+        balanceTitleSize = 11;
+        balanceAmountSize = 18;
+        toggleButtonSize = 20;
     } else if (windowWidth <= 768) {
         // Small screens - compact sizing
-        headerTitleSize = 24;    // Reduced from 28
-        balanceTitleSize = 12;   // Reduced from 13
-        balanceAmountSize = 20;  // Reduced from 22
-        toggleButtonSize = 22;   // Reduced from 24
+        headerTitleSize = 24;
+        balanceTitleSize = 12;
+        balanceAmountSize = 20;
+        toggleButtonSize = 22;
     } else if (windowWidth <= 1024) {
         // Tablets and small laptops - balanced sizing
-        headerTitleSize = 28;    // Reduced from 32
-        balanceTitleSize = 13;   // Reduced from 14
-        balanceAmountSize = 22;  // Reduced from 24
-        toggleButtonSize = 24;   // Reduced from 26
+        headerTitleSize = 28;
+        balanceTitleSize = 13;
+        balanceAmountSize = 22;
+        toggleButtonSize = 24;
     } else if (windowWidth <= 1366) {
         // Common laptop screens - balanced sizing
-        headerTitleSize = 32;    // Reduced from 36
-        balanceTitleSize = 14;   // Reduced from 15
-        balanceAmountSize = 24;  // Reduced from 26
-        toggleButtonSize = 26;   // Reduced from 28
+        headerTitleSize = 32;
+        balanceTitleSize = 14;
+        balanceAmountSize = 24;
+        toggleButtonSize = 26;
     } else if (windowWidth <= 1600) {
         // Medium laptop/desktop screens - generous sizing
-        headerTitleSize = 36;    // Reduced from 38
-        balanceTitleSize = 15;   // Reduced from 16
-        balanceAmountSize = 26;  // Reduced from 28
-        toggleButtonSize = 26;   // Kept same
+        headerTitleSize = 42;
+        balanceTitleSize = 18;
+        balanceAmountSize = 32;
+        toggleButtonSize = 26;
     } else if (windowWidth <= 1920) {
         // Full HD screens - generous sizing
-        headerTitleSize = 38;    // Reduced from 40
-        balanceTitleSize = 15;   // Reduced from 16
-        balanceAmountSize = 28;  // Reduced from 30
-        toggleButtonSize = 28;   // Reduced from 30
+        headerTitleSize = 46;
+        balanceTitleSize = 19;
+        balanceAmountSize = 36;
+        toggleButtonSize = 28;
     } else if (windowWidth <= 2560) {
         // QHD screens - spacious sizing
-        headerTitleSize = 42;    // Reduced from 44
-        balanceTitleSize = 17;   // Reduced from 18
-        balanceAmountSize = 32;  // Reduced from 34
-        toggleButtonSize = 30;   // Reduced from 32
+        headerTitleSize = 54;
+        balanceTitleSize = 22;
+        balanceAmountSize = 42;
+        toggleButtonSize = 30;
     } else {
         // 4K and larger - spacious sizing
-        headerTitleSize = 46;    // Reduced from 48
-        balanceTitleSize = 18;   // Reduced from 20
-        balanceAmountSize = 36;  // Reduced from 38
-        toggleButtonSize = 32;   // Reduced from 34
+        headerTitleSize = 60;
+        balanceTitleSize = 24;
+        balanceAmountSize = 48;
+        toggleButtonSize = 32;
     }
 
     // Header title styling - responsive and bold
@@ -1499,6 +1499,9 @@ void QtWalletUI::resizeEvent(QResizeEvent* event) {
     if (m_mainLayout && m_contentLayout) {
         updateResponsiveLayout();
     }
+
+    // Call updateStyles on resize to apply responsive font sizes
+    updateStyles();
 
     // These functions should also have their own safety checks
     adjustButtonLayout();
@@ -1865,7 +1868,16 @@ void QtWalletUI::updateResponsiveLayout() {
     // Adjust header and card sizing for better proportions - more refined padding with safety
     // checks
     if (m_headerSection) {
-        int headerVerticalPadding = windowWidth <= 768 ? 12 : (windowWidth <= 1366 ? 16 : 20);
+        int headerVerticalPadding;
+        if (windowWidth <= 768) {
+            headerVerticalPadding = 12;
+        } else if (windowWidth <= 1366) {
+            headerVerticalPadding = 16;
+        } else if (windowWidth <= 1920) {
+            headerVerticalPadding = 24;
+        } else {
+            headerVerticalPadding = 30;
+        }
 
         // Add additional safety check to prevent access violation
         if (headerVerticalPadding >= 0 && headerVerticalPadding <= 100) {
