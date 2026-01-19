@@ -30,15 +30,11 @@ macro(add_session_test target_name source_file)
 endmacro()
 
 # Session Test Executables
-add_session_test(test_session_manager "test_session_manager.cpp")
-add_session_test(test_session_repository "test_session_repository.cpp")
-add_session_test(test_session_integration "test_session_integration.cpp")
-add_session_test(test_session_security "test_session_security.cpp")
-add_session_test(test_user_session "test_user_session.cpp")
+add_session_test(test_session_consolidated "test_session_consolidated.cpp")
 
 # Custom target to run all session tests
 add_custom_target(run_all_session_tests
-    COMMAND test_session_manager && test_session_repository && test_session_integration && test_session_security && test_user_session
+    COMMAND test_session_consolidated
     COMMENT "Run all session management tests"
-    DEPENDS test_session_manager test_session_repository test_session_integration test_session_security test_user_session
+    DEPENDS test_session_consolidated
 )
