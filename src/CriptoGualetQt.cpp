@@ -1,17 +1,17 @@
 #include "CriptoGualetQt.h"
-#include "../../backend/core/include/Auth.h"
-#include "../../backend/core/include/Crypto.h"
-#include "../../backend/core/include/WalletAPI.h"
-#include "../../backend/repository/include/Repository/RepositoryTypes.h"
-#include "../../backend/utils/include/SharedTypes.h"
-#include "QtLoginUI.h"
-#include "QtSeedDisplayDialog.h"
-#include "QtSettingsUI.h"
-#include "QtSidebar.h"
-#include "QtThemeManager.h"
-#include "QtTopCryptosPage.h"
-#include "QtWalletUI.h"
-#include "include/QtSuccessDialog.h"
+#include "../backend/core/include/Auth.h"
+#include "../backend/core/include/Crypto.h"
+#include "../backend/core/include/WalletAPI.h"
+#include "../backend/repository/include/Repository/RepositoryTypes.h"
+#include "../backend/utils/include/SharedTypes.h"
+#include "../frontend/qt/include/QtLoginUI.h"
+#include "../frontend/qt/include/QtSeedDisplayDialog.h"
+#include "../frontend/qt/include/QtSettingsUI.h"
+#include "../frontend/qt/include/QtSidebar.h"
+#include "../frontend/qt/include/QtThemeManager.h"
+#include "../frontend/qt/include/QtTopCryptosPage.h"
+#include "../frontend/qt/include/QtWalletUI.h"
+#include "../frontend/qt/include/QtSuccessDialog.h"
 
 #include <QAction>
 #include <QApplication>
@@ -51,7 +51,7 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     if (!Auth::DeriveSecureEncryptionKey(encryptionKey)) {
       qCritical() << "Failed to derive encryption key for database";
       // Defer error dialog until after event loop starts
-      QTimer::singleShot(0, this, [this]() {
+      QTimer::singleShot(0, [this]() {
         QMessageBox::critical(this, "Security Error",
                               "Failed to derive secure encryption key. Cannot "
                               "initialize database.");
@@ -208,8 +208,8 @@ void CriptoGualetQt::setupUI() {
               // PHASE 1 FIX: Derive Ethereum address from seed
               if (m_walletRepository) {
                 auto seedResult = m_walletRepository->retrieveDecryptedSeed(
-                    userId, stdPassword);
-                if (seedResult.success && !seedResult.data.empty()) {
+                      userId, stdPassword);
+                    if (seedResult.success && !seedResult.data.empty()) {
                   // Convert mnemonic to seed
                   std::array<uint8_t, 64> seed{};
                   if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "",
@@ -337,11 +337,11 @@ void CriptoGualetQt::setupUI() {
                   if (m_walletRepository) {
                     auto seedResult = m_walletRepository->retrieveDecryptedSeed(
                         userId, stdPassword);
-                    if (seedResult.success && !seedResult.data.empty()) {
+                if (seedResult.success && !seedResult.data.empty()) {
                       // Convert mnemonic to seed
                       std::array<uint8_t, 64> seed{};
                       if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "",
-                                                         seed)) {
+                                                          seed)) {
                         // Derive master key
                         Crypto::BIP32ExtendedKey masterKey;
                         if (Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
@@ -422,9 +422,9 @@ void CriptoGualetQt::setupUI() {
     QString balanceText = QString("Current Balance: %1 BTC\n"
                                    "Estimated Fee: %2 BTC\n"
                                    "Available to Send: %3 BTC")
-                               .arg(balanceBTC, 0, 'f', 8)
-                               .arg(feeBTC, 0, 'f', 8)
-                               .arg(balanceBTC - feeBTC, 0, 'f', 8);
+                                .arg(balanceBTC, 0, 'f', 8)
+                                .arg(feeBTC, 0, 'f', 8)
+                                .arg(balanceBTC - feeBTC, 0, 'f', 8);
 
     QMessageBox::information(this, "Send Bitcoin", balanceText);
   });
@@ -478,7 +478,7 @@ void CriptoGualetQt::setupUI() {
         g_users.find(g_currentUser) == g_users.end()) {
       QMessageBox::warning(
           this, "Error",
-          "Ethereum wallet not initialized or user not logged in");
+          "Ethereum wallet not initialized or User not logged in");
       return;
     }
 
@@ -491,7 +491,7 @@ void CriptoGualetQt::setupUI() {
       auto userResult = m_userRepository->getUserByUsername(g_currentUser);
       if (!userResult.hasValue()) {
         QMessageBox::warning(this, "Error",
-                             "Failed to retrieve user information");
+                               "Failed to retrieve user information");
         return;
       }
 
@@ -538,7 +538,7 @@ void CriptoGualetQt::setupUI() {
 
   // Connect top cryptos page back button
   connect(m_topCryptosPage, &QtTopCryptosPage::backRequested, this, [this]() {
-      showWalletScreen("");
+    showWalletScreen("");
   });
 }
 
@@ -548,7 +548,7 @@ void CriptoGualetQt::createSidebar() {
   // Connect navigation signals
   connect(m_sidebar, &QtSidebar::navigateToWallet, this, [this]() {
     showWalletScreen("");
-});
+  });
   connect(m_sidebar, &QtSidebar::navigateToTopCryptos, this,
           &CriptoGualetQt::showTopCryptosPage);
   connect(m_sidebar, &QtSidebar::navigateToSettings, this,
@@ -714,7 +714,7 @@ void CriptoGualetQt::applyNavbarStyling() {
 
 void CriptoGualetQt::resizeEvent(QResizeEvent *event) {
   QMainWindow::resizeEvent(event);
-  // Sidebar is now part of layout, no manual geometry update needed
+  // Sidebar is now part of layout, so no manual geometry update needed
 }
 
 void CriptoGualetQt::onSidebarWidthChanged(int width) {

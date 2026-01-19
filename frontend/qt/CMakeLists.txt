@@ -5,7 +5,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
   set(CMAKE_AUTORCC ON)
 
   add_executable(CriptoGualetQt WIN32
-    "CriptoGualetQt.cpp"
+    "../../src/CriptoGualetQt.cpp"
     "QtLoginUI.cpp"
     "QtWalletUI.cpp"
     "QtSettingsUI.cpp"
