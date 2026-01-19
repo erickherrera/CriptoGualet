@@ -2591,6 +2591,8 @@ bool VerifyTOTP(const std::vector<uint8_t> &secret,
   return false;
 }
 
+std::string GenerateTOTPUri(const std::string &secret_base32,
+                            const std::string &account_name,
                             const std::string &issuer) {
   std::ostringstream uri;
   uri << "otpauth://totp/" << issuer << ":" << account_name
