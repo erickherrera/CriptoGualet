@@ -15,6 +15,7 @@ public:
     AuthResponse RegisterUser(const std::string& username, const std::string& password, std::vector<std::string>& outMnemonic);
     AuthResponse LoginUser(const std::string& username, const std::string& password);
     void LogoutUser(const std::string& sessionId);
+    void cleanupSessions();
     UserSession* getSession(const std::string& sessionId);
 
 private:

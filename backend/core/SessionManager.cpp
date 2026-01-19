@@ -1,4 +1,5 @@
 #include "SessionManager.h"
+#include "Crypto.h"
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
@@ -7,20 +8,17 @@ SessionManager::SessionManager() {
     //
 }
 
-std::string SessionManager::createSession(int userId, const std::string& username) {
+std::string SessionManager::createSession(int userId, const std::string& username, bool totpAuthenticated) {
     UserSession session;
     session.userId = userId;
     session.username = username;
     
-    static int counter = 0;
-    std::ostringstream oss;
-    oss << "session_" << std::setfill('0') << std::setw(22) << ++counter;
-    session.sessionId = oss.str();
+    session.sessionId = Crypto::GenerateSecureRandomString(32);
 
     session.createdAt = std::chrono::steady_clock::now();
     session.lastActivity = session.createdAt;
     session.expiresAt = session.createdAt + std::chrono::minutes(15);
-    session.totpAuthenticated = false;
+    session.totpAuthenticated = totpAuthenticated;
     session.isActive = true;
 
     activeSessions_[session.sessionId] = session;
@@ -35,7 +33,7 @@ std::string SessionManager::createSession(int userId, const std::string& usernam
     record.lastActivity = record.createdAt;
     record.ipAddress = ""; // Should be filled with real IP
     record.userAgent = ""; // Should be filled with real user agent
-    record.totpAuthenticated = false;
+    record.totpAuthenticated = totpAuthenticated;
     record.isActive = true;
     sessionRepository_.storeSession(record);
 
@@ -48,7 +46,22 @@ bool SessionManager::validateSession(const std::string& sessionId) {
         return false;
     }
     
-    return !it->second.isExpired() && it->second.isActive;
+    if (!it->second.isExpired() && it->second.isActive) {
+        refreshSession(sessionId);
+        return true;
+    }
+
+    return false;
+}
+
+
+void SessionManager::refreshSession(const std::string& sessionId) {
+    auto it = activeSessions_.find(sessionId);
+    if (it != activeSessions_.end()) {
+        it->second.lastActivity = std::chrono::steady_clock::now();
+        it->second.expiresAt = it->second.lastActivity + std::chrono::minutes(15);
+        sessionRepository_.updateSessionActivity(sessionId);
+    }
 }
 
 void SessionManager::invalidateSession(const std::string& sessionId) {

@@ -78,6 +78,21 @@ std::optional<SessionRecord> SessionRepository::getSession(const std::string& se
     return sessionRecord;
 }
 
+bool SessionRepository::updateSessionActivity(const std::string& sessionId) {
+    std::string updateQuery = "UPDATE sessions SET lastActivity = ?, expiresAt = ? WHERE sessionId = ?;";
+    
+    auto now = std::chrono::system_clock::now();
+    auto newExpiresAt = now + std::chrono::minutes(15);
+
+    std::vector<std::string> params;
+    params.push_back(std::to_string(std::chrono::system_clock::to_time_t(now)));
+    params.push_back(std::to_string(std::chrono::system_clock::to_time_t(newExpiresAt)));
+    params.push_back(sessionId);
+
+    Database::DatabaseResult result = Database::DatabaseManager::getInstance().executeQuery(updateQuery, params);
+    return result.success;
+}
+
 bool SessionRepository::invalidateSession(const std::string& sessionId) {
     std::string updateQuery = "UPDATE sessions SET isActive = 0 WHERE sessionId = ?;";
     Database::DatabaseResult result = Database::DatabaseManager::getInstance().executeQuery(updateQuery, {sessionId});

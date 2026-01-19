@@ -1,5 +1,6 @@
 #include "CriptoGualetQt.h"
 #include "../backend/core/include/Auth.h"
+#include "../backend/core/include/AuthManager.h"
 #include "../backend/core/include/Crypto.h"
 #include "../backend/core/include/WalletAPI.h"
 #include "../backend/repository/include/Repository/RepositoryTypes.h"
@@ -30,6 +31,7 @@
 CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     : QMainWindow(parent), m_stackedWidget(nullptr), m_loginUI(nullptr),
       m_walletUI(nullptr), m_themeManager(&QtThemeManager::instance()) {
+    Auth::AuthManager::getInstance().cleanupSessions();
   setWindowTitle("CriptoGualet - Securely own your cryptos");
   setMinimumSize(800, 600);
 

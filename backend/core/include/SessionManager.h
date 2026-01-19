@@ -36,8 +36,9 @@ struct UserSession {
 class SessionManager {
 public:
     SessionManager();
-    std::string createSession(int userId, const std::string& username);
+    std::string createSession(int userId, const std::string& username, bool totpAuthenticated = false);
     bool validateSession(const std::string& sessionId);
+    void refreshSession(const std::string& sessionId);
     void invalidateSession(const std::string& sessionId);
     UserSession* getCurrentSession();
     void cleanup();

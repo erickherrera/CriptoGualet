@@ -67,6 +67,10 @@ AuthResponse AuthManager::LoginUser(const std::string& username, const std::stri
     return authResponse;
 }
 
+void AuthManager::cleanupSessions() {
+    sessionManager_.cleanup();
+}
+
 void AuthManager::LogoutUser(const std::string& sessionId) {
     sessionManager_.invalidateSession(sessionId);
 }

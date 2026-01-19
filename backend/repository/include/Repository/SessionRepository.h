@@ -23,6 +23,7 @@ public:
     SessionRepository();
     bool storeSession(const SessionRecord& session);
     std::optional<SessionRecord> getSession(const std::string& sessionId) const;
+    bool updateSessionActivity(const std::string& sessionId);
     bool invalidateSession(const std::string& sessionId);
     std::vector<SessionRecord> getActiveSessions(int userId) const;
     void cleanupExpiredSessions();

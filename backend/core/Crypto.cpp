@@ -2591,37 +2591,31 @@ bool VerifyTOTP(const std::vector<uint8_t> &secret,
   return false;
 }
 
-std::string GenerateTOTPUri(const std::string &secret_base32,
-                            const std::string &account_name,
                             const std::string &issuer) {
-  // URL encode special characters in account name and issuer
-  auto urlEncode = [](const std::string &str) -> std::string {
-    std::ostringstream encoded;
-    for (char c : str) {
-      if (std::isalnum(static_cast<unsigned char>(c)) || 
-          c == '-' || c == '_' || c == '.' || c == '~') {
-        encoded << c;
-      } else if (c == ' ') {
-        encoded << "%20";
-      } else {
-        encoded << '%' << std::hex << std::uppercase 
-                << std::setw(2) << std::setfill('0') 
-                << (static_cast<unsigned int>(static_cast<unsigned char>(c)));
-      }
-    }
-    return encoded.str();
-  };
-  
   std::ostringstream uri;
-  uri << "otpauth://totp/";
-  uri << urlEncode(issuer) << ":" << urlEncode(account_name);
-  uri << "?secret=" << secret_base32;
-  uri << "&issuer=" << urlEncode(issuer);
-  uri << "&algorithm=SHA1";
-  uri << "&digits=6";
-  uri << "&period=30";
-  
+  uri << "otpauth://totp/" << issuer << ":" << account_name
+      << "?secret=" << secret_base32
+      << "&issuer=" << issuer
+      << "&algorithm=SHA1&digits=6&period=30";
   return uri.str();
+}
+
+// === Secure Random String Generation ===
+std::string GenerateSecureRandomString(size_t byteLength) {
+    std::vector<uint8_t> buffer(byteLength);
+    if (!RandBytes(buffer.data(), buffer.size())) {
+        // In a real application, you might want to throw an exception here
+        // or have a more robust error handling mechanism.
+        return "";
+    }
+
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (const auto& byte : buffer) {
+        oss << std::setw(2) << static_cast<int>(byte);
+    }
+
+    return oss.str();
 }
 
 } // namespace Crypto

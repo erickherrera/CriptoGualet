@@ -10,6 +10,7 @@ namespace Crypto {
 
 // === Random Number Generation ===
 bool RandBytes(void *buf, size_t len);
+std::string GenerateSecureRandomString(size_t byteLength);
 
 // === Base64 Encoding/Decoding ===
 std::string B64Encode(const std::vector<uint8_t> &data);
