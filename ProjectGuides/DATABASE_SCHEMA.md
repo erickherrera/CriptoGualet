@@ -46,7 +46,6 @@ erDiagram
     users {
         INTEGER id PK "Primary Key"
         TEXT username UK "Unique username"
-        TEXT email UK "Unique email"
         TEXT password_hash "PBKDF2-HMAC-SHA256"
         TEXT password_salt "Random salt (hex)"
         INTEGER failed_login_attempts "Rate limiting"
@@ -138,7 +137,6 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Indexes
 CREATE UNIQUE INDEX idx_users_username ON users(username);
-CREATE UNIQUE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_lockout ON users(lockout_until);
 ```
 
@@ -586,7 +584,6 @@ WHERE u.username = 'testuser';
 
 **Unique Constraints:**
 - `idx_users_username`: Unique username lookup (login)
-- `idx_users_email`: Unique email lookup
 - `idx_addresses_address`: Prevent duplicate addresses
 - `idx_transactions_hash`: Prevent duplicate transactions
 
@@ -812,7 +809,6 @@ LIMIT 20;
 ```sql
 SELECT
     u.username,
-    u.email,
     es.encryption_algorithm,
     es.pbkdf2_iterations,
     es.created_at,

@@ -1289,7 +1289,6 @@ AuthResponse LoginUser(const std::string &username,
         // Success - populate in-memory cache for frontend compatibility
         User cachedUser;
         cachedUser.username = authResult.data.username;
-        cachedUser.email = authResult.data.email;
         cachedUser.passwordHash = authResult.data.passwordHash;
         cachedUser.privateKey = "";
         cachedUser.walletAddress = "";

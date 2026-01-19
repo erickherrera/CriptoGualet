@@ -57,7 +57,6 @@ int main(int argc, char* argv[]) {
             std::cout << "      ✓ User found in database" << std::endl;
             std::cout << "      User ID: " << userResult.data.id << std::endl;
             std::cout << "      Username: " << userResult.data.username << std::endl;
-            std::cout << "      Email: " << userResult.data.email << std::endl;
             std::cout << "      Password hash length: " << userResult.data.passwordHash.length() << " chars" << std::endl;
             std::cout << "      Salt length: " << userResult.data.salt.size() << " bytes" << std::endl;
             std::cout << "      Is active: " << (userResult.data.isActive ? "Yes" : "No") << std::endl;

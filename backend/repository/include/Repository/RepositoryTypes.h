@@ -64,7 +64,6 @@ struct LogEntry {
 struct User {
     int id;
     std::string username;
-    std::string email;
     std::string passwordHash;
     std::vector<uint8_t> salt;
     std::chrono::system_clock::time_point createdAt;
