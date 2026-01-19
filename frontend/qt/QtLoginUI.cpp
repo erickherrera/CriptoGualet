@@ -337,10 +337,7 @@ void QtLoginUI::onLoginClicked() {
     }
 
     showMessage("Signing in...", false);
-    
-    Auth::AuthResponse response = Auth::AuthManager::getInstance().LoginUser(username.toStdString(), password.toStdString());
-
-    onLoginResult(response.success(), QString::fromStdString(response.message));
+    emit loginRequested(username, password);
 }
 
 void QtLoginUI::onRegisterClicked() {
