@@ -32,6 +32,21 @@ endmacro()
 # Session Test Executables
 add_session_test(test_session_consolidated "test_session_consolidated.cpp")
 
+# Consolidated repository tests
+add_executable(test_repository_consolidated test_repository_consolidated.cpp)
+target_link_libraries(test_repository_consolidated PRIVATE
+    TestUtils
+    Auth
+    Database
+    UserRepository
+    WalletRepository
+    TransactionRepository
+    Logger
+    Crypto
+    SecureCredentialStore
+)
+add_test(NAME test_repository_consolidated COMMAND test_repository_consolidated)
+
 # Custom target to run all session tests
 add_custom_target(run_all_session_tests
     COMMAND test_session_consolidated
