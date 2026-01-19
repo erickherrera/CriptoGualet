@@ -21,8 +21,8 @@ struct DatabaseResult {
     std::string message;
     int errorCode;
 
-    DatabaseResult(bool s = false, const std::string& msg = "", int code = 0)
-        : success(s), message(msg), errorCode(code) {}
+    DatabaseResult(bool s = false, const std::string& msg = "", int errCode = 0)
+        : success(s), message(msg), errorCode(errCode) {}
 
     operator bool() const { return success; }
 };

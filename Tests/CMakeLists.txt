@@ -32,19 +32,25 @@ endmacro()
 # Session Test Executables
 add_session_test(test_session_consolidated "test_session_consolidated.cpp")
 
+# Find SQLite3 for repository tests
+find_package(SQLite3)
+
 # Consolidated repository tests
 add_executable(test_repository_consolidated test_repository_consolidated.cpp)
+target_include_directories(test_repository_consolidated PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 target_link_libraries(test_repository_consolidated PRIVATE
     TestUtils
     Auth
     Database
-    UserRepository
-    WalletRepository
-    TransactionRepository
-    Logger
+    Repository
     Crypto
     SecureCredentialStore
 )
+if(SQLITE3_FOUND)
+  target_link_libraries(test_repository_consolidated PRIVATE SQLite::SQLite3)
+endif()
 add_test(NAME test_repository_consolidated COMMAND test_repository_consolidated)
 
 # Custom target to run all session tests

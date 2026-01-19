@@ -1345,7 +1345,7 @@ int main() {
     {
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
         TestUtils::initializeTestLogger("test_integration.log");
-        TestUtils::initializeTestDatabase(dbManager, TEST_INTEGRATION_DB_PATH, STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestDatabase(dbManager, TEST_INTEGRATION_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
         Repository::WalletRepository walletRepo(dbManager);
@@ -1363,7 +1363,7 @@ int main() {
     {
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
         TestUtils::initializeTestLogger("test_tx_repo.log");
-        TestUtils::initializeTestDatabase(dbManager, TEST_TX_REPO_DB_PATH, STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestDatabase(dbManager, TEST_TX_REPO_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
         Repository::WalletRepository walletRepo(dbManager);
@@ -1393,7 +1393,7 @@ int main() {
     {
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
         TestUtils::initializeTestLogger("test_user_repo.log");
-        TestUtils::initializeTestDatabase(dbManager, TEST_USER_REPO_DB_PATH, STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestDatabase(dbManager, TEST_USER_REPO_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
 
@@ -1426,7 +1426,7 @@ int main() {
     {
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
         TestUtils::initializeTestLogger("test_wallet_repo.log");
-        TestUtils::initializeTestDatabase(dbManager, TEST_WALLET_REPO_DB_PATH, STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestDatabase(dbManager, TEST_WALLET_REPO_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
         Repository::WalletRepository walletRepo(dbManager);
