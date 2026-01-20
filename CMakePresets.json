@@ -75,7 +75,7 @@
     },
     {
       "name": "win-vs2022-x64-debug",
-      "displayName": "Windows VS2022 x64 Debug (Recommended for Visual Studio)",
+      "displayName": "MSVC Debug (Faster Builds)",
       "inherits": "vcpkg-base",
       "generator": "Visual Studio 17 2022",
       "architecture": {
@@ -92,18 +92,18 @@
         "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
         "CMAKE_GENERATOR_PLATFORM": "x64"
       },
-      "description": "Recommended for Visual Studio 2022. Uses default MSVC toolset. Requires VCPKG_ROOT environment variable. Supports Debug and Release configurations. x64 platform only."
+      "description": "MSVC Debug builds - fastest compile times for daily development."
     },
     {
       "name": "win-vs2022-x64-release",
-      "displayName": "Windows VS2022 x64 Release (Recommended for Visual Studio)",
+      "displayName": "MSVC Release",
       "inherits": "win-vs2022-x64-debug",
       "cacheVariables": {},
-      "description": "Release build for Visual Studio 2022."
+      "description": "MSVC Release builds - standard release configuration."
     },
     {
       "name": "win-vs2022-clangcl-debug",
-      "displayName": "Windows VS2022 ClangCL Debug (Requires Clang tools)",
+      "displayName": "ClangCL Debug (Qt)",
       "inherits": "win-vs2022-x64-debug",
       "toolset": {
         "value": "ClangCL",
@@ -111,16 +111,67 @@
       },
       "cacheVariables": {
         "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
-        "CMAKE_GENERATOR_PLATFORM": "x64"
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "QT_DIR": {
+          "type": "PATH",
+          "value": "C:/Qt/6.7.0/msvc2022_64"
+        }
       },
-      "description": "Uses ClangCL toolset. Requires 'C++ Clang tools for Windows' component in Visual Studio. Supports Debug and Release configurations. x64 platform only."
+      "environment": {
+        "CMAKE_PREFIX_PATH": "${cache.QT_DIR};${env.CMAKE_PREFIX_PATH}"
+      },
+      "description": "ClangCL Debug builds with improved Qt integration. Requires Qt 6.7.0 for MSVC 2022."
     },
     {
       "name": "win-vs2022-clangcl-release",
-      "displayName": "Windows VS2022 ClangCL Release",
+      "displayName": "ClangCL Release",
       "inherits": "win-vs2022-clangcl-debug",
       "cacheVariables": {},
-      "description": "Release build with ClangCL toolset."
+      "description": "ClangCL Release builds - optimized for better runtime performance."
+    },
+    {
+      "name": "win-vs2022-clangcl-debug-asan",
+      "displayName": "ClangCL Debug + AddressSanitizer",
+      "inherits": "win-vs2022-x64-debug",
+      "toolset": {
+        "value": "ClangCL",
+        "strategy": "set"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "ENABLE_ASAN": "ON",
+        "ENABLE_LTO": "OFF"
+      },
+      "description": "ClangCL Debug with AddressSanitizer - detects memory errors for security testing."
+    },
+    {
+      "name": "win-vs2022-clangcl-release-lto",
+      "displayName": "ClangCL Release + LTO (Maximum Performance)",
+      "inherits": "win-vs2022-x64-release",
+      "toolset": {
+        "value": "ClangCL",
+        "strategy": "set"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "ENABLE_ASAN": "OFF",
+        "ENABLE_LTO": "ON"
+      },
+      "description": "ClangCL Release with Link-Time Optimization - maximum runtime performance."
     }
   ],
   "buildPresets": [
@@ -159,6 +210,18 @@
       "configuration": "Release"
     },
     {
+      "name": "win-vs2022-clangcl-build-asan",
+      "displayName": "Build ClangCL with ASan",
+      "configurePreset": "win-vs2022-clangcl-debug-asan",
+      "configuration": "Debug"
+    },
+    {
+      "name": "win-vs2022-clangcl-build-lto",
+      "displayName": "Build ClangCL with LTO",
+      "configurePreset": "win-vs2022-clangcl-release-lto",
+      "configuration": "Release"
+    },
+    {
       "name": "linux-clang-build",
       "displayName": "Linux Clang Debug",
       "configurePreset": "linux-clang-debug"
@@ -169,5 +232,24 @@
       "configurePreset": "linux-clang-release"
     }
   ],
-  "testPresets": []
+  "testPresets": [
+    {
+      "name": "win-vs2022-clangcl-test",
+      "displayName": "Windows ClangCL Tests",
+      "configurePreset": "win-vs2022-clangcl-debug-asan",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "win-vs2022-test",
+      "displayName": "Windows MSVC Tests",
+      "configurePreset": "win-vs2022-x64-debug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
 }
