@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <iostream>
 
 // Project headers before Windows headers to avoid macro conflicts
 #include "Auth.h"
@@ -652,8 +653,23 @@ bool VerifyPassword(const std::string &password, const std::string &stored) {
   size_t p3 = stored.find('$', p2 + 1);
   if (p3 == std::string::npos)
     return false;
+  
+  // CRITICAL FIX: Proper bounds checking for substr operations
+  // Validate all indices before accessing string
+  if (p3 == std::string::npos || p3 >= stored.length() || p2 >= stored.length() || (p3 + 1) >= stored.length()) {
+    std::cerr << "Auth.cpp: Invalid string bounds in DeriveSecureEncryptionKey - p3:" << p3 << " stored.len:" << stored.length() << std::endl;
+    return false;
+  }
+  
+  // Safe substr operations with validated bounds
   std::string salt_b64 = stored.substr(p2 + 1, p3 - (p2 + 1));
   std::string dk_b64 = stored.substr(p3 + 1);
+  
+  // Additional validation
+  if (salt_b64.empty() || dk_b64.empty()) {
+    std::cerr << "Auth.cpp: Empty derived values in DeriveSecureEncryptionKey" << std::endl;
+    return false;
+  }
 
   auto salt = Crypto::B64Decode(salt_b64);
   auto dk = Crypto::B64Decode(dk_b64);

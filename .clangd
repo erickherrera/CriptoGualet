@@ -1,13 +1,34 @@
 CompileFlags:
-  # Use compile_commands.json as the primary source (already in root)
+  # Use compile_commands.json as primary source (already in root)
   CompilationDatabase: .
   
   Add:
-    # C++ standard (compile_commands.json should have this, but ensure it's set)
-    - -std=c++17
+    # Enhanced C++ standard
+    - -std=c++20
     
-    # Qt include paths (if Qt is installed, add common paths)
-    # These are fallbacks - compile_commands.json should have the actual paths
+    # Enhanced security warnings
+    - -Wall
+    - -Wextra
+    - -Werror=return-type
+    - -Werror=uninitialized
+    - -Werror=delete-non-virtual-dtor
+    - -Wformat-security
+    - -Wshadow
+    - -Wold-style-cast
+    - -Wcast-align
+    - -Woverloaded-virtual
+    
+    # ClangCL-specific paths and compatibility
+    - -IC:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/x64/include
+    - -fms-compatibility-version=19
+    
+    # Windows-specific
+    - -DWIN32
+    - -D_WINDOWS
+    - -DWIN64
+    - -D_WIN64
+    
+    # Qt paths (MSVC builds for ClangCL compatibility)
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtCore
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtWidgets
@@ -15,37 +36,30 @@ CompileFlags:
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtSvg
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtNetwork
     
-    # vcpkg include path (compile_commands.json should have this, but ensure it)
+    # vcpkg include path
     - -Ivcpkg_installed/x64-windows/include
-    
-    # Windows-specific
-    - -DWIN32
-    - -D_WINDOWS
-    
-    # MSVC compatibility (for clang-cl)
-    - -fms-compatibility-version=19
-    
-    # Suppress common warnings that might be noisy
-    # Note: compile_commands.json already has warning flags, but these are fallbacks
-    - -Wno-everything
-    
-    # But keep important ones
-    - -Werror=return-type
-    - -Werror=uninitialized
-    - -Wnull-dereference
-    - -Wdangling
 
 Diagnostics:
-  # Suppress some diagnostics that might be too noisy
+  # Enable comprehensive diagnostics for security analysis
   Suppress:
     - unused-includes
-    - missing-includes
-  
-  # Unused includes can be helpful, but sometimes noisy
   UnusedIncludes: None
-  
-  # Missing includes - let clangd suggest them
   MissingIncludes: Strict
+
+# Sanitizer-aware configuration
+Diagnostics:
+  ClangTidy:
+    Add:
+      - bugprone-*
+      - performance-*
+      - security-*
+      - readability-*
+      - modernize-*
+    CheckOptions:
+      - key: readability-identifier-naming.ClassCase
+        value: CamelCase
+      - key: performance-move-const-arg.CheckTriviallyCopyableMove
+        value: false
 
 Index:
   # Background indexing for better performance

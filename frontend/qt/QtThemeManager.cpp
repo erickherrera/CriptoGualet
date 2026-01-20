@@ -392,14 +392,6 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
             border: 1px solid %8;
             border-radius: 4px;
             padding: 4px;
-            font-size: 12px;
-        }
-        QToolTip {
-            background-color: %5;
-            color: %2;
-            border: 1px solid %8;
-            border-radius: 4px;
-            padding: 4px;
             font-family: %4;
             font-size: 12px;
         }
@@ -439,18 +431,18 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
         .arg(m_backgroundColor.name())            // %1 - main background
         .arg(m_textColor.name())                  // %2 - main text color
         .arg(m_backgroundColor.name())            // %3 - content container background
-        .arg(m_textColor.name())                  // %4 - widget text color (unused now)
+        .arg(m_textColor.name())                  // %4 - widget text color
         .arg(m_surfaceColor.name())               // %5 - card background
         .arg(m_secondaryColor.name())             // %6 - card border
-        .arg(m_backgroundColor.name())            // %7 - navbar background
-        .arg(m_accentColor.name())                // %8 - navbar border
+        .arg("")                                  // %7 - unused
+        .arg(m_accentColor.name())                // %8 - accent color
         .arg(m_titleFont.family())                // %9 - navbar title font
-        .arg(m_accentColor.name())                // %10 - navbar title color
-        .arg(m_surfaceColor.name())               // %11 - navbar button background
-        .arg(m_textColor.name())                  // %12 - navbar button text
-        .arg(m_secondaryColor.name())             // %13 - navbar button border
-        .arg(m_surfaceColor.lighter(180).name())  // %14 - navbar button hover background
-        .arg(m_accentColor.name())                // %15 - navbar button hover border
+        .arg("")                                  // %10 - unused
+        .arg("")                                  // %11 - unused
+        .arg("")                                  // %12 - unused
+        .arg("")                                  // %13 - unused
+        .arg("")                                  // %14 - unused
+        .arg("")                                  // %15 - unused
         .arg(m_accentColor.lighter(120).name());  // %16 - navbar button accent hover
 }
 

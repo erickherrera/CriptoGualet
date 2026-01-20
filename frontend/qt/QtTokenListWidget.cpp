@@ -255,7 +255,8 @@ void QtTokenListWidget::showTokenList() {
 }
 
 QString QtTokenListWidget::calculateTokenUSD(const QString& balance, const QString& symbol) {
-    (void)balance; // Suppress unused parameter warning
-    (void)symbol;  // Suppress unused parameter warning
-    return "$0.00";
+    // For now, return a placeholder - this would need real price data
+    return "$0.00 USD";
 }
+
+

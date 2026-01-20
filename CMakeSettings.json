@@ -1,14 +1,15 @@
 {
   "configurations": [
     {
-      "name": "win-vs2022-x64-debug",
+      "name": "MSVC Debug",
+      "displayName": "MSVC Debug (Faster Builds)",
       "generator": "Visual Studio 17 2022",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\${name}",
-      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "buildRoot": "${projectDir}\\out\\build\\win-vs2022-msvc-debug",
+      "installRoot": "${projectDir}\\out\\install\\win-vs2022-msvc-debug",
       "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
+      "buildCommandArgs": "-v:minimal",
+      "ctestCommandArgs": "--output-on-failure",
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "variables": [
         {
@@ -25,14 +26,9 @@
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
-        },
-        {
-          "name": "BUILD_GUI_WIN32",
-          "value": "OFF",
-          "type": "BOOL"
         }
       ],
-      "intelliSenseMode": "windows-clang-x64",
+      "intelliSenseMode": "windows-msvc-x64",
       "environments": [
         {
           "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg"
@@ -40,26 +36,53 @@
       ]
     },
     {
-      "name": "win-ninja-x64-debug",
-      "generator": "Ninja",
-      "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\${name}",
-      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "name": "MSVC Release",
+      "displayName": "MSVC Release",
+      "generator": "Visual Studio 17 2022",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\win-vs2022-msvc-release",
+      "installRoot": "${projectDir}\\out\\install\\win-vs2022-msvc-release",
       "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
-      "inheritEnvironments": [ "clang_cl_x64_x64" ],
+      "buildCommandArgs": "-v:minimal",
+      "ctestCommandArgs": "--output-on-failure",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
       "variables": [
         {
-          "name": "CMAKE_C_COMPILER",
-          "value": "clang-cl",
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "VCPKG_TARGET_TRIPLET",
+          "value": "x64-windows",
           "type": "STRING"
         },
         {
-          "name": "CMAKE_CXX_COMPILER",
-          "value": "clang-cl",
+          "name": "CMAKE_CXX_STANDARD",
+          "value": "20",
           "type": "STRING"
-        },
+        }
+      ],
+      "intelliSenseMode": "windows-msvc-x64",
+      "environments": [
+        {
+          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg"
+        }
+      ]
+    },
+    {
+      "name": "ClangCL Debug + ASan",
+      "displayName": "ClangCL Debug + AddressSanitizer (Security Testing)",
+      "generator": "Visual Studio 17 2022",
+      "toolset": "ClangCL",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\win-vs2022-clangcl-debug-asan",
+      "installRoot": "${projectDir}\\out\\install\\win-vs2022-clangcl-debug-asan",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_ASAN=ON",
+      "buildCommandArgs": "-v:minimal",
+      "ctestCommandArgs": "--output-on-failure",
+      "inheritEnvironments": [ "clang_cl_x64_x64" ],
+      "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
           "value": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
@@ -76,8 +99,13 @@
           "type": "STRING"
         },
         {
-          "name": "BUILD_GUI_WIN32",
-          "value": "OFF",
+          "name": "ENABLE_ASAN",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "ENABLE_LTO",
+          "value": "False",
           "type": "BOOL"
         }
       ],
@@ -87,6 +115,53 @@
           "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg"
         }
       ]
-    }
+    },
+    {
+      "name": "ClangCL Release + LTO",
+      "displayName": "ClangCL Release + LTO (Maximum Performance)",
+      "generator": "Visual Studio 17 2022",
+      "toolset": "ClangCL",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\win-vs2022-clangcl-release-lto",
+      "installRoot": "${projectDir}\\out\\install\\win-vs2022-clangcl-release-lto",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_LTO=ON",
+      "buildCommandArgs": "-v:minimal",
+      "ctestCommandArgs": "--output-on-failure",
+      "inheritEnvironments": [ "clang_cl_x64_x64" ],
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "VCPKG_TARGET_TRIPLET",
+          "value": "x64-windows",
+          "type": "STRING"
+        },
+        {
+          "name": "CMAKE_CXX_STANDARD",
+          "value": "20",
+          "type": "STRING"
+        },
+        {
+          "name": "ENABLE_ASAN",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "ENABLE_LTO",
+          "value": "True",
+          "type": "BOOL"
+        }
+      ],
+      "intelliSenseMode": "windows-clang-x64",
+      "environments": [
+        {
+          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/vcpkg"
+        }
+      ]
+    },
+
   ]
 }

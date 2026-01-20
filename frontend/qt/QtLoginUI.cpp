@@ -145,7 +145,7 @@ void QtLoginUI::createLoginCard() {
     connect(m_tabBar, &QTabBar::currentChanged, m_stackedWidget, &QStackedWidget::setCurrentIndex);
 
     // ===== Sign In Tab =====
-    QWidget* signInTab = new QWidget();
+    QWidget* signInTab = new QWidget(m_stackedWidget);
     QVBoxLayout* signInLayout = new QVBoxLayout(signInTab);
     signInLayout->setContentsMargins(24, 4, 24, 20);  // Reduced top margin for unified look
     signInLayout->setSpacing(10);
@@ -196,7 +196,7 @@ void QtLoginUI::createLoginCard() {
     m_stackedWidget->addWidget(signInTab);
 
     // ===== Register Tab =====
-    QWidget* registerTab = new QWidget();
+    QWidget* registerTab = new QWidget(m_stackedWidget);
     QVBoxLayout* registerLayout = new QVBoxLayout(registerTab);
     registerLayout->setContentsMargins(24, 4, 24, 20);  // Reduced top margin for unified look
     registerLayout->setSpacing(10);
@@ -826,8 +826,7 @@ void QtLoginUI::updateStyles() {
             border-bottom: 2px solid transparent;
         }
     )")
-            .arg(baseHex, textHex, borderColor, accentHex, cardBg, inactiveTabColor,
-                 selectedTabColor);  // %7 - explicit selected color
+            .arg("", "", borderColor, accentHex, "", inactiveTabColor, selectedTabColor);  // %3, %4, %6, %7
     m_tabBar->setStyleSheet(tabBarStyle);
 
     // Enhanced LineEdit styling with proper backgrounds and contrast

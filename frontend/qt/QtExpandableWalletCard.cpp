@@ -1,6 +1,7 @@
 #include "QtExpandableWalletCard.h"
 #include "QtThemeManager.h"
 #include "QtTokenListWidget.h"
+#include <qglobal.h>
 #include <QEvent>
 #include <QMouseEvent>
 #include <QNetworkRequest>
@@ -13,16 +14,25 @@
 QtExpandableWalletCard::QtExpandableWalletCard(QtThemeManager *themeManager,
                                                QWidget *parent)
     : QFrame(parent), m_themeManager(themeManager), m_isExpanded(false),
-      m_networkManager(new QNetworkAccessManager(this)) {
+      m_networkManager(new QNetworkAccessManager(this)),
+      m_collapsedHeader(nullptr), m_cryptoLogo(nullptr), m_cryptoName(nullptr),
+      m_balanceLabel(nullptr), m_expandIndicator(nullptr),
+      m_expandedContent(nullptr), m_sendButton(nullptr),
+      m_receiveButton(nullptr), m_tokenListWidget(nullptr),
+      m_historyTitleLabel(nullptr), m_historyText(nullptr), m_cryptoSymbol() {
   setupUI();
   applyTheme();
 
-  connect(m_networkManager, &QNetworkAccessManager::finished,
-          this, &QtExpandableWalletCard::onIconDownloaded);
+  if (m_networkManager) {
+    connect(m_networkManager, &QNetworkAccessManager::finished, this,
+            &QtExpandableWalletCard::onIconDownloaded);
+  }
 
   // Connect to theme changes to update styling dynamically
-  connect(m_themeManager, &QtThemeManager::themeChanged,
-          this, &QtExpandableWalletCard::onThemeChanged);
+  if (m_themeManager) {
+    connect(m_themeManager, &QtThemeManager::themeChanged, this,
+            &QtExpandableWalletCard::onThemeChanged);
+  }
 }
 
 void QtExpandableWalletCard::setupUI() {
@@ -30,12 +40,11 @@ void QtExpandableWalletCard::setupUI() {
   setObjectName("expandableWalletCard");
 
   QVBoxLayout *mainLayout = new QVBoxLayout(this);
-  mainLayout->setContentsMargins(
-      m_themeManager->spacing(6),  // 24px (was 25)
-      m_themeManager->spacing(6),  // 24px (was 25)
-      m_themeManager->spacing(6),  // 24px (was 25)
-      m_themeManager->spacing(6)   // 24px (was 25)
-  );
+  if (m_themeManager) {
+    mainLayout->setContentsMargins(
+        m_themeManager->spacing(6), m_themeManager->spacing(6),
+        m_themeManager->spacing(6), m_themeManager->spacing(6));
+  }
   mainLayout->setSpacing(0);
 
   // Collapsed header (clickable)
@@ -45,18 +54,17 @@ void QtExpandableWalletCard::setupUI() {
   m_collapsedHeader->installEventFilter(this);
 
   QHBoxLayout *collapsedLayout = new QHBoxLayout(m_collapsedHeader);
-  collapsedLayout->setContentsMargins(
-      m_themeManager->spacing(5),       // 20px
-      m_themeManager->compactSpacing(),  // 12px
-      m_themeManager->spacing(5),       // 20px
-      m_themeManager->compactSpacing()   // 12px
-  );
-  collapsedLayout->setSpacing(m_themeManager->standardSpacing());  // 16px (was 15)
+  if (m_themeManager) {
+    collapsedLayout->setContentsMargins(
+        m_themeManager->spacing(5), m_themeManager->compactSpacing(),
+        m_themeManager->spacing(5), m_themeManager->compactSpacing());
+    collapsedLayout->setSpacing(m_themeManager->standardSpacing());
+  }
 
   // Crypto logo container with background (circular)
   QWidget *logoContainer = new QWidget(m_collapsedHeader);
   logoContainer->setObjectName("logoContainer");
-  logoContainer->setFixedSize(48, 48); // Increased from 40x40 for better clarity
+  logoContainer->setFixedSize(48, 48);
 
   QHBoxLayout *logoLayout = new QHBoxLayout(logoContainer);
   logoLayout->setContentsMargins(0, 0, 0, 0);
@@ -65,7 +73,7 @@ void QtExpandableWalletCard::setupUI() {
   m_cryptoLogo = new QLabel("₿", logoContainer);
   m_cryptoLogo->setObjectName("cryptoLogo");
   m_cryptoLogo->setAlignment(Qt::AlignCenter);
-  m_cryptoLogo->setScaledContents(false); // Preserve aspect ratio
+  m_cryptoLogo->setScaledContents(false);
   logoLayout->addWidget(m_cryptoLogo);
 
   collapsedLayout->addWidget(logoContainer);
@@ -125,10 +133,12 @@ void QtExpandableWalletCard::setupUI() {
   expandedLayout->addLayout(actionsLayout);
 
   // Token list section (for Ethereum wallet)
-  m_tokenListWidget = new QtTokenListWidget(m_themeManager, m_expandedContent);
-  m_tokenListWidget->setMaximumHeight(300);
-  m_tokenListWidget->hide();
-  expandedLayout->addWidget(m_tokenListWidget);
+  if (m_themeManager) {
+    m_tokenListWidget = new QtTokenListWidget(m_themeManager, m_expandedContent);
+    m_tokenListWidget->setMaximumHeight(300);
+    m_tokenListWidget->hide();
+    expandedLayout->addWidget(m_tokenListWidget);
+  }
 
   // Transaction history section
   QWidget *historySection = new QWidget(m_expandedContent);
@@ -155,45 +165,69 @@ void QtExpandableWalletCard::setupUI() {
 void QtExpandableWalletCard::setCryptocurrency(const QString &name,
                                                const QString &symbol,
                                                const QString &logoText) {
-  m_cryptoName->setText(name.toUpper());
+  if (m_cryptoName) {
+    m_cryptoName->setText(name.toUpper());
+  }
   m_cryptoSymbol = symbol;
 
   // Download crypto icon
   QString iconUrl = getCryptoIconUrl(symbol);
 
   // Set placeholder while loading (use theme color)
-  m_cryptoLogo->clear();
-  QColor placeholderColor = m_themeManager->secondaryColor();
-  placeholderColor.setAlpha(25); // 10% opacity
-  m_cryptoLogo->setStyleSheet(QString("border-radius: 24px; background-color: %1;").arg(placeholderColor.name(QColor::HexArgb)));
+  if (m_cryptoLogo && m_themeManager) {
+    m_cryptoLogo->clear();
+    QColor placeholderColor = m_themeManager->secondaryColor();
+    placeholderColor.setAlpha(25); // 10% opacity
+    m_cryptoLogo->setStyleSheet(
+        QString("border-radius: 24px; background-color: %1;")
+            .arg(placeholderColor.name(QColor::HexArgb)));
+  }
 
   // Trigger icon download with proper headers
   QNetworkRequest request(iconUrl);
   request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
-  request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-  m_networkManager->get(request);
+  request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                       QNetworkRequest::NoLessSafeRedirectPolicy);
+  if (m_networkManager) {
+    m_networkManager->get(request);
+  }
 }
 
 void QtExpandableWalletCard::setBalance(const QString &balance) {
-  m_balanceLabel->setText(balance);
+  if (m_balanceLabel) {
+    m_balanceLabel->setText(balance);
+  }
 }
 
-void QtExpandableWalletCard::setTransactionHistory(const QString &historyHtml) {
-  m_historyText->setHtml(historyHtml);
+void QtExpandableWalletCard::setTransactionHistory(
+    const QString &historyHtml) {
+  if (m_historyText) {
+    m_historyText->setHtml(historyHtml);
+  }
 }
 
-void QtExpandableWalletCard::setTokenListWidget(QtTokenListWidget* tokenListWidget) {
+void QtExpandableWalletCard::setTokenListWidget(
+    QtTokenListWidget *tokenListWidget) {
+  // If there's an old token list widget, remove and delete it.
   if (m_tokenListWidget) {
-    delete m_tokenListWidget;
+    if (m_expandedContent && m_expandedContent->layout()) {
+      m_expandedContent->layout()->removeWidget(m_tokenListWidget);
+    }
+    m_tokenListWidget->deleteLater();
   }
 
   m_tokenListWidget = tokenListWidget;
+
   if (m_tokenListWidget) {
-    QVBoxLayout* layout = qobject_cast<QVBoxLayout*>(m_expandedContent->layout());
-    if (layout) {
-      layout->insertWidget(1, m_tokenListWidget);
+    if (m_expandedContent) {
+      QVBoxLayout *expandedLayout =
+          qobject_cast<QVBoxLayout *>(m_expandedContent->layout());
+      if (expandedLayout) {
+        // Insert the token list widget after the actions layout.
+        expandedLayout->insertWidget(1, m_tokenListWidget);
+        m_tokenListWidget->show();
+      }
     }
-    m_tokenListWidget->show();
   }
 }
 
@@ -217,14 +251,18 @@ QString QtExpandableWalletCard::getCryptoIconUrl(const QString &symbol) {
       {"SHIB", "11939/large/shiba.png"},
       {"DOT", "12171/large/polkadot.png"},
       {"LINK", "877/large/chainlink-new-logo.png"},
-      {"MATIC", "4713/large/matic-token-icon.png"}
-  };
+      {"MATIC", "4713/large/matic-token-icon.png"}};
 
-  QString imagePath = symbolToImagePath.value(symbol.toUpper(), "1/large/bitcoin.png");
+  QString imagePath =
+      symbolToImagePath.value(symbol.toUpper(), "1/large/bitcoin.png");
   return QString("https://assets.coingecko.com/coins/images/%1").arg(imagePath);
 }
 
 void QtExpandableWalletCard::onIconDownloaded(QNetworkReply *reply) {
+  if (!reply) {
+    return;
+  }
+
   if (reply->error() == QNetworkReply::NoError) {
     QByteArray imageData = reply->readAll();
     QPixmap pixmap;
@@ -233,42 +271,47 @@ void QtExpandableWalletCard::onIconDownloaded(QNetworkReply *reply) {
       // Get device pixel ratio for high DPI support
       qreal dpr = devicePixelRatioF();
       int iconSize = 48; // Display size in logical pixels
-      
+
       // Calculate the target size in device pixels for crisp rendering
       int targetSize = qRound(iconSize * dpr);
-      
-      // Create a high-quality scaled pixmap using QImage for better interpolation
+
+      // Create a high-quality scaled pixmap using QImage for better
+      // interpolation
       QImage sourceImage = pixmap.toImage();
-      
+
       // Scale using high-quality bilinear/bicubic interpolation
       QImage scaledImage = sourceImage.scaled(
-          targetSize, targetSize,
-          Qt::KeepAspectRatio,
-          Qt::SmoothTransformation
-      );
-      
+          targetSize, targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
       // Convert back to pixmap and set device pixel ratio
       QPixmap scaledPixmap = QPixmap::fromImage(scaledImage);
       scaledPixmap.setDevicePixelRatio(dpr);
 
-      m_cryptoLogo->setPixmap(scaledPixmap);
-      m_cryptoLogo->setStyleSheet("background: transparent; border: none;");
+      if (m_cryptoLogo) {
+        m_cryptoLogo->setPixmap(scaledPixmap);
+        m_cryptoLogo->setStyleSheet("background: transparent; border: none;");
+      }
 
-      qDebug() << "Successfully loaded wallet icon from" << reply->url().toString()
-               << "Original size:" << pixmap.size() << "Scaled to:" << scaledImage.size();
+      qDebug() << "Successfully loaded wallet icon from"
+               << reply->url().toString() << "Original size:" << pixmap.size()
+               << "Scaled to:" << scaledImage.size();
     } else {
       qDebug() << "Failed to load image data from" << reply->url().toString();
       setFallbackIcon();
     }
   } else {
-    qDebug() << "Network error downloading wallet icon:" << reply->errorString()
-             << "from" << reply->url().toString();
+    qDebug() << "Network error downloading wallet icon:"
+             << reply->errorString() << "from" << reply->url().toString();
     setFallbackIcon();
   }
   reply->deleteLater();
 }
 
 void QtExpandableWalletCard::setFallbackIcon() {
+  if (!m_cryptoLogo || !m_themeManager) {
+    return;
+  }
+
   // Get device pixel ratio for high DPI support
   qreal dpr = devicePixelRatioF();
   int iconSize = 48;
@@ -299,8 +342,10 @@ void QtExpandableWalletCard::setFallbackIcon() {
   font.setBold(true);
   painter.setFont(font);
 
-  QString symbol = m_cryptoSymbol.isEmpty() ? "₿" : m_cryptoSymbol.left(1).toUpper();
-  painter.drawText(QRect(0, 0, scaledSize, scaledSize), Qt::AlignCenter, symbol);
+  QString symbol =
+      m_cryptoSymbol.isEmpty() ? "₿" : m_cryptoSymbol.left(1).toUpper();
+  painter.drawText(QRect(0, 0, scaledSize, scaledSize), Qt::AlignCenter,
+                   symbol);
 
   m_cryptoLogo->setPixmap(fallback);
   m_cryptoLogo->setStyleSheet("");
@@ -308,8 +353,12 @@ void QtExpandableWalletCard::setFallbackIcon() {
 
 void QtExpandableWalletCard::toggleExpanded() {
   m_isExpanded = !m_isExpanded;
-  m_expandedContent->setVisible(m_isExpanded);
-  m_expandIndicator->setText(m_isExpanded ? "⌃" : "⌄");
+  if (m_expandedContent) {
+    m_expandedContent->setVisible(m_isExpanded);
+  }
+  if (m_expandIndicator) {
+    m_expandIndicator->setText(m_isExpanded ? "⌃" : "⌄");
+  }
 }
 
 bool QtExpandableWalletCard::eventFilter(QObject *obj, QEvent *event) {
@@ -320,20 +369,19 @@ bool QtExpandableWalletCard::eventFilter(QObject *obj, QEvent *event) {
   return QFrame::eventFilter(obj, event);
 }
 
-void QtExpandableWalletCard::applyTheme() {
-  updateStyles();
-}
+void QtExpandableWalletCard::applyTheme() { updateStyles(); }
 
 void QtExpandableWalletCard::onThemeChanged() {
   // Update all styling when theme changes
   updateStyles();
 
   // Re-apply placeholder color if logo hasn't loaded yet
-  if (m_cryptoLogo->pixmap().isNull()) {
+  if (m_cryptoLogo && (!m_cryptoLogo->pixmap() || m_cryptoLogo->pixmap()->isNull()) && m_themeManager) {
     QColor placeholderColor = m_themeManager->secondaryColor();
     placeholderColor.setAlpha(25); // 10% opacity
-    m_cryptoLogo->setStyleSheet(QString("border-radius: 24px; background-color: %1;")
-                                .arg(placeholderColor.name(QColor::HexArgb)));
+    m_cryptoLogo->setStyleSheet(
+        QString("border-radius: 24px; background-color: %1;")
+            .arg(placeholderColor.name(QColor::HexArgb)));
   }
 }
 
@@ -358,7 +406,8 @@ void QtExpandableWalletCard::updateStyles() {
   (void)surfaceColor.lightness(); // Suppress unused warning
 
   // Card styling with rounded corners and subtle shadow
-  QString walletCardCss = QString(R"(
+  QString walletCardCss =
+      QString(R"(
     QFrame#expandableWalletCard {
       background-color: %1;
       border: 1px solid %2;
@@ -395,12 +444,12 @@ void QtExpandableWalletCard::updateStyles() {
       padding: 8px;
     }
   )")
-                              .arg(surface)                                                                    // %1 - card background
-                              .arg(m_themeManager->secondaryColor().name())                                    // %2 - outer border (subtle)
-                              .arg(m_themeManager->secondaryColor().name())                                    // %3 - hover (theme-aware)
-                              .arg(m_themeManager->surfaceColor().name())                                      // %4 - logo container background
-                              .arg(m_themeManager->backgroundColor().name())                                   // %5 - history section bg
-                              .arg(m_themeManager->secondaryColor().name());                                   // %6 - history section border
+          .arg(surface)                                     // %1 - card background
+          .arg(m_themeManager->secondaryColor().name())     // %2 - outer border (subtle)
+          .arg(m_themeManager->secondaryColor().name())     // %3 - hover (theme-aware)
+          .arg(m_themeManager->surfaceColor().name())       // %4 - logo container background
+          .arg(m_themeManager->backgroundColor().name())    // %5 - history section bg
+          .arg(m_themeManager->secondaryColor().name());    // %6 - history section border
 
   setStyleSheet(walletCardCss);
 
@@ -414,8 +463,10 @@ void QtExpandableWalletCard::updateStyles() {
       background: transparent;
       border: none;
     }
-  )").arg(accent);
-  m_cryptoLogo->setStyleSheet(logoStyle);
+  )")
+                          .arg(accent);
+  if (m_cryptoLogo)
+    m_cryptoLogo->setStyleSheet(logoStyle);
 
   // Crypto name styling - uses theme-aware subtitle color
   QString cryptoNameColor = m_themeManager->subtitleColor().name();
@@ -428,8 +479,10 @@ void QtExpandableWalletCard::updateStyles() {
       letter-spacing: 0.5px;
       background-color: transparent;
     }
-  )").arg(cryptoNameColor);
-  m_cryptoName->setStyleSheet(nameStyle);
+  )")
+                          .arg(cryptoNameColor);
+  if (m_cryptoName)
+    m_cryptoName->setStyleSheet(nameStyle);
 
   // Balance styling - uses theme text color for proper contrast
   QString balanceColor = m_themeManager->textColor().name();
@@ -440,8 +493,10 @@ void QtExpandableWalletCard::updateStyles() {
       font-weight: 700;
       background-color: transparent;
     }
-  )").arg(balanceColor);
-  m_balanceLabel->setStyleSheet(balanceStyle);
+  )")
+                             .arg(balanceColor);
+  if (m_balanceLabel)
+    m_balanceLabel->setStyleSheet(balanceStyle);
 
   // Expand indicator styling - use accent color for better visibility
   QString indicatorStyle = QString(R"(
@@ -451,13 +506,17 @@ void QtExpandableWalletCard::updateStyles() {
       font-weight: bold;
       background-color: transparent;
     }
-  )").arg(accent);
-  m_expandIndicator->setStyleSheet(indicatorStyle);
+  )")
+                               .arg(accent);
+  if (m_expandIndicator)
+    m_expandIndicator->setStyleSheet(indicatorStyle);
 
   // Action button styling with rounded corners and modern look
-  QString buttonTextColor = QColor(Qt::white).name();  // White text on accent buttons for contrast
+  QString buttonTextColor =
+      QColor(Qt::white).name(); // White text on accent buttons for contrast
 
-  QString buttonStyle = QString(R"(
+  QString buttonStyle =
+      QString(R"(
     QPushButton#actionButton {
       background-color: %1;
       color: %2;
@@ -475,12 +534,14 @@ void QtExpandableWalletCard::updateStyles() {
       background-color: %4;
     }
   )")
-                          .arg(accent)                                               // normal state
-                          .arg(buttonTextColor)                                      // text color
-                          .arg(m_themeManager->accentColor().lighter(115).name())    // hover state
-                          .arg(m_themeManager->accentColor().darker(110).name());    // pressed state
-  m_sendButton->setStyleSheet(buttonStyle);
-  m_receiveButton->setStyleSheet(buttonStyle);
+          .arg(accent)                                            // normal state
+          .arg(buttonTextColor)                                   // text color
+          .arg(m_themeManager->accentColor().lighter(115).name()) // hover state
+          .arg(m_themeManager->accentColor().darker(110).name()); // pressed state
+  if (m_sendButton)
+    m_sendButton->setStyleSheet(buttonStyle);
+  if (m_receiveButton)
+    m_receiveButton->setStyleSheet(buttonStyle);
 
   // History title styling using theme text color
   QString historyTitleStyle = QString(R"(
@@ -490,14 +551,17 @@ void QtExpandableWalletCard::updateStyles() {
       font-weight: 700;
       background-color: transparent;
     }
-  )").arg(text);
-  m_historyTitleLabel->setStyleSheet(historyTitleStyle);
+  )")
+                                  .arg(text);
+  if (m_historyTitleLabel)
+    m_historyTitleLabel->setStyleSheet(historyTitleStyle);
 
   // History text area styling - modern and clean
   QString historyBgColor = m_themeManager->backgroundColor().name();
   QString historyBorderColor = m_themeManager->defaultBorderColor().name();
 
-  QString textEditStyle = QString(R"(
+  QString textEditStyle =
+      QString(R"(
     QTextEdit#historyText {
       background-color: %1;
       color: %2;
@@ -533,13 +597,14 @@ void QtExpandableWalletCard::updateStyles() {
       background: none;
     }
   )")
-                            .arg(historyBgColor)                                  // %1 - background color
-                            .arg(text)                                            // %2 - text color
-                            .arg(historyBorderColor)                              // %3 - border
-                            .arg(m_themeManager->textFont().family())             // %4 - font family
-                            .arg(m_themeManager->textFont().pointSize())          // %5 - font size
-                            .arg(accent)                                          // %6 - selection bg
-                            .arg(surface)                                         // %7 - selection text
-                            .arg(accent);                                         // %8 - focus border
-  m_historyText->setStyleSheet(textEditStyle);
+          .arg(historyBgColor)                                // %1 - background color
+          .arg(text)                                          // %2 - text color
+          .arg(historyBorderColor)                            // %3 - border
+          .arg(m_themeManager->textFont().family())           // %4 - font family
+          .arg(m_themeManager->textFont().pointSize())        // %5 - font size
+          .arg(accent)                                        // %6 - selection bg
+          .arg(surface)                                       // %7 - selection text
+          .arg(accent);                                       // %8 - focus border
+  if (m_historyText)
+    m_historyText->setStyleSheet(textEditStyle);
 }

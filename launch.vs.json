@@ -12,7 +12,7 @@
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -30,7 +30,7 @@
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-release\\bin\\Release;C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-release\\bin\\Release;C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -47,7 +47,7 @@
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -64,7 +64,7 @@
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
         }
       ],
       "externalConsole": false,

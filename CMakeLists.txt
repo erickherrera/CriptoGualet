@@ -146,38 +146,68 @@ endif()
 
 # Cross-platform compiler flags for Clang (only when using Clang)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  # Minimal warning set - only show critical issues
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-everything")
-
-  # Enable ONLY critical error-like warnings
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type")  # Missing return statements (critical bug)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=uninitialized")  # Use of uninitialized variables
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=delete-non-virtual-dtor")  # Memory safety
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-result")  # Ignoring important return values
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wformat-security")  # Format string vulnerabilities
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wnull-dereference")  # Null pointer dereferences
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wdangling")  # Dangling pointers/references
-
-  # Suppress intentional GNU extensions
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-gnu-zero-variadic-macro-arguments")  # Logger macros use GNU extension
-
-  # Treat warnings as informational (don't fail build)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
-
-  if(WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonportable-system-include-path")
+  # Determine if we're using ClangCL or pure Clang
+  if(CMAKE_CXX_COMPILER MATCHES "clang-cl")
+    set(CLANG_MODE "CLANGCL")
+    message(STATUS "ClangCL mode detected - using MSVC compatibility")
+  else()
+    set(CLANG_MODE "PURE_CLANG")
+    message(STATUS "Pure Clang mode detected")
   endif()
+  
+  # Enhanced warning set for crypto wallet security
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=uninitialized")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=delete-non-virtual-dtor")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-result")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wformat-security")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wnull-dereference")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wdangling")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wshadow")  # Security important
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wcast-align")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual")
 
-  if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
-  elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    # Note: ASan with MSVC/Clang-CL may require matching runtime; disabled for compatibility
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g")
-    # set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-  endif()
-
-  if(WIN32)
+  # ClangCL-specific optimizations
+  if(CLANG_MODE STREQUAL "CLANGCL")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fms-compatibility-version=19")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonportable-system-include-path")
+    # Suppress intentional GNU extensions for logger macros
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-gnu-zero-variadic-macro-arguments")
+  endif()
+
+  # Enhanced debug configuration with sanitizers
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g")
+    
+    # Configurable sanitizers
+    option(ENABLE_ASAN "Enable AddressSanitizer for memory error detection" ON)
+    option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer for UB detection" OFF)
+    
+    if(ENABLE_ASAN)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+      # ASan-specific optimizations
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-optimize-sibling-calls")
+      message(STATUS "AddressSanitizer enabled")
+    endif()
+    
+    if(ENABLE_UBSAN)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+      message(STATUS "UndefinedBehaviorSanitizer enabled")
+    endif()
+  elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    # LTO for better performance
+    option(ENABLE_LTO "Enable Link-Time Optimization for better performance" OFF)
+    if(ENABLE_LTO)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -flto")
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -flto")
+      message(STATUS "Link-Time Optimization enabled")
+    else()
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
+    endif()
   endif()
 endif()
 
@@ -193,7 +223,7 @@ if(BUILD_GUI_QT)
       "C:/Qt"
       "C:/Program Files (x86)/Qt"
     )
-    # Try to help CMake locate the right msvc/clang build of Qt
+    # Enhanced Qt path resolution for different compilers
     file(GLOB QT_VERSIONS "C:/Program Files/Qt/6.*")
     foreach(QT_VERSION ${QT_VERSIONS})
       if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
@@ -201,11 +231,18 @@ if(BUILD_GUI_QT)
           "${QT_VERSION}/msvc2022_64"
           "${QT_VERSION}/msvc2019_64")
       elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        list(APPEND CMAKE_PREFIX_PATH
-          "${QT_VERSION}/msvc2022_64"
-          "${QT_VERSION}/msvc2019_64"
-          "${QT_VERSION}/clang_64"
-          "${QT_VERSION}/llvm-mingw_64")
+        if(CLANG_MODE STREQUAL "CLANGCL")
+          # ClangCL should use MSVC-built Qt for ABI compatibility
+          list(APPEND CMAKE_PREFIX_PATH
+            "${QT_VERSION}/msvc2022_64"
+            "${QT_VERSION}/msvc2019_64")
+        else()
+          # Pure Clang can use native Qt builds
+          list(APPEND CMAKE_PREFIX_PATH
+            "${QT_VERSION}/clang_64"
+            "${QT_VERSION}/llvm-mingw_64"
+            "${QT_VERSION}/msvc2022_64")  # Fallback
+        endif()
       else()
         list(APPEND CMAKE_PREFIX_PATH
           "${QT_VERSION}/mingw_64"
@@ -219,9 +256,21 @@ if(BUILD_GUI_QT)
   if(Qt6_FOUND)
     qt6_standard_project_setup()
     message(STATUS "Qt6 found at ${Qt6_DIR}")
-    message(STATUS "Qt GUI will be built")
+    message(STATUS "Qt GUI will be built with ${CMAKE_CXX_COMPILER_ID}")
+    
+    # Verify Qt compatibility
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      if(CLANG_MODE STREQUAL "CLANGCL")
+        message(STATUS "ClangCL+Qt6: Using MSVC-built Qt for ABI compatibility")
+      else()
+        message(STATUS "Pure Clang+Qt6: Using native Qt build if available")
+      endif()
+    endif()
   else()
-    message(WARNING "Qt6 not found - Qt GUI will not be built. Install Qt6 to enable Qt GUI.")
+    message(WARNING "Qt6 not found - Qt GUI will not be built")
+    if(WIN32)
+      message(STATUS "Install Qt6 MSVC 2022 64-bit for best ClangCL compatibility")
+    endif()
     set(BUILD_GUI_QT OFF)
   endif()
 endif()

@@ -14,6 +14,31 @@
             "preLaunchTask": "CMake: build"
         },
         {
+            "name": "Debug CriptoGualet Qt (ClangCL + ASan)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/win-vs2022-clangcl-debug-asan/bin/Debug/CriptoGualetQt.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/out/build/win-vs2022-clangcl-debug-asan/bin/Debug",
+            "env": {
+                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}",
+                "ASAN_OPTIONS": "detect_leaks=1:detect_stack_use_after_return=1"
+            },
+            "preLaunchTask": "CMake: build (ClangCL ASan)"
+        },
+        {
+            "name": "Debug CriptoGualet Qt (ClangCL + LTO)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/out/build/win-vs2022-clangcl-release-lto/bin/Release/CriptoGualetQt.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/out/build/win-vs2022-clangcl-release-lto/bin/Release",
+            "env": {
+                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+            },
+            "preLaunchTask": "CMake: build (ClangCL LTO)"
+        },
+        {
             "name": "Debug CriptoGualet Qt (Ninja Build)",
             "type": "lldb",
             "request": "launch",

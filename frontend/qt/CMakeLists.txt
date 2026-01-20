@@ -78,7 +78,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
   )
 
   # Explicitly add Qt include directories for Clang compatibility
-  target_include_directories(CriptoGualetQt SYSTEM PRIVATE
+  target_include_directories(CriptoGualetQt SYSTEM PUBLIC
     ${Qt6Core_INCLUDE_DIRS}
     ${Qt6Widgets_INCLUDE_DIRS}
     ${Qt6Gui_INCLUDE_DIRS}

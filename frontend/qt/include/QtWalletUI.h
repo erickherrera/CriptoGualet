@@ -146,7 +146,7 @@ class QtWalletUI : public QWidget {
     void onTokenDeleted(const QString& contractAddress);
     int getEthereumWalletId();
 
-    // PHASE 3: Formatting helpers
+    // Legacy formatting helpers for backward compatibility
     QString formatBitcoinTransactionHistory(const std::vector<std::string>& txHashes);
     QString formatEthereumTransactionHistory(const std::vector<EthereumService::Transaction>& txs,
                                              const std::string& userAddress);
@@ -157,7 +157,10 @@ class QtWalletUI : public QWidget {
 
     // Private helper for deriving private key
     std::vector<uint8_t> derivePrivateKeyForAddress(const QString& address,
-                                                    const QString& password);
+                                                     const QString& password);
+    
+    // Private helper for calculating token USD value
+    double calculateTotalTokenUSDValue();
 
     // UI Components
     QVBoxLayout* m_mainLayout;

@@ -30,7 +30,12 @@
 
 CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     : QMainWindow(parent), m_stackedWidget(nullptr), m_loginUI(nullptr),
-      m_walletUI(nullptr), m_themeManager(&QtThemeManager::instance()) {
+      m_walletUI(nullptr), m_themeManager(nullptr) {
+    
+    // Initialize theme manager first
+    m_themeManager = &QtThemeManager::instance();
+    
+    // Clean up sessions
     Auth::AuthManager::getInstance().cleanupSessions();
   setWindowTitle("CriptoGualet - Securely own your cryptos");
   setMinimumSize(800, 600);
@@ -105,12 +110,15 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   setupStatusBar();
 
   // Apply initial styling
-  applyNavbarStyling();
+  if (m_themeManager) {
+    applyNavbarStyling();
+    connect(m_themeManager, &QtThemeManager::themeChanged, this,
+            &CriptoGualetQt::onThemeChanged);
+  }
 
-  connect(m_themeManager, &QtThemeManager::themeChanged, this,
-          &CriptoGualetQt::onThemeChanged);
-
+  if (m_loginUI) {
     connect(m_loginUI, &QtLoginUI::loginSuccessful, this, &CriptoGualetQt::showWalletScreen);
+  }
 }
 
 void CriptoGualetQt::setupUI() {
@@ -600,28 +608,42 @@ void CriptoGualetQt::setupStatusBar() { statusBar()->showMessage("Ready"); }
 
 void CriptoGualetQt::showLoginScreen() {
   g_currentUser.clear();
-  m_stackedWidget->setCurrentWidget(m_loginUI);
-  m_loginUI->clearLoginFields();
+  if (m_stackedWidget && m_loginUI) {
+    m_stackedWidget->setCurrentWidget(m_loginUI);
+    m_loginUI->clearLoginFields();
+  }
   updateSidebarVisibility();
-  statusBar()->showMessage("Please log in or create an account");
+  if (statusBar()) {
+    statusBar()->showMessage("Please log in or create an account");
+  }
 }
 
 void CriptoGualetQt::showWalletScreen(const QString& sessionId) {
-  if (!sessionId.isEmpty()) {
+  if (m_walletUI && !sessionId.isEmpty()) {
     m_walletUI->setSessionId(sessionId);
   }
-  m_stackedWidget->setCurrentWidget(m_walletUI);
+  if (m_stackedWidget && m_walletUI) {
+    m_stackedWidget->setCurrentWidget(m_walletUI);
+  }
   updateSidebarVisibility();
-  statusBar()->showMessage(
-      QString("Logged in as: %1").arg(QString::fromStdString(g_currentUser)));
+  if (statusBar()) {
+    statusBar()->showMessage(
+        QString("Logged in as: %1").arg(QString::fromStdString(g_currentUser)));
+  }
 }
 
 void CriptoGualetQt::showSettingsScreen() {
-  m_stackedWidget->setCurrentWidget(m_settingsUI);
+  if (m_stackedWidget && m_settingsUI) {
+    m_stackedWidget->setCurrentWidget(m_settingsUI);
+  }
   updateSidebarVisibility();
-  statusBar()->showMessage("Settings");
+  if (statusBar()) {
+    statusBar()->showMessage("Settings");
+  }
   // Refresh 2FA status when settings page is shown
-  m_settingsUI->refresh2FAStatus();
+  if (m_settingsUI) {
+    m_settingsUI->refresh2FAStatus();
+  }
   // Re-apply sidebar theme to prevent style bleeding from settings page
   if (m_sidebar) {
     m_sidebar->applyTheme();
@@ -629,27 +651,33 @@ void CriptoGualetQt::showSettingsScreen() {
 }
 
 void CriptoGualetQt::showTopCryptosPage() {
-  m_stackedWidget->setCurrentWidget(m_topCryptosPage);
+  if (m_stackedWidget && m_topCryptosPage) {
+    m_stackedWidget->setCurrentWidget(m_topCryptosPage);
+    m_topCryptosPage->refreshData();
+  }
   updateSidebarVisibility();
-  statusBar()->showMessage("Top Cryptocurrencies by Market Cap");
-  m_topCryptosPage->refreshData();
+  if (statusBar()) {
+    statusBar()->showMessage("Top Cryptocurrencies by Market Cap");
+  }
 }
 
 void CriptoGualetQt::updateSidebarVisibility() {
   // Show sidebar only when not on login screen
-  if (m_stackedWidget->currentWidget() != m_loginUI) {
-    m_sidebar->show();
-  } else {
-    m_sidebar->hide();
+  if (m_stackedWidget && m_sidebar && m_loginUI) {
+    if (m_stackedWidget->currentWidget() != m_loginUI) {
+      m_sidebar->show();
+    } else {
+      m_sidebar->hide();
+    }
   }
 }
 
 void CriptoGualetQt::onThemeChanged() {
-  // Apply theme to all UI pages
-  m_loginUI->applyTheme();
-  m_walletUI->applyTheme();
-  m_settingsUI->applyTheme();
-  m_topCryptosPage->applyTheme();
+  // Apply theme to all UI pages with null checks
+  if (m_loginUI) m_loginUI->applyTheme();
+  if (m_walletUI) m_walletUI->applyTheme();
+  if (m_settingsUI) m_settingsUI->applyTheme();
+  if (m_topCryptosPage) m_topCryptosPage->applyTheme();
 
   // Apply theme to sidebar
   if (m_sidebar) {
@@ -660,58 +688,64 @@ void CriptoGualetQt::onThemeChanged() {
   applyNavbarStyling();
 
   // Force visual refresh of the entire UI
-  m_centralWidget->update();
+  if (m_centralWidget) {
+    m_centralWidget->update();
+  }
   update();
 }
 
 void CriptoGualetQt::applyNavbarStyling() {
   // Apply main window stylesheet (includes navbar styles)
-  setStyleSheet(m_themeManager->getMainWindowStyleSheet());
+  if (m_themeManager) {
+    setStyleSheet(m_themeManager->getMainWindowStyleSheet());
+  }
 
   // Style menu bar with theme-appropriate colors
-  QString menuBarStyle =
-      QString(R"(
-        QMenuBar {
-            background-color: %1;
-            color: %2;
-            border: none;
-            padding: 2px;
-        }
-        QMenuBar::item {
-            background-color: transparent;
-            color: %2;
-            padding: 4px 10px;
-            border-radius: 4px;
-        }
-        QMenuBar::item:selected {
-            background-color: %3;
-        }
-        QMenuBar::item:pressed {
-            background-color: %4;
-        }
-        QMenu {
-            background-color: %5;
-            color: %2;
-            border: 1px solid %6;
-            border-radius: 4px;
-            padding: 4px;
-        }
-        QMenu::item {
-            padding: 6px 20px;
-            border-radius: 4px;
-        }
-        QMenu::item:selected {
-            background-color: %3;
-        }
-    )")
-          .arg(m_themeManager->backgroundColor().name())
-          .arg(m_themeManager->textColor().name())
-          .arg(m_themeManager->accentColor().name())
-          .arg(m_themeManager->accentColor().darker(110).name())
-          .arg(m_themeManager->surfaceColor().name())
-          .arg(m_themeManager->secondaryColor().name());
+  if (m_themeManager && menuBar()) {
+    QString menuBarStyle =
+        QString(R"(
+            QMenuBar {
+                background-color: %1;
+                color: %2;
+                border: none;
+                padding: 2px;
+            }
+            QMenuBar::item {
+                background-color: transparent;
+                color: %2;
+                padding: 4px 10px;
+                border-radius: 4px;
+            }
+            QMenuBar::item:selected {
+                background-color: %3;
+            }
+            QMenuBar::item:pressed {
+                background-color: %4;
+            }
+            QMenu {
+                background-color: %5;
+                color: %2;
+                border: 1px solid %6;
+                border-radius: 4px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 20px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: %3;
+            }
+        )")
+              .arg(m_themeManager->backgroundColor().name())
+              .arg(m_themeManager->textColor().name())
+              .arg(m_themeManager->accentColor().name())
+              .arg(m_themeManager->accentColor().darker(110).name())
+              .arg(m_themeManager->surfaceColor().name())
+              .arg(m_themeManager->secondaryColor().name());
 
-  menuBar()->setStyleSheet(menuBarStyle);
+    menuBar()->setStyleSheet(menuBarStyle);
+  }
 }
 
 void CriptoGualetQt::resizeEvent(QResizeEvent *event) {

@@ -1,5 +1,6 @@
 // QtWalletUI.cpp
 #include "QtWalletUI.h"
+#include <QPointer>
 #include "../../backend/core/include/AuthManager.h"
 #include "../../backend/blockchain/include/PriceService.h"
 #include "../../backend/core/include/Crypto.h"
@@ -89,32 +90,36 @@ QtWalletUI::QtWalletUI(QWidget* parent)
     setupUI();
 
     // Defer all complex initialization to after event loop starts
-    QTimer::singleShot(100, this, [this]() {
+    QPointer<QtWalletUI> self(this);
+    QTimer::singleShot(100, this, [self]() {
+        // Safely check if object still exists before accessing members
+        if (!self) return;
+        
         // Initialize price fetcher - ensure proper constructor call
-        m_priceFetcher.reset(new PriceService::PriceFetcher());
+        self->m_priceFetcher.reset(new PriceService::PriceFetcher());
 
         // Setup price update timer
-        m_priceUpdateTimer = new QTimer(this);
-        connect(m_priceUpdateTimer, &QTimer::timeout, this, &QtWalletUI::onPriceUpdateTimer);
-        m_priceUpdateTimer->start(60000);  // 60 seconds
+        self->m_priceUpdateTimer = new QTimer(self.data());
+        QObject::connect(self->m_priceUpdateTimer, &QTimer::timeout, self.data(), &QtWalletUI::onPriceUpdateTimer);
+        self->m_priceUpdateTimer->start(60000);  // 60 seconds
 
         // Setup balance update timer (refresh every 30 seconds)
-        m_balanceUpdateTimer = new QTimer(this);
-        connect(m_balanceUpdateTimer, &QTimer::timeout, this, &QtWalletUI::onBalanceUpdateTimer);
-        m_balanceUpdateTimer->start(30000);  // 30 seconds
+        self->m_balanceUpdateTimer = new QTimer(self.data());
+        QObject::connect(self->m_balanceUpdateTimer, &QTimer::timeout, self.data(), &QtWalletUI::onBalanceUpdateTimer);
+        self->m_balanceUpdateTimer->start(30000);  // 30 seconds
 
         // Apply theme
-        if (m_themeManager) {
-            applyTheme();
+        if (self->m_themeManager) {
+            self->applyTheme();
         }
 
         // PHASE 2: Fetch initial prices for both BTC and ETH
-        fetchAllPrices();
+        self->fetchAllPrices();
     });
 
     // Connect theme changed signal
     if (m_themeManager) {
-        connect(m_themeManager, &QtThemeManager::themeChanged, this, &QtWalletUI::onThemeChanged);
+        QObject::connect(m_themeManager, &QtThemeManager::themeChanged, this, &QtWalletUI::onThemeChanged);
     }
 }
 
@@ -163,14 +168,15 @@ void QtWalletUI::setupUI() {
     m_mainLayout->addLayout(m_centeringLayout);
 
     // Initialize responsive layout after UI setup - add safety delay and null checks
-    QTimer::singleShot(100, this, [this]() {
+    QPointer<QtWalletUI> self(this);
+    QTimer::singleShot(100, this, [self]() {
         // Add safety check before updating layouts
-        if (this && m_mainLayout && m_contentLayout) {
-            updateResponsiveLayout();
-            adjustButtonLayout();
-            updateCardSizes();
+        if (self && self->m_mainLayout && self->m_contentLayout) {
+            self->updateResponsiveLayout();
+            self->adjustButtonLayout();
+            self->updateCardSizes();
         } else {
-            qDebug() << "QtWalletUI: Skipping layout updates due to null pointers";
+            qDebug() << "QtWalletUI: Skipping layout updates due to null pointers or object destruction";
         }
     });
 }
@@ -249,128 +255,221 @@ void QtWalletUI::createHeaderSection() {
 }
 
 void QtWalletUI::createActionButtons() {
-    // Create Bitcoin wallet card using the reusable component
-    m_bitcoinWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
-    m_bitcoinWalletCard->setCryptocurrency("Bitcoin", "BTC", "₿");
-    m_bitcoinWalletCard->setBalance("0.00000000 BTC");
-    m_bitcoinWalletCard->setTransactionHistory(
-        "No transactions yet.<br><br>Transaction history will be displayed here.");
-
-    // Connect signals
-    connect(m_bitcoinWalletCard, &QtExpandableWalletCard::sendRequested, this,
-            &QtWalletUI::onSendBitcoinClicked);
-    connect(m_bitcoinWalletCard, &QtExpandableWalletCard::receiveRequested, this,
-            &QtWalletUI::onReceiveBitcoinClicked);
-
-    m_contentLayout->addWidget(m_bitcoinWalletCard);
-
-    // Create Litecoin wallet card
-    m_litecoinWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
-    m_litecoinWalletCard->setCryptocurrency("Litecoin", "LTC", "Ł");
-    m_litecoinWalletCard->setBalance("0.00000000 LTC");
-    m_litecoinWalletCard->setTransactionHistory(
-        "No transactions yet.<br><br>This wallet supports Litecoin network. "
-        "Transaction history will be displayed here.");
-
-    // Connect Litecoin signals
-    connect(m_litecoinWalletCard, &QtExpandableWalletCard::sendRequested, this,
-            &QtWalletUI::onSendLitecoinClicked);
-    connect(m_litecoinWalletCard, &QtExpandableWalletCard::receiveRequested, this,
-            &QtWalletUI::onReceiveLitecoinClicked);
-
-    m_contentLayout->addWidget(m_litecoinWalletCard);
-
-    // Create Ethereum wallet card
-    m_ethereumWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
-    m_ethereumWalletCard->setCryptocurrency("Ethereum", "ETH", "Ξ");
-    m_ethereumWalletCard->setBalance("0.00000000 ETH");
-    m_ethereumWalletCard->setTransactionHistory(
-        "No transactions yet.<br><br>This wallet supports Ethereum network. "
-        "Transaction history will be displayed here.");
-
-    // PHASE 2: Connect Ethereum handlers
-    connect(m_ethereumWalletCard, &QtExpandableWalletCard::sendRequested, this,
-            &QtWalletUI::onSendEthereumClicked);
-    connect(m_ethereumWalletCard, &QtExpandableWalletCard::receiveRequested, this,
-            &QtWalletUI::onReceiveEthereumClicked);
-
-    m_contentLayout->addWidget(m_ethereumWalletCard);
-
-    // Import ERC20 Token button for Ethereum ecosystem
-    QHBoxLayout* tokenActionsLayout = new QHBoxLayout();
-    tokenActionsLayout->setSpacing(10);
-    tokenActionsLayout->setAlignment(Qt::AlignCenter);
-
-    m_importTokenButton = new QPushButton("Import ERC20 Token", this);
-    m_importTokenButton->setToolTip("Import any ERC20 token by contract address to your Ethereum wallet.");
-    m_importTokenButton->setCursor(Qt::PointingHandCursor);
-    m_importTokenButton->setObjectName("importTokenButton");
-
-    connect(m_importTokenButton, &QPushButton::clicked, this, &QtWalletUI::onImportTokenClicked);
-
-    tokenActionsLayout->addStretch();
-    tokenActionsLayout->addWidget(m_importTokenButton);
-    tokenActionsLayout->addStretch();
-
-    m_contentLayout->addLayout(tokenActionsLayout);
-
-    // ============================================
-    // STABLECOINS SECTION
-    // ============================================
+    // Check if any wallets are available
+    bool hasAnyWallet = (m_wallet != nullptr) || (m_litecoinWallet != nullptr) || (m_ethereumWallet != nullptr);
     
-    // Section header for Stablecoins
-    m_stablecoinSectionHeader = new QLabel("Stablecoins", m_scrollContent);
-    m_stablecoinSectionHeader->setObjectName("sectionHeader");
-    m_stablecoinSectionHeader->setAlignment(Qt::AlignLeft);
-    m_contentLayout->addWidget(m_stablecoinSectionHeader);
+    if (!hasAnyWallet) {
+        // Show empty state when no wallets are available
+        QWidget* emptyStateWidget = new QWidget(m_scrollContent);
+        QVBoxLayout* emptyStateLayout = new QVBoxLayout(emptyStateWidget);
+        emptyStateLayout->setAlignment(Qt::AlignCenter);
+        emptyStateLayout->setSpacing(20);
+        
+        // Empty state icon (using text emoji as placeholder)
+        QLabel* emptyIcon = new QLabel("👛", emptyStateWidget);
+        emptyIcon->setAlignment(Qt::AlignCenter);
+        emptyIcon->setStyleSheet("font-size: 64px; color: #888;");
+        emptyStateLayout->addWidget(emptyIcon);
+        
+        // Empty state title
+        QLabel* emptyTitle = new QLabel("No Wallets Available", emptyStateWidget);
+        emptyTitle->setAlignment(Qt::AlignCenter);
+        emptyTitle->setStyleSheet("font-size: 24px; font-weight: bold; color: #333; margin: 10px 0;");
+        emptyStateLayout->addWidget(emptyTitle);
+        
+        // Empty state description
+        QLabel* emptyDescription = new QLabel(
+            "You don't have any cryptocurrency wallets set up yet.\n\n"
+            "Create your first wallet to start managing Bitcoin, Ethereum, Litecoin, and other digital assets.",
+            emptyStateWidget);
+        emptyDescription->setAlignment(Qt::AlignCenter);
+        emptyDescription->setStyleSheet("font-size: 16px; color: #666; line-height: 1.5;");
+        emptyDescription->setWordWrap(true);
+        emptyStateLayout->addWidget(emptyDescription);
+        
+        // Add some vertical spacing
+        emptyStateLayout->addSpacing(30);
+        
+        // Action buttons
+        QHBoxLayout* actionsLayout = new QHBoxLayout();
+        actionsLayout->setSpacing(15);
+        actionsLayout->setAlignment(Qt::AlignCenter);
+        
+        QPushButton* createWalletBtn = new QPushButton("Create Wallet", emptyStateWidget);
+        createWalletBtn->setStyleSheet(
+            "QPushButton { "
+            "  background-color: #007ACC; "
+            "  color: white; "
+            "  border: none; "
+            "  padding: 12px 24px; "
+            "  border-radius: 6px; "
+            "  font-size: 16px; "
+            "  font-weight: bold; "
+            "} "
+            "QPushButton:hover { "
+            "  background-color: #005A9E; "
+            "}");
+        createWalletBtn->setCursor(Qt::PointingHandCursor);
+        actionsLayout->addWidget(createWalletBtn);
+        
+        QPushButton* importWalletBtn = new QPushButton("Import Wallet", emptyStateWidget);
+        importWalletBtn->setStyleSheet(
+            "QPushButton { "
+            "  background-color: transparent; "
+            "  color: #007ACC; "
+            "  border: 2px solid #007ACC; "
+            "  padding: 10px 22px; "
+            "  border-radius: 6px; "
+            "  font-size: 16px; "
+            "  font-weight: bold; "
+            "} "
+            "QPushButton:hover { "
+            "  background-color: #F0F8FF; "
+            "}");
+        importWalletBtn->setCursor(Qt::PointingHandCursor);
+        actionsLayout->addWidget(importWalletBtn);
+        
+        emptyStateLayout->addLayout(actionsLayout);
+        
+        // Connect buttons to appropriate actions (you can implement these handlers)
+        connect(createWalletBtn, &QPushButton::clicked, this, [this]() {
+            QMessageBox::information(this, "Create Wallet", 
+                "Wallet creation functionality will be implemented in a future update.\n\n"
+                "For now, please restart the application to initialize default wallets.");
+        });
+        
+        connect(importWalletBtn, &QPushButton::clicked, this, [this]() {
+            QMessageBox::information(this, "Import Wallet", 
+                "Wallet import functionality will be implemented in a future update.\n\n"
+                "You will be able to import existing wallets using seed phrases or private keys.");
+        });
+        
+        m_contentLayout->addWidget(emptyStateWidget);
+        return;
+    }
 
-    // Create USDT wallet card
-    m_usdtWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
-    m_usdtWalletCard->setCryptocurrency("Tether USD", "USDT", "$");
-    m_usdtWalletCard->setBalance("0.00 USDT");
-    m_usdtWalletCard->setTransactionHistory(
-        "No transactions yet.<br><br>USDT (Tether) is a stablecoin pegged to the US Dollar. "
-        "It operates on the Ethereum network as an ERC20 token.");
+    // Bitcoin wallet card
+    if (m_wallet) {
+        m_bitcoinWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+        m_bitcoinWalletCard->setCryptocurrency("Bitcoin", "BTC", "₿");
+        m_bitcoinWalletCard->setBalance("0.00000000 BTC");
+        m_bitcoinWalletCard->setTransactionHistory(
+            "No transactions yet.<br><br>Transaction history will be displayed here.");
 
-    // Connect USDT signals
-    connect(m_usdtWalletCard, &QtExpandableWalletCard::sendRequested, this,
-            &QtWalletUI::onSendUSDTClicked);
-    connect(m_usdtWalletCard, &QtExpandableWalletCard::receiveRequested, this,
-            &QtWalletUI::onReceiveUSDTClicked);
+        connect(m_bitcoinWalletCard, &QtExpandableWalletCard::sendRequested, this,
+                &QtWalletUI::onSendBitcoinClicked);
+        connect(m_bitcoinWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+                &QtWalletUI::onReceiveBitcoinClicked);
 
-    m_contentLayout->addWidget(m_usdtWalletCard);
+        m_contentLayout->addWidget(m_bitcoinWalletCard);
+    }
 
-    // Create USDC wallet card
-    m_usdcWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
-    m_usdcWalletCard->setCryptocurrency("USD Coin", "USDC", "$");
-    m_usdcWalletCard->setBalance("0.00 USDC");
-    m_usdcWalletCard->setTransactionHistory(
-        "No transactions yet.<br><br>USDC (USD Coin) is a stablecoin pegged to the US Dollar. "
-        "It operates on the Ethereum network as an ERC20 token.");
+    // Litecoin wallet card
+    if (m_litecoinWallet) {
+        m_litecoinWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+        m_litecoinWalletCard->setCryptocurrency("Litecoin", "LTC", "Ł");
+        m_litecoinWalletCard->setBalance("0.00000000 LTC");
+        m_litecoinWalletCard->setTransactionHistory(
+            "No transactions yet.<br><br>This wallet supports Litecoin network. "
+            "Transaction history will be displayed here.");
 
-    // Connect USDC signals
-    connect(m_usdcWalletCard, &QtExpandableWalletCard::sendRequested, this,
-            &QtWalletUI::onSendUSDCClicked);
-    connect(m_usdcWalletCard, &QtExpandableWalletCard::receiveRequested, this,
-            &QtWalletUI::onReceiveUSDCClicked);
+        connect(m_litecoinWalletCard, &QtExpandableWalletCard::sendRequested, this,
+                &QtWalletUI::onSendLitecoinClicked);
+        connect(m_litecoinWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+                &QtWalletUI::onReceiveLitecoinClicked);
 
-    m_contentLayout->addWidget(m_usdcWalletCard);
+        m_contentLayout->addWidget(m_litecoinWalletCard);
+    }
 
-    // Create DAI wallet card
-    m_daiWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
-    m_daiWalletCard->setCryptocurrency("Dai Stablecoin", "DAI", "◈");
-    m_daiWalletCard->setBalance("0.00 DAI");
-    m_daiWalletCard->setTransactionHistory(
-        "No transactions yet.<br><br>DAI is a decentralized stablecoin pegged to the US Dollar. "
-        "It operates on the Ethereum network as an ERC20 token.");
+    // Ethereum wallet card and related features
+    if (m_ethereumWallet) {
+        m_ethereumWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+        m_ethereumWalletCard->setCryptocurrency("Ethereum", "ETH", "Ξ");
+        m_ethereumWalletCard->setBalance("0.00000000 ETH");
+        m_ethereumWalletCard->setTransactionHistory(
+            "No transactions yet.<br><br>This wallet supports Ethereum network. "
+            "Transaction history will be displayed here.");
 
-    // Connect DAI signals
-    connect(m_daiWalletCard, &QtExpandableWalletCard::sendRequested, this,
-            &QtWalletUI::onSendDAIClicked);
-    connect(m_daiWalletCard, &QtExpandableWalletCard::receiveRequested, this,
-            &QtWalletUI::onReceiveDAIClicked);
+        connect(m_ethereumWalletCard, &QtExpandableWalletCard::sendRequested, this,
+                &QtWalletUI::onSendEthereumClicked);
+        connect(m_ethereumWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+                &QtWalletUI::onReceiveEthereumClicked);
 
-    m_contentLayout->addWidget(m_daiWalletCard);
+        m_contentLayout->addWidget(m_ethereumWalletCard);
+
+        // Import ERC20 Token button for Ethereum ecosystem
+        QHBoxLayout* tokenActionsLayout = new QHBoxLayout();
+        tokenActionsLayout->setSpacing(10);
+        tokenActionsLayout->setAlignment(Qt::AlignCenter);
+
+        m_importTokenButton = new QPushButton("Import ERC20 Token", this);
+        m_importTokenButton->setToolTip("Import any ERC20 token by contract address to your Ethereum wallet.");
+        m_importTokenButton->setCursor(Qt::PointingHandCursor);
+        m_importTokenButton->setObjectName("importTokenButton");
+
+        connect(m_importTokenButton, &QPushButton::clicked, this, &QtWalletUI::onImportTokenClicked);
+
+        tokenActionsLayout->addStretch();
+        tokenActionsLayout->addWidget(m_importTokenButton);
+        tokenActionsLayout->addStretch();
+
+        m_contentLayout->addLayout(tokenActionsLayout);
+
+        // ============================================
+        // STABLECOINS SECTION (only show if Ethereum wallet exists)
+        // ============================================
+        
+        // Section header for Stablecoins
+        m_stablecoinSectionHeader = new QLabel("Stablecoins", m_scrollContent);
+        m_stablecoinSectionHeader->setObjectName("sectionHeader");
+        m_stablecoinSectionHeader->setAlignment(Qt::AlignLeft);
+        m_contentLayout->addWidget(m_stablecoinSectionHeader);
+
+// Create USDT wallet card
+        m_usdtWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+        m_usdtWalletCard->setCryptocurrency("Tether USD", "USDT", "$");
+        m_usdtWalletCard->setBalance("0.00 USDT");
+        m_usdtWalletCard->setTransactionHistory(
+            "No transactions yet.<br><br>USDT (Tether) is a stablecoin pegged to the US Dollar. "
+            "It operates on the Ethereum network as an ERC20 token.");
+
+        connect(m_usdtWalletCard, &QtExpandableWalletCard::sendRequested, this,
+                &QtWalletUI::onSendUSDTClicked);
+        connect(m_usdtWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+                &QtWalletUI::onReceiveUSDTClicked);
+
+        m_contentLayout->addWidget(m_usdtWalletCard);
+
+        // Create USDC wallet card
+        m_usdcWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+        m_usdcWalletCard->setCryptocurrency("USD Coin", "USDC", "$");
+        m_usdcWalletCard->setBalance("0.00 USDC");
+        m_usdcWalletCard->setTransactionHistory(
+            "No transactions yet.<br><br>USDC (USD Coin) is a stablecoin pegged to the US Dollar. "
+            "It operates on the Ethereum network as an ERC20 token.");
+
+        connect(m_usdcWalletCard, &QtExpandableWalletCard::sendRequested, this,
+                &QtWalletUI::onSendUSDCClicked);
+        connect(m_usdcWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+                &QtWalletUI::onReceiveUSDCClicked);
+
+        m_contentLayout->addWidget(m_usdcWalletCard);
+
+        // Create DAI wallet card
+        m_daiWalletCard = new QtExpandableWalletCard(m_themeManager, m_scrollContent);
+        m_daiWalletCard->setCryptocurrency("Dai Stablecoin", "DAI", "◈");
+        m_daiWalletCard->setBalance("0.00 DAI");
+        m_daiWalletCard->setTransactionHistory(
+            "No transactions yet.<br><br>DAI is a decentralized stablecoin pegged to the US Dollar. "
+            "It operates on the Ethereum network as an ERC20 token.");
+
+        connect(m_daiWalletCard, &QtExpandableWalletCard::sendRequested, this,
+                &QtWalletUI::onSendDAIClicked);
+        connect(m_daiWalletCard, &QtExpandableWalletCard::receiveRequested, this,
+                &QtWalletUI::onReceiveDAIClicked);
+
+        m_contentLayout->addWidget(m_daiWalletCard);
+    }
 }
 
 void QtWalletUI::setUserInfo(const QString& username, const QString& address) {
@@ -382,9 +481,17 @@ void QtWalletUI::setUserInfo(const QString& username, const QString& address) {
         m_realBalanceBTC = session->walletData.btcBalance;
         m_realBalanceLTC = session->walletData.ltcBalance;
         m_realBalanceETH = session->walletData.ethBalance;
-        m_bitcoinWalletCard->setBalance(QString("%1 BTC").arg(m_realBalanceBTC, 0, 'f', 8));
-        m_litecoinWalletCard->setBalance(QString("%1 LTC").arg(m_realBalanceLTC, 0, 'f', 8));
-        m_ethereumWalletCard->setBalance(QString("%1 ETH").arg(m_realBalanceETH, 0, 'f', 8));
+        
+        // Only update balances if the wallet cards exist
+        if (m_bitcoinWalletCard) {
+            m_bitcoinWalletCard->setBalance(QString("%1 BTC").arg(m_realBalanceBTC, 0, 'f', 8));
+        }
+        if (m_litecoinWalletCard) {
+            m_litecoinWalletCard->setBalance(QString("%1 LTC").arg(m_realBalanceLTC, 0, 'f', 8));
+        }
+        if (m_ethereumWalletCard) {
+            m_ethereumWalletCard->setBalance(QString("%1 ETH").arg(m_realBalanceETH, 0, 'f', 8));
+        }
         updateUSDBalance();
     }
 
@@ -436,29 +543,28 @@ void QtWalletUI::onSendBitcoinClicked() {
             return;
         }
 
-        try {
-            // Show progress indicator
-            QMessageBox* progressBox = new QMessageBox(this);
-            progressBox->setWindowTitle("Sending Transaction");
-            progressBox->setText("Broadcasting transaction to the network...\nPlease wait.");
-            progressBox->setStandardButtons(QMessageBox::NoButton);
-            progressBox->setModal(true);
-            progressBox->show();
-            QApplication::processEvents();
+        QMessageBox* progressBox = new QMessageBox(this);
+        progressBox->setAttribute(Qt::WA_DeleteOnClose); // Ensure deletion on close
+        progressBox->setWindowTitle("Sending Transaction");
+        progressBox->setText("Broadcasting transaction to the network...\nPlease wait.");
+        progressBox->setStandardButtons(QMessageBox::NoButton);
+        progressBox->setModal(true);
+        progressBox->show();
+        QApplication::processEvents();
 
+        try {
             // Send the real transaction
             sendRealTransaction(txData.recipientAddress, txData.amountSatoshis,
                                 txData.estimatedFeeSatoshis, txData.password);
-
-            progressBox->close();
-            delete progressBox;
-
             // Refresh balance after sending
             fetchRealBalance();
         } catch (const std::exception& e) {
             QMessageBox::critical(this, "Transaction Failed",
                                   QString("Failed to send transaction:\n%1").arg(e.what()));
         }
+
+        // Always close the progress box, which will trigger its deletion
+        progressBox->close();
     }
 
     emit sendBitcoinRequested();
@@ -493,16 +599,16 @@ void QtWalletUI::onSendLitecoinClicked() {
 
         auto txData = txDataOpt.value();
 
-        try {
-            // Show progress indicator
-            QMessageBox* progressBox = new QMessageBox(this);
-            progressBox->setWindowTitle("Sending Litecoin Transaction");
-            progressBox->setText("Broadcasting transaction to the Litecoin network...\nPlease wait.");
-            progressBox->setStandardButtons(QMessageBox::NoButton);
-            progressBox->setModal(true);
-            progressBox->show();
-            QApplication::processEvents();
+        QMessageBox* progressBox = new QMessageBox(this);
+        progressBox->setAttribute(Qt::WA_DeleteOnClose); // Ensure deletion on close
+        progressBox->setWindowTitle("Sending Litecoin Transaction");
+        progressBox->setText("Broadcasting transaction to the Litecoin network...\nPlease wait.");
+        progressBox->setStandardButtons(QMessageBox::NoButton);
+        progressBox->setModal(true);
+        progressBox->show();
+        QApplication::processEvents();
 
+        try {
             // Derive private key for the Litecoin address
             std::vector<uint8_t> privateKeyBytes =
                 derivePrivateKeyForAddress(m_litecoinAddress, txData.password);
@@ -520,9 +626,6 @@ void QtWalletUI::onSendLitecoinClicked() {
             auto result = m_litecoinWallet->SendFunds(
                 fromAddresses, toAddress, txData.amountLitoshis,
                 privateKeysMap, txData.estimatedFeeLitoshis);
-
-            progressBox->close();
-            delete progressBox;
 
             if (result.success) {
                 QMessageBox::information(
@@ -547,6 +650,9 @@ void QtWalletUI::onSendLitecoinClicked() {
             QMessageBox::critical(this, "Transaction Failed",
                                   QString("Failed to send transaction:\n%1").arg(e.what()));
         }
+        
+        // Always close the progress box, which will trigger its deletion
+        progressBox->close();
     }
 
     emit sendLitecoinRequested();
@@ -621,17 +727,17 @@ void QtWalletUI::onSendEthereumClicked() {
                                              QMessageBox::Yes | QMessageBox::No);
 
         if (response == QMessageBox::Yes) {
-            try {
-                // Show progress indicator
-                QMessageBox* progressBox = new QMessageBox(this);
-                progressBox->setWindowTitle("Sending Ethereum Transaction");
-                progressBox->setText(
-                    "Broadcasting transaction to the Ethereum network...\nPlease wait.");
-                progressBox->setStandardButtons(QMessageBox::NoButton);
-                progressBox->setModal(true);
-                progressBox->show();
-                QApplication::processEvents();
+            QMessageBox* progressBox = new QMessageBox(this);
+            progressBox->setAttribute(Qt::WA_DeleteOnClose); // Ensure deletion on close
+            progressBox->setWindowTitle("Sending Ethereum Transaction");
+            progressBox->setText(
+                "Broadcasting transaction to the Ethereum network...\nPlease wait.");
+            progressBox->setStandardButtons(QMessageBox::NoButton);
+            progressBox->setModal(true);
+            progressBox->show();
+            QApplication::processEvents();
 
+            try {
                 // Derive private key for the Ethereum address
                 std::vector<uint8_t> privateKeyBytes =
                     derivePrivateKeyForAddress(m_ethereumAddress, txData.password);
@@ -647,9 +753,6 @@ void QtWalletUI::onSendEthereumClicked() {
                     m_ethereumAddress.toStdString(), txData.recipientAddress.toStdString(),
                     txData.amountETH, privateKeyHex.toStdString(),
                     txData.gasPriceGwei.toStdString(), txData.gasLimit);
-
-                progressBox->close();
-                delete progressBox;
 
                 if (result.success) {
                     QMessageBox::information(
@@ -674,6 +777,9 @@ void QtWalletUI::onSendEthereumClicked() {
                 QMessageBox::critical(this, "Transaction Failed",
                                       QString("Failed to send transaction:\n%1").arg(e.what()));
             }
+            
+            // Always close the progress box, which will trigger its deletion
+            progressBox->close();
         }
     }
 }
@@ -1966,7 +2072,7 @@ void QtWalletUI::updateUSDBalance() {
         return;
     }
 
-    // Calculate total balance including BTC, LTC, and ETH
+    // Calculate total balance including BTC, LTC, ETH, and imported tokens
 
     // Use fallback prices if current prices are not available
     double btcPriceToUse = (m_currentBTCPrice > 0.0) ? m_currentBTCPrice : 43000.0;
@@ -1976,12 +2082,16 @@ void QtWalletUI::updateUSDBalance() {
     double btcBalance = 0.0;
     double ltcBalance = 0.0;
     double ethBalance = 0.0;
+    double tokensUsdValue = 0.0;
 
     // Use real balance if not in mock mode
     if (!m_mockMode) {
         btcBalance = m_realBalanceBTC;
         ltcBalance = m_realBalanceLTC;
         ethBalance = m_realBalanceETH;
+        
+        // Calculate USD value of imported tokens
+        tokensUsdValue = calculateTotalTokenUSDValue();
     } else if (m_currentMockUser) {
         // Use mock balance if in mock mode (only BTC for now)
         btcBalance = m_currentMockUser->balance;
@@ -1994,8 +2104,8 @@ void QtWalletUI::updateUSDBalance() {
     double ltcUsdValue = ltcBalance * ltcPriceToUse;
     double ethUsdValue = ethBalance * ethPriceToUse;
 
-    // Calculate total USD balance
-    double totalUsdBalance = btcUsdValue + ltcUsdValue + ethUsdValue;
+    // Calculate total USD balance including tokens
+    double totalUsdBalance = btcUsdValue + ltcUsdValue + ethUsdValue + tokensUsdValue;
 
     m_balanceLabel->setText(QString("$%L1 USD").arg(totalUsdBalance, 0, 'f', 2));
 }
@@ -2488,3 +2598,79 @@ QString QtWalletUI::formatEthereumTransactionHistory(
     return historyHtml;
 }
 void QtWalletUI::setSessionId(const QString& sessionId) { m_sessionId = sessionId; }
+
+double QtWalletUI::calculateTotalTokenUSDValue() {
+    double total = 0.0;
+    
+    if (!m_tokenListWidget) {
+        return total;
+    }
+    
+    // Access token cards through public interface
+    // Since we can't directly access private members, we'll use the data from the database
+    // and calculate USD values based on token prices
+    
+    int ethereumWalletId = getEthereumWalletId();
+    if (ethereumWalletId == -1) {
+        return total;
+    }
+    
+    if (!m_tokenRepository) {
+        return total;
+    }
+    
+    // Get tokens for wallet
+    auto tokensResult = m_tokenRepository->getTokensForWallet(ethereumWalletId);
+    if (!tokensResult.success) {
+        return total;
+    }
+    
+    // For now, we'll use a simplified approach since token USD values aren't stored
+    // In a real implementation, you would fetch token prices from an API
+    // For demonstration, we'll use placeholder values
+    for (const auto& token : tokensResult.data) {
+        // Fetch token balance from blockchain
+        if (m_ethereumWallet && !m_ethereumAddress.isEmpty()) {
+            auto balanceOpt = m_ethereumWallet->GetTokenBalance(
+                m_ethereumAddress.toStdString(),
+                token.contract_address
+            );
+            
+            if (balanceOpt.has_value()) {
+                QString rawBalance = QString::fromStdString(balanceOpt.value());
+                double balanceValue = rawBalance.toDouble();
+                
+                // Apply decimals formatting
+                double formattedBalance = balanceValue / std::pow(10.0, token.decimals);
+                
+                // Try to get real token price from price fetcher
+                double tokenPriceUSD = 0.0;
+                QString symbolUpper = QString::fromStdString(token.symbol).toUpper();
+                
+                if (m_priceFetcher) {
+                    // Try to get price for this token symbol
+                    auto priceDataOpt = m_priceFetcher->GetCryptoPrice(symbolUpper.toLower().toStdString());
+                    if (priceDataOpt.has_value()) {
+                        tokenPriceUSD = priceDataOpt.value().usd_price;
+                    }
+                }
+                
+                // Fallback prices for common stablecoins if price fetch fails
+                if (tokenPriceUSD <= 0.0) {
+                    if (symbolUpper == "USDT" || symbolUpper == "USDC" || symbolUpper == "DAI") {
+                        tokenPriceUSD = 1.0; // Stablecoins are typically $1
+                    } else if (symbolUpper == "WBTC") {
+                        tokenPriceUSD = m_currentBTCPrice > 0.0 ? m_currentBTCPrice : 43000.0; // Wrapped BTC follows BTC price
+                    } else if (symbolUpper == "WETH") {
+                        tokenPriceUSD = m_currentETHPrice > 0.0 ? m_currentETHPrice : 2500.0; // Wrapped ETH follows ETH price
+                    }
+                }
+                
+                double tokenValueUSD = formattedBalance * tokenPriceUSD;
+                total += tokenValueUSD;
+            }
+        }
+    }
+    
+    return total;
+}
