@@ -259,12 +259,10 @@ QString QtThemeManager::getButtonStyleSheet() const {
             font-size: %5px;
             font-weight: 600;
             min-height: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         QPushButton:hover {
             background-color: %6;
             border-color: %7;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
         QPushButton:pressed {
             background-color: %8;
@@ -300,12 +298,10 @@ QString QtThemeManager::getLineEditStyleSheet() const {
             font-family: %4;
             font-size: %5px;
             selection-background-color: %6;
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         QLineEdit:focus {
             border-color: %7;
             background-color: %1;
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         QLineEdit:disabled {
             background-color: %9;
@@ -387,63 +383,55 @@ QString QtThemeManager::getMainWindowStyleSheet() const {
             color: %2;
         }
         QToolTip {
-            background-color: %5;
+            background-color: %4;
             color: %2;
-            border: 1px solid %8;
+            border: 1px solid %5;
             border-radius: 4px;
             padding: 4px;
-            font-family: %4;
+            font-family: %6;
             font-size: 12px;
         }
         QMainWindow > QWidget#contentContainer {
             background-color: %3;
         }
         QFrame[class="card"] {
-            background-color: %5;
-            border: 1px solid %6;
+            background-color: %4;
+            border: 1px solid %7;
             border-radius: 12px;
             padding: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         QFrame[class="navbar"] {
             background-color: transparent;
             border: none;
         }
         QLabel[class="navbar-title"] {
-            font-family: %9;
+            font-family: %8;
             font-size: 30px;
             font-weight: bold;
             color: %2;
         }
         QPushButton[class="navbar-button"] {
-            background-color: %8;
+            background-color: %5;
             color: #ffffff;
-            border: 1px solid %8;
+            border: 1px solid %5;
             border-radius: 6px;
             padding: 8px 16px;
             font-weight: 500;
         }
         QPushButton[class="navbar-button"]:hover {
-            background-color: %16;
-            border-color: %8;
+            background-color: %9;
+            border-color: %5;
         }
     )")
-        .arg(m_backgroundColor.name())            // %1 - main background
-        .arg(m_textColor.name())                  // %2 - main text color
-        .arg(m_backgroundColor.name())            // %3 - content container background
-        .arg(m_textColor.name())                  // %4 - widget text color
-        .arg(m_surfaceColor.name())               // %5 - card background
-        .arg(m_secondaryColor.name())             // %6 - card border
-        .arg("")                                  // %7 - unused
-        .arg(m_accentColor.name())                // %8 - accent color
-        .arg(m_titleFont.family())                // %9 - navbar title font
-        .arg("")                                  // %10 - unused
-        .arg("")                                  // %11 - unused
-        .arg("")                                  // %12 - unused
-        .arg("")                                  // %13 - unused
-        .arg("")                                  // %14 - unused
-        .arg("")                                  // %15 - unused
-        .arg(m_accentColor.lighter(120).name());  // %16 - navbar button accent hover
+        .arg(m_backgroundColor.name())            // %1
+        .arg(m_textColor.name())                  // %2
+        .arg(m_backgroundColor.name())            // %3
+        .arg(m_surfaceColor.name())               // %4
+        .arg(m_accentColor.name())                // %5
+        .arg(m_textFont.family())                 // %6
+        .arg(m_secondaryColor.name())             // %7
+        .arg(m_titleFont.family())                // %8
+        .arg(m_accentColor.lighter(120).name());  // %9
 }
 
 QString QtThemeManager::getCardStyleSheet() const {
@@ -453,11 +441,9 @@ QString QtThemeManager::getCardStyleSheet() const {
             border: 2px solid %2;
             border-radius: 12px;
             padding: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         QFrame:hover {
             border-color: %2;
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
         }
     )")
         .arg(m_surfaceColor.name())

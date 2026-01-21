@@ -702,6 +702,21 @@ void CriptoGualetQt::applyNavbarStyling() {
 
   // Style menu bar with theme-appropriate colors
   if (m_themeManager && menuBar()) {
+    QString bgColor = m_themeManager->backgroundColor().name();
+    QString textColor = m_themeManager->textColor().name();
+    QString accentColor = m_themeManager->accentColor().name();
+    QString accentColorDarker = m_themeManager->accentColor().darker(110).name();
+    QString surfaceColor = m_themeManager->surfaceColor().name();
+    QString secondaryColor = m_themeManager->secondaryColor().name();
+
+    // Fallback to a distinct color if any color name is empty
+    if (bgColor.isEmpty()) { qWarning() << "backgroundColor is empty!"; bgColor = "#FF00FF"; }
+    if (textColor.isEmpty()) { qWarning() << "textColor is empty!"; textColor = "#FF00FF"; }
+    if (accentColor.isEmpty()) { qWarning() << "accentColor is empty!"; accentColor = "#FF00FF"; }
+    if (accentColorDarker.isEmpty()) { qWarning() << "accentColorDarker is empty!"; accentColorDarker = "#FF00FF"; }
+    if (surfaceColor.isEmpty()) { qWarning() << "surfaceColor is empty!"; surfaceColor = "#FF00FF"; }
+    if (secondaryColor.isEmpty()) { qWarning() << "secondaryColor is empty!"; secondaryColor = "#FF00FF"; }
+
     QString menuBarStyle =
         QString(R"(
             QMenuBar {
@@ -737,12 +752,12 @@ void CriptoGualetQt::applyNavbarStyling() {
                 background-color: %3;
             }
         )")
-              .arg(m_themeManager->backgroundColor().name())
-              .arg(m_themeManager->textColor().name())
-              .arg(m_themeManager->accentColor().name())
-              .arg(m_themeManager->accentColor().darker(110).name())
-              .arg(m_themeManager->surfaceColor().name())
-              .arg(m_themeManager->secondaryColor().name());
+              .arg(bgColor)
+              .arg(textColor)
+              .arg(accentColor)
+              .arg(accentColorDarker)
+              .arg(surfaceColor)
+              .arg(secondaryColor);
 
     menuBar()->setStyleSheet(menuBarStyle);
   }

@@ -1269,11 +1269,6 @@ void QtWalletUI::updateStyles() {
         return;
     }
 
-    const QString text = m_themeManager->textColor().name();
-    const QString accent = m_themeManager->accentColor().name();
-    const QString background = m_themeManager->backgroundColor().name();
-    const QString surface = m_themeManager->surfaceColor().name();
-    // Note: isDarkTheme could be used for conditional styling in the future
     (void)m_themeManager->surfaceColor().lightness();  // Suppress unused warning
 
     // Apply proper background colors to scroll area and content
@@ -1304,7 +1299,7 @@ void QtWalletUI::updateStyles() {
         background: none;
       }
     )")
-                                        .arg(background)
+                                        .arg(m_themeManager->backgroundColor().name())
                                         .arg(m_themeManager->secondaryColor().name())
                                         .arg(m_themeManager->accentColor().name()));
     }
@@ -1315,7 +1310,7 @@ void QtWalletUI::updateStyles() {
         background-color: %1;
       }
     )")
-                                           .arg(background));
+                                           .arg(m_themeManager->backgroundColor().name()));
     }
 
     if (m_headerSection) {
@@ -1390,7 +1385,7 @@ void QtWalletUI::updateStyles() {
             background-color: transparent;
         }
     )")
-                                       .arg(text)
+                                       .arg(m_themeManager->textColor().name())
                                        .arg(headerTitleSize);
         m_headerTitle->setStyleSheet(headerTitleStyle);
 
@@ -1482,10 +1477,10 @@ void QtWalletUI::updateStyles() {
             opacity: 0.5;
         }
     )")
-                                         .arg(m_themeManager->secondaryColor().name())
-                                                                                   .arg(toggleButtonSize);
-                                                 m_refreshButton->setStyleSheet(refreshButtonStyle);
-                                             }
+            .arg(m_themeManager->secondaryColor().name())
+            .arg(toggleButtonSize);
+        m_refreshButton->setStyleSheet(refreshButtonStyle);
+    }
                                          
     if (m_importTokenButton) {
         QString importButtonStyle = QString(R"(
@@ -1523,7 +1518,7 @@ void QtWalletUI::updateStyles() {
                 padding: 16px 0 8px 0;
                 margin-top: 16px;
             }
-        )").arg(text);
+        )").arg(m_themeManager->textColor().name());
         m_stablecoinSectionHeader->setStyleSheet(sectionHeaderStyle);
         
         QFont sectionFont = m_themeManager->titleFont();

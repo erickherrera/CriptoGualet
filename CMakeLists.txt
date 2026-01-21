@@ -1,3 +1,36 @@
+# Find MSVC compiler if not configured
+if(WIN32 AND NOT CMAKE_CXX_COMPILER)
+    find_program(VSWHERE_EXE "vswhere.exe"
+        PATHS "C:/Program Files (x86)/Microsoft Visual Studio/Installer"
+    )
+
+    if(VSWHERE_EXE)
+        # Find latest VS installation
+        execute_process(
+            COMMAND ${VSWHERE_EXE} -latest -property installationPath
+            OUTPUT_VARIABLE VS_PATH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+
+        if(VS_PATH AND EXISTS "${VS_PATH}/VC/Tools/MSVC")
+            # Find the latest MSVC toolset version
+            file(GLOB MSVC_VERSIONS "${VS_PATH}/VC/Tools/MSVC/*")
+            list(SORT MSVC_VERSIONS)
+            list(REVERSE MSVC_VERSIONS)
+            list(GET MSVC_VERSIONS 0 LATEST_MSVC_PATH)
+            
+            get_filename_component(LATEST_MSVC_VERSION "${LATEST_MSVC_PATH}" NAME)
+
+            set(MSVC_COMPILER_PATH "${LATEST_MSVC_PATH}/bin/Hostx64/x64/cl.exe")
+            if(EXISTS "${MSVC_COMPILER_PATH}")
+                set(CMAKE_CXX_COMPILER "${MSVC_COMPILER_PATH}" CACHE STRING "MSVC C++ Compiler")
+                set(CMAKE_C_COMPILER "${MSVC_COMPILER_PATH}" CACHE STRING "MSVC C Compiler")
+                message(STATUS "Found MSVC compiler: ${MSVC_COMPILER_PATH}")
+            endif()
+        endif()
+    endif()
+endif()
+
 cmake_minimum_required(VERSION 3.20)
 
 # Suppress common CMake warnings and set policies

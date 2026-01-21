@@ -376,7 +376,7 @@ void QtExpandableWalletCard::onThemeChanged() {
   updateStyles();
 
   // Re-apply placeholder color if logo hasn't loaded yet
-  if (m_cryptoLogo && (!m_cryptoLogo->pixmap() || m_cryptoLogo->pixmap()->isNull()) && m_themeManager) {
+  if (m_cryptoLogo && (m_cryptoLogo->pixmap().isNull()) && m_themeManager) {
     QColor placeholderColor = m_themeManager->secondaryColor();
     placeholderColor.setAlpha(25); // 10% opacity
     m_cryptoLogo->setStyleSheet(

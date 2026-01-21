@@ -793,11 +793,11 @@ void QtLoginUI::updateStyles() {
         QTabBar {
             background: transparent;
             border: none;
-            border-bottom: 1px solid %3;
+            border-bottom: 1px solid %1;
         }
         QTabBar::tab {
             background: transparent;
-            color: %6;
+            color: %3;
             padding: 10px 24px;
             margin-left: 4px;
             margin-right: 4px;
@@ -810,23 +810,26 @@ void QtLoginUI::updateStyles() {
         }
         QTabBar::tab:selected {
             background: transparent;
-            color: %7;
-            border-bottom: 2px solid %4;
+            color: %4;
+            border-bottom: 2px solid %2;
             font-weight: 600;
         }
         QTabBar::tab:selected:hover {
             background: transparent;
-            color: %7;
-            border-bottom: 2px solid %4;
+            color: %4;
+            border-bottom: 2px solid %2;
             font-weight: 600;
         }
         QTabBar::tab:hover:!selected {
             background: transparent;
-            color: %4;
+            color: %2;
             border-bottom: 2px solid transparent;
         }
     )")
-            .arg("", "", borderColor, accentHex, "", inactiveTabColor, selectedTabColor);  // %3, %4, %6, %7
+            .arg(borderColor)
+            .arg(accentHex)
+            .arg(inactiveTabColor)
+            .arg(selectedTabColor);
     m_tabBar->setStyleSheet(tabBarStyle);
 
     // Enhanced LineEdit styling with proper backgrounds and contrast

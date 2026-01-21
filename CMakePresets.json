@@ -117,9 +117,7 @@
           "value": "C:/Qt/6.7.0/msvc2022_64"
         }
       },
-      "environment": {
-        "CMAKE_PREFIX_PATH": "${cache.QT_DIR};${env.CMAKE_PREFIX_PATH}"
-      },
+      "environment": {},
       "description": "ClangCL Debug builds with improved Qt integration. Requires Qt 6.7.0 for MSVC 2022."
     },
     {
