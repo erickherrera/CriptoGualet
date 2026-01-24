@@ -31,6 +31,28 @@ if(WIN32 AND NOT CMAKE_CXX_COMPILER)
     endif()
 endif()
 
+# If clang-cl is requested but path is missing, locate it via VS installation
+if(WIN32 AND (CMAKE_CXX_COMPILER MATCHES "clang-cl" OR CMAKE_C_COMPILER MATCHES "clang-cl"))
+    if((CMAKE_CXX_COMPILER AND NOT EXISTS "${CMAKE_CXX_COMPILER}") OR (CMAKE_C_COMPILER AND NOT EXISTS "${CMAKE_C_COMPILER}"))
+        find_program(VSWHERE_EXE "vswhere.exe"
+            PATHS "C:/Program Files (x86)/Microsoft Visual Studio/Installer"
+        )
+        if(VSWHERE_EXE)
+            execute_process(
+                COMMAND ${VSWHERE_EXE} -latest -property installationPath
+                OUTPUT_VARIABLE VS_PATH
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+            set(CLANGCL_PATH "${VS_PATH}/VC/Tools/LLVM/x64/bin/clang-cl.exe")
+            if(VS_PATH AND EXISTS "${CLANGCL_PATH}")
+                set(CMAKE_CXX_COMPILER "${CLANGCL_PATH}" CACHE STRING "ClangCL C++ Compiler" FORCE)
+                set(CMAKE_C_COMPILER "${CLANGCL_PATH}" CACHE STRING "ClangCL C Compiler" FORCE)
+                message(STATUS "Found clang-cl compiler: ${CLANGCL_PATH}")
+            endif()
+        endif()
+    endif()
+endif()
+
 cmake_minimum_required(VERSION 3.20)
 
 # Suppress common CMake warnings and set policies
@@ -128,6 +150,14 @@ if(MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
   endif()
 endif()
 
+# Ensure MSVC runtime consistency for ClangCL + Qt compatibility
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+  if(CMAKE_CONFIGURATION_TYPES)
+    # Multi-config generator - set consistent runtime
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library for ClangCL")
+  endif()
+endif()
+
 # Helper function to set MSVC runtime library per-configuration on targets
 # Usage: set_msvc_runtime_library(target_name)
 function(set_msvc_runtime_library target)
@@ -175,6 +205,8 @@ endif()
 # Add MSVC-specific flags for Qt compatibility
 if(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
   add_compile_options(/Zc:__cplusplus)
+  # Force disable ASAN for this project to prevent flag conflicts
+  add_compile_definitions(CRYPTO_NO_ASAN)
 endif()
 
 # Cross-platform compiler flags for Clang (only when using Clang)
@@ -188,7 +220,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(STATUS "Pure Clang mode detected")
   endif()
   
-  # Enhanced warning set for crypto wallet security
+  # Enhanced warning set for crypto wallet security (disable C++98 warnings for ClangCL)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=uninitialized")
@@ -201,30 +233,40 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wcast-align")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual")
+  # Disable C++98 compatibility warnings that cause linking issues
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic")
 
   # ClangCL-specific optimizations
   if(CLANG_MODE STREQUAL "CLANGCL")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fms-compatibility-version=19")
+    # Core MSVC ABI compatibility for Qt integration
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fms-compatibility-version=19.39")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_ENABLE_EXTENDED_ALIGNED_STORAGE")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fms-extensions")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonportable-system-include-path")
     # Suppress intentional GNU extensions for logger macros
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-gnu-zero-variadic-macro-arguments")
   endif()
 
-  # Enhanced debug configuration with sanitizers
+  # Enhanced debug configuration with sanitizers (disabled by default for compatibility)
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g")
-    
-    # Configurable sanitizers
-    option(ENABLE_ASAN "Enable AddressSanitizer for memory error detection" ON)
+    # Configurable sanitizers for security testing
+    option(ENABLE_ASAN "Enable AddressSanitizer for memory error detection" OFF)
     option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer for UB detection" OFF)
     
     if(ENABLE_ASAN)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
       set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
       # ASan-specific optimizations
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-optimize-sibling-calls")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fno-omit-frame-pointer -fno-optimize-sibling-calls")
       message(STATUS "AddressSanitizer enabled")
+    endif()
+    
+    if(ENABLE_UBSAN)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=undefined")
+      message(STATUS "UndefinedBehaviorSanitizer enabled")
     endif()
     
     if(ENABLE_UBSAN)
@@ -256,6 +298,10 @@ if(BUILD_GUI_QT)
       "C:/Qt"
       "C:/Program Files (x86)/Qt"
     )
+    if(DEFINED QT_DIR AND EXISTS "${QT_DIR}")
+      list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}")
+      message(STATUS "Using QT_DIR: ${QT_DIR}")
+    endif()
     # Enhanced Qt path resolution for different compilers
     file(GLOB QT_VERSIONS "C:/Program Files/Qt/6.*")
     foreach(QT_VERSION ${QT_VERSIONS})
@@ -268,7 +314,8 @@ if(BUILD_GUI_QT)
           # ClangCL should use MSVC-built Qt for ABI compatibility
           list(APPEND CMAKE_PREFIX_PATH
             "${QT_VERSION}/msvc2022_64"
-            "${QT_VERSION}/msvc2019_64")
+            "${QT_VERSION}/msvc2019_64"
+            "${QT_VERSION}/clang_64")
         else()
           # Pure Clang can use native Qt builds
           list(APPEND CMAKE_PREFIX_PATH

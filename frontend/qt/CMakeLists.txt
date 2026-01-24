@@ -93,6 +93,16 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     target_link_options(CriptoGualetQt PRIVATE -fPIE -pie)
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
     target_compile_options(CriptoGualetQt PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-ctad-maybe-unsupported)
+    # Critical ClangCL + Qt ABI compatibility
+    target_compile_definitions(CriptoGualetQt PRIVATE 
+      QT_QML_DEBUG_NO_WARNING
+      QT_NO_EXCEPTIONS
+      QT_DISABLE_DEPRECATED_BEFORE=0x060000)
+    # Ensure consistent runtime library
+    if(CMAKE_CONFIGURATION_TYPES)
+      set_property(TARGET CriptoGualetQt PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    endif()
   elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_options(CriptoGualetQt PRIVATE /W4 /permissive- /utf-8 /EHsc /GS /Zc:__cplusplus)
   else()

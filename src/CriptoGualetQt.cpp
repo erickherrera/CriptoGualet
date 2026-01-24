@@ -30,10 +30,17 @@
 
 CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     : QMainWindow(parent), m_stackedWidget(nullptr), m_loginUI(nullptr),
-      m_walletUI(nullptr), m_themeManager(nullptr) {
+      m_walletUI(nullptr), m_themeManager(nullptr), m_centralWidget(nullptr),
+      m_mainLayout(nullptr), m_contentLayout(nullptr), m_contentWidget(nullptr),
+      m_sidebar(nullptr) {
     
-    // Initialize theme manager first
-    m_themeManager = &QtThemeManager::instance();
+    // Initialize theme manager first - ensure singleton is properly constructed
+    try {
+        m_themeManager = &QtThemeManager::instance();
+    } catch (...) {
+        qCritical() << "Failed to initialize theme manager";
+        m_themeManager = nullptr;
+    }
     
     // Clean up sessions
     Auth::AuthManager::getInstance().cleanupSessions();
