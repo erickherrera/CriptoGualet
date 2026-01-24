@@ -49,10 +49,11 @@ QtWalletUI::QtWalletUI(QWidget *parent)
       m_walletRepository(nullptr), m_tokenRepository(nullptr),
       m_currentUserId(-1), m_tokenImportDialog(nullptr),
       m_tokenListWidget(nullptr), m_stablecoinSectionHeader(nullptr),
-      m_usdtWalletCard(nullptr), m_usdcWalletCard(nullptr),
-      m_daiWalletCard(nullptr), m_priceFetcher(nullptr),
-      m_priceUpdateTimer(nullptr), m_currentBTCPrice(43000.0),
-      m_currentLTCPrice(70.0), m_currentETHPrice(2500.0), m_isLoadingBTC(false),
+      m_importTokenButton(nullptr), m_usdtWalletCard(nullptr),
+      m_usdcWalletCard(nullptr), m_daiWalletCard(nullptr),
+      m_priceFetcher(nullptr), m_priceUpdateTimer(nullptr),
+      m_currentBTCPrice(43000.0), m_currentLTCPrice(70.0),
+      m_currentETHPrice(2500.0), m_isLoadingBTC(false),
       m_isLoadingLTC(false), m_isLoadingETH(false), m_statusLabel(nullptr),
       m_balanceVisible(true), m_mockMode(false) {
   // Get theme manager SAFELY
