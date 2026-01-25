@@ -87,7 +87,9 @@
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-windows",
         "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
-        "CMAKE_GENERATOR_PLATFORM": "x64"
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "ENABLE_UNITY_BUILD": "ON",
+        "ENABLE_MSVC_MP": "ON"
       },
       "description": "MSVC Debug builds - fastest compile times for daily development."
     },

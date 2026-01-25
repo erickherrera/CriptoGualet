@@ -287,6 +287,18 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # Build options
+option(ENABLE_UNITY_BUILD "Enable CMake unity build for faster compiles" OFF)
+option(ENABLE_MSVC_MP "Enable MSVC /MP parallel compilation" OFF)
+
+if(ENABLE_UNITY_BUILD)
+  set(CMAKE_UNITY_BUILD ON)
+  set(CMAKE_UNITY_BUILD_BATCH_SIZE 8)
+endif()
+
+if(MSVC AND ENABLE_MSVC_MP)
+  add_compile_options(/MP)
+endif()
+
 option(BUILD_GUI_QT "Build the Qt GUI wallet app" ON)
 
 # Find Qt6 if GUI is enabled
