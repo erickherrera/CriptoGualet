@@ -9,10 +9,10 @@
 #include "../frontend/qt/include/QtSeedDisplayDialog.h"
 #include "../frontend/qt/include/QtSettingsUI.h"
 #include "../frontend/qt/include/QtSidebar.h"
+#include "../frontend/qt/include/QtSuccessDialog.h"
 #include "../frontend/qt/include/QtThemeManager.h"
 #include "../frontend/qt/include/QtTopCryptosPage.h"
 #include "../frontend/qt/include/QtWalletUI.h"
-#include "../frontend/qt/include/QtSuccessDialog.h"
 
 #include <QAction>
 #include <QApplication>
@@ -33,17 +33,17 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
       m_walletUI(nullptr), m_themeManager(nullptr), m_centralWidget(nullptr),
       m_mainLayout(nullptr), m_contentLayout(nullptr), m_contentWidget(nullptr),
       m_sidebar(nullptr) {
-    
-    // Initialize theme manager first - ensure singleton is properly constructed
-    try {
-        m_themeManager = &QtThemeManager::instance();
-    } catch (...) {
-        qCritical() << "Failed to initialize theme manager";
-        m_themeManager = nullptr;
-    }
-    
-    // Clean up sessions
-    Auth::AuthManager::getInstance().cleanupSessions();
+
+  // Initialize theme manager first - ensure singleton is properly constructed
+  try {
+    m_themeManager = &QtThemeManager::instance();
+  } catch (...) {
+    qCritical() << "Failed to initialize theme manager";
+    m_themeManager = nullptr;
+  }
+
+  // Clean up sessions
+  Auth::AuthManager::getInstance().cleanupSessions();
   setWindowTitle("CriptoGualet - Securely own your cryptos");
   setMinimumSize(800, 600);
 
@@ -124,7 +124,8 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   }
 
   if (m_loginUI) {
-    connect(m_loginUI, &QtLoginUI::loginSuccessful, this, &CriptoGualetQt::showWalletScreen);
+    connect(m_loginUI, &QtLoginUI::loginSuccessful, this,
+            &CriptoGualetQt::showWalletScreen);
   }
 }
 
@@ -225,8 +226,8 @@ void CriptoGualetQt::setupUI() {
               // PHASE 1 FIX: Derive Ethereum address from seed
               if (m_walletRepository) {
                 auto seedResult = m_walletRepository->retrieveDecryptedSeed(
-                      userId, stdPassword);
-                    if (seedResult.success && !seedResult.data.empty()) {
+                    userId, stdPassword);
+                if (seedResult.success && !seedResult.data.empty()) {
                   // Convert mnemonic to seed
                   std::array<uint8_t, 64> seed{};
                   if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "",
@@ -354,11 +355,11 @@ void CriptoGualetQt::setupUI() {
                   if (m_walletRepository) {
                     auto seedResult = m_walletRepository->retrieveDecryptedSeed(
                         userId, stdPassword);
-                if (seedResult.success && !seedResult.data.empty()) {
+                    if (seedResult.success && !seedResult.data.empty()) {
                       // Convert mnemonic to seed
                       std::array<uint8_t, 64> seed{};
                       if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "",
-                                                          seed)) {
+                                                         seed)) {
                         // Derive master key
                         Crypto::BIP32ExtendedKey masterKey;
                         if (Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
@@ -437,11 +438,11 @@ void CriptoGualetQt::setupUI() {
     double feeBTC = m_wallet->ConvertSatoshisToBTC(estimatedFee);
 
     QString balanceText = QString("Current Balance: %1 BTC\n"
-                                   "Estimated Fee: %2 BTC\n"
-                                   "Available to Send: %3 BTC")
-                                .arg(balanceBTC, 0, 'f', 8)
-                                .arg(feeBTC, 0, 'f', 8)
-                                .arg(balanceBTC - feeBTC, 0, 'f', 8);
+                                  "Estimated Fee: %2 BTC\n"
+                                  "Available to Send: %3 BTC")
+                              .arg(balanceBTC, 0, 'f', 8)
+                              .arg(feeBTC, 0, 'f', 8)
+                              .arg(balanceBTC - feeBTC, 0, 'f', 8);
 
     QMessageBox::information(this, "Send Bitcoin", balanceText);
   });
@@ -508,7 +509,7 @@ void CriptoGualetQt::setupUI() {
       auto userResult = m_userRepository->getUserByUsername(g_currentUser);
       if (!userResult.hasValue()) {
         QMessageBox::warning(this, "Error",
-                               "Failed to retrieve user information");
+                             "Failed to retrieve user information");
         return;
       }
 
@@ -554,18 +555,16 @@ void CriptoGualetQt::setupUI() {
   });
 
   // Connect top cryptos page back button
-  connect(m_topCryptosPage, &QtTopCryptosPage::backRequested, this, [this]() {
-    showWalletScreen("");
-  });
+  connect(m_topCryptosPage, &QtTopCryptosPage::backRequested, this,
+          [this]() { showWalletScreen(""); });
 }
 
 void CriptoGualetQt::createSidebar() {
   // Sidebar is now created in setupUI() since it needs to be a child of
   // horizontalContainer
   // Connect navigation signals
-  connect(m_sidebar, &QtSidebar::navigateToWallet, this, [this]() {
-    showWalletScreen("");
-  });
+  connect(m_sidebar, &QtSidebar::navigateToWallet, this,
+          [this]() { showWalletScreen(""); });
   connect(m_sidebar, &QtSidebar::navigateToTopCryptos, this,
           &CriptoGualetQt::showTopCryptosPage);
   connect(m_sidebar, &QtSidebar::navigateToSettings, this,
@@ -625,7 +624,7 @@ void CriptoGualetQt::showLoginScreen() {
   }
 }
 
-void CriptoGualetQt::showWalletScreen(const QString& sessionId) {
+void CriptoGualetQt::showWalletScreen(const QString &sessionId) {
   if (m_walletUI && !sessionId.isEmpty()) {
     m_walletUI->setSessionId(sessionId);
   }
@@ -681,10 +680,14 @@ void CriptoGualetQt::updateSidebarVisibility() {
 
 void CriptoGualetQt::onThemeChanged() {
   // Apply theme to all UI pages with null checks
-  if (m_loginUI) m_loginUI->applyTheme();
-  if (m_walletUI) m_walletUI->applyTheme();
-  if (m_settingsUI) m_settingsUI->applyTheme();
-  if (m_topCryptosPage) m_topCryptosPage->applyTheme();
+  if (m_loginUI)
+    m_loginUI->applyTheme();
+  if (m_walletUI)
+    m_walletUI->applyTheme();
+  if (m_settingsUI)
+    m_settingsUI->applyTheme();
+  if (m_topCryptosPage)
+    m_topCryptosPage->applyTheme();
 
   // Apply theme to sidebar
   if (m_sidebar) {
@@ -712,20 +715,38 @@ void CriptoGualetQt::applyNavbarStyling() {
     QString bgColor = m_themeManager->backgroundColor().name();
     QString textColor = m_themeManager->textColor().name();
     QString accentColor = m_themeManager->accentColor().name();
-    QString accentColorDarker = m_themeManager->accentColor().darker(110).name();
+    QString accentColorDarker =
+        m_themeManager->accentColor().darker(110).name();
     QString surfaceColor = m_themeManager->surfaceColor().name();
     QString secondaryColor = m_themeManager->secondaryColor().name();
 
     // Fallback to a distinct color if any color name is empty
-    if (bgColor.isEmpty()) { qWarning() << "backgroundColor is empty!"; bgColor = "#FF00FF"; }
-    if (textColor.isEmpty()) { qWarning() << "textColor is empty!"; textColor = "#FF00FF"; }
-    if (accentColor.isEmpty()) { qWarning() << "accentColor is empty!"; accentColor = "#FF00FF"; }
-    if (accentColorDarker.isEmpty()) { qWarning() << "accentColorDarker is empty!"; accentColorDarker = "#FF00FF"; }
-    if (surfaceColor.isEmpty()) { qWarning() << "surfaceColor is empty!"; surfaceColor = "#FF00FF"; }
-    if (secondaryColor.isEmpty()) { qWarning() << "secondaryColor is empty!"; secondaryColor = "#FF00FF"; }
+    if (bgColor.isEmpty()) {
+      qWarning() << "backgroundColor is empty!";
+      bgColor = "#FF00FF";
+    }
+    if (textColor.isEmpty()) {
+      qWarning() << "textColor is empty!";
+      textColor = "#FF00FF";
+    }
+    if (accentColor.isEmpty()) {
+      qWarning() << "accentColor is empty!";
+      accentColor = "#FF00FF";
+    }
+    if (accentColorDarker.isEmpty()) {
+      qWarning() << "accentColorDarker is empty!";
+      accentColorDarker = "#FF00FF";
+    }
+    if (surfaceColor.isEmpty()) {
+      qWarning() << "surfaceColor is empty!";
+      surfaceColor = "#FF00FF";
+    }
+    if (secondaryColor.isEmpty()) {
+      qWarning() << "secondaryColor is empty!";
+      secondaryColor = "#FF00FF";
+    }
 
-    QString menuBarStyle =
-        QString(R"(
+    QString menuBarStyle = QString(R"(
             QMenuBar {
                 background-color: %1;
                 color: %2;
@@ -759,12 +780,12 @@ void CriptoGualetQt::applyNavbarStyling() {
                 background-color: %3;
             }
         )")
-              .arg(bgColor)
-              .arg(textColor)
-              .arg(accentColor)
-              .arg(accentColorDarker)
-              .arg(surfaceColor)
-              .arg(secondaryColor);
+                               .arg(bgColor)
+                               .arg(textColor)
+                               .arg(accentColor)
+                               .arg(accentColorDarker)
+                               .arg(surfaceColor)
+                               .arg(secondaryColor);
 
     menuBar()->setStyleSheet(menuBarStyle);
   }

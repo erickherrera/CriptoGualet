@@ -247,109 +247,8 @@ void QtWalletUI::createHeaderSection() {
 }
 
 void QtWalletUI::createActionButtons() {
-  // Check if any wallets are available
-  bool hasAnyWallet = (m_wallet != nullptr) || (m_litecoinWallet != nullptr) ||
-                      (m_ethereumWallet != nullptr);
-
-  if (!hasAnyWallet) {
-    // Show empty state when no wallets are available
-    QWidget *emptyStateWidget = new QWidget(m_scrollContent);
-    QVBoxLayout *emptyStateLayout = new QVBoxLayout(emptyStateWidget);
-    emptyStateLayout->setAlignment(Qt::AlignCenter);
-    emptyStateLayout->setSpacing(20);
-
-    // Empty state icon (using text emoji as placeholder)
-    QLabel *emptyIcon = new QLabel("👛", emptyStateWidget);
-    emptyIcon->setAlignment(Qt::AlignCenter);
-    emptyIcon->setStyleSheet("font-size: 64px; color: #888;");
-    emptyStateLayout->addWidget(emptyIcon);
-
-    // Empty state title
-    QLabel *emptyTitle = new QLabel("No Wallets Available", emptyStateWidget);
-    emptyTitle->setAlignment(Qt::AlignCenter);
-    emptyTitle->setStyleSheet(
-        "font-size: 24px; font-weight: bold; color: #333; margin: 10px 0;");
-    emptyStateLayout->addWidget(emptyTitle);
-
-    // Empty state description
-    QLabel *emptyDescription =
-        new QLabel("You don't have any cryptocurrency wallets set up yet.\n\n"
-                   "Create your first wallet to start managing Bitcoin, "
-                   "Ethereum, Litecoin, and other digital assets.",
-                   emptyStateWidget);
-    emptyDescription->setAlignment(Qt::AlignCenter);
-    emptyDescription->setStyleSheet(
-        "font-size: 16px; color: #666; line-height: 1.5;");
-    emptyDescription->setWordWrap(true);
-    emptyStateLayout->addWidget(emptyDescription);
-
-    // Add some vertical spacing
-    emptyStateLayout->addSpacing(30);
-
-    // Action buttons
-    QHBoxLayout *actionsLayout = new QHBoxLayout();
-    actionsLayout->setSpacing(15);
-    actionsLayout->setAlignment(Qt::AlignCenter);
-
-    QPushButton *createWalletBtn =
-        new QPushButton("Create Wallet", emptyStateWidget);
-    createWalletBtn->setStyleSheet("QPushButton { "
-                                   "  background-color: #007ACC; "
-                                   "  color: white; "
-                                   "  border: none; "
-                                   "  padding: 12px 24px; "
-                                   "  border-radius: 6px; "
-                                   "  font-size: 16px; "
-                                   "  font-weight: bold; "
-                                   "} "
-                                   "QPushButton:hover { "
-                                   "  background-color: #005A9E; "
-                                   "}");
-    createWalletBtn->setCursor(Qt::PointingHandCursor);
-    actionsLayout->addWidget(createWalletBtn);
-
-    QPushButton *importWalletBtn =
-        new QPushButton("Import Wallet", emptyStateWidget);
-    importWalletBtn->setStyleSheet("QPushButton { "
-                                   "  background-color: transparent; "
-                                   "  color: #007ACC; "
-                                   "  border: 2px solid #007ACC; "
-                                   "  padding: 10px 22px; "
-                                   "  border-radius: 6px; "
-                                   "  font-size: 16px; "
-                                   "  font-weight: bold; "
-                                   "} "
-                                   "QPushButton:hover { "
-                                   "  background-color: #F0F8FF; "
-                                   "}");
-    importWalletBtn->setCursor(Qt::PointingHandCursor);
-    actionsLayout->addWidget(importWalletBtn);
-
-    emptyStateLayout->addLayout(actionsLayout);
-
-    // Connect buttons to appropriate actions (you can implement these handlers)
-    connect(createWalletBtn, &QPushButton::clicked, this, [this]() {
-      QMessageBox::information(this, "Create Wallet",
-                               "Wallet creation functionality will be "
-                               "implemented in a future update.\n\n"
-                               "For now, please restart the application to "
-                               "initialize default wallets.");
-    });
-
-    connect(importWalletBtn, &QPushButton::clicked, this, [this]() {
-      QMessageBox::information(this, "Import Wallet",
-                               "Wallet import functionality will be "
-                               "implemented in a future update.\n\n"
-                               "You will be able to import existing wallets "
-                               "using seed phrases or private keys.");
-    });
-
-    m_contentLayout->addWidget(emptyStateWidget);
-    return;
-  }
-
   // Bitcoin wallet card
-  if (m_wallet) {
+  if (!m_bitcoinWalletCard) {
     m_bitcoinWalletCard =
         new QtExpandableWalletCard(m_themeManager, m_scrollContent);
     m_bitcoinWalletCard->setCryptocurrency("Bitcoin", "BTC", "₿");
@@ -367,7 +266,7 @@ void QtWalletUI::createActionButtons() {
   }
 
   // Litecoin wallet card
-  if (m_litecoinWallet) {
+  if (!m_litecoinWalletCard) {
     m_litecoinWalletCard =
         new QtExpandableWalletCard(m_themeManager, m_scrollContent);
     m_litecoinWalletCard->setCryptocurrency("Litecoin", "LTC", "Ł");
@@ -385,7 +284,7 @@ void QtWalletUI::createActionButtons() {
   }
 
   // Ethereum wallet card and related features
-  if (m_ethereumWallet) {
+  if (!m_ethereumWalletCard) {
     m_ethereumWalletCard =
         new QtExpandableWalletCard(m_themeManager, m_scrollContent);
     m_ethereumWalletCard->setCryptocurrency("Ethereum", "ETH", "Ξ");
@@ -400,7 +299,9 @@ void QtWalletUI::createActionButtons() {
             this, &QtWalletUI::onReceiveEthereumClicked);
 
     m_contentLayout->addWidget(m_ethereumWalletCard);
+  }
 
+  if (m_ethereumWalletCard && !m_importTokenButton) {
     // Import ERC20 Token button for Ethereum ecosystem
     QHBoxLayout *tokenActionsLayout = new QHBoxLayout();
     tokenActionsLayout->setSpacing(10);
@@ -420,17 +321,17 @@ void QtWalletUI::createActionButtons() {
     tokenActionsLayout->addStretch();
 
     m_contentLayout->addLayout(tokenActionsLayout);
+  }
 
-    // ============================================
-    // STABLECOINS SECTION (only show if Ethereum wallet exists)
-    // ============================================
-
+  if (m_ethereumWalletCard && !m_stablecoinSectionHeader) {
     // Section header for Stablecoins
     m_stablecoinSectionHeader = new QLabel("Stablecoins", m_scrollContent);
     m_stablecoinSectionHeader->setObjectName("sectionHeader");
     m_stablecoinSectionHeader->setAlignment(Qt::AlignLeft);
     m_contentLayout->addWidget(m_stablecoinSectionHeader);
+  }
 
+  if (m_ethereumWalletCard && !m_usdtWalletCard) {
     // Create USDT wallet card
     m_usdtWalletCard =
         new QtExpandableWalletCard(m_themeManager, m_scrollContent);
@@ -447,7 +348,9 @@ void QtWalletUI::createActionButtons() {
             &QtWalletUI::onReceiveUSDTClicked);
 
     m_contentLayout->addWidget(m_usdtWalletCard);
+  }
 
+  if (m_ethereumWalletCard && !m_usdcWalletCard) {
     // Create USDC wallet card
     m_usdcWalletCard =
         new QtExpandableWalletCard(m_themeManager, m_scrollContent);
@@ -464,7 +367,9 @@ void QtWalletUI::createActionButtons() {
             &QtWalletUI::onReceiveUSDCClicked);
 
     m_contentLayout->addWidget(m_usdcWalletCard);
+  }
 
+  if (m_ethereumWalletCard && !m_daiWalletCard) {
     // Create DAI wallet card
     m_daiWalletCard =
         new QtExpandableWalletCard(m_themeManager, m_scrollContent);
@@ -2238,6 +2143,11 @@ void QtWalletUI::setEthereumWallet(WalletAPI::EthereumWallet *ethWallet) {
   if (m_ethereumWallet && !m_ethereumAddress.isEmpty()) {
     fetchRealBalance();
   }
+
+  if (m_ethereumWallet && m_tokenRepository && m_ethereumWalletCard &&
+      !m_tokenListWidget) {
+    setupTokenManagement();
+  }
 }
 
 void QtWalletUI::setEthereumAddress(const QString &address) {
@@ -2377,7 +2287,8 @@ void QtWalletUI::setTokenRepository(Repository::TokenRepository *tokenRepo) {
   m_tokenRepository = tokenRepo;
 
   // Setup token management after repository is set
-  if (m_tokenRepository && m_ethereumWallet && m_ethereumWalletCard) {
+  if (m_tokenRepository && m_ethereumWallet && m_ethereumWalletCard &&
+      !m_tokenListWidget) {
     setupTokenManagement();
   }
 }

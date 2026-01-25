@@ -1,12 +1,17 @@
 Checks: >
   bugprone-*,
   clang-analyzer-*,
+  cert-*,
   cppcoreguidelines-*,
+  hicpp-*,
+  misc-*,
   modernize-*,
   performance-*,
-  readability-*
+  portability-*,
+  readability-*,
+  security-*
 
-WarningsAsErrors: ''
+WarningsAsErrors: 'bugprone-*,clang-analyzer-*,cert-*,security-*'
 HeaderFilterRegex: '.*'
 AnalyzeTemporaryDtors: true
 FormatStyle: file   # will use .clang-format if available

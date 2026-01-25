@@ -17,6 +17,20 @@ CompileFlags:
     - -Wold-style-cast
     - -Wcast-align
     - -Woverloaded-virtual
+    - -Wpedantic
+    - -Wconversion
+    - -Wsign-conversion
+    - -Wnull-dereference
+    - -Wformat=2
+    - -Wimplicit-fallthrough
+    - -Wextra-semi
+    - -Wcast-qual
+    - -Wdouble-promotion
+    
+    # Compiler hardening flags (analysis-time)
+    - -fstack-protector-strong
+    - -ftrivial-auto-var-init=pattern
+    - -fno-omit-frame-pointer
     
     # ClangCL-specific paths and compatibility
     - -IC:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/x64/include
@@ -45,16 +59,19 @@ Diagnostics:
     - unused-includes
   UnusedIncludes: None
   MissingIncludes: Strict
-
-# Sanitizer-aware configuration
-Diagnostics:
   ClangTidy:
     Add:
       - bugprone-*
-      - performance-*
-      - security-*
-      - readability-*
+      - cert-*
+      - clang-analyzer-*
+      - cppcoreguidelines-*
+      - hicpp-*
+      - misc-*
       - modernize-*
+      - performance-*
+      - portability-*
+      - readability-*
+      - security-*
     CheckOptions:
       - key: readability-identifier-naming.ClassCase
         value: CamelCase
