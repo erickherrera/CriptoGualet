@@ -14,12 +14,15 @@
 
 #include "TestUtils.h"
 
+#ifndef TEST_START
 #define TEST_START(name) \
     do { \
         std::cout << COLOR_BLUE << "[TEST] " << name << COLOR_RESET << std::endl; \
         TestGlobals::g_testsRun++; \
     } while(0)
+#endif
 
+#ifndef TEST_ASSERT
 #define TEST_ASSERT(condition, message) \
     do { \
         if (!(condition)) { \
@@ -28,12 +31,15 @@
             return; \
         } \
     } while(0)
+#endif
 
+#ifndef TEST_PASS
 #define TEST_PASS() \
     do { \
         std::cout << COLOR_GREEN << "  ✓ PASSED" << COLOR_RESET << std::endl; \
         TestGlobals::g_testsPassed++; \
     } while(0)
+#endif
 
 // Test configuration
 struct SessionTestConfig {

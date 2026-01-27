@@ -110,11 +110,6 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     target_link_options(CriptoGualetQt PRIVATE -fPIE -pie)
   endif()
 
-  # Set as startup project for Visual Studio if Qt GUI is built
-  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CriptoGualetQt)
-  set(STARTUP_PROJECT_SET TRUE)
-  message(STATUS "Qt GUI target will be the startup project")
-
   # Deploy Qt6 DLLs automatically
   if(WIN32)
     find_program(QT_DEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)

@@ -77,7 +77,7 @@ if(POLICY CMP0138)
 endif()
 
 # Windows SDK configuration - must be before project() call
-# When using clang-cl with Ninja, CMake needs to find Windows SDK tools (rc.exe) during compiler test
+# CMake needs to find Windows SDK tools (rc.exe) during compiler test
 if(WIN32)
   # Find Windows SDK installation
   set(WINDOWS_SDK_PATHS
@@ -300,6 +300,7 @@ if(MSVC AND ENABLE_MSVC_MP)
 endif()
 
 option(BUILD_GUI_QT "Build the Qt GUI wallet app" ON)
+set(CRYPTOGUWALET_VS_STARTUP_TARGET "" CACHE STRING "Default Visual Studio startup target (leave empty to select in IDE)")
 
 # Find Qt6 if GUI is enabled
 if(BUILD_GUI_QT)
@@ -478,9 +479,14 @@ add_subdirectory(frontend/qt)
 # Add test suite
 add_subdirectory(Tests)
 
-# Set startup project for Visual Studio (must be after add_subdirectory)
-if(BUILD_GUI_QT AND Qt6_FOUND)
-  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CriptoGualetQt)
+# Set Visual Studio startup target if requested (must be after add_subdirectory)
+if(CRYPTOGUWALET_VS_STARTUP_TARGET)
+  if(TARGET ${CRYPTOGUWALET_VS_STARTUP_TARGET})
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${CRYPTOGUWALET_VS_STARTUP_TARGET})
+    message(STATUS "Visual Studio startup target: ${CRYPTOGUWALET_VS_STARTUP_TARGET}")
+  else()
+    message(WARNING "Requested VS startup target '${CRYPTOGUWALET_VS_STARTUP_TARGET}' does not exist")
+  endif()
 endif()
 
 # Test executables are now defined in Tests/CMakeLists.txt

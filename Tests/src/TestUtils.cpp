@@ -6,6 +6,13 @@
 #include "Repository/WalletRepository.h"
 #include "Repository/Logger.h"
 
+extern "C" {
+#ifdef SQLCIPHER_AVAILABLE
+#include <sqlcipher/sqlite3.h>
+#else
+#include <sqlite3.h>
+#endif
+}
 
 // This file can be used for shared test utilities.
 
@@ -17,6 +24,8 @@ namespace TestGlobals {
 }
 
 namespace TestUtils {
+
+    bool createFullSchema(Database::DatabaseManager& dbManager);
 
     void printTestHeader(const std::string& title) {
         std::cout << "\n" << COLOR_CYAN << "==================================================" << COLOR_RESET << std::endl;
@@ -32,7 +41,154 @@ namespace TestUtils {
         if (std::filesystem::exists(dbPath)) {
             std::filesystem::remove(dbPath);
         }
-        dbManager.initialize(dbPath, encryptionKey);
+
+        auto initResult = dbManager.initialize(dbPath, encryptionKey);
+        if (!initResult.success) {
+            std::cout << COLOR_RED << "[TEST ERROR] Database init failed: "
+                      << initResult.message << COLOR_RESET << std::endl;
+            return;
+        }
+        createFullSchema(dbManager);
+    }
+
+    bool createFullSchema(Database::DatabaseManager& dbManager) {
+        std::string schemaSQL = R"(
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                salt BLOB NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_login TEXT,
+                wallet_version INTEGER NOT NULL DEFAULT 1,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                totp_enabled INTEGER NOT NULL DEFAULT 0,
+                totp_secret TEXT,
+                totp_secret_pending TEXT,
+                backup_codes TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS wallets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                wallet_name TEXT NOT NULL,
+                wallet_type TEXT NOT NULL DEFAULT 'bitcoin',
+                derivation_path TEXT,
+                extended_public_key TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS addresses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                wallet_id INTEGER NOT NULL,
+                address TEXT NOT NULL UNIQUE,
+                address_index INTEGER NOT NULL,
+                is_change INTEGER NOT NULL DEFAULT 0,
+                public_key TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                label TEXT,
+                balance_satoshis INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (wallet_id) REFERENCES wallets(id),
+                UNIQUE (wallet_id, address_index, is_change)
+            );
+
+            CREATE TABLE IF NOT EXISTS erc20_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                wallet_id INTEGER NOT NULL,
+                contract_address TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                name TEXT NOT NULL,
+                decimals INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (wallet_id) REFERENCES wallets(id),
+                UNIQUE (wallet_id, contract_address)
+            );
+
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                wallet_id INTEGER NOT NULL,
+                txid TEXT NOT NULL UNIQUE,
+                block_height INTEGER,
+                block_hash TEXT,
+                amount_satoshis INTEGER NOT NULL,
+                fee_satoshis INTEGER NOT NULL DEFAULT 0,
+                direction TEXT NOT NULL,
+                from_address TEXT,
+                to_address TEXT,
+                confirmation_count INTEGER NOT NULL DEFAULT 0,
+                is_confirmed INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                confirmed_at TEXT,
+                memo TEXT,
+                FOREIGN KEY (wallet_id) REFERENCES wallets(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS transaction_inputs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                transaction_id INTEGER NOT NULL,
+                input_index INTEGER NOT NULL,
+                prev_txid TEXT NOT NULL,
+                prev_output_index INTEGER NOT NULL,
+                script_sig TEXT,
+                sequence INTEGER DEFAULT 4294967295,
+                address TEXT,
+                amount_satoshis INTEGER,
+                FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+                UNIQUE (transaction_id, input_index)
+            );
+
+            CREATE TABLE IF NOT EXISTS transaction_outputs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                transaction_id INTEGER NOT NULL,
+                output_index INTEGER NOT NULL,
+                script_pubkey TEXT,
+                address TEXT,
+                amount_satoshis INTEGER NOT NULL,
+                is_spent INTEGER DEFAULT 0,
+                spent_in_txid TEXT,
+                FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+                UNIQUE (transaction_id, output_index)
+            );
+
+            CREATE TABLE IF NOT EXISTS encrypted_seeds (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL UNIQUE,
+                encrypted_seed BLOB NOT NULL,
+                encryption_salt BLOB NOT NULL,
+                verification_hash BLOB NOT NULL,
+                key_derivation_iterations INTEGER NOT NULL DEFAULT 600000,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                backup_confirmed INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+            CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
+            CREATE INDEX IF NOT EXISTS idx_addresses_wallet_id ON addresses(wallet_id);
+            CREATE INDEX IF NOT EXISTS idx_addresses_address ON addresses(address);
+            CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id);
+            CREATE INDEX IF NOT EXISTS idx_transactions_txid ON transactions(txid);
+            CREATE INDEX IF NOT EXISTS idx_transaction_inputs_txid ON transaction_inputs(transaction_id);
+            CREATE INDEX IF NOT EXISTS idx_transaction_outputs_txid ON transaction_outputs(transaction_id);
+            CREATE INDEX IF NOT EXISTS idx_erc20_tokens_wallet_contract ON erc20_tokens(wallet_id, contract_address);
+            CREATE INDEX IF NOT EXISTS idx_wallets_user_type ON wallets(user_id, wallet_type);
+            CREATE INDEX IF NOT EXISTS idx_wallets_user_active ON wallets(user_id, is_active);
+            CREATE INDEX IF NOT EXISTS idx_transactions_wallet_date ON transactions(wallet_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_transactions_wallet_confirmed ON transactions(wallet_id, is_confirmed);
+            CREATE INDEX IF NOT EXISTS idx_transactions_wallet_direction_date ON transactions(wallet_id, direction, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_addresses_wallet_change ON addresses(wallet_id, is_change);
+            CREATE INDEX IF NOT EXISTS idx_addresses_wallet_balance ON addresses(wallet_id, balance_satoshis DESC);
+        )";
+
+        auto schemaResult = dbManager.executeQuery(schemaSQL);
+        if (!schemaResult.success) {
+            std::cout << COLOR_RED << "[TEST ERROR] Schema init failed: "
+                      << schemaResult.message << COLOR_RESET << std::endl;
+            return false;
+        }
+        return true;
     }
 
     void shutdownTestEnvironment(Database::DatabaseManager& dbManager, const std::string& dbPath) {
@@ -50,6 +206,14 @@ namespace TestUtils {
         std::cout << COLOR_RED << "  FAILED: " << TestGlobals::g_testsFailed << COLOR_RESET << std::endl;
         std::cout << COLOR_BLUE << "  TOTAL:  " << TestGlobals::g_testsRun << COLOR_RESET << std::endl;
         std::cout << COLOR_BLUE << "----------------------------------------------------" << COLOR_RESET << std::endl;
+    }
+
+    int createTestUser(Repository::UserRepository& userRepo, const std::string& username) {
+        auto userResult = userRepo.createUser(username, "SecurePass123!");
+        if (!userResult.hasValue()) {
+            return -1;
+        }
+        return userResult->id;
     }
 
     int createTestUserWithWallet(Repository::UserRepository& userRepo, Repository::WalletRepository& walletRepo, const std::string& username) {

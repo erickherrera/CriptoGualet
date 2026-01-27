@@ -11,6 +11,7 @@
 #include "QtTokenImportDialog.h"
 #include "QtTokenListWidget.h"
 #include <QPointer>
+#include <QtConcurrent/QtConcurrent>
 
 #include <QApplication>
 #include <QClipboard>
@@ -35,6 +36,7 @@
 #include <QTextEdit>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <algorithm>
 
 QtWalletUI::QtWalletUI(QWidget *parent)
     : QWidget(parent), m_themeManager(nullptr), m_centeringLayout(nullptr),
@@ -45,13 +47,15 @@ QtWalletUI::QtWalletUI(QWidget *parent)
       m_ethereumWalletCard(nullptr), m_currentMockUser(nullptr),
       m_wallet(nullptr), m_litecoinWallet(nullptr), m_ethereumWallet(nullptr),
       m_balanceUpdateTimer(nullptr), m_realBalanceBTC(0.0),
-      m_realBalanceLTC(0.0), m_realBalanceETH(0.0), m_userRepository(nullptr),
+      m_realBalanceLTC(0.0), m_realBalanceETH(0.0),
+      m_cachedTokenUsdValue(0.0), m_userRepository(nullptr),
       m_walletRepository(nullptr), m_tokenRepository(nullptr),
       m_currentUserId(-1), m_tokenImportDialog(nullptr),
       m_tokenListWidget(nullptr), m_stablecoinSectionHeader(nullptr),
       m_importTokenButton(nullptr), m_usdtWalletCard(nullptr),
       m_usdcWalletCard(nullptr), m_daiWalletCard(nullptr),
       m_priceFetcher(nullptr), m_priceUpdateTimer(nullptr),
+      m_priceFetchWatcher(nullptr), m_balanceFetchWatcher(nullptr),
       m_currentBTCPrice(43000.0), m_currentLTCPrice(70.0),
       m_currentETHPrice(2500.0), m_isLoadingBTC(false),
       m_isLoadingLTC(false), m_isLoadingETH(false), m_statusLabel(nullptr),
@@ -64,6 +68,14 @@ QtWalletUI::QtWalletUI(QWidget *parent)
 
   // Create all UI widgets
   setupUI();
+
+  m_priceFetchWatcher = new QFutureWatcher<PriceFetchResult>(this);
+  connect(m_priceFetchWatcher, &QFutureWatcher<PriceFetchResult>::finished, this,
+          &QtWalletUI::onPriceFetchFinished);
+
+  m_balanceFetchWatcher = new QFutureWatcher<BalanceFetchResult>(this);
+  connect(m_balanceFetchWatcher, &QFutureWatcher<BalanceFetchResult>::finished,
+          this, &QtWalletUI::onBalanceFetchFinished);
 
   // Defer all complex initialization to after event loop starts
   QPointer<QtWalletUI> self(this);
@@ -1105,37 +1117,73 @@ void QtWalletUI::updateTokenBalances() {
     return;
   }
 
-  // Get tokens for wallet
-  auto tokensResult = m_tokenRepository->getTokensForWallet(ethereumWalletId);
-  if (!tokensResult.success) {
-    return;
-  }
+  std::string ethereumAddress = m_ethereumAddress.toStdString();
+  WalletAPI::EthereumWallet *ethereumWallet = m_ethereumWallet;
+  Repository::TokenRepository *tokenRepository = m_tokenRepository;
 
-  // Update balance for each token
-  for (const auto &token : tokensResult.data) {
-    QString contractAddress = QString::fromStdString(token.contract_address);
+  auto watcher =
+      new QFutureWatcher<std::vector<TokenBalanceUpdate>>(this);
+  connect(watcher,
+          &QFutureWatcher<std::vector<TokenBalanceUpdate>>::finished, this,
+          [this, watcher]() {
+            auto updates = watcher->result();
+            for (const auto &update : updates) {
+              QString contractAddress =
+                  QString::fromStdString(update.contractAddress);
+              if (update.success) {
+                m_tokenListWidget->updateTokenBalance(
+                    contractAddress, QString::fromStdString(update.balanceText));
+              } else {
+                m_tokenListWidget->updateTokenBalance(contractAddress, "Error",
+                                                      "");
+              }
+            }
+            watcher->deleteLater();
+          });
 
-    // Fetch token balance from blockchain
-    auto balanceOpt = m_ethereumWallet->GetTokenBalance(
-        m_ethereumAddress.toStdString(), token.contract_address);
+  auto future = QtConcurrent::run(
+      [ethereumWallet, tokenRepository, ethereumAddress, ethereumWalletId]() {
+        std::vector<TokenBalanceUpdate> updates;
+        auto tokensResult =
+            tokenRepository->getTokensForWallet(ethereumWalletId);
+        if (!tokensResult.success) {
+          return updates;
+        }
 
-    if (balanceOpt.has_value()) {
-      // Format the balance based on token decimals
-      QString rawBalance = QString::fromStdString(balanceOpt.value());
-      double balanceValue = rawBalance.toDouble();
+        for (const auto &token : tokensResult.data) {
+          TokenBalanceUpdate update;
+          update.contractAddress = token.contract_address;
 
-      // Apply decimals formatting
-      double formattedBalance = balanceValue / std::pow(10.0, token.decimals);
-      QString balanceStr =
-          QString::number(formattedBalance, 'f', qMin(token.decimals, 8));
+          auto balanceOpt = ethereumWallet->GetTokenBalance(
+              ethereumAddress, token.contract_address);
+          if (balanceOpt.has_value()) {
+            double rawBalance = 0.0;
+            try {
+              rawBalance = std::stod(balanceOpt.value());
+            } catch (const std::exception &) {
+              update.success = false;
+              updates.push_back(std::move(update));
+              continue;
+            }
 
-      // Update the token card
-      m_tokenListWidget->updateTokenBalance(contractAddress, balanceStr);
-    } else {
-      // If balance fetch fails, show error state
-      m_tokenListWidget->updateTokenBalance(contractAddress, "Error", "");
-    }
-  }
+            double formattedBalance =
+                rawBalance / std::pow(10.0, token.decimals);
+            update.balanceText =
+                QString::number(formattedBalance, 'f',
+                                std::min(token.decimals, 8))
+                    .toStdString();
+            update.success = true;
+          } else {
+            update.success = false;
+          }
+
+          updates.push_back(std::move(update));
+        }
+
+        return updates;
+      });
+
+  watcher->setFuture(future);
 }
 
 void QtWalletUI::onTokenImported(const TokenCardData &tokenData) {
@@ -2048,9 +2096,30 @@ void QtWalletUI::fetchETHPrice() {
 
 // PHASE 2: Fetch all cryptocurrency prices
 void QtWalletUI::fetchAllPrices() {
-  fetchBTCPrice();
-  fetchLTCPrice();
-  fetchETHPrice();
+  if (!m_priceFetchWatcher || m_priceFetchWatcher->isRunning()) {
+    return;
+  }
+
+  auto future = QtConcurrent::run([]() {
+    PriceFetchResult result;
+    PriceService::PriceFetcher fetcher;
+
+    if (auto btcData = fetcher.GetCryptoPrice("bitcoin"); btcData.has_value()) {
+      result.btcPrice = btcData->usd_price;
+    }
+
+    if (auto ltcData = fetcher.GetCryptoPrice("litecoin"); ltcData.has_value()) {
+      result.ltcPrice = ltcData->usd_price;
+    }
+
+    if (auto ethData = fetcher.GetCryptoPrice("ethereum"); ethData.has_value()) {
+      result.ethPrice = ethData->usd_price;
+    }
+
+    return result;
+  });
+
+  m_priceFetchWatcher->setFuture(future);
 }
 
 void QtWalletUI::updateUSDBalance() {
@@ -2084,8 +2153,8 @@ void QtWalletUI::updateUSDBalance() {
     ltcBalance = m_realBalanceLTC;
     ethBalance = m_realBalanceETH;
 
-    // Calculate USD value of imported tokens
-    tokensUsdValue = calculateTotalTokenUSDValue();
+    // Use cached token USD value from background refresh
+    tokensUsdValue = m_cachedTokenUsdValue;
   } else if (m_currentMockUser) {
     // Use mock balance if in mock mode (only BTC for now)
     btcBalance = m_currentMockUser->balance;
@@ -2108,6 +2177,25 @@ void QtWalletUI::updateUSDBalance() {
 void QtWalletUI::onPriceUpdateTimer() {
   // PHASE 2: This runs every 60 seconds to refresh both BTC and ETH prices
   fetchAllPrices();
+}
+
+void QtWalletUI::onPriceFetchFinished() {
+  if (!m_priceFetchWatcher) {
+    return;
+  }
+
+  PriceFetchResult result = m_priceFetchWatcher->result();
+  if (result.btcPrice > 0.0) {
+    m_currentBTCPrice = result.btcPrice;
+  }
+  if (result.ltcPrice > 0.0) {
+    m_currentLTCPrice = result.ltcPrice;
+  }
+  if (result.ethPrice > 0.0) {
+    m_currentETHPrice = result.ethPrice;
+  }
+
+  updateUSDBalance();
 }
 
 // === Real Wallet Integration Methods ===
@@ -2163,117 +2251,230 @@ void QtWalletUI::fetchRealBalance() {
     return;
   }
 
-  // Disable mock mode when fetching real balance
-  m_mockMode = false;
-
-  // PHASE 2: Set loading state for Bitcoin
-  setLoadingState(true, "Bitcoin");
-
-  try {
-    // Fetch Bitcoin balance from blockchain
-    std::string address = m_currentAddress.toStdString();
-    uint64_t balanceSatoshis = m_wallet->GetBalance(address);
-
-    // Convert satoshis to BTC
-    m_realBalanceBTC = m_wallet->ConvertSatoshisToBTC(balanceSatoshis);
-
-    // Update UI
-    updateUSDBalance();
-
-    // Update Bitcoin wallet card
-    if (m_bitcoinWalletCard) {
-      m_bitcoinWalletCard->setBalance(
-          QString("%1 BTC").arg(m_realBalanceBTC, 0, 'f', 8));
-    }
-
-    // PHASE 3: Fetch and display Bitcoin transaction history with improved
-    // formatting
-    auto txHistory = m_wallet->GetTransactionHistory(address, 10);
-    if (m_bitcoinWalletCard) {
-      m_bitcoinWalletCard->setTransactionHistory(
-          formatBitcoinTransactionHistory(txHistory));
-    }
-
-    // PHASE 2: Clear loading state for Bitcoin
-    setLoadingState(false, "Bitcoin");
-
-  } catch (const std::exception &e) {
-    setErrorState(QString("Failed to fetch Bitcoin balance: %1").arg(e.what()));
+  if (!m_balanceFetchWatcher || m_balanceFetchWatcher->isRunning()) {
     return;
   }
 
-  // Fetch Litecoin balance if we have a Litecoin wallet and address
+  // Disable mock mode when fetching real balance
+  m_mockMode = false;
+
+  setLoadingState(true, "Bitcoin");
   if (m_litecoinWallet && !m_litecoinAddress.isEmpty()) {
     setLoadingState(true, "Litecoin");
-
-    try {
-      std::string ltcAddress = m_litecoinAddress.toStdString();
-      uint64_t balanceLitoshis = m_litecoinWallet->GetBalance(ltcAddress);
-
-      // Convert litoshis to LTC
-      m_realBalanceLTC =
-          m_litecoinWallet->ConvertLitoshisToLTC(balanceLitoshis);
-
-      // Update Litecoin wallet card
-      if (m_litecoinWalletCard) {
-        m_litecoinWalletCard->setBalance(
-            QString("%1 LTC").arg(m_realBalanceLTC, 0, 'f', 8));
-      }
-
-      // Fetch and display Litecoin transaction history
-      auto ltcTxHistory =
-          m_litecoinWallet->GetTransactionHistory(ltcAddress, 10);
-      if (m_litecoinWalletCard) {
-        m_litecoinWalletCard->setTransactionHistory(
-            formatBitcoinTransactionHistory(ltcTxHistory));
-      }
-
-      setLoadingState(false, "Litecoin");
-
-    } catch (const std::exception &e) {
-      setErrorState(
-          QString("Failed to fetch Litecoin balance: %1").arg(e.what()));
-    }
   }
-
-  // Fetch Ethereum balance if we have an Ethereum wallet and address
   if (m_ethereumWallet && !m_ethereumAddress.isEmpty()) {
-    // PHASE 2: Set loading state for Ethereum
     setLoadingState(true, "Ethereum");
-
-    try {
-      std::string ethAddress = m_ethereumAddress.toStdString();
-      m_realBalanceETH = m_ethereumWallet->GetBalance(ethAddress);
-
-      // Update Ethereum wallet card
-      if (m_ethereumWalletCard) {
-        m_ethereumWalletCard->setBalance(
-            QString("%1 ETH").arg(m_realBalanceETH, 0, 'f', 8));
-      }
-
-      // PHASE 3: Fetch and display Ethereum transaction history with improved
-      // formatting
-      auto ethTxHistory =
-          m_ethereumWallet->GetTransactionHistory(ethAddress, 10);
-      if (m_ethereumWalletCard) {
-        m_ethereumWalletCard->setTransactionHistory(
-            formatEthereumTransactionHistory(ethTxHistory, ethAddress));
-      }
-
-      // PHASE 2: Clear loading state for Ethereum
-      setLoadingState(false, "Ethereum");
-
-    } catch (const std::exception &e) {
-      setErrorState(
-          QString("Failed to fetch Ethereum balance: %1").arg(e.what()));
-    }
   }
+
+  std::string address = m_currentAddress.toStdString();
+  std::string litecoinAddress = m_litecoinAddress.toStdString();
+  std::string ethereumAddress = m_ethereumAddress.toStdString();
+  WalletAPI::SimpleWallet *wallet = m_wallet;
+  WalletAPI::LitecoinWallet *litecoinWallet = m_litecoinWallet;
+  WalletAPI::EthereumWallet *ethereumWallet = m_ethereumWallet;
+  Repository::TokenRepository *tokenRepository = m_tokenRepository;
+  int ethereumWalletId = getEthereumWalletId();
+  double currentBtcPrice = m_currentBTCPrice;
+  double currentEthPrice = m_currentETHPrice;
+
+  auto future = QtConcurrent::run(
+      [wallet, litecoinWallet, ethereumWallet, tokenRepository, address,
+       litecoinAddress, ethereumAddress, ethereumWalletId, currentBtcPrice,
+       currentEthPrice]() {
+        BalanceFetchResult result;
+
+        if (wallet && !address.empty()) {
+          try {
+            uint64_t balanceSatoshis = wallet->GetBalance(address);
+            result.btcBalance = wallet->ConvertSatoshisToBTC(balanceSatoshis);
+            result.btcTransactions = wallet->GetTransactionHistory(address, 10);
+            result.btcSuccess = true;
+          } catch (const std::exception &e) {
+            result.errorMessage =
+                "Failed to fetch Bitcoin balance: " + std::string(e.what());
+          }
+        }
+
+        if (litecoinWallet && !litecoinAddress.empty()) {
+          try {
+            uint64_t balanceLitoshis =
+                litecoinWallet->GetBalance(litecoinAddress);
+            result.ltcBalance =
+                litecoinWallet->ConvertLitoshisToLTC(balanceLitoshis);
+            result.ltcTransactions =
+                litecoinWallet->GetTransactionHistory(litecoinAddress, 10);
+            result.ltcSuccess = true;
+          } catch (const std::exception &e) {
+            if (result.errorMessage.empty()) {
+              result.errorMessage =
+                  "Failed to fetch Litecoin balance: " +
+                  std::string(e.what());
+            }
+          }
+        }
+
+        if (ethereumWallet && !ethereumAddress.empty()) {
+          try {
+            result.ethBalance = ethereumWallet->GetBalance(ethereumAddress);
+            result.ethTransactions =
+                ethereumWallet->GetTransactionHistory(ethereumAddress, 10);
+            result.ethSuccess = true;
+          } catch (const std::exception &e) {
+            if (result.errorMessage.empty()) {
+              result.errorMessage =
+                  "Failed to fetch Ethereum balance: " +
+                  std::string(e.what());
+            }
+          }
+        }
+
+        if (tokenRepository && ethereumWallet && !ethereumAddress.empty() &&
+            ethereumWalletId != -1) {
+          auto tokensResult =
+              tokenRepository->getTokensForWallet(ethereumWalletId);
+          if (tokensResult.success) {
+            PriceService::PriceFetcher priceFetcher;
+
+            for (const auto &token : tokensResult.data) {
+              auto balanceOpt = ethereumWallet->GetTokenBalance(
+                  ethereumAddress, token.contract_address);
+              if (!balanceOpt.has_value()) {
+                continue;
+              }
+
+              double rawBalance = 0.0;
+              try {
+                rawBalance = std::stod(balanceOpt.value());
+              } catch (const std::exception &) {
+                continue;
+              }
+
+              double formattedBalance =
+                  rawBalance / std::pow(10.0, token.decimals);
+
+              TokenBalanceUpdate balanceUpdate;
+              balanceUpdate.contractAddress = token.contract_address;
+              balanceUpdate.balanceText =
+                  QString::number(formattedBalance, 'f',
+                                  std::min(token.decimals, 8))
+                      .toStdString();
+              balanceUpdate.success = true;
+              result.tokenBalances.push_back(std::move(balanceUpdate));
+
+              double tokenPriceUsd = 0.0;
+              std::string symbolUpper = token.symbol;
+              std::transform(symbolUpper.begin(), symbolUpper.end(),
+                             symbolUpper.begin(),
+                             [](unsigned char c) { return std::toupper(c); });
+
+              std::string symbolLower = token.symbol;
+              std::transform(symbolLower.begin(), symbolLower.end(),
+                             symbolLower.begin(),
+                             [](unsigned char c) { return std::tolower(c); });
+
+              if (auto priceData =
+                      priceFetcher.GetCryptoPrice(symbolLower);
+                  priceData.has_value()) {
+                tokenPriceUsd = priceData->usd_price;
+              }
+
+              if (tokenPriceUsd <= 0.0) {
+                if (symbolUpper == "USDT" || symbolUpper == "USDC" ||
+                    symbolUpper == "DAI") {
+                  tokenPriceUsd = 1.0;
+                } else if (symbolUpper == "WBTC") {
+                  tokenPriceUsd = currentBtcPrice > 0.0 ? currentBtcPrice :
+                                                       43000.0;
+                } else if (symbolUpper == "WETH") {
+                  tokenPriceUsd = currentEthPrice > 0.0 ? currentEthPrice :
+                                                       2500.0;
+                }
+              }
+
+              result.tokenUsdValue += formattedBalance * tokenPriceUsd;
+            }
+          }
+        }
+
+        return result;
+      });
+
+  m_balanceFetchWatcher->setFuture(future);
 }
 
 void QtWalletUI::onBalanceUpdateTimer() {
   // Periodically refresh balance if we're in real wallet mode
   if (!m_mockMode && m_wallet && !m_currentAddress.isEmpty()) {
     fetchRealBalance();
+  }
+}
+
+void QtWalletUI::onBalanceFetchFinished() {
+  if (!m_balanceFetchWatcher) {
+    return;
+  }
+
+  BalanceFetchResult result = m_balanceFetchWatcher->result();
+
+  if (!result.errorMessage.empty()) {
+    setErrorState(QString::fromStdString(result.errorMessage));
+  }
+
+  if (result.btcSuccess) {
+    m_realBalanceBTC = result.btcBalance;
+    if (m_bitcoinWalletCard) {
+      m_bitcoinWalletCard->setBalance(
+          QString("%1 BTC").arg(m_realBalanceBTC, 0, 'f', 8));
+      m_bitcoinWalletCard->setTransactionHistory(
+          formatBitcoinTransactionHistory(result.btcTransactions));
+    }
+  }
+
+  if (result.ltcSuccess) {
+    m_realBalanceLTC = result.ltcBalance;
+    if (m_litecoinWalletCard) {
+      m_litecoinWalletCard->setBalance(
+          QString("%1 LTC").arg(m_realBalanceLTC, 0, 'f', 8));
+      m_litecoinWalletCard->setTransactionHistory(
+          formatBitcoinTransactionHistory(result.ltcTransactions));
+    }
+  }
+
+  if (result.ethSuccess) {
+    m_realBalanceETH = result.ethBalance;
+    if (m_ethereumWalletCard) {
+      m_ethereumWalletCard->setBalance(
+          QString("%1 ETH").arg(m_realBalanceETH, 0, 'f', 8));
+      m_ethereumWalletCard->setTransactionHistory(
+          formatEthereumTransactionHistory(result.ethTransactions,
+                                           m_ethereumAddress.toStdString()));
+    }
+  }
+
+  if (m_tokenListWidget && !result.tokenBalances.empty()) {
+    for (const auto &update : result.tokenBalances) {
+      QString contractAddress =
+          QString::fromStdString(update.contractAddress);
+      if (update.success) {
+        m_tokenListWidget->updateTokenBalance(
+            contractAddress, QString::fromStdString(update.balanceText));
+      } else {
+        m_tokenListWidget->updateTokenBalance(contractAddress, "Error", "");
+      }
+    }
+  }
+
+  m_cachedTokenUsdValue = result.tokenUsdValue;
+  updateUSDBalance();
+
+  if (m_wallet && !m_currentAddress.isEmpty()) {
+    setLoadingState(false, "Bitcoin");
+  }
+  if (m_litecoinWallet && !m_litecoinAddress.isEmpty()) {
+    setLoadingState(false, "Litecoin");
+  }
+  if (m_ethereumWallet && !m_ethereumAddress.isEmpty()) {
+    setLoadingState(false, "Ethereum");
   }
 }
 

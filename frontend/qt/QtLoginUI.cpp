@@ -1053,6 +1053,35 @@ void QtLoginUI::clearLoginFields() {
     clearMessage();
 }
 
+void QtLoginUI::setAuthInProgress(bool inProgress) {
+    const bool enabled = !inProgress;
+
+    if (m_loginButton) {
+        m_loginButton->setEnabled(enabled);
+    }
+    if (m_registerButton) {
+        m_registerButton->setEnabled(enabled);
+    }
+    if (m_loginUsernameEdit) {
+        m_loginUsernameEdit->setEnabled(enabled);
+    }
+    if (m_loginPasswordEdit) {
+        m_loginPasswordEdit->setEnabled(enabled);
+    }
+    if (m_usernameEdit) {
+        m_usernameEdit->setEnabled(enabled);
+    }
+    if (m_passwordEdit) {
+        m_passwordEdit->setEnabled(enabled);
+    }
+    if (m_confirmPasswordEdit) {
+        m_confirmPasswordEdit->setEnabled(enabled);
+    }
+    if (m_tabBar) {
+        m_tabBar->setEnabled(enabled);
+    }
+}
+
 bool QtLoginUI::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::Resize) {
         // Reposition password toggle buttons on resize

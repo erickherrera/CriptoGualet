@@ -51,9 +51,9 @@ echo $env:VCPKG_ROOT
 
 ### 3. Configure the Project
 
-Choose one of the following build configurations:
+Use the Visual Studio generator:
 
-#### Option A: Visual Studio Generator (Recommended - Most Stable)
+#### Visual Studio Generator (Recommended - Most Stable)
 
 ```bash
 # Configure for Debug
@@ -62,18 +62,6 @@ cmake --preset=win-vs2022-x64-debug
 # Or configure for Release
 cmake --preset=win-vs2022-x64-release
 ```
-
-#### Option B: Ninja Generator (Faster builds, but may have issues)
-
-```bash
-# Configure for Debug
-cmake --preset=win-ninja-x64-debug
-
-# Or configure for Release
-cmake --preset=win-ninja-x64-release
-```
-
-**Note:** If Ninja build fails with architecture errors, use the Visual Studio generator instead.
 
 ### 4. Build the Project
 
@@ -85,16 +73,6 @@ cmake --build out/build/win-vs2022-x64-debug --config Debug
 
 # Build Release
 cmake --build out/build/win-vs2022-x64-release --config Release
-```
-
-#### If using Ninja generator:
-
-```bash
-# Build Debug
-cmake --build out/build/win-ninja-x64-debug
-
-# Build Release
-cmake --build out/build/win-ninja-x64-release
 ```
 
 ### 5. Run the Application
@@ -146,20 +124,6 @@ If vcpkg fails to install dependencies:
    vcpkg install cpr libqrencode nlohmann-json secp256k1 sqlcipher sqlite3 --triplet=x64-windows
    ```
 
-### Build Errors with Ninja Generator
-
-If you encounter architecture mismatch errors with Ninja:
-
-```
-lld-link: error: machine type x64 conflicts with x86
-```
-
-**Solution:** Use the Visual Studio generator instead:
-```bash
-cmake --preset=win-vs2022-x64-debug
-cmake --build out/build/win-vs2022-x64-debug --config Debug
-```
-
 ### Compiler Not Found
 
 If CMake cannot find the compiler:
@@ -198,8 +162,6 @@ cmake --build out/build/win-vs2022-x64-debug --config Debug
 
 - `win-vs2022-x64-debug` - Visual Studio 2022, x64, Debug (recommended for IDE)
 - `win-vs2022-x64-release` - Visual Studio 2022, x64, Release
-- `win-ninja-x64-debug` - Ninja, x64, Debug (best for IntelliSense)
-- `win-ninja-x64-release` - Ninja, x64, Release
 
 ## Project Structure
 

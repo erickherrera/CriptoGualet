@@ -24,35 +24,10 @@
       }
     },
     {
-      "name": "win-ninja-x64-debug",
-      "displayName": "Windows Ninja x64 Debug (Advanced - Requires Developer Command Prompt)",
-      "inherits": "vcpkg-base",
-      "generator": "Ninja",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
-      },
-      "description": "Advanced: Ninja generator. Requires VCPKG_ROOT environment variable and ninja in PATH. Use win-vs2022-x64-debug preset instead for easier setup."
-    },
-    {
-      "name": "win-ninja-x64-release",
-      "displayName": "Windows Ninja x64 Release (Advanced)",
-      "inherits": "win-ninja-x64-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      },
-      "description": "Advanced: Release build with Ninja. Use win-vs2022-x64-release instead for easier setup."
-    },
-    {
       "name": "linux-clang-debug",
       "displayName": "Linux Clang Debug",
       "inherits": "vcpkg-base",
-      "generator": "Ninja",
+      "generator": "Unix Makefiles",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -183,24 +158,16 @@
   ],
   "buildPresets": [
     {
-      "name": "win-ninja-build",
-      "displayName": "Windows Ninja Debug",
-      "configurePreset": "win-ninja-x64-debug"
-    },
-    {
-      "name": "win-ninja-build-release",
-      "displayName": "Windows Ninja Release",
-      "configurePreset": "win-ninja-x64-release"
-    },
-    {
       "name": "win-vs2022-build",
       "displayName": "Windows VS2022 Debug",
-      "configurePreset": "win-vs2022-x64-debug"
+      "configurePreset": "win-vs2022-x64-debug",
+      "configuration": "Debug"
     },
     {
       "name": "win-vs2022-build-release",
       "displayName": "Windows VS2022 Release",
-      "configurePreset": "win-vs2022-x64-release"
+      "configurePreset": "win-vs2022-x64-release",
+      "configuration": "Release"
     },
     {
       "name": "win-vs2022-clangcl-build",

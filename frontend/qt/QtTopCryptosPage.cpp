@@ -2,6 +2,7 @@
 #include "QtThemeManager.h"
 #include <QTimer>
 #include <QDebug>
+#include <QtConcurrent/QtConcurrent>
 #include <QGraphicsDropShadowEffect>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
@@ -430,11 +431,18 @@ QtTopCryptosPage::QtTopCryptosPage(QWidget* parent)
     : QWidget(parent),
       m_themeManager(&QtThemeManager::instance()),
       m_priceFetcher(std::make_unique<PriceService::PriceFetcher>(15)),
+      m_topCryptosWatcher(nullptr),
       m_currentSortIndex(0),
       m_searchDebounceTimer(new QTimer(this)),
       m_refreshTimer(new QTimer(this)) {
     setupUI();
     applyTheme();
+
+    m_topCryptosWatcher =
+        new QFutureWatcher<std::vector<PriceService::CryptoPriceData>>(this);
+    connect(m_topCryptosWatcher,
+            &QFutureWatcher<std::vector<PriceService::CryptoPriceData>>::finished,
+            this, &QtTopCryptosPage::onTopCryptosFetched);
 
     // Connect to theme changes
     connect(m_themeManager, &QtThemeManager::themeChanged, this, &QtTopCryptosPage::applyTheme);
@@ -572,6 +580,13 @@ void QtTopCryptosPage::createHeader() {
 
     headerLayout->addLayout(controlsRow);
 
+    m_loadingBar = new QProgressBar(m_headerWidget);
+    m_loadingBar->setRange(0, 0);
+    m_loadingBar->setTextVisible(false);
+    m_loadingBar->setFixedHeight(6);
+    m_loadingBar->setVisible(false);
+    headerLayout->addWidget(m_loadingBar);
+
     // Result counter row
     QHBoxLayout* counterRow = new QHBoxLayout();
     m_resultCounterLabel = new QLabel("Loading...", m_headerWidget);
@@ -637,6 +652,10 @@ void QtTopCryptosPage::createCryptoCards() {
 }
 
 void QtTopCryptosPage::fetchTopCryptos() {
+    if (m_topCryptosWatcher && m_topCryptosWatcher->isRunning()) {
+        return;
+    }
+
     qDebug() << "Fetching top 100 cryptocurrencies...";
 
     // Show loading state
@@ -647,49 +666,52 @@ void QtTopCryptosPage::fetchTopCryptos() {
     m_searchBox->setEnabled(false);
     m_sortDropdown->setEnabled(false);
     m_refreshButton->setEnabled(false);
+    if (m_loadingBar) {
+        m_loadingBar->setVisible(true);
+    }
 
-    // Use QTimer to move the blocking call to a separate event loop iteration
-    // This prevents UI freezing while still being synchronous
-    QTimer::singleShot(0, this, [this]() {
-        try {
-            // Fetch data (this is a blocking call but now runs in separate event loop)
-            m_cryptoData = m_priceFetcher->GetTopCryptosByMarketCap(100);
-
-            qDebug() << "Fetch complete. Retrieved" << m_cryptoData.size() << "items";
-
-            // Re-enable controls
-            m_searchBox->setEnabled(true);
-            m_sortDropdown->setEnabled(true);
-            m_refreshButton->setEnabled(true);
-
-            // Apply filters and sorting
-            filterAndSortData();
-        } catch (const std::exception& e) {
-            qDebug() << "Exception during fetch:" << e.what();
-            
-            // Handle error gracefully
-            m_cryptoData.clear();
-            m_searchBox->setEnabled(true);
-            m_sortDropdown->setEnabled(true);
-            m_refreshButton->setEnabled(true);
-            
-            // Show error state
-            m_subtitleLabel->setText("Failed to load data. Click refresh to try again.");
-            QString errorColor = m_themeManager->errorColor().name();
-            QFont errorFont = m_themeManager->textFont();
-            errorFont.setPointSize(12);
-            errorFont.setBold(true);
-            m_subtitleLabel->setFont(errorFont);
-            m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(errorColor));
-            
-            // Hide all cards
-            for (auto* card : m_cryptoCards) {
-                card->setVisible(false);
-            }
-            
-            m_resultCounterLabel->setText("Error loading data");
-        }
+    auto future = QtConcurrent::run([]() {
+        PriceService::PriceFetcher fetcher(15);
+        return fetcher.GetTopCryptosByMarketCap(100);
     });
+
+    m_topCryptosWatcher->setFuture(future);
+}
+
+void QtTopCryptosPage::onTopCryptosFetched() {
+    if (!m_topCryptosWatcher) {
+        return;
+    }
+
+    m_cryptoData = m_topCryptosWatcher->result();
+
+    m_searchBox->setEnabled(true);
+    m_sortDropdown->setEnabled(true);
+    m_refreshButton->setEnabled(true);
+    if (m_loadingBar) {
+        m_loadingBar->setVisible(false);
+    }
+
+    if (m_cryptoData.empty()) {
+        m_subtitleLabel->setText("Failed to load data. Click refresh to try again.");
+        QString errorColor = m_themeManager->errorColor().name();
+        QFont errorFont = m_themeManager->textFont();
+        errorFont.setPointSize(12);
+        errorFont.setBold(true);
+        m_subtitleLabel->setFont(errorFont);
+        m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(errorColor));
+
+        for (auto* card : m_cryptoCards) {
+            card->setVisible(false);
+        }
+
+        m_resultCounterLabel->setText("Error loading data");
+        return;
+    }
+
+    m_subtitleLabel->setText("Live prices updated every 60 seconds");
+    applyTheme();
+    filterAndSortData();
 }
 
 void QtTopCryptosPage::updateCards() {

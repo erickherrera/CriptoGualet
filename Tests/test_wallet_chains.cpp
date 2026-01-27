@@ -91,7 +91,7 @@ static std::vector<std::string> LoadBIP39Wordlist() {
 // BIP39/BIP44 Cryptographic Tests
 // ============================================================================
 
-static bool testGenerateMnemonic(const std::vector<std::string>& wordlist) {
+static void testGenerateMnemonic(const std::vector<std::string>& wordlist) {
   TEST_START("Generate New Mnemonic");
 
   std::vector<uint8_t> entropy;
@@ -113,7 +113,7 @@ static bool testGenerateMnemonic(const std::vector<std::string>& wordlist) {
   TEST_PASS();
 }
 
-static bool testValidateMnemonic(const std::vector<std::string>& wordlist) {
+static void testValidateMnemonic(const std::vector<std::string>& wordlist) {
   TEST_START("Validate Mnemonic");
 
   // Generate a mnemonic first
@@ -128,7 +128,7 @@ static bool testValidateMnemonic(const std::vector<std::string>& wordlist) {
   TEST_PASS();
 }
 
-static bool testGenerateBIP39Seed(const std::vector<std::string>& wordlist) {
+static void testGenerateBIP39Seed(const std::vector<std::string>& wordlist) {
   TEST_START("Generate BIP39 Seed");
 
   std::vector<uint8_t> entropy;
@@ -146,7 +146,7 @@ static bool testGenerateBIP39Seed(const std::vector<std::string>& wordlist) {
   TEST_PASS();
 }
 
-static bool testGenerateBIP32MasterKey(const std::vector<std::string>& wordlist) {
+static void testGenerateBIP32MasterKey(const std::vector<std::string>& wordlist) {
   TEST_START("Generate BIP32 Master Key");
 
   std::vector<uint8_t> entropy;
@@ -168,7 +168,7 @@ static bool testGenerateBIP32MasterKey(const std::vector<std::string>& wordlist)
   TEST_PASS();
 }
 
-static bool testDeriveEthereumAddresses(const std::vector<std::string>& wordlist) {
+static void testDeriveEthereumAddresses(const std::vector<std::string>& wordlist) {
   TEST_START("Derive Ethereum Addresses (BIP44)");
 
   std::vector<uint8_t> entropy;
@@ -195,7 +195,7 @@ static bool testDeriveEthereumAddresses(const std::vector<std::string>& wordlist
   TEST_PASS();
 }
 
-static bool testDeriveBitcoinAddresses(const std::vector<std::string>& wordlist) {
+static void testDeriveBitcoinAddresses(const std::vector<std::string>& wordlist) {
   TEST_START("Derive Bitcoin Addresses (BIP44)");
 
   std::vector<uint8_t> entropy;
@@ -222,7 +222,7 @@ static bool testDeriveBitcoinAddresses(const std::vector<std::string>& wordlist)
   TEST_PASS();
 }
 
-static bool testMultiChainAddressDerivation(const std::vector<std::string>& wordlist) {
+static void testMultiChainAddressDerivation(const std::vector<std::string>& wordlist) {
   TEST_START("Multi-Chain Address Derivation");
 
   std::vector<uint8_t> entropy;
@@ -257,7 +257,7 @@ static bool testMultiChainAddressDerivation(const std::vector<std::string>& word
   TEST_PASS();
 }
 
-static bool testDeriveLitecoinAddresses(const std::vector<std::string>& wordlist) {
+static void testDeriveLitecoinAddresses(const std::vector<std::string>& wordlist) {
   TEST_START("Derive Litecoin Addresses (BIP44)");
 
   std::vector<uint8_t> entropy;
@@ -291,7 +291,7 @@ static bool testDeriveLitecoinAddresses(const std::vector<std::string>& wordlist
   TEST_PASS();
 }
 
-static bool testKeccak256TestVector() {
+static void testKeccak256TestVector() {
   TEST_START("Keccak256 Test Vector");
 
   const char *test_input = "hello";
@@ -332,7 +332,7 @@ static bool testKeccak256TestVector() {
 // Repository-Based Multi-Chain Wallet Tests
 // ============================================================================
 
-static bool testCreateEthereumWallet(Repository::WalletRepository& walletRepo,
+static void testCreateEthereumWallet(Repository::WalletRepository& walletRepo,
                                      Repository::UserRepository& userRepo) {
     TEST_START("Create Ethereum Wallet");
 
@@ -349,7 +349,7 @@ static bool testCreateEthereumWallet(Repository::WalletRepository& walletRepo,
     TEST_PASS();
 }
 
-static bool testCreateLitecoinWallet(Repository::WalletRepository& walletRepo,
+static void testCreateLitecoinWallet(Repository::WalletRepository& walletRepo,
                                      Repository::UserRepository& userRepo) {
     TEST_START("Create Litecoin Wallet");
 
@@ -365,7 +365,7 @@ static bool testCreateLitecoinWallet(Repository::WalletRepository& walletRepo,
     TEST_PASS();
 }
 
-static bool testMultipleWalletTypesPerUser(Repository::WalletRepository& walletRepo,
+static void testMultipleWalletTypesPerUser(Repository::WalletRepository& walletRepo,
                                            Repository::UserRepository& userRepo) {
     TEST_START("Multiple Wallet Types Per User");
 
@@ -404,7 +404,7 @@ static bool testMultipleWalletTypesPerUser(Repository::WalletRepository& walletR
     TEST_PASS();
 }
 
-static bool testBitcoinAddressGeneration(Repository::WalletRepository& walletRepo,
+static void testBitcoinAddressGeneration(Repository::WalletRepository& walletRepo,
                                          Repository::UserRepository& userRepo) {
     TEST_START("Bitcoin Address Generation (Repository)");
 
@@ -428,7 +428,7 @@ static bool testBitcoinAddressGeneration(Repository::WalletRepository& walletRep
     TEST_PASS();
 }
 
-static bool testEthereumAddressGeneration(Repository::WalletRepository& walletRepo,
+static void testEthereumAddressGeneration(Repository::WalletRepository& walletRepo,
                                           Repository::UserRepository& userRepo) {
     TEST_START("Ethereum Address Generation (Repository)");
 
@@ -450,7 +450,7 @@ static bool testEthereumAddressGeneration(Repository::WalletRepository& walletRe
     }
 }
 
-static bool testWalletChainIsolation(Repository::WalletRepository& walletRepo,
+static void testWalletChainIsolation(Repository::WalletRepository& walletRepo,
                                      Repository::UserRepository& userRepo) {
     TEST_START("Wallet Chain Isolation");
 
@@ -473,7 +473,7 @@ static bool testWalletChainIsolation(Repository::WalletRepository& walletRepo,
     TEST_PASS();
 }
 
-static bool testUnsupportedChainRejection(Repository::WalletRepository& walletRepo,
+static void testUnsupportedChainRejection(Repository::WalletRepository& walletRepo,
                                           Repository::UserRepository& userRepo) {
     TEST_START("Unsupported Chain Rejection");
 
@@ -491,7 +491,7 @@ static bool testUnsupportedChainRejection(Repository::WalletRepository& walletRe
     TEST_PASS();
 }
 
-static bool testBIP44DerivationPathsForDifferentChains(Repository::WalletRepository& walletRepo,
+static void testBIP44DerivationPathsForDifferentChains(Repository::WalletRepository& walletRepo,
                                                        Repository::UserRepository& userRepo) {
     TEST_START("BIP44 Derivation Paths for Different Chains");
 
@@ -555,9 +555,7 @@ int main() {
   Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
   TestUtils::initializeTestLogger("test_wallet_chains.log");
 
-  if (!TestUtils::initializeTestDatabase(dbManager, TEST_DB_PATH, STANDARD_TEST_ENCRYPTION_KEY)) {
-    return 1;
-  }
+  TestUtils::initializeTestDatabase(dbManager, TEST_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
   Repository::UserRepository userRepo(dbManager);
   Repository::WalletRepository walletRepo(dbManager);

@@ -29,6 +29,7 @@ class QtLoginUI : public QWidget {
     explicit QtLoginUI(QWidget* parent = nullptr);
     void applyTheme();
     void clearLoginFields();
+    void setAuthInProgress(bool inProgress);
 
   signals:
     void loginRequested(const QString& username, const QString& password);

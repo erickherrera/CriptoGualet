@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QColor>
 #include <QFrame>
+#include <QFutureWatcher>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -105,7 +106,9 @@ class QtWalletUI : public QWidget {
     void onRefreshClicked();      // PHASE 3: Manual refresh
     void onPriceUpdateTimer();    // PHASE 2
     void onBalanceUpdateTimer();  // Refresh balances periodically
-     void onImportTokenClicked();
+    void onImportTokenClicked();
+    void onPriceFetchFinished();
+    void onBalanceFetchFinished();
      
      // Stablecoin handlers
      void onSendUSDTClicked();
@@ -116,6 +119,33 @@ class QtWalletUI : public QWidget {
      void onReceiveDAIClicked();
 
   private:
+    struct PriceFetchResult {
+        double btcPrice = 0.0;
+        double ltcPrice = 0.0;
+        double ethPrice = 0.0;
+    };
+
+    struct TokenBalanceUpdate {
+        std::string contractAddress;
+        std::string balanceText;
+        bool success = false;
+    };
+
+    struct BalanceFetchResult {
+        bool btcSuccess = false;
+        bool ltcSuccess = false;
+        bool ethSuccess = false;
+        double btcBalance = 0.0;
+        double ltcBalance = 0.0;
+        double ethBalance = 0.0;
+        double tokenUsdValue = 0.0;
+        std::vector<std::string> btcTransactions;
+        std::vector<std::string> ltcTransactions;
+        std::vector<EthereumService::Transaction> ethTransactions;
+        std::vector<TokenBalanceUpdate> tokenBalances;
+        std::string errorMessage;
+    };
+
     void updateStyles();
     QIcon createColoredIcon(const QString& svgPath, const QColor& color);
     void setupUI();
@@ -205,6 +235,7 @@ class QtWalletUI : public QWidget {
     double m_realBalanceBTC;
     double m_realBalanceLTC;
     double m_realBalanceETH;
+    double m_cachedTokenUsdValue;
     Repository::UserRepository* m_userRepository;
     Repository::WalletRepository* m_walletRepository;
     Repository::TokenRepository* m_tokenRepository;
@@ -217,6 +248,8 @@ class QtWalletUI : public QWidget {
     // Price Service
     std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;
     QTimer* m_priceUpdateTimer;
+    QFutureWatcher<PriceFetchResult>* m_priceFetchWatcher;
+    QFutureWatcher<BalanceFetchResult>* m_balanceFetchWatcher;
     double m_currentBTCPrice;
     double m_currentLTCPrice;
     double m_currentETHPrice;

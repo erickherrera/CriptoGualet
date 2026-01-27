@@ -13,6 +13,8 @@
 #include <QMap>
 #include <QLineEdit>
 #include <QComboBox>
+#include <QFutureWatcher>
+#include <QProgressBar>
 #include <memory>
 #include "../../../backend/blockchain/include/PriceService.h"
 
@@ -68,13 +70,15 @@ signals:
 protected:
     void resizeEvent(QResizeEvent *event) override;
 
-private slots:
+  private slots:
     void onRefreshClicked();
     void onBackClicked();
     void onAutoRefreshTimer();
     void onSearchTextChanged(const QString &text);
     void onSortChanged(int index);
     void onSearchDebounceTimer();
+    void onTopCryptosFetched();
+
 
 private:
     void setupUI();
@@ -103,6 +107,7 @@ private:
     QWidget *m_headerWidget;
     QLabel *m_titleLabel;
     QLabel *m_subtitleLabel;
+    QProgressBar *m_loadingBar;
     QPushButton *m_refreshButton;
     QPushButton *m_backButton;
 
@@ -119,6 +124,7 @@ private:
 
     // Price service
     std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;
+    QFutureWatcher<std::vector<PriceService::CryptoPriceData>>* m_topCryptosWatcher;
     std::vector<PriceService::CryptoPriceData> m_cryptoData;
     std::vector<PriceService::CryptoPriceData> m_filteredData;
 
