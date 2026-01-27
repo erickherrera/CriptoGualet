@@ -27,6 +27,16 @@
 #include <array>
 #include <map>
 #include <string>
+#include <vector>
+
+namespace {
+constexpr const char *kProviderTypeKey = "btc.provider";
+constexpr const char *kRpcUrlKey = "btc.rpc.url";
+constexpr const char *kRpcUsernameKey = "btc.rpc.username";
+constexpr const char *kRpcPasswordKey = "btc.rpc.password";
+constexpr const char *kRpcAllowInsecureKey = "btc.rpc.allow_insecure";
+constexpr const char *kProviderFallbackKey = "btc.provider.fallback";
+} // namespace
 
 CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     : QMainWindow(parent), m_stackedWidget(nullptr), m_loginUI(nullptr),
@@ -95,6 +105,8 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
           std::make_unique<Repository::WalletRepository>(dbManager);
       m_tokenRepository =
           std::make_unique<Repository::TokenRepository>(dbManager);
+      m_settingsRepository =
+          std::make_unique<Repository::SettingsRepository>(dbManager);
     }
   } catch (const std::exception &e) {
     qCritical() << "Exception during database initialization:" << e.what();
@@ -165,6 +177,22 @@ void CriptoGualetQt::setupUI() {
   m_settingsUI = new QtSettingsUI(this);
   m_topCryptosPage = new QtTopCryptosPage(this);
 
+  if (m_settingsUI && m_userRepository && m_walletRepository &&
+      m_settingsRepository) {
+    m_settingsUI->setRepositories(m_userRepository.get(),
+                                  m_walletRepository.get(),
+                                  m_settingsRepository.get());
+    connect(m_settingsUI, &QtSettingsUI::bitcoinProviderSettingsChanged, this,
+            [this](const QString &providerType, const QString &rpcUrl,
+                   const QString &rpcUsername, const QString &rpcPassword,
+                   bool allowInsecureHttp, bool enableFallback) {
+              applyBitcoinProviderSettingsFromValues(providerType, rpcUrl,
+                                                     rpcUsername, rpcPassword,
+                                                     allowInsecureHttp,
+                                                     enableFallback);
+            });
+  }
+
   // Pass wallet instances and repositories to wallet UI
   m_walletUI->setWallet(m_wallet.get());
   m_walletUI->setEthereumWallet(m_ethereumWallet.get()); // PHASE 1 FIX
@@ -222,6 +250,10 @@ void CriptoGualetQt::setupUI() {
             if (userResult.success) {
               int userId = userResult.data.id;
               m_walletUI->setCurrentUserId(userId);
+              if (m_settingsUI) {
+                m_settingsUI->setCurrentUserId(userId);
+              }
+              applyBitcoinProviderSettings(userId);
 
               // PHASE 1 FIX: Derive Ethereum address from seed
               if (m_walletRepository) {
@@ -350,6 +382,10 @@ void CriptoGualetQt::setupUI() {
                 if (userResult.success) {
                   int userId = userResult.data.id;
                   m_walletUI->setCurrentUserId(userId);
+                  if (m_settingsUI) {
+                    m_settingsUI->setCurrentUserId(userId);
+                  }
+                  applyBitcoinProviderSettings(userId);
 
                   // PHASE 1 FIX: Derive Ethereum address from seed
                   if (m_walletRepository) {
@@ -618,6 +654,9 @@ void CriptoGualetQt::showLoginScreen() {
     m_stackedWidget->setCurrentWidget(m_loginUI);
     m_loginUI->clearLoginFields();
   }
+  if (m_settingsUI) {
+    m_settingsUI->setCurrentUserId(-1);
+  }
   updateSidebarVisibility();
   if (statusBar()) {
     statusBar()->showMessage("Please log in or create an account");
@@ -804,6 +843,80 @@ void CriptoGualetQt::onSidebarWidthChanged(int width) {
   if (m_contentLayout) {
     m_contentLayout->update();
   }
+}
+
+void CriptoGualetQt::applyBitcoinProviderSettings(int userId) {
+  if (!m_settingsRepository || !m_wallet || userId <= 0) {
+    return;
+  }
+
+  std::vector<std::string> keys = {kProviderTypeKey, kRpcUrlKey,
+                                   kRpcUsernameKey, kRpcPasswordKey,
+                                   kRpcAllowInsecureKey, kProviderFallbackKey};
+  auto settingsResult = m_settingsRepository->getUserSettings(userId, keys);
+  std::map<std::string, std::string> settings;
+  if (settingsResult.success) {
+    settings = settingsResult.data;
+  }
+
+  std::string providerType = "blockcypher";
+  auto providerIt = settings.find(kProviderTypeKey);
+  if (providerIt != settings.end()) {
+    providerType = providerIt->second;
+  }
+
+  auto urlIt = settings.find(kRpcUrlKey);
+  auto userIt = settings.find(kRpcUsernameKey);
+  auto passIt = settings.find(kRpcPasswordKey);
+  auto allowIt = settings.find(kRpcAllowInsecureKey);
+  auto fallbackIt = settings.find(kProviderFallbackKey);
+
+  WalletAPI::BitcoinProviderConfig config;
+  if (providerType == "rpc") {
+    config.type = WalletAPI::BitcoinProviderType::BitcoinRpc;
+  } else {
+    config.type = WalletAPI::BitcoinProviderType::BlockCypher;
+  }
+  if (urlIt != settings.end()) {
+    config.rpcUrl = urlIt->second;
+  }
+  if (userIt != settings.end()) {
+    config.rpcUsername = userIt->second;
+  }
+  if (passIt != settings.end()) {
+    config.rpcPassword = passIt->second;
+  }
+  config.allowInsecureHttp = allowIt == settings.end() ||
+                             allowIt->second == "true" ||
+                             allowIt->second == "1";
+  config.enableFallback = fallbackIt == settings.end() ||
+                          fallbackIt->second == "true" ||
+                          fallbackIt->second == "1";
+
+  m_wallet->ApplyProviderConfig(config);
+}
+
+void CriptoGualetQt::applyBitcoinProviderSettingsFromValues(
+    const QString &providerType, const QString &rpcUrl,
+    const QString &rpcUsername, const QString &rpcPassword,
+    bool allowInsecureHttp, bool enableFallback) {
+  if (!m_wallet) {
+    return;
+  }
+
+  WalletAPI::BitcoinProviderConfig config;
+  if (providerType == "rpc") {
+    config.type = WalletAPI::BitcoinProviderType::BitcoinRpc;
+  } else {
+    config.type = WalletAPI::BitcoinProviderType::BlockCypher;
+  }
+  config.rpcUrl = rpcUrl.toStdString();
+  config.rpcUsername = rpcUsername.toStdString();
+  config.rpcPassword = rpcPassword.toStdString();
+  config.allowInsecureHttp = allowInsecureHttp;
+  config.enableFallback = enableFallback;
+
+  m_wallet->ApplyProviderConfig(config);
 }
 
 int main(int argc, char *argv[]) {

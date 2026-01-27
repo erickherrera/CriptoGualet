@@ -225,6 +225,16 @@ static bool InitializeDatabase() {
         FOREIGN KEY (user_id) REFERENCES users(id)
       );
 
+      CREATE TABLE IF NOT EXISTS user_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        setting_key TEXT NOT NULL,
+        setting_value TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        UNIQUE (user_id, setting_key)
+      );
+
       -- Basic indexes
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
@@ -233,6 +243,7 @@ static bool InitializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id);
       CREATE INDEX IF NOT EXISTS idx_transactions_txid ON transactions(txid);
       CREATE INDEX IF NOT EXISTS idx_erc20_tokens_wallet_contract ON erc20_tokens(wallet_id, contract_address);
+      CREATE INDEX IF NOT EXISTS idx_user_settings_user_key ON user_settings(user_id, setting_key);
 
       -- Phase 3: Composite indexes for query optimization
       CREATE INDEX IF NOT EXISTS idx_wallets_user_type ON wallets(user_id, wallet_type);

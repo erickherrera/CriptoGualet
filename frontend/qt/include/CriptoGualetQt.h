@@ -4,6 +4,7 @@
 #include "../../../backend/database/include/Database/DatabaseManager.h"
 #include "../../../backend/repository/include/Repository/UserRepository.h"
 #include "../../../backend/repository/include/Repository/WalletRepository.h"
+#include "../../../backend/repository/include/Repository/SettingsRepository.h"
 #include "../../../backend/repository/include/Repository/TokenRepository.h"
 #include <QApplication>
 #include <QFrame>
@@ -48,6 +49,13 @@ class CriptoGualetQt : public QMainWindow {
     void createSidebar();
     void updateSidebarVisibility();
     void applyNavbarStyling();
+    void applyBitcoinProviderSettings(int userId);
+    void applyBitcoinProviderSettingsFromValues(const QString& providerType,
+                                                const QString& rpcUrl,
+                                                const QString& rpcUsername,
+                                                const QString& rpcPassword,
+                                                bool allowInsecureHttp,
+                                                bool enableFallback);
 
     QWidget* m_centralWidget;
     QVBoxLayout* m_mainLayout;
@@ -65,4 +73,5 @@ class CriptoGualetQt : public QMainWindow {
     std::unique_ptr<Repository::UserRepository> m_userRepository;
     std::unique_ptr<Repository::WalletRepository> m_walletRepository;
     std::unique_ptr<Repository::TokenRepository> m_tokenRepository;
+    std::unique_ptr<Repository::SettingsRepository> m_settingsRepository;
 };

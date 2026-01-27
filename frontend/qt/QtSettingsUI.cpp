@@ -1,5 +1,8 @@
 #include "QtSettingsUI.h"
 #include "../../backend/core/include/Auth.h"
+#include "../../backend/repository/include/Repository/SettingsRepository.h"
+#include "../../backend/repository/include/Repository/UserRepository.h"
+#include "../../backend/repository/include/Repository/WalletRepository.h"
 #include "../../backend/utils/include/QRGenerator.h"
 #include "QtPasswordConfirmDialog.h"
 #include "QtThemeManager.h"
@@ -7,33 +10,81 @@
 #include <QClipboard>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QEventLoop>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QImage>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QPixmap>
+#include <QProcess>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QTimer>
+#include <QUrl>
+#include <QVariant>
 #include <QVBoxLayout>
+#include <map>
+#include <optional>
+#include <vector>
 
 extern std::string g_currentUser;
+
+namespace {
+constexpr const char *kSettingsProviderTypeKey = "btc.provider";
+constexpr const char *kSettingsRpcUrlKey = "btc.rpc.url";
+constexpr const char *kSettingsRpcUsernameKey = "btc.rpc.username";
+constexpr const char *kSettingsRpcPasswordKey = "btc.rpc.password";
+constexpr const char *kSettingsRpcAllowInsecureKey = "btc.rpc.allow_insecure";
+constexpr const char *kSettingsProviderFallbackKey = "btc.provider.fallback";
+} // namespace
 
 QtSettingsUI::QtSettingsUI(QWidget *parent)
     : QWidget(parent), m_themeManager(&QtThemeManager::instance()),
       m_scrollArea(nullptr), m_centerContainer(nullptr),
       m_2FATitleLabel(nullptr), m_2FAStatusLabel(nullptr),
       m_enable2FAButton(nullptr), m_disable2FAButton(nullptr),
-      m_2FADescriptionLabel(nullptr) {
+      m_2FADescriptionLabel(nullptr), m_userRepository(nullptr),
+      m_walletRepository(nullptr), m_settingsRepository(nullptr),
+      m_currentUserId(-1), m_btcProviderSelector(nullptr),
+      m_btcRpcUrlEdit(nullptr), m_btcRpcUsernameEdit(nullptr),
+      m_btcRpcPasswordEdit(nullptr), m_btcAllowInsecureCheck(nullptr),
+      m_btcEnableFallbackCheck(nullptr), m_btcProviderStatusLabel(nullptr),
+      m_btcTestConnectionButton(nullptr), m_btcSaveSettingsButton(nullptr),
+      m_hardwareWalletSelector(nullptr), m_hardwareDerivationPathEdit(nullptr),
+      m_hardwareUseTestnetCheck(nullptr), m_hardwareDetectButton(nullptr),
+      m_hardwareImportXpubButton(nullptr), m_hardwareStatusLabel(nullptr),
+      m_hardwareXpubDisplay(nullptr) {
   setupUI();
   applyTheme();
 
   // Connect to theme changes
   connect(m_themeManager, &QtThemeManager::themeChanged, this,
           &QtSettingsUI::applyTheme);
+}
+
+void QtSettingsUI::setRepositories(
+    Repository::UserRepository *userRepository,
+    Repository::WalletRepository *walletRepository,
+    Repository::SettingsRepository *settingsRepository) {
+  m_userRepository = userRepository;
+  m_walletRepository = walletRepository;
+  m_settingsRepository = settingsRepository;
+  loadAdvancedSettings();
+}
+
+void QtSettingsUI::setCurrentUserId(int userId) {
+  m_currentUserId = userId;
+  loadAdvancedSettings();
 }
 
 void QtSettingsUI::setupUI() {
@@ -218,14 +269,144 @@ void QtSettingsUI::setupUI() {
   QGroupBox *walletGroup = new QGroupBox("Wallet", m_centerContainer);
   QVBoxLayout *walletLayout = new QVBoxLayout(walletGroup);
   walletLayout->setContentsMargins(15, 15, 15, 15); // Compacted (was 20)
-  m_walletPlaceholder =
-      new QLabel("Wallet settings will be added here", m_centerContainer);
+  walletLayout->setSpacing(12);
+
+  m_walletPlaceholder = new QLabel(
+      "Configure node providers and hardware wallets for this device.",
+      walletGroup);
   m_walletPlaceholder->setProperty("class", "subtitle");
+  m_walletPlaceholder->setWordWrap(true);
   QFont italicFont = m_themeManager->textFont();
   italicFont.setItalic(true);
   m_walletPlaceholder->setFont(italicFont);
   walletLayout->addWidget(m_walletPlaceholder);
+
+  QGroupBox *providerGroup = new QGroupBox("Bitcoin Node Provider", walletGroup);
+  QFormLayout *providerLayout = new QFormLayout(providerGroup);
+  providerLayout->setContentsMargins(12, 15, 12, 15);
+  providerLayout->setSpacing(8);
+
+  m_btcProviderSelector = new QComboBox(providerGroup);
+  m_btcProviderSelector->addItem("BlockCypher (default)", "blockcypher");
+  m_btcProviderSelector->addItem("Bitcoin Core RPC", "rpc");
+
+  m_btcRpcUrlEdit = new QLineEdit(providerGroup);
+  m_btcRpcUrlEdit->setPlaceholderText("http://127.0.0.1:8332");
+
+  m_btcRpcUsernameEdit = new QLineEdit(providerGroup);
+  m_btcRpcPasswordEdit = new QLineEdit(providerGroup);
+  m_btcRpcPasswordEdit->setEchoMode(QLineEdit::Password);
+
+  m_btcAllowInsecureCheck =
+      new QCheckBox("Allow HTTP for local node", providerGroup);
+  m_btcEnableFallbackCheck =
+      new QCheckBox("Fallback to BlockCypher if RPC fails", providerGroup);
+
+  providerLayout->addRow(new QLabel("Provider:", providerGroup),
+                         m_btcProviderSelector);
+  providerLayout->addRow(new QLabel("RPC URL:", providerGroup), m_btcRpcUrlEdit);
+  providerLayout->addRow(new QLabel("RPC Username:", providerGroup),
+                         m_btcRpcUsernameEdit);
+  providerLayout->addRow(new QLabel("RPC Password:", providerGroup),
+                         m_btcRpcPasswordEdit);
+  providerLayout->addRow("", m_btcAllowInsecureCheck);
+  providerLayout->addRow("", m_btcEnableFallbackCheck);
+
+  QHBoxLayout *providerButtonLayout = new QHBoxLayout();
+  providerButtonLayout->setContentsMargins(0, 0, 0, 0);
+  providerButtonLayout->setSpacing(10);
+  m_btcTestConnectionButton = new QPushButton("Test Connection", providerGroup);
+  m_btcSaveSettingsButton = new QPushButton("Save Settings", providerGroup);
+  providerButtonLayout->addWidget(m_btcTestConnectionButton);
+  providerButtonLayout->addWidget(m_btcSaveSettingsButton);
+  providerButtonLayout->addStretch();
+  providerLayout->addRow(providerButtonLayout);
+
+  m_btcProviderStatusLabel =
+      new QLabel("Select a provider to begin.", providerGroup);
+  m_btcProviderStatusLabel->setProperty("class", "subtitle");
+  m_btcProviderStatusLabel->setWordWrap(true);
+  providerLayout->addRow(m_btcProviderStatusLabel);
+
+  walletLayout->addWidget(providerGroup);
+
+  QGroupBox *hardwareGroup =
+      new QGroupBox("Hardware Wallet (Bitcoin)", walletGroup);
+  QVBoxLayout *hardwareLayout = new QVBoxLayout(hardwareGroup);
+  hardwareLayout->setContentsMargins(12, 15, 12, 15);
+  hardwareLayout->setSpacing(8);
+
+  m_hardwareStatusLabel =
+      new QLabel("No hardware wallet detected.", hardwareGroup);
+  m_hardwareStatusLabel->setProperty("class", "subtitle");
+  m_hardwareStatusLabel->setWordWrap(true);
+  hardwareLayout->addWidget(m_hardwareStatusLabel);
+
+  QFormLayout *hardwareFormLayout = new QFormLayout();
+  hardwareFormLayout->setContentsMargins(0, 0, 0, 0);
+  hardwareFormLayout->setSpacing(8);
+
+  QWidget *deviceRow = new QWidget(hardwareGroup);
+  QHBoxLayout *deviceLayout = new QHBoxLayout(deviceRow);
+  deviceLayout->setContentsMargins(0, 0, 0, 0);
+  deviceLayout->setSpacing(8);
+  m_hardwareWalletSelector = new QComboBox(deviceRow);
+  m_hardwareDetectButton = new QPushButton("Detect Devices", deviceRow);
+  deviceLayout->addWidget(m_hardwareWalletSelector);
+  deviceLayout->addWidget(m_hardwareDetectButton);
+  hardwareFormLayout->addRow(new QLabel("Device:", hardwareGroup), deviceRow);
+
+  m_hardwareDerivationPathEdit = new QLineEdit(hardwareGroup);
+  m_hardwareDerivationPathEdit->setText("m/44'/0'/0'");
+  hardwareFormLayout->addRow(new QLabel("Derivation Path:", hardwareGroup),
+                             m_hardwareDerivationPathEdit);
+
+  m_hardwareUseTestnetCheck =
+      new QCheckBox("Use testnet (btc/test3)", hardwareGroup);
+  m_hardwareUseTestnetCheck->setChecked(true);
+  hardwareFormLayout->addRow("", m_hardwareUseTestnetCheck);
+
+  hardwareLayout->addLayout(hardwareFormLayout);
+
+  m_hardwareImportXpubButton = new QPushButton("Import xpub", hardwareGroup);
+  hardwareLayout->addWidget(m_hardwareImportXpubButton);
+
+  m_hardwareXpubDisplay = new QLineEdit(hardwareGroup);
+  m_hardwareXpubDisplay->setReadOnly(true);
+  m_hardwareXpubDisplay->setPlaceholderText("No xpub imported");
+  hardwareLayout->addWidget(m_hardwareXpubDisplay);
+
+  walletLayout->addWidget(hardwareGroup);
+
   m_mainLayout->addWidget(walletGroup);
+
+  auto updateRpcFields = [this]() {
+    bool isRpc = m_btcProviderSelector &&
+                 m_btcProviderSelector->currentData().toString() == "rpc";
+    if (m_btcRpcUrlEdit)
+      m_btcRpcUrlEdit->setEnabled(isRpc);
+    if (m_btcRpcUsernameEdit)
+      m_btcRpcUsernameEdit->setEnabled(isRpc);
+    if (m_btcRpcPasswordEdit)
+      m_btcRpcPasswordEdit->setEnabled(isRpc);
+    if (m_btcAllowInsecureCheck)
+      m_btcAllowInsecureCheck->setEnabled(isRpc);
+  };
+
+  connect(m_btcProviderSelector,
+          QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+          [updateRpcFields](int) { updateRpcFields(); });
+
+  connect(m_btcSaveSettingsButton, &QPushButton::clicked, this,
+          &QtSettingsUI::onSaveAdvancedSettings);
+  connect(m_btcTestConnectionButton, &QPushButton::clicked, this,
+          &QtSettingsUI::onTestRpcConnection);
+  connect(m_hardwareDetectButton, &QPushButton::clicked, this,
+          &QtSettingsUI::onDetectHardwareWallets);
+  connect(m_hardwareImportXpubButton, &QPushButton::clicked, this,
+          &QtSettingsUI::onImportHardwareXpub);
+
+  updateRpcFields();
 
   // Add stretch at the end
   m_mainLayout->addStretch();
@@ -336,6 +517,12 @@ void QtSettingsUI::updateStyles() {
   if (m_walletPlaceholder) {
     m_walletPlaceholder->setStyleSheet(labelSubtitleStyle);
   }
+  if (m_btcProviderStatusLabel) {
+    m_btcProviderStatusLabel->setStyleSheet(labelSubtitleStyle);
+  }
+  if (m_hardwareStatusLabel) {
+    m_hardwareStatusLabel->setStyleSheet(labelSubtitleStyle);
+  }
 
   // Group box styling
   QString groupBoxStyle = QString(R"(
@@ -405,6 +592,54 @@ void QtSettingsUI::updateStyles() {
     m_themeSelector->setStyleSheet(comboBoxStyle);
     m_themeSelector->setFont(m_themeManager->textFont());
   }
+  if (m_btcProviderSelector) {
+    m_btcProviderSelector->setStyleSheet(comboBoxStyle);
+    m_btcProviderSelector->setFont(m_themeManager->textFont());
+  }
+  if (m_hardwareWalletSelector) {
+    m_hardwareWalletSelector->setStyleSheet(comboBoxStyle);
+    m_hardwareWalletSelector->setFont(m_themeManager->textFont());
+  }
+
+  QString inputStyle = QString(R"(
+        QLineEdit {
+            background-color: %1;
+            color: %2;
+            border: 2px solid %3;
+            border-radius: 6px;
+            padding: 6px 10px;
+        }
+        QLineEdit:focus {
+            border-color: %4;
+        }
+    )")
+                             .arg(surfaceColor)
+                             .arg(textColor)
+                             .arg(secondaryColor)
+                             .arg(accentColor);
+
+  if (m_btcRpcUrlEdit)
+    m_btcRpcUrlEdit->setStyleSheet(inputStyle);
+  if (m_btcRpcUsernameEdit)
+    m_btcRpcUsernameEdit->setStyleSheet(inputStyle);
+  if (m_btcRpcPasswordEdit)
+    m_btcRpcPasswordEdit->setStyleSheet(inputStyle);
+  if (m_hardwareDerivationPathEdit)
+    m_hardwareDerivationPathEdit->setStyleSheet(inputStyle);
+  if (m_hardwareXpubDisplay)
+    m_hardwareXpubDisplay->setStyleSheet(inputStyle);
+
+  QString checkboxStyle =
+      QString("QCheckBox { color: %1; } QCheckBox::indicator { border: 1px solid %2; width: 14px; height: 14px; } QCheckBox::indicator:checked { background-color: %3; }")
+          .arg(textColor)
+          .arg(secondaryColor)
+          .arg(accentColor);
+  if (m_btcAllowInsecureCheck)
+    m_btcAllowInsecureCheck->setStyleSheet(checkboxStyle);
+  if (m_btcEnableFallbackCheck)
+    m_btcEnableFallbackCheck->setStyleSheet(checkboxStyle);
+  if (m_hardwareUseTestnetCheck)
+    m_hardwareUseTestnetCheck->setStyleSheet(checkboxStyle);
 
   // Button styling for 2FA buttons
   QString buttonStyle =
@@ -438,6 +673,18 @@ void QtSettingsUI::updateStyles() {
   }
   if (m_disable2FAButton) {
     m_disable2FAButton->setStyleSheet(buttonStyle);
+  }
+  if (m_btcTestConnectionButton) {
+    m_btcTestConnectionButton->setStyleSheet(buttonStyle);
+  }
+  if (m_btcSaveSettingsButton) {
+    m_btcSaveSettingsButton->setStyleSheet(buttonStyle);
+  }
+  if (m_hardwareDetectButton) {
+    m_hardwareDetectButton->setStyleSheet(buttonStyle);
+  }
+  if (m_hardwareImportXpubButton) {
+    m_hardwareImportXpubButton->setStyleSheet(buttonStyle);
   }
 
   // Force visual refresh
@@ -488,7 +735,392 @@ void QtSettingsUI::update2FAStatus() {
   }
 }
 
-void QtSettingsUI::refresh2FAStatus() { update2FAStatus(); }
+void QtSettingsUI::refresh2FAStatus() {
+  update2FAStatus();
+  loadAdvancedSettings();
+}
+
+void QtSettingsUI::loadAdvancedSettings() {
+  if (!m_btcProviderSelector || !m_btcRpcUrlEdit || !m_btcRpcUsernameEdit ||
+      !m_btcRpcPasswordEdit || !m_btcAllowInsecureCheck ||
+      !m_btcEnableFallbackCheck || !m_hardwareXpubDisplay ||
+      !m_btcProviderStatusLabel || !m_hardwareStatusLabel) {
+    return;
+  }
+
+  if (!m_settingsRepository || m_currentUserId <= 0) {
+    m_btcProviderSelector->setCurrentIndex(0);
+    m_btcRpcUrlEdit->clear();
+    m_btcRpcUsernameEdit->clear();
+    m_btcRpcPasswordEdit->clear();
+    m_btcAllowInsecureCheck->setChecked(true);
+    m_btcEnableFallbackCheck->setChecked(true);
+    m_btcProviderStatusLabel->setText(
+        "Sign in to save provider settings.");
+    m_hardwareXpubDisplay->clear();
+    m_hardwareStatusLabel->setText("Sign in to manage hardware wallets.");
+    return;
+  }
+
+  std::vector<std::string> keys = {kSettingsProviderTypeKey, kSettingsRpcUrlKey,
+                                   kSettingsRpcUsernameKey, kSettingsRpcPasswordKey,
+                                   kSettingsRpcAllowInsecureKey, kSettingsProviderFallbackKey};
+  auto settingsResult =
+      m_settingsRepository->getUserSettings(m_currentUserId, keys);
+  std::map<std::string, std::string> settings;
+  if (settingsResult.success) {
+    settings = settingsResult.data;
+  }
+
+  QString provider = "blockcypher";
+  auto providerIt = settings.find(kSettingsProviderTypeKey);
+  if (providerIt != settings.end()) {
+    provider = QString::fromStdString(providerIt->second);
+  }
+
+  int providerIndex = m_btcProviderSelector->findData(provider);
+  if (providerIndex >= 0) {
+    m_btcProviderSelector->setCurrentIndex(providerIndex);
+  }
+
+  auto urlIt = settings.find(kSettingsRpcUrlKey);
+  m_btcRpcUrlEdit->setText(
+      urlIt != settings.end() ? QString::fromStdString(urlIt->second)
+                              : QString());
+
+  auto userIt = settings.find(kSettingsRpcUsernameKey);
+  m_btcRpcUsernameEdit->setText(
+      userIt != settings.end() ? QString::fromStdString(userIt->second)
+                               : QString());
+
+  auto passIt = settings.find(kSettingsRpcPasswordKey);
+  m_btcRpcPasswordEdit->setText(
+      passIt != settings.end() ? QString::fromStdString(passIt->second)
+                               : QString());
+
+  auto allowIt = settings.find(kSettingsRpcAllowInsecureKey);
+  bool allowInsecure = allowIt == settings.end() ||
+                       allowIt->second == "true" || allowIt->second == "1";
+  m_btcAllowInsecureCheck->setChecked(allowInsecure);
+
+  auto fallbackIt = settings.find(kSettingsProviderFallbackKey);
+  bool allowFallback = fallbackIt == settings.end() ||
+                       fallbackIt->second == "true" || fallbackIt->second == "1";
+  m_btcEnableFallbackCheck->setChecked(allowFallback);
+
+  m_btcProviderStatusLabel->setText(
+      "Provider settings loaded for this device.");
+
+  if (m_walletRepository) {
+    auto walletResult =
+        m_walletRepository->getWalletsByType(m_currentUserId, "bitcoin", true);
+    if (walletResult.success && !walletResult.data.empty()) {
+      const auto &wallet = walletResult.data.front();
+      if (wallet.extendedPublicKey.has_value()) {
+        m_hardwareXpubDisplay->setText(
+            QString::fromStdString(*wallet.extendedPublicKey));
+        m_hardwareStatusLabel->setText("Hardware wallet xpub imported.");
+      } else {
+        m_hardwareXpubDisplay->clear();
+        m_hardwareStatusLabel->setText("No hardware wallet xpub stored.");
+      }
+    }
+  }
+}
+
+void QtSettingsUI::updateHardwareWalletStatus(const QString &message,
+                                              bool success) {
+  if (m_hardwareStatusLabel) {
+    QString prefix = success ? "✓ " : "";
+    m_hardwareStatusLabel->setText(prefix + message);
+  }
+}
+
+void QtSettingsUI::onSaveAdvancedSettings() {
+  if (!m_settingsRepository || m_currentUserId <= 0) {
+    QMessageBox::warning(this, "Not Signed In",
+                         "Please sign in to save settings.");
+    return;
+  }
+
+  QString providerType =
+      m_btcProviderSelector->currentData().toString().trimmed();
+  QString rpcUrl = m_btcRpcUrlEdit->text().trimmed();
+  QString rpcUsername = m_btcRpcUsernameEdit->text().trimmed();
+  QString rpcPassword = m_btcRpcPasswordEdit->text();
+  bool allowInsecure = m_btcAllowInsecureCheck->isChecked();
+  bool allowFallback = m_btcEnableFallbackCheck->isChecked();
+
+  if (providerType == "rpc") {
+    if (rpcUrl.isEmpty()) {
+      QMessageBox::warning(this, "Missing RPC URL",
+                           "Please enter the RPC URL for your node.");
+      return;
+    }
+
+    if (rpcUrl.startsWith("http://") && !allowInsecure) {
+      QMessageBox::warning(
+          this, "Insecure RPC URL",
+          "This RPC URL uses HTTP. Enable 'Allow HTTP for local node' or use "
+          "HTTPS.");
+      return;
+    }
+  }
+
+  auto saveResult =
+      m_settingsRepository->setUserSetting(m_currentUserId, kSettingsProviderTypeKey,
+                                           providerType.toStdString());
+  if (!saveResult.success) {
+    QMessageBox::warning(this, "Save Failed", "Failed to save provider type.");
+    return;
+  }
+
+  m_settingsRepository->setUserSetting(m_currentUserId, kSettingsRpcUrlKey,
+                                       rpcUrl.toStdString());
+  m_settingsRepository->setUserSetting(m_currentUserId, kSettingsRpcUsernameKey,
+                                       rpcUsername.toStdString());
+  m_settingsRepository->setUserSetting(m_currentUserId, kSettingsRpcPasswordKey,
+                                       rpcPassword.toStdString());
+  m_settingsRepository->setUserSetting(m_currentUserId, kSettingsRpcAllowInsecureKey,
+                                       allowInsecure ? "true" : "false");
+  m_settingsRepository->setUserSetting(m_currentUserId, kSettingsProviderFallbackKey,
+                                       allowFallback ? "true" : "false");
+
+  m_btcProviderStatusLabel->setText(
+      "Provider settings saved on this device.");
+
+  emit bitcoinProviderSettingsChanged(providerType, rpcUrl, rpcUsername,
+                                      rpcPassword, allowInsecure,
+                                      allowFallback);
+}
+
+void QtSettingsUI::onTestRpcConnection() {
+  QString rpcUrl = m_btcRpcUrlEdit->text().trimmed();
+  if (rpcUrl.isEmpty()) {
+    QMessageBox::warning(this, "Missing RPC URL",
+                         "Please enter the RPC URL to test.");
+    return;
+  }
+
+  if (rpcUrl.startsWith("http://") &&
+      !m_btcAllowInsecureCheck->isChecked()) {
+    QMessageBox::warning(this, "Insecure RPC URL",
+                         "Enable HTTP for local node or use HTTPS.");
+    return;
+  }
+
+  QNetworkRequest rpcNetworkRequest{QUrl(rpcUrl)};
+  rpcNetworkRequest.setRawHeader("Content-Type", "application/json");
+
+  QString username = m_btcRpcUsernameEdit->text().trimmed();
+  QString password = m_btcRpcPasswordEdit->text();
+  if (!username.isEmpty()) {
+    QByteArray credentials =
+        QString("%1:%2").arg(username, password).toUtf8().toBase64();
+    rpcNetworkRequest.setRawHeader("Authorization", "Basic " + credentials);
+  }
+
+  QJsonObject payload;
+  payload.insert("jsonrpc", "1.0");
+  payload.insert("id", "criptogualet");
+  payload.insert("method", "getblockchaininfo");
+  payload.insert("params", QJsonArray());
+
+  QNetworkAccessManager manager;
+  QEventLoop loop;
+  QTimer timeoutTimer;
+  timeoutTimer.setSingleShot(true);
+  timeoutTimer.setInterval(10000);
+
+  QNetworkReply *reply =
+      manager.post(rpcNetworkRequest, QJsonDocument(payload).toJson());
+  connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+  connect(&timeoutTimer, &QTimer::timeout, &loop, &QEventLoop::quit);
+  timeoutTimer.start();
+  loop.exec();
+
+  if (!timeoutTimer.isActive()) {
+    reply->abort();
+    reply->deleteLater();
+    QMessageBox::warning(this, "RPC Timeout",
+                         "RPC request timed out after 10 seconds.");
+    return;
+  }
+
+  if (reply->error() != QNetworkReply::NoError) {
+    QString errorMessage = reply->errorString();
+    reply->deleteLater();
+    QMessageBox::warning(this, "RPC Error",
+                         "RPC request failed: " + errorMessage);
+    return;
+  }
+
+  QByteArray responseData = reply->readAll();
+  reply->deleteLater();
+
+  QJsonDocument responseDoc = QJsonDocument::fromJson(responseData);
+  if (!responseDoc.isObject() ||
+      !responseDoc.object().contains("result")) {
+    QMessageBox::warning(this, "RPC Error",
+                         "RPC response missing expected data.");
+    return;
+  }
+
+  QMessageBox::information(this, "RPC Connected",
+                           "Successfully connected to your RPC node.");
+  if (m_btcProviderStatusLabel) {
+    m_btcProviderStatusLabel->setText("RPC connection successful.");
+  }
+}
+
+void QtSettingsUI::onDetectHardwareWallets() {
+  QProcess process;
+  process.start("hwi", QStringList() << "enumerate");
+  if (!process.waitForFinished(10000)) {
+    updateHardwareWalletStatus("Hardware wallet detection timed out.", false);
+    return;
+  }
+
+  QString output = QString::fromUtf8(process.readAllStandardOutput()).trimmed();
+  QString errorOutput =
+      QString::fromUtf8(process.readAllStandardError()).trimmed();
+
+  if (output.isEmpty()) {
+    updateHardwareWalletStatus(
+        errorOutput.isEmpty() ? "No hardware wallets detected."
+                              : errorOutput,
+        false);
+    return;
+  }
+
+  QJsonParseError parseError;
+  QJsonDocument doc = QJsonDocument::fromJson(output.toUtf8(), &parseError);
+  if (parseError.error != QJsonParseError::NoError || !doc.isArray()) {
+    updateHardwareWalletStatus("Unable to parse hardware wallet list.", false);
+    return;
+  }
+
+  m_hardwareWalletSelector->clear();
+  for (const auto &deviceValue : doc.array()) {
+    if (!deviceValue.isObject()) {
+      continue;
+    }
+    QJsonObject deviceObj = deviceValue.toObject();
+    QString type = deviceObj.value("type").toString();
+    QString model = deviceObj.value("model").toString();
+    QString fingerprint = deviceObj.value("fingerprint").toString();
+    QString path = deviceObj.value("path").toString();
+
+    QString label = model.isEmpty() ? type : model + " (" + type + ")";
+    if (label.trimmed().isEmpty()) {
+      label = "Hardware Wallet";
+    }
+
+    QVariantMap data;
+    data.insert("type", type);
+    data.insert("model", model);
+    data.insert("fingerprint", fingerprint);
+    data.insert("path", path);
+
+    m_hardwareWalletSelector->addItem(label, data);
+  }
+
+  if (m_hardwareWalletSelector->count() == 0) {
+    updateHardwareWalletStatus("No compatible hardware wallets found.", false);
+    return;
+  }
+
+  updateHardwareWalletStatus("Hardware wallet detected. Select to import xpub.",
+                             true);
+}
+
+void QtSettingsUI::onImportHardwareXpub() {
+  if (!m_walletRepository || m_currentUserId <= 0) {
+    QMessageBox::warning(this, "Not Signed In",
+                         "Please sign in to import a hardware wallet xpub.");
+    return;
+  }
+
+  QVariant deviceData = m_hardwareWalletSelector->currentData();
+  if (!deviceData.isValid()) {
+    QMessageBox::warning(this, "No Device",
+                         "Please detect and select a hardware wallet.");
+    return;
+  }
+
+  QVariantMap device = deviceData.toMap();
+  QString fingerprint = device.value("fingerprint").toString();
+  QString derivationPath = m_hardwareDerivationPathEdit->text().trimmed();
+  if (derivationPath.isEmpty()) {
+    QMessageBox::warning(this, "Missing Path",
+                         "Please enter a derivation path.");
+    return;
+  }
+
+  QStringList args;
+  if (m_hardwareUseTestnetCheck->isChecked()) {
+    args << "--testnet";
+  }
+  if (!fingerprint.isEmpty()) {
+    args << "-f" << fingerprint;
+  }
+  args << "getxpub" << derivationPath;
+
+  QProcess process;
+  process.start("hwi", args);
+  if (!process.waitForFinished(15000)) {
+    updateHardwareWalletStatus("Hardware wallet request timed out.", false);
+    return;
+  }
+
+  QString output = QString::fromUtf8(process.readAllStandardOutput()).trimmed();
+  QString errorOutput =
+      QString::fromUtf8(process.readAllStandardError()).trimmed();
+
+  if (output.isEmpty()) {
+    updateHardwareWalletStatus(
+        errorOutput.isEmpty() ? "Failed to retrieve xpub."
+                              : errorOutput,
+        false);
+    return;
+  }
+
+  QString xpub = output;
+  QJsonParseError parseError;
+  QJsonDocument doc = QJsonDocument::fromJson(output.toUtf8(), &parseError);
+  if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
+    QJsonObject obj = doc.object();
+    if (obj.contains("xpub")) {
+      xpub = obj.value("xpub").toString();
+    }
+  }
+
+  if (xpub.isEmpty()) {
+    updateHardwareWalletStatus("Hardware wallet returned an empty xpub.", false);
+    return;
+  }
+
+  auto walletResult =
+      m_walletRepository->getWalletsByType(m_currentUserId, "bitcoin", true);
+  if (!walletResult.success || walletResult.data.empty()) {
+    QMessageBox::warning(this, "Wallet Missing",
+                         "No Bitcoin wallet found to store the xpub.");
+    return;
+  }
+
+  const auto &wallet = walletResult.data.front();
+  auto updateResult = m_walletRepository->updateWallet(
+      wallet.id, std::nullopt, derivationPath.toStdString(), xpub.toStdString());
+  if (!updateResult.success) {
+    QMessageBox::warning(this, "Update Failed",
+                         "Failed to store hardware wallet xpub.");
+    return;
+  }
+
+  m_hardwareXpubDisplay->setText(xpub);
+  updateHardwareWalletStatus("Hardware wallet xpub imported successfully.",
+                             true);
+}
 
 void QtSettingsUI::onEnable2FAClicked() {
   if (g_currentUser.empty()) {

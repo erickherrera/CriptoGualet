@@ -5,7 +5,9 @@ if(BLOCKCYPHER_AVAILABLE)
 
   add_library(BlockCypher STATIC
     "BlockCypher.cpp"
+    "BitcoinProvider.cpp"
     "include/BlockCypher.h"
+    "include/BitcoinProvider.h"
   )
   target_include_directories(BlockCypher PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"

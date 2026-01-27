@@ -10,18 +10,61 @@ namespace WalletAPI {
 SimpleWallet::SimpleWallet(const std::string& network)
     : current_network(network) {
     client = std::make_unique<BlockCypher::BlockCypherClient>(network);
+    provider_config.type = BitcoinProviderType::BlockCypher;
+    provider_config.enableFallback = true;
+    ApplyProviderConfig(provider_config);
 }
 
 void SimpleWallet::SetApiToken(const std::string& token) {
+    api_token = token;
     if (client) {
         client->SetApiToken(token);
     }
+    ApplyProviderConfig(provider_config);
 }
 
 void SimpleWallet::SetNetwork(const std::string& network) {
     current_network = network;
     if (client) {
         client->SetNetwork(network);
+    }
+    ApplyProviderConfig(provider_config);
+}
+
+void SimpleWallet::ApplyProviderConfig(const BitcoinProviderConfig& config) {
+    provider_config = config;
+
+    BitcoinProviders::ProviderConfig providerConfig;
+    providerConfig.network = current_network;
+    providerConfig.apiToken = api_token;
+    providerConfig.rpcUrl = provider_config.rpcUrl;
+    providerConfig.rpcUsername = provider_config.rpcUsername;
+    providerConfig.rpcPassword = provider_config.rpcPassword;
+    providerConfig.allowInsecureHttp = provider_config.allowInsecureHttp;
+    providerConfig.enableFallback = provider_config.enableFallback;
+    providerConfig.type = (provider_config.type == BitcoinProviderType::BitcoinRpc)
+                              ? BitcoinProviders::ProviderType::BitcoinRpc
+                              : BitcoinProviders::ProviderType::BlockCypher;
+
+    provider = BitcoinProviders::CreateProvider(providerConfig);
+
+    if (!provider) {
+        BitcoinProviders::ProviderConfig fallbackConfig;
+        fallbackConfig.type = BitcoinProviders::ProviderType::BlockCypher;
+        fallbackConfig.network = current_network;
+        fallbackConfig.apiToken = api_token;
+        provider = BitcoinProviders::CreateProvider(fallbackConfig);
+    }
+
+    if (provider_config.enableFallback &&
+        providerConfig.type != BitcoinProviders::ProviderType::BlockCypher) {
+        BitcoinProviders::ProviderConfig fallbackConfig;
+        fallbackConfig.type = BitcoinProviders::ProviderType::BlockCypher;
+        fallbackConfig.network = current_network;
+        fallbackConfig.apiToken = api_token;
+        fallbackProvider = BitcoinProviders::CreateProvider(fallbackConfig);
+    } else {
+        fallbackProvider.reset();
     }
 }
 
@@ -32,48 +75,47 @@ ReceiveInfo SimpleWallet::GetAddressInfo(const std::string& address) {
     info.unconfirmed_balance = 0;
     info.transaction_count = 0;
 
-    if (!client) {
-        return info;
+    std::optional<BitcoinProviders::AddressInfo> providerInfo;
+    if (provider) {
+        providerInfo = provider->getAddressInfo(address, 10);
+    }
+    if (!providerInfo && fallbackProvider) {
+        providerInfo = fallbackProvider->getAddressInfo(address, 10);
     }
 
-    // Get balance information
-    auto balance_result = client->GetAddressBalance(address);
-    if (balance_result) {
-        info.confirmed_balance = balance_result->balance;
-        info.unconfirmed_balance = balance_result->unconfirmed_balance;
-        info.transaction_count = balance_result->n_tx;
-    }
-
-    // Get recent transactions
-    auto tx_result = client->GetAddressTransactions(address, 10);
-    if (tx_result) {
-        info.recent_transactions = tx_result.value();
+    if (providerInfo) {
+        info.confirmed_balance = providerInfo->confirmedBalance;
+        info.unconfirmed_balance = providerInfo->unconfirmedBalance;
+        info.transaction_count = providerInfo->transactionCount;
+        info.recent_transactions = providerInfo->recentTransactions;
     }
 
     return info;
 }
 
 uint64_t SimpleWallet::GetBalance(const std::string& address) {
-    if (!client) {
-        return 0;
+    std::optional<uint64_t> balance;
+    if (provider) {
+        balance = provider->getBalance(address);
+    }
+    if (!balance && fallbackProvider) {
+        balance = fallbackProvider->getBalance(address);
     }
 
-    auto balance_result = client->GetAddressBalance(address);
-    if (balance_result) {
-        return balance_result->balance;
-    }
-
-    return 0;
+    return balance.value_or(0);
 }
 
 std::vector<std::string> SimpleWallet::GetTransactionHistory(const std::string& address, uint32_t limit) {
-    if (!client) {
-        return {};
+    std::optional<BitcoinProviders::AddressInfo> providerInfo;
+    if (provider) {
+        providerInfo = provider->getAddressInfo(address, limit);
+    }
+    if (!providerInfo && fallbackProvider) {
+        providerInfo = fallbackProvider->getAddressInfo(address, limit);
     }
 
-    auto tx_result = client->GetAddressTransactions(address, limit);
-    if (tx_result) {
-        return tx_result.value();
+    if (providerInfo) {
+        return providerInfo->recentTransactions;
     }
 
     return {};
@@ -241,14 +283,23 @@ bool SimpleWallet::ValidateAddress(const std::string& address) {
 }
 
 uint64_t SimpleWallet::EstimateTransactionFee() {
-    if (!client) {
-        return 10000; // Default fallback
+    std::optional<uint64_t> feeRate;
+    if (provider) {
+        feeRate = provider->estimateFeeRate();
+    }
+    if (!feeRate && fallbackProvider) {
+        feeRate = fallbackProvider->estimateFeeRate();
     }
 
-    auto fee_estimate = client->EstimateFees();
-    if (fee_estimate) {
-        // Estimate for average transaction size (~250 bytes)
-        return (fee_estimate.value() * 250) / 1000;
+    if (feeRate) {
+        return (feeRate.value() * 250) / 1000;
+    }
+
+    if (client) {
+        auto fee_estimate = client->EstimateFees();
+        if (fee_estimate) {
+            return (fee_estimate.value() * 250) / 1000;
+        }
     }
 
     return 10000; // Default fallback
@@ -263,7 +314,11 @@ double SimpleWallet::ConvertSatoshisToBTC(uint64_t satoshis) {
 }
 
 std::string SimpleWallet::GetNetworkInfo() {
-    return "Connected to BlockCypher API - Network: " + current_network;
+    std::string providerName = "BlockCypher";
+    if (provider) {
+        providerName = provider->name();
+    }
+    return "Connected to " + providerName + " - Network: " + current_network;
 }
 
 // ===== Ethereum Wallet Implementation =====

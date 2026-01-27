@@ -1,12 +1,15 @@
 #pragma once
 
+#include "../../blockchain/include/BitcoinProvider.h"
 #include "../../blockchain/include/BlockCypher.h"
 #include "../../blockchain/include/EthereumService.h"
 #include "../../repository/include/Repository/TokenRepository.h"
 #include "Crypto.h"
 #include <functional>
-#include <memory>
 #include <map>
+#include <memory>
+#include <optional>
+#include <vector>
 
 namespace WalletAPI {
 
@@ -25,10 +28,28 @@ struct ReceiveInfo {
   std::vector<std::string> recent_transactions;
 };
 
+enum class BitcoinProviderType {
+  BlockCypher,
+  BitcoinRpc
+};
+
+struct BitcoinProviderConfig {
+  BitcoinProviderType type = BitcoinProviderType::BlockCypher;
+  std::string rpcUrl;
+  std::string rpcUsername;
+  std::string rpcPassword;
+  bool allowInsecureHttp = true;
+  bool enableFallback = true;
+};
+
 class SimpleWallet {
 private:
   std::unique_ptr<BlockCypher::BlockCypherClient> client;
+  std::unique_ptr<BitcoinProviders::BitcoinProvider> provider;
+  std::unique_ptr<BitcoinProviders::BitcoinProvider> fallbackProvider;
   std::string current_network;
+  std::string api_token;
+  BitcoinProviderConfig provider_config;
 
 public:
   explicit SimpleWallet(const std::string &network = "btc/test3");
@@ -37,6 +58,7 @@ public:
   // Configuration
   void SetApiToken(const std::string &token);
   void SetNetwork(const std::string &network);
+  void ApplyProviderConfig(const BitcoinProviderConfig &config);
 
   // Receive functionality
   ReceiveInfo GetAddressInfo(const std::string &address);
