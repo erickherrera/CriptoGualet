@@ -370,9 +370,19 @@ void QtLoginUI::onRegisterClicked() {
     std::vector<std::string> mnemonic;
     Auth::AuthResponse response = Auth::AuthManager::getInstance().RegisterUser(username.toStdString(), password.toStdString(), mnemonic);
 
+    bool seedConfirmed = true;
     if (response.success() && !mnemonic.empty()) {
         QtSeedDisplayDialog seedDialog(mnemonic, this);
-        seedDialog.exec();
+        const bool accepted = seedDialog.exec() == QDialog::Accepted;
+        seedConfirmed = accepted && seedDialog.userConfirmedBackup();
+    }
+
+    if (response.success() && !seedConfirmed) {
+        return;
+    }
+
+    if (response.success()) {
+        showMessage("Registration successful. Please sign in.", false);
     }
 
     onRegisterResult(response.success(), QString::fromStdString(response.message));
@@ -444,8 +454,6 @@ void QtLoginUI::onLoginResult(bool success, const QString& message) {
 }
 
 void QtLoginUI::onRegisterResult(bool success, const QString& message) {
-    showMessage(message, !success);
-
     if (success) {
         const QString username = m_usernameEdit->text().trimmed();
 
@@ -459,6 +467,7 @@ void QtLoginUI::onRegisterResult(bool success, const QString& message) {
         // Pre-fill username in login form for convenience
         m_loginUsernameEdit->setText(username);
     } else {
+        showMessage(message, true);
         // Registration failed - clear password but keep username for retry
         m_passwordEdit->clear();
         m_confirmPasswordEdit->clear();
@@ -466,10 +475,23 @@ void QtLoginUI::onRegisterResult(bool success, const QString& message) {
 }
 
 void QtLoginUI::onRevealSeedClicked() {
-    const QString username = m_usernameEdit->text().trimmed();
+    const QString loginUsername = m_loginUsernameEdit->text().trimmed();
+    const QString registerUsername = m_usernameEdit->text().trimmed();
+    const bool loginTabActive = m_tabBar && m_tabBar->currentIndex() == 0;
+    QString username = loginTabActive ? loginUsername : registerUsername;
+    if (username.isEmpty()) {
+        username = loginTabActive ? registerUsername : loginUsername;
+    }
     if (username.isEmpty()) {
         showMessage("Enter your username first.", true);
         return;
+    }
+
+    const QString loginPassword = m_loginPasswordEdit->text();
+    const QString registerPassword = m_passwordEdit->text();
+    QString passwordPrefill = loginTabActive ? loginPassword : registerPassword;
+    if (passwordPrefill.isEmpty()) {
+        passwordPrefill = loginTabActive ? registerPassword : loginPassword;
     }
 
     // Re-auth dialog (password prompt)
@@ -485,7 +507,7 @@ void QtLoginUI::onRevealSeedClicked() {
     QLabel* lbl = new QLabel("Enter your password to reveal your seed:", &authDlg);
     QLineEdit* pwd = new QLineEdit(&authDlg);
     pwd->setEchoMode(QLineEdit::Password);
-    pwd->setText(m_passwordEdit->text());  // prefill if user typed it already
+    pwd->setText(passwordPrefill);  // prefill if user typed it already
 
     QDialogButtonBox* box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
                                                  Qt::Horizontal, &authDlg);
@@ -504,8 +526,9 @@ void QtLoginUI::onRevealSeedClicked() {
     // Call Auth to verify & pull seed (Qt-free core: std::optional<std::string>)
     std::string seedHex;
     std::optional<std::string> mnemonic;
-    auto resp = Auth::RevealSeed(username.toStdString(), pwd->text().toStdString(), seedHex,
-                                 /*outMnemonic*/ mnemonic);
+    auto resp = Auth::AuthManager::getInstance().RevealSeed(
+        username.toStdString(), pwd->text().toStdString(), seedHex,
+        /*outMnemonic*/ mnemonic);
 
     if (resp.result != Auth::AuthResult::SUCCESS) {
         showMessage(QString::fromStdString(resp.message), true);
@@ -531,10 +554,12 @@ void QtLoginUI::onRevealSeedClicked() {
     // Seed section (disabled until user consents)
     QCheckBox* showSeed = new QCheckBox("I understand the risks. Show my seed now.", &reveal);
     QLabel* seedLbl = new QLabel("BIP-39 Seed (64 bytes, hex):", &reveal);
+    const QString seedText = QString::fromStdString(seedHex);
     QPlainTextEdit* seedBox = new QPlainTextEdit(&reveal);
     seedBox->setReadOnly(true);
     seedBox->setMaximumHeight(80);
-    seedBox->setPlainText(QString::fromStdString(seedHex));
+    seedBox->setPlaceholderText("Hidden");
+    seedBox->setPlainText("");
     seedLbl->setEnabled(false);
     seedBox->setEnabled(false);
 
@@ -546,15 +571,18 @@ void QtLoginUI::onRevealSeedClicked() {
     QLabel* mnemoLbl = nullptr;
     QPlainTextEdit* mnemoBox = nullptr;
     QPushButton* copyMnemonic = nullptr;
+    QString mnemonicText;
 
     if (mnemonic.has_value()) {
+        mnemonicText = QString::fromStdString(*mnemonic);
         showWords =
             new QCheckBox("Also show my 12/24 words from the one-time backup file.", &reveal);
         mnemoLbl = new QLabel("Mnemonic:", &reveal);
         mnemoBox = new QPlainTextEdit(&reveal);
         mnemoBox->setReadOnly(true);
         mnemoBox->setMaximumHeight(80);
-        mnemoBox->setPlainText(QString::fromStdString(*mnemonic));
+        mnemoBox->setPlaceholderText("Hidden");
+        mnemoBox->setPlainText("");
         mnemoLbl->setEnabled(false);
         mnemoBox->setEnabled(false);
         copyMnemonic = new QPushButton("Copy Words (auto-clears in 30s)", &reveal);
@@ -592,10 +620,13 @@ void QtLoginUI::onRevealSeedClicked() {
         seedLbl->setEnabled(on);
         seedBox->setEnabled(on);
         copySeed->setEnabled(on);
-        if (!on) {
+        if (on) {
+            seedBox->setPlainText(seedText);
+        } else {
+            seedBox->clear();
             // Extra precaution: clear clipboard if it contains this text
             QClipboard* cb = QGuiApplication::clipboard();
-            if (cb->text() == seedBox->toPlainText())
+            if (cb->text() == seedText)
                 cb->clear();
         }
     });
@@ -604,9 +635,12 @@ void QtLoginUI::onRevealSeedClicked() {
             mnemoLbl->setEnabled(on);
             mnemoBox->setEnabled(on);
             copyMnemonic->setEnabled(on);
-            if (!on) {
+            if (on) {
+                mnemoBox->setPlainText(mnemonicText);
+            } else {
+                mnemoBox->clear();
                 QClipboard* cb = QGuiApplication::clipboard();
-                if (cb->text() == mnemoBox->toPlainText())
+                if (cb->text() == mnemonicText)
                     cb->clear();
             }
         });
@@ -622,11 +656,16 @@ void QtLoginUI::onRevealSeedClicked() {
     QObject::connect(box2, &QDialogButtonBox::accepted, &reveal, &QDialog::accept);
 
     // Clear clipboard on close if it still contains our sensitive text
-    QObject::connect(&reveal, &QDialog::finished, this, [&, seedBox, mnemoBox]() {
+    QObject::connect(&reveal, &QDialog::finished, this,
+                     [&, seedBox, mnemoBox, seedText, mnemonicText]() {
         QClipboard* cb = QGuiApplication::clipboard();
         const QString t = cb->text();
-        if (t == seedBox->toPlainText() || (mnemoBox && t == mnemoBox->toPlainText())) {
+        if (t == seedText || (!mnemonicText.isEmpty() && t == mnemonicText)) {
             cb->clear();
+        }
+        seedBox->clear();
+        if (mnemoBox) {
+            mnemoBox->clear();
         }
     });
 
@@ -634,10 +673,23 @@ void QtLoginUI::onRevealSeedClicked() {
 }
 
 void QtLoginUI::onRestoreSeedClicked() {
-    const QString username = m_usernameEdit->text().trimmed();
+    const QString loginUsername = m_loginUsernameEdit->text().trimmed();
+    const QString registerUsername = m_usernameEdit->text().trimmed();
+    const bool loginTabActive = m_tabBar && m_tabBar->currentIndex() == 0;
+    QString username = loginTabActive ? loginUsername : registerUsername;
+    if (username.isEmpty()) {
+        username = loginTabActive ? registerUsername : loginUsername;
+    }
     if (username.isEmpty()) {
         showMessage("Enter your username first.", true);
         return;
+    }
+
+    const QString loginPassword = m_loginPasswordEdit->text();
+    const QString registerPassword = m_passwordEdit->text();
+    QString passwordPrefill = loginTabActive ? loginPassword : registerPassword;
+    if (passwordPrefill.isEmpty()) {
+        passwordPrefill = loginTabActive ? registerPassword : loginPassword;
     }
 
     // Require password to prevent unauthorized overwrite
@@ -659,7 +711,7 @@ void QtLoginUI::onRestoreSeedClicked() {
     QLabel* pwdLbl = new QLabel("Confirm your account password:", &dlg);
     QLineEdit* pwd = new QLineEdit(&dlg);
     pwd->setEchoMode(QLineEdit::Password);
-    pwd->setText(m_passwordEdit->text());
+    pwd->setText(passwordPrefill);
 
     QLabel* mnemoLbl = new QLabel("Mnemonic words:", &dlg);
     QPlainTextEdit* mnemo = new QPlainTextEdit(&dlg);
@@ -688,12 +740,18 @@ void QtLoginUI::onRestoreSeedClicked() {
     if (dlg.exec() != QDialog::Accepted)
         return;
 
+    const QString mnemonicText = mnemo->toPlainText().trimmed();
+    if (mnemonicText.isEmpty()) {
+        showMessage("Enter your seed words first.", true);
+        return;
+    }
+
     // Call Auth: verify password, then restore
-    const auto resp =
-        Auth::RestoreFromSeed(username.toStdString(), mnemo->toPlainText().toStdString(),
-                              passphrase->text().toStdString(),
-                              pwd->text().toStdString()  // re-auth
-        );
+    const auto resp = Auth::AuthManager::getInstance().RestoreFromSeed(
+        username.toStdString(), mnemonicText.toStdString(),
+        passphrase->text().toStdString(),
+        pwd->text().toStdString()  // re-auth
+    );
 
     if (resp.result == Auth::AuthResult::SUCCESS) {
         QMessageBox::information(this, "Seed Restored",

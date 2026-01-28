@@ -67,6 +67,20 @@ AuthResponse AuthManager::LoginUser(const std::string& username, const std::stri
     return authResponse;
 }
 
+AuthResponse AuthManager::RevealSeed(const std::string& username,
+                                    const std::string& password,
+                                    std::string& outSeedHex,
+                                    std::optional<std::string>& outMnemonic) {
+    return Auth::RevealSeed(username, password, outSeedHex, outMnemonic);
+}
+
+AuthResponse AuthManager::RestoreFromSeed(const std::string& username,
+                                         const std::string& mnemonicText,
+                                         const std::string& passphrase,
+                                         const std::string& passwordForReauth) {
+    return Auth::RestoreFromSeed(username, mnemonicText, passphrase, passwordForReauth);
+}
+
 void AuthManager::cleanupSessions() {
     sessionManager_.cleanup();
 }

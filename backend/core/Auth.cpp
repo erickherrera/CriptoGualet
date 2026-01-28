@@ -513,9 +513,24 @@ static bool RetrieveUserSeedDPAPI(const std::string &username,
 // ===== Public API =====
 namespace Auth {
 
+bool IsRateLimited(const std::string &identifier);
+void ClearRateLimit(const std::string &identifier);
+static void RecordFailedAttempt(const std::string &identifier);
+
 AuthResponse RevealSeed(const std::string &username,
                         const std::string &password, std::string &outSeedHex,
                         std::optional<std::string> &outMnemonic) {
+  if (IsRateLimited(username)) {
+    return {AuthResult::RATE_LIMITED,
+            "Too many failed attempts. Please wait 10 minutes before trying again."};
+  }
+
+  if (username.empty() || password.empty()) {
+    RecordFailedAttempt(username);
+    return {AuthResult::INVALID_CREDENTIALS,
+            "Please enter both username and password."};
+  }
+
   // Initialize database
   if (!InitializeDatabase() || !g_userRepo) {
     return {AuthResult::SYSTEM_ERROR,
@@ -526,6 +541,7 @@ AuthResponse RevealSeed(const std::string &username,
   try {
     auto authResult = g_userRepo->authenticateUser(username, password);
     if (!authResult.success) {
+      RecordFailedAttempt(username);
       return {AuthResult::INVALID_CREDENTIALS, "Invalid username or password."};
     }
   } catch (const std::exception &) {
@@ -554,6 +570,7 @@ AuthResponse RevealSeed(const std::string &username,
 
   // Securely wipe
   seed.fill(uint8_t(0));
+  ClearRateLimit(username);
   return {AuthResult::SUCCESS, "Seed revealed."};
 }
 
@@ -561,8 +578,19 @@ AuthResponse RestoreFromSeed(const std::string &username,
                              const std::string &mnemonicText,
                              const std::string &passphrase,
                              const std::string &passwordForReauth) {
+  if (IsRateLimited(username)) {
+    return {AuthResult::RATE_LIMITED,
+            "Too many failed attempts. Please wait 10 minutes before trying again."};
+  }
+
+  if (username.empty() || passwordForReauth.empty() || mnemonicText.empty()) {
+    RecordFailedAttempt(username);
+    return {AuthResult::INVALID_CREDENTIALS,
+            "Please provide username, password, and mnemonic words."};
+  }
+
   // Initialize database
-  if (!InitializeDatabase() || !g_userRepo) {
+  if (!InitializeDatabase() || !g_userRepo || !g_walletRepo) {
     return {AuthResult::SYSTEM_ERROR,
             "Database not initialized. Please restart the application."};
   }
@@ -572,11 +600,25 @@ AuthResponse RestoreFromSeed(const std::string &username,
   try {
     auto authResult = g_userRepo->authenticateUser(username, passwordForReauth);
     if (!authResult.success) {
+      RecordFailedAttempt(username);
       return {AuthResult::INVALID_CREDENTIALS, "Invalid username or password."};
     }
   } catch (const std::exception &) {
     return {AuthResult::SYSTEM_ERROR,
             "Database error during authentication. Please try again."};
+  }
+
+  int userId = 0;
+  try {
+    auto userResult = g_userRepo->getUserByUsername(username);
+    if (!userResult.success) {
+      return {AuthResult::SYSTEM_ERROR,
+              "User account not found in the database."};
+    }
+    userId = userResult.data.id;
+  } catch (const std::exception &) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Database error while loading user profile."};
   }
 
   // Load wordlist
@@ -603,6 +645,13 @@ AuthResponse RestoreFromSeed(const std::string &username,
     return {AuthResult::INVALID_CREDENTIALS, "Mnemonic checksum is invalid."};
   }
 
+  auto encryptedSeedResult =
+      g_walletRepo->storeEncryptedSeed(userId, passwordForReauth, words);
+  if (!encryptedSeedResult.success) {
+    return {AuthResult::SYSTEM_ERROR,
+            "Failed to store seed in the encrypted database."};
+  }
+
   // Derive seed
   std::array<uint8_t, 64> seed{};
   if (!Crypto::BIP39_SeedFromMnemonic(words, passphrase, seed)) {
@@ -620,6 +669,7 @@ AuthResponse RestoreFromSeed(const std::string &username,
   // Note: No longer creating insecure backup files
   // Users should use the secure QR display during registration
 
+  ClearRateLimit(username);
   return {AuthResult::SUCCESS, "Seed restored and stored securely."};
 }
 
