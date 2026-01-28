@@ -434,7 +434,10 @@ QtTopCryptosPage::QtTopCryptosPage(QWidget* parent)
       m_topCryptosWatcher(nullptr),
       m_currentSortIndex(0),
       m_searchDebounceTimer(new QTimer(this)),
-      m_refreshTimer(new QTimer(this)) {
+      m_refreshTimer(new QTimer(this)),
+      m_retryStatusTimer(new QTimer(this)),
+      m_retryStatusAttempt(0),
+      m_retryStatusMaxAttempts(3) {
     setupUI();
     applyTheme();
 
@@ -455,6 +458,11 @@ QtTopCryptosPage::QtTopCryptosPage(QWidget* parent)
     m_searchDebounceTimer->setSingleShot(true);
     connect(m_searchDebounceTimer, &QTimer::timeout, this,
             &QtTopCryptosPage::onSearchDebounceTimer);
+
+    // Configure retry status timer
+    m_retryStatusTimer->setInterval(3000);
+    connect(m_retryStatusTimer, &QTimer::timeout, this,
+            &QtTopCryptosPage::onRetryStatusTimer);
 
     // Initial data fetch
     fetchTopCryptos();
@@ -659,8 +667,20 @@ void QtTopCryptosPage::fetchTopCryptos() {
     qDebug() << "Fetching top 100 cryptocurrencies...";
 
     // Show loading state
-    m_subtitleLabel->setText("Loading cryptocurrency data...");
+    m_subtitleLabel->setText("Loading top cryptocurrencies...");
     m_resultCounterLabel->setText("Loading...");
+
+    QFont subtitleFont = m_themeManager->textFont();
+    subtitleFont.setPointSize(12);
+    subtitleFont.setBold(false);
+    m_subtitleLabel->setFont(subtitleFont);
+    m_subtitleLabel->setStyleSheet(
+        QString("color: %1;").arg(m_themeManager->subtitleColor().name()));
+
+    m_retryStatusAttempt = 0;
+    if (m_retryStatusTimer) {
+        m_retryStatusTimer->start();
+    }
 
     // Disable controls during fetch
     m_searchBox->setEnabled(false);
@@ -683,32 +703,48 @@ void QtTopCryptosPage::onTopCryptosFetched() {
         return;
     }
 
-    m_cryptoData = m_topCryptosWatcher->result();
+    auto latestData = m_topCryptosWatcher->result();
+
+    if (m_retryStatusTimer) {
+        m_retryStatusTimer->stop();
+    }
+    m_retryStatusAttempt = 0;
 
     m_searchBox->setEnabled(true);
     m_sortDropdown->setEnabled(true);
     m_refreshButton->setEnabled(true);
+    m_refreshButton->setText("⟳ Refresh");
     if (m_loadingBar) {
         m_loadingBar->setVisible(false);
     }
 
-    if (m_cryptoData.empty()) {
-        m_subtitleLabel->setText("Failed to load data. Click refresh to try again.");
-        QString errorColor = m_themeManager->errorColor().name();
-        QFont errorFont = m_themeManager->textFont();
-        errorFont.setPointSize(12);
-        errorFont.setBold(true);
-        m_subtitleLabel->setFont(errorFont);
-        m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(errorColor));
+    if (latestData.empty()) {
+        if (m_cryptoData.empty()) {
+            m_subtitleLabel->setText("Failed to load data. Click refresh to try again.");
+            QString errorColor = m_themeManager->errorColor().name();
+            QFont errorFont = m_themeManager->textFont();
+            errorFont.setPointSize(12);
+            errorFont.setBold(true);
+            m_subtitleLabel->setFont(errorFont);
+            m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(errorColor));
 
-        for (auto* card : m_cryptoCards) {
-            card->setVisible(false);
+            for (auto* card : m_cryptoCards) {
+                card->setVisible(false);
+            }
+
+            m_resultCounterLabel->setText("Error loading data");
+            return;
         }
 
-        m_resultCounterLabel->setText("Error loading data");
+        m_subtitleLabel->setText("Live prices updated every 60 seconds (refresh failed)");
+        m_subtitleLabel->setStyleSheet(
+            QString("color: %1;").arg(m_themeManager->subtitleColor().name()));
+        filterAndSortData();
         return;
     }
 
+    m_cryptoData = std::move(latestData);
+    m_lastUpdated = QDateTime::currentDateTime();
     m_subtitleLabel->setText("Live prices updated every 60 seconds");
     applyTheme();
     filterAndSortData();
@@ -891,14 +927,20 @@ void QtTopCryptosPage::applySorting() {
 }
 
 void QtTopCryptosPage::updateResultCounter() {
+    QString counterText;
     if (m_searchText.isEmpty()) {
-        m_resultCounterLabel->setText(
-            QString("Showing all %1 cryptocurrencies").arg(m_filteredData.size()));
+        counterText = QString("Showing all %1 cryptocurrencies").arg(m_filteredData.size());
     } else {
-        m_resultCounterLabel->setText(QString("Showing %1 of %2 cryptocurrencies")
-                                          .arg(m_filteredData.size())
-                                          .arg(m_cryptoData.size()));
+        counterText = QString("Showing %1 of %2 cryptocurrencies")
+                          .arg(m_filteredData.size())
+                          .arg(m_cryptoData.size());
     }
+
+    if (m_lastUpdated.isValid()) {
+        counterText += QString(" • Last updated %1").arg(m_lastUpdated.toString("HH:mm:ss"));
+    }
+
+    m_resultCounterLabel->setText(counterText);
 }
 
 void QtTopCryptosPage::loadVisibleIcons() {
@@ -1080,13 +1122,14 @@ void QtTopCryptosPage::applyTheme() {
 void QtTopCryptosPage::refreshData() { fetchTopCryptos(); }
 
 void QtTopCryptosPage::onRefreshClicked() {
+    if (m_topCryptosWatcher && m_topCryptosWatcher->isRunning()) {
+        return;
+    }
+
     m_refreshButton->setText("⟳ Refreshing...");
     m_refreshButton->setEnabled(false);
 
     fetchTopCryptos();
-
-    m_refreshButton->setText("⟳ Refresh");
-    m_refreshButton->setEnabled(true);
 }
 
 void QtTopCryptosPage::onBackClicked() { emit backRequested(); }
@@ -1116,6 +1159,30 @@ void QtTopCryptosPage::onSearchDebounceTimer() {
 
     // Apply filter and sort
     filterAndSortData();
+}
+
+void QtTopCryptosPage::onRetryStatusTimer() {
+    if (!m_topCryptosWatcher || !m_topCryptosWatcher->isRunning()) {
+        if (m_retryStatusTimer) {
+            m_retryStatusTimer->stop();
+        }
+        return;
+    }
+
+    if (m_retryStatusAttempt >= m_retryStatusMaxAttempts) {
+        if (m_retryStatusTimer) {
+            m_retryStatusTimer->stop();
+        }
+        return;
+    }
+
+    ++m_retryStatusAttempt;
+    QString retryText =
+        QString("Retrying (%1/%2)...").arg(m_retryStatusAttempt).arg(m_retryStatusMaxAttempts);
+    m_subtitleLabel->setText(retryText);
+    m_resultCounterLabel->setText(retryText);
+    m_subtitleLabel->setStyleSheet(
+        QString("color: %1;").arg(m_themeManager->subtitleColor().name()));
 }
 
 void QtTopCryptosPage::resizeEvent(QResizeEvent* event) {

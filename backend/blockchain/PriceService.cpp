@@ -4,6 +4,8 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 using json = nlohmann::json;
 
@@ -11,7 +13,8 @@ namespace PriceService {
 
 PriceFetcher::PriceFetcher(int timeout)
     : base_url("https://api.coingecko.com/api/v3"),
-      timeout_seconds(timeout) {
+      timeout_seconds(timeout),
+      last_status_code(0) {
 }
 
 std::string PriceFetcher::MakeRequest(const std::string& endpoint) {
@@ -21,9 +24,11 @@ std::string PriceFetcher::MakeRequest(const std::string& endpoint) {
 
         cpr::Response response = cpr::Get(
             cpr::Url{url},
+            cpr::Header{{"User-Agent", "CriptoGualet/1.0"}, {"Accept", "application/json"}},
             cpr::Timeout{timeout_seconds * 1000}
         );
 
+        last_status_code = response.status_code;
         std::cout << "[PriceService] Response status: " << response.status_code << std::endl;
 
         if (response.status_code == 200) {
@@ -31,9 +36,15 @@ std::string PriceFetcher::MakeRequest(const std::string& endpoint) {
             return response.text;
         }
 
-        std::cout << "[PriceService] Request failed with status: " << response.status_code << std::endl;
+        std::cout << "[PriceService] Request failed with status: " << response.status_code;
+        if (!response.text.empty()) {
+            std::cout << " | Body: " << response.text.substr(0, 200);
+        }
+        std::cout << std::endl;
         return "";
+
     } catch (const std::exception& e) {
+        last_status_code = 0;
         std::cout << "[PriceService] Exception: " << e.what() << std::endl;
         return "";
     }
@@ -98,12 +109,32 @@ std::vector<CryptoPriceData> PriceFetcher::GetTopCryptosByMarketCap(int count) {
                           std::to_string(count) +
                           "&page=1&sparkline=false&price_change_percentage=24h";
 
-    std::string response = MakeRequest(endpoint);
-    if (response.empty()) {
-        return {};
+    const int max_attempts = 3;
+    const int retry_delay_seconds = 3;
+
+    for (int attempt = 1; attempt <= max_attempts; ++attempt) {
+        std::string response = MakeRequest(endpoint);
+        if (!response.empty()) {
+            auto results = ParseTopCryptosResponse(response, count);
+            if (!results.empty() || attempt == max_attempts) {
+                return results;
+            }
+        }
+
+        bool retryable = last_status_code == 0 || last_status_code == 403 ||
+                         last_status_code == 429 ||
+                         (last_status_code >= 500 && last_status_code <= 599);
+
+        if (!retryable || attempt == max_attempts) {
+            break;
+        }
+
+        std::cout << "[PriceService] Retry " << (attempt + 1) << "/" << max_attempts
+                  << " after " << retry_delay_seconds << "s" << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(retry_delay_seconds));
     }
 
-    return ParseTopCryptosResponse(response, count);
+    return {};
 }
 
 std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::string& json_response, int count) {

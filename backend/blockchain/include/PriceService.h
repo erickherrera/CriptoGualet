@@ -22,6 +22,7 @@ class PriceFetcher {
 private:
     std::string base_url;
     int timeout_seconds;
+    long last_status_code;
 
 public:
     explicit PriceFetcher(int timeout = 10);

@@ -15,6 +15,7 @@
 #include <QComboBox>
 #include <QFutureWatcher>
 #include <QProgressBar>
+#include <QDateTime>
 #include <memory>
 #include "../../../backend/blockchain/include/PriceService.h"
 
@@ -78,6 +79,7 @@ protected:
     void onSortChanged(int index);
     void onSearchDebounceTimer();
     void onTopCryptosFetched();
+    void onRetryStatusTimer();
 
 
 private:
@@ -135,4 +137,11 @@ private:
 
     // Auto-refresh timer
     QTimer *m_refreshTimer;
+
+    // Retry status timer
+    QTimer *m_retryStatusTimer;
+    int m_retryStatusAttempt;
+    int m_retryStatusMaxAttempts;
+
+    QDateTime m_lastUpdated;
 };
