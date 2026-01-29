@@ -477,13 +477,6 @@ void QtTopCryptosPage::setupUI() {
                                      m_themeManager->standardMargin());
     m_mainLayout->setSpacing(0);
 
-    // Create a horizontal layout to center content with max width
-    QHBoxLayout* centeringLayout = new QHBoxLayout();
-    centeringLayout->setContentsMargins(0, 0, 0, 0);
-
-    // Add left spacer for centering
-    centeringLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
-
     // Create scroll area for all content including header
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidgetResizable(true);
@@ -520,13 +513,8 @@ void QtTopCryptosPage::setupUI() {
     connect(m_scrollArea->verticalScrollBar(), &QScrollBar::valueChanged, this,
             [this]() { QTimer::singleShot(50, this, &QtTopCryptosPage::loadVisibleIcons); });
 
-    // Add scroll area to centering layout
-    centeringLayout->addWidget(m_scrollArea);
-
-    // Add right spacer
-    centeringLayout->addItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum));
-
-    m_mainLayout->addLayout(centeringLayout);
+    // Add scroll area directly to main layout to maximize width
+    m_mainLayout->addWidget(m_scrollArea);
 
     // Create initial empty cards
     createCryptoCards();
@@ -1195,27 +1183,8 @@ void QtTopCryptosPage::resizeEvent(QResizeEvent* event) {
 
 void QtTopCryptosPage::updateScrollAreaWidth() {
     if (m_scrollArea) {
-        // Get the actual available width (accounts for sidebar)
-        int availableWidth = this->width();
-
-        // Apply max-width constraints based on available space
-        // Use percentage-based max width so content stays centered and doesn't overflow
-        if (availableWidth < 768) {
-            // Small screens - fill available width
-            m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
-            m_scrollArea->setMinimumWidth(0);
-        } else if (availableWidth > 1400) {
-            // Large screens - limit to 900px max for readability
-            m_scrollArea->setMaximumWidth(900);
-            m_scrollArea->setMinimumWidth(0);
-        } else if (availableWidth > 1000) {
-            // Medium-large screens - limit to 800px
-            m_scrollArea->setMaximumWidth(800);
-            m_scrollArea->setMinimumWidth(0);
-        } else {
-            // Medium screens - limit to 700px or available width
-            m_scrollArea->setMaximumWidth(qMin(700, availableWidth));
-            m_scrollArea->setMinimumWidth(0);
-        }
+        // Remove max-width constraints to maximize space usage on all screens
+        m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
+        m_scrollArea->setMinimumWidth(0);
     }
 }
