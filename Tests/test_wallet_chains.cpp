@@ -63,7 +63,12 @@ static std::vector<std::string> LoadBIP39Wordlist() {
 
   // Try multiple possible locations for the wordlist
   std::vector<std::string> possiblePaths = {
-      // From out/build/win-vs2022-x64-debug/bin/Debug/ (VS2022 CMake preset)
+      "assets/bip39/english.txt",
+      "src/assets/bip39/english.txt",
+      "../../assets/bip39/english.txt",
+      "../../../assets/bip39/english.txt",
+      "../../../../assets/bip39/english.txt",
+      "../../../../../assets/bip39/english.txt",
       "../../../../../src/assets/bip39/english.txt",
   };
 
@@ -286,6 +291,7 @@ static void testDeriveLitecoinAddresses(const std::vector<std::string>& wordlist
   std::cout << "    Generated 5 Litecoin addresses (m/44'/2'/0'/0/x):" << std::endl;
   for (size_t i = 0; i < ltc_addresses.size(); i++) {
     std::cout << "      Address " << i << ": " << ltc_addresses[i] << std::endl;
+    TEST_ASSERT(ltc_addresses[i][0] == 'L', "Litecoin address should start with L");
   }
 
   TEST_PASS();
@@ -324,6 +330,35 @@ static void testKeccak256TestVector() {
   }
 
   TEST_ASSERT(keccak_match, "Keccak256 test vector should match");
+
+  TEST_PASS();
+}
+
+static void testLitecoinAddressValidation() {
+  TEST_START("Litecoin Address Validation");
+
+  // Reset fill character to space (it might have been set to '0' by previous tests)
+  std::cout << std::setfill(' ');
+
+  // Standard Litecoin addresses
+  std::vector<std::pair<std::string, bool>> test_addresses = {
+      {"LajyQBeZaBA1ekzMwGhU4UsFyu2adqEL29", true}, // L... (P2PKH)
+      {"M8T1vHq7Fh4S5w6E8g9aUb1c2d3e4f5g6h", true}, // M... (P2SH) - Valid Base58 (No 0, O, I, l)
+      {"3CDJNfdWX8m2k28DQ38w4R8j5s6t7u8v9w", true}, // 3... (Legacy P2SH)
+      {"ltc1qgqqgqqgqqgqqgqqgqqgqqgqqgqqgqqgqqgqqgq", true}, // ltc1... (Bech32)
+      {"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", false}, // Bitcoin mainnet
+      {"0x71C7656EC7ab88b098defB751B7401B5f6d8976F", false}, // Ethereum
+      {"invalid_address", false}
+  };
+
+  for (const auto& test : test_addresses) {
+      bool is_valid = Crypto::IsValidAddressFormat(test.first, Crypto::ChainType::LITECOIN);
+      std::cout << "    " << std::setw(42) << std::left << test.first 
+                << ": " << (is_valid ? "VALID" : "INVALID")
+                << " (Expected: " << (test.second ? "VALID" : "INVALID") << ")" << std::endl;
+      
+      TEST_ASSERT(is_valid == test.second, "Address validation failed");
+  }
 
   TEST_PASS();
 }
@@ -450,6 +485,31 @@ static void testEthereumAddressGeneration(Repository::WalletRepository& walletRe
     }
 }
 
+static void testLitecoinAddressGeneration(Repository::WalletRepository& walletRepo,
+                                          Repository::UserRepository& userRepo) {
+    TEST_START("Litecoin Address Generation (Repository)");
+
+    int userId = TestUtils::createTestUser(userRepo, "ltc_addr_user");
+    auto walletResult = walletRepo.createWallet(userId, "LTC Test", "litecoin");
+    TEST_ASSERT(walletResult.hasValue(), "Wallet creation should succeed");
+
+    auto addressResult = walletRepo.generateAddress(walletResult->id, false, "Litecoin Address");
+    TEST_ASSERT(addressResult.hasValue(), "Address generation should succeed");
+    TEST_ASSERT(!addressResult->address.empty(), "Address should not be empty");
+
+    // Litecoin addresses should start with specific prefixes (L, M, or ltc1)
+    std::string addr = addressResult->address;
+    bool validPrefix = (addr[0] == 'L' || addr[0] == 'M' || addr.substr(0, 4) == "ltc1");
+
+    std::cout << "    Generated Litecoin address: " << addr << std::endl;
+    std::cout << "    Address has valid Litecoin prefix: " << (validPrefix ? "Yes" : "No")
+              << std::endl;
+
+    TEST_ASSERT(validPrefix, "Generated address should have valid Litecoin prefix");
+
+    TEST_PASS();
+}
+
 static void testWalletChainIsolation(Repository::WalletRepository& walletRepo,
                                      Repository::UserRepository& userRepo) {
     TEST_START("Wallet Chain Isolation");
@@ -539,6 +599,7 @@ int main() {
     testDeriveBitcoinAddresses(wordlist);
     testDeriveLitecoinAddresses(wordlist);
     testMultiChainAddressDerivation(wordlist);
+    testLitecoinAddressValidation();
     testKeccak256TestVector();
   } else {
     std::cerr << "WARNING: Could not load BIP39 wordlist, skipping cryptographic tests"
@@ -565,6 +626,7 @@ int main() {
   testMultipleWalletTypesPerUser(walletRepo, userRepo);
   testBitcoinAddressGeneration(walletRepo, userRepo);
   testEthereumAddressGeneration(walletRepo, userRepo);
+  testLitecoinAddressGeneration(walletRepo, userRepo);
   testWalletChainIsolation(walletRepo, userRepo);
   testUnsupportedChainRejection(walletRepo, userRepo);
   testBIP44DerivationPathsForDifferentChains(walletRepo, userRepo);

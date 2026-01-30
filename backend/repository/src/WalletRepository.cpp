@@ -279,8 +279,12 @@ Result<Address> WalletRepository::generateAddress(int walletId, bool isChange,
 
     int addressIndex = *indexResult;
 
+    // Get wallet type to generate appropriate address format
+    auto walletResult = getWalletById(walletId);
+    std::string walletType = walletResult.hasValue() ? walletResult->walletType : "bitcoin";
+
     // Generate the actual address string
-    std::string addressStr = generateBitcoinAddress(walletId, addressIndex, isChange);
+    std::string addressStr = generateAddressString(walletType, walletId, addressIndex, isChange);
 
     // Insert address into database
     const std::string sql = R"(
@@ -648,11 +652,38 @@ Result<int> WalletRepository::getNextAddressIndex(int walletId, bool isChange) {
     }
 }
 
-std::string WalletRepository::generateBitcoinAddress(int walletId, int addressIndex, bool isChange) {
-    // Simplified address generation - in production would use proper BIP44 derivation
+std::string WalletRepository::generateAddressString(const std::string& walletType, int walletId, int addressIndex, bool isChange) {
+    // Simplified address generation for testing purposes
+    // In production, this would use proper BIP44 derivation via the Crypto module
     std::ostringstream oss;
-    oss << "bc1q" << std::hex << walletId << addressIndex << (isChange ? "c" : "r");
-    return oss.str();
+    
+    if (walletType == "litecoin") {
+        // Litecoin mainnet addresses typically start with L
+        oss << "L" << std::hex << walletId << std::setfill('0') << std::setw(4) << addressIndex << (isChange ? "c" : "r");
+        // Fill to standard length
+        std::string res = oss.str();
+        if (res.length() < 30) {
+            res.append(30 - res.length(), 'x');
+        }
+        return res;
+    } else if (walletType == "ethereum") {
+        // Ethereum addresses are 0x + 40 hex chars
+        oss << "0x" << std::hex << std::setfill('0') << std::setw(8) << walletId 
+            << std::setw(8) << addressIndex << (isChange ? "c" : "f");
+        std::string res = oss.str();
+        if (res.length() < 42) {
+            res.append(42 - res.length(), '0');
+        }
+        return res;
+    } else {
+        // Default to Bitcoin (bc1q...)
+        oss << "bc1q" << std::hex << walletId << std::setfill('0') << std::setw(4) << addressIndex << (isChange ? "c" : "r");
+        std::string res = oss.str();
+        if (res.length() < 42) {
+            res.append(42 - res.length(), 'z');
+        }
+        return res;
+    }
 }
 
 int64_t WalletRepository::calculateWalletBalance(int walletId) {

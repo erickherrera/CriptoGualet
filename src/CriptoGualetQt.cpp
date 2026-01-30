@@ -125,6 +125,9 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   // Initialize Ethereum wallet (PHASE 1 FIX: Multi-chain support)
   m_ethereumWallet = std::make_unique<WalletAPI::EthereumWallet>("mainnet");
 
+  // Initialize Litecoin wallet
+  m_litecoinWallet = std::make_unique<WalletAPI::LitecoinWallet>("ltc/main");
+
   setupUI();
   setupMenuBar();
   setupStatusBar();
@@ -197,6 +200,7 @@ void CriptoGualetQt::setupUI() {
   // Pass wallet instances and repositories to wallet UI
   m_walletUI->setWallet(m_wallet.get());
   m_walletUI->setEthereumWallet(m_ethereumWallet.get()); // PHASE 1 FIX
+  m_walletUI->setLitecoinWallet(m_litecoinWallet.get());
   if (m_userRepository && m_walletRepository) {
     m_walletUI->setRepositories(m_userRepository.get(),
                                 m_walletRepository.get());
@@ -284,6 +288,16 @@ void CriptoGualetQt::setupUI() {
                                       masterKey, 0, false, 0, ethAddress)) {
                                 m_walletUI->setEthereumAddress(
                                     QString::fromStdString(ethAddress));
+                              }
+
+                              // Derive Litecoin address (BIP44 coin type 2)
+                              // Mainnet: m/44'/2'/0'/0/0
+                              std::string ltcAddress;
+                              if (Crypto::DeriveChainAddress(
+                                      masterKey, Crypto::ChainType::LITECOIN, 0,
+                                      false, 0, ltcAddress)) {
+                                m_walletUI->setLitecoinAddress(
+                                    QString::fromStdString(ltcAddress));
                               }
                             }
                             seed.fill(uint8_t(0)); // Securely wipe
@@ -433,6 +447,15 @@ void CriptoGualetQt::setupUI() {
                                   masterKey, 0, false, 0, ethAddress)) {
                             m_walletUI->setEthereumAddress(
                                 QString::fromStdString(ethAddress));
+                          }
+
+                          // Derive Litecoin address
+                          std::string ltcAddress;
+                          if (Crypto::DeriveChainAddress(
+                                  masterKey, Crypto::ChainType::LITECOIN, 0,
+                                  false, 0, ltcAddress)) {
+                            m_walletUI->setLitecoinAddress(
+                                QString::fromStdString(ltcAddress));
                           }
                         }
                         seed.fill(uint8_t(0)); // Securely wipe
