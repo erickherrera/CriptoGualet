@@ -381,26 +381,7 @@ void QtLoginUI::onRegisterClicked() {
     setAuthInProgress(true);
     QApplication::processEvents();
 
-    std::vector<std::string> mnemonic;
-    Auth::AuthResponse response = Auth::AuthManager::getInstance().RegisterUser(username.toStdString(), password.toStdString(), mnemonic);
-
-    bool seedConfirmed = true;
-    if (response.success() && !mnemonic.empty()) {
-        QtSeedDisplayDialog seedDialog(mnemonic, this);
-        const bool accepted = seedDialog.exec() == QDialog::Accepted;
-        seedConfirmed = accepted && seedDialog.userConfirmedBackup();
-    }
-
-    if (response.success() && !seedConfirmed) {
-        setAuthInProgress(false);
-        return;
-    }
-
-    if (response.success()) {
-        showMessage("Registration successful. Please sign in.", false);
-    }
-
-    onRegisterResult(response.success(), QString::fromStdString(response.message));
+    emit registerRequested(username, password);
 }
 
 void QtLoginUI::onRegisterModeToggled(bool registerMode) {
