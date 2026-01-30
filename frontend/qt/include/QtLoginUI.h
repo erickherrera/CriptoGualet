@@ -12,6 +12,7 @@
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QProgressBar>
 
 // Forward declarations
 class QtThemeManager;
@@ -87,6 +88,9 @@ class QtLoginUI : public QWidget {
     QLineEdit* m_confirmPasswordEdit;
     QPushButton* m_passwordToggleButton;
     QPushButton* m_registerButton;
+
+    // Loading indicator
+    QProgressBar* m_loadingIndicator;
 
     // Shared buttons
     QPushButton* m_revealSeedButton;

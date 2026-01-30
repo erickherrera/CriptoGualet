@@ -259,6 +259,14 @@ void QtLoginUI::createLoginCard() {
 
     m_cardLayout->addSpacing(8);  // Small space between tabs and message
 
+    // Loading indicator
+    m_loadingIndicator = new QProgressBar(m_loginCard);
+    m_loadingIndicator->setRange(0, 0); // Indeterminate
+    m_loadingIndicator->setTextVisible(false);
+    m_loadingIndicator->setFixedHeight(4); // Thin line
+    m_loadingIndicator->hide();
+    m_cardLayout->addWidget(m_loadingIndicator);
+
     // Message label (shared between tabs)
     m_messageLabel = new QLabel(m_loginCard);
     m_messageLabel->setAlignment(Qt::AlignCenter);
@@ -337,6 +345,8 @@ void QtLoginUI::onLoginClicked() {
     }
 
     showMessage("Signing in...", false);
+    setAuthInProgress(true);
+    QApplication::processEvents(); // Force repaint so spinner appears
     emit loginRequested(username, password);
 }
 
@@ -367,6 +377,9 @@ void QtLoginUI::onRegisterClicked() {
 
     showMessage("Creating account... generating your seed phrase securely.", false);
     
+    setAuthInProgress(true);
+    QApplication::processEvents();
+
     std::vector<std::string> mnemonic;
     Auth::AuthResponse response = Auth::AuthManager::getInstance().RegisterUser(username.toStdString(), password.toStdString(), mnemonic);
 
@@ -378,6 +391,7 @@ void QtLoginUI::onRegisterClicked() {
     }
 
     if (response.success() && !seedConfirmed) {
+        setAuthInProgress(false);
         return;
     }
 
@@ -410,6 +424,7 @@ void QtLoginUI::onRegisterModeToggled(bool registerMode) {
 }
 
 void QtLoginUI::onLoginResult(bool success, const QString& message) {
+    setAuthInProgress(false);
     if (success) {
         emit loginSuccessful(message);
     } else {
@@ -454,6 +469,7 @@ void QtLoginUI::onLoginResult(bool success, const QString& message) {
 }
 
 void QtLoginUI::onRegisterResult(bool success, const QString& message) {
+    setAuthInProgress(false);
     if (success) {
         const QString username = m_usernameEdit->text().trimmed();
 
@@ -1027,6 +1043,22 @@ void QtLoginUI::updateStyles() {
     m_loginPasswordToggleButton->setStyleSheet(toggleButtonStyle);
     m_passwordToggleButton->setStyleSheet(toggleButtonStyle);
 
+    // ProgressBar styling
+    QString progressStyle = QString(R"(
+        QProgressBar {
+            border: none;
+            background-color: transparent;
+            min-height: 4px;
+            max-height: 4px;
+            border-radius: 2px;
+        }
+        QProgressBar::chunk {
+            background-color: %1;
+            border-radius: 2px;
+        }
+    )").arg(accentHex);
+    m_loadingIndicator->setStyleSheet(progressStyle);
+
     // Position the toggle buttons inside their respective password fields
     QTimer::singleShot(0, this, [this]() {
         // Position login password toggle button
@@ -1113,6 +1145,10 @@ void QtLoginUI::clearLoginFields() {
 
 void QtLoginUI::setAuthInProgress(bool inProgress) {
     const bool enabled = !inProgress;
+
+    if (m_loadingIndicator) {
+        m_loadingIndicator->setVisible(inProgress);
+    }
 
     if (m_loginButton) {
         m_loginButton->setEnabled(enabled);
