@@ -90,6 +90,17 @@ public:
     return m_client->EstimateFees();
   }
 
+  std::pair<bool, std::string> testConnection() override {
+    if (!m_client) {
+      return {false, "Client not initialized."};
+    }
+    auto fees = m_client->EstimateFees();
+    if (fees) {
+      return {true, "Successfully connected to BlockCypher."};
+    }
+    return {false, "Failed to connect to BlockCypher. Check internet connection."};
+  }
+
   std::string name() const override { return "BlockCypher"; }
 
 private:
@@ -166,6 +177,14 @@ public:
 
     double feeRateBtc = parseBtcValue((*result)["feerate"]);
     return btcToSatoshis(feeRateBtc);
+  }
+
+  std::pair<bool, std::string> testConnection() override {
+    auto result = call("getblockchaininfo", {});
+    if (result) {
+      return {true, "Successfully connected to Bitcoin RPC."};
+    }
+    return {false, "Failed to connect to Bitcoin RPC node. Check URL and credentials."};
   }
 
   std::string name() const override { return "Bitcoin RPC"; }

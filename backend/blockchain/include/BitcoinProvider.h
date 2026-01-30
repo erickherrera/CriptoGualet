@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace BitcoinProviders {
 
@@ -39,6 +40,7 @@ public:
                                                     uint32_t limit) = 0;
   virtual std::optional<uint64_t> getBalance(const std::string &address) = 0;
   virtual std::optional<uint64_t> estimateFeeRate() = 0;
+  virtual std::pair<bool, std::string> testConnection() = 0;
   virtual std::string name() const = 0;
 };
 

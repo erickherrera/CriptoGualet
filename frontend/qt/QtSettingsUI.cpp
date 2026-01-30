@@ -35,6 +35,9 @@
 #include <QUrl>
 #include <QVariant>
 #include <QVBoxLayout>
+#include <QtConcurrent>
+#include <QFutureWatcher>
+#include "../../backend/blockchain/include/BitcoinProvider.h"
 #include <map>
 #include <optional>
 #include <vector>
@@ -547,19 +550,61 @@ void QtSettingsUI::setupUI() {
       connect(cancelBtn, &QPushButton::clicked, dialog, &QDialog::reject);
       
       connect(testBtn, &QPushButton::clicked, [=]() {
-          if (providerSelector->currentData().toString() != "rpc") {
-              QMessageBox::information(dialog, "Info", "Select 'Bitcoin Core RPC' to test connection.");
-              return;
+          // Disable UI during test
+          testBtn->setEnabled(false);
+          testBtn->setText("Testing...");
+          
+          QString typeStr = providerSelector->currentData().toString();
+          BitcoinProviders::ProviderConfig config;
+          
+          // Set network to match application default (or make configurable later)
+          config.network = "btc/test3";
+
+          if (typeStr == "rpc") {
+              config.type = BitcoinProviders::ProviderType::BitcoinRpc;
+              config.rpcUrl = urlEdit->text().trimmed().toStdString();
+              config.rpcUsername = userEdit->text().trimmed().toStdString();
+              config.rpcPassword = passEdit->text().toStdString();
+              config.allowInsecureHttp = insecureCheck->isChecked();
+              config.enableFallback = fallbackCheck->isChecked();
+              
+              if (config.rpcUrl.empty()) {
+                   QMessageBox::warning(dialog, "Missing URL", "Please enter RPC URL.");
+                   testBtn->setEnabled(true);
+                   testBtn->setText("Test Connection");
+                   return;
+              }
+          } else {
+              config.type = BitcoinProviders::ProviderType::BlockCypher;
+              // BlockCypher token could be retrieved from settings if we had a field for it
+              // For now, it uses the default (empty/free tier)
           }
-          // Simple test reuse (adapted from onTestRpcConnection logic)
-          // Ideally invoke a helper, but for now inline simple check
-          if (urlEdit->text().isEmpty()) {
-              QMessageBox::warning(dialog, "Missing URL", "Please enter RPC URL.");
-              return;
-          }
-          // ... (simplified test logic or just message for prototype)
-          QMessageBox::information(dialog, "Test", "To test connection, please Save first then use the Test feature (not fully migrated to dialog yet)."); 
-          // Note: Implementing full async test inside lambda is complex without creating a new QObject slot context.
+          
+          // Run test in background to avoid freezing UI
+          QFutureWatcher<std::pair<bool, std::string>>* watcher = new QFutureWatcher<std::pair<bool, std::string>>(dialog);
+          
+          QFuture<std::pair<bool, std::string>> future = QtConcurrent::run([config]() {
+              auto provider = BitcoinProviders::CreateProvider(config);
+              if (!provider) {
+                  return std::make_pair(false, std::string("Failed to create provider configuration. Check settings (e.g. insecure HTTP)."));
+              }
+              return provider->testConnection();
+          });
+          
+          connect(watcher, &QFutureWatcher<std::pair<bool, std::string>>::finished, [=]() {
+              auto result = watcher->result();
+              testBtn->setEnabled(true);
+              testBtn->setText("Test Connection");
+              
+              if (result.first) {
+                  QMessageBox::information(dialog, "Success", QString::fromStdString(result.second));
+              } else {
+                  QMessageBox::warning(dialog, "Connection Failed", QString::fromStdString(result.second));
+              }
+              watcher->deleteLater();
+          });
+          
+          watcher->setFuture(future);
       });
 
       connect(saveBtn, &QPushButton::clicked, [=]() {
