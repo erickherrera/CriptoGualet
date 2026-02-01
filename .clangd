@@ -1,11 +1,11 @@
 CompileFlags:
   # Use compile_commands.json as primary source (already in root)
   CompilationDatabase: .
-  
+
   Add:
     # Enhanced C++ standard
     - -std=c++20
-    
+
     # Enhanced security warnings
     - -Wall
     - -Wextra
@@ -26,22 +26,22 @@ CompileFlags:
     - -Wextra-semi
     - -Wcast-qual
     - -Wdouble-promotion
-    
+
     # Compiler hardening flags (analysis-time)
     - -fstack-protector-strong
     - -ftrivial-auto-var-init=pattern
     - -fno-omit-frame-pointer
-    
+
     # ClangCL-specific paths and compatibility
     - -IC:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/Llvm/x64/include
     - -fms-compatibility-version=19
-    
+
     # Windows-specific
     - -DWIN32
     - -D_WINDOWS
     - -DWIN64
     - -D_WIN64
-    
+
     # Qt paths (MSVC builds for ClangCL compatibility)
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtCore
@@ -49,7 +49,7 @@ CompileFlags:
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtGui
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtSvg
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtNetwork
-    
+
     # vcpkg include path
     - -Ivcpkg_installed/x64-windows/include
 
@@ -73,15 +73,13 @@ Diagnostics:
       - readability-*
       - security-*
     CheckOptions:
-      - key: readability-identifier-naming.ClassCase
-        value: CamelCase
-      - key: performance-move-const-arg.CheckTriviallyCopyableMove
-        value: false
+      readability-identifier-naming.ClassCase: CamelCase
+      performance-move-const-arg.CheckTriviallyCopyableMove: false
 
 Index:
   # Background indexing for better performance
   Background: Build
-  
+
   # Index standard library
   StandardLibrary: Yes
 
@@ -94,4 +92,3 @@ InlayHints:
 Completion:
   # All scopes completion
   AllScopes: Yes
-

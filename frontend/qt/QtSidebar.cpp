@@ -9,6 +9,7 @@
 #include <QPixmap>
 #include <QSpacerItem>
 #include <QSvgRenderer>
+#include <QStyle>
 
 QtSidebar::QtSidebar(QtThemeManager *themeManager, QWidget *parent)
     : QWidget(parent), m_themeManager(themeManager), m_isExpanded(false),
@@ -46,6 +47,8 @@ void QtSidebar::setupUI() {
   m_menuButton->setToolTip("Toggle Menu");
   m_menuButton->setFixedHeight(50); // Only fix height, allow width to expand
   m_navLayout->addWidget(m_menuButton);
+
+  connect(m_menuButton, &QPushButton::clicked, this, &QtSidebar::toggleSidebar);
 
   // Add shadows to buttons for depth
   auto addShadow = [](QWidget *widget) {

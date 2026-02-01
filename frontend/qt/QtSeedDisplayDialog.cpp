@@ -40,14 +40,10 @@ QtSeedDisplayDialog::QtSeedDisplayDialog(
   resize(dialogWidth, dialogHeight);
 
   // Center dialog on screen
-  setGeometry(
-      QStyle::alignedRect(
-          Qt::LeftToRight,
-          Qt::AlignCenter,
-          size(),
-          screenGeometry
-      )
-  );
+  const QSize dialogSize = size();
+  const int centeredX = screenGeometry.x() + (screenGeometry.width() - dialogSize.width()) / 2;
+  const int centeredY = screenGeometry.y() + (screenGeometry.height() - dialogSize.height()) / 2;
+  setGeometry(centeredX, centeredY, dialogSize.width(), dialogSize.height());
 
   // Apply theme styling to the dialog
   setObjectName("SeedDisplayDialog");
@@ -58,7 +54,6 @@ QtSeedDisplayDialog::QtSeedDisplayDialog(
                     .arg(theme.textColor().name()));
 
   setupUI();
-  setupSeedDisplay();
   generateQRCode(); // Generate QR code immediately
 }
 
@@ -161,22 +156,6 @@ void QtSeedDisplayDialog::setupUI() {
 
   createWordGrid();
   wordLayout->addLayout(m_wordGrid);
-
-  // Full text version for easy copying
-  m_seedTextEdit = new QTextEdit();
-  m_seedTextEdit->setReadOnly(true);
-  m_seedTextEdit->setMaximumHeight(50); // More compact
-  m_seedTextEdit->setMinimumHeight(45);
-  QFont monoFont = theme.monoFont();
-  monoFont.setPointSize(std::max(8, monoFont.pointSize() - 1));
-  m_seedTextEdit->setFont(monoFont);
-  m_seedTextEdit->setStyleSheet(
-      QString("background-color: %1; color: %2; border: 1px solid %3; padding: "
-              "4px; border-radius: 4px; font-size: 9px;")
-          .arg(theme.surfaceColor().name())
-          .arg(theme.textColor().name())
-          .arg(theme.defaultBorderColor().name()));
-  wordLayout->addWidget(m_seedTextEdit);
 
   // Copy button for easy clipboard access
   m_copyButton = new QPushButton("Copy All Words");
@@ -305,18 +284,6 @@ void QtSeedDisplayDialog::createWordGrid() {
 
     m_wordGrid->addWidget(wordLabel, row, col);
   }
-}
-
-void QtSeedDisplayDialog::setupSeedDisplay() {
-  // Create single-line copy-paste friendly format
-  std::ostringstream oss;
-  for (size_t i = 0; i < m_seedWords.size(); ++i) {
-    if (i > 0)
-      oss << " ";
-    oss << m_seedWords[i];
-  }
-
-  m_seedTextEdit->setPlainText(QString::fromStdString(oss.str()));
 }
 
 void QtSeedDisplayDialog::onShowQRCode() {

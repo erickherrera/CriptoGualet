@@ -11,7 +11,6 @@
 #include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QTextEdit>
 #include <QVBoxLayout>
 #include <string>
 #include <vector>
@@ -33,7 +32,6 @@ private slots:
 
 private:
   void setupUI();
-  void setupSeedDisplay();
   void setupQRDisplay();
   void generateQRCode();
   void createWordGrid();
@@ -51,7 +49,6 @@ private:
   QScrollArea *m_scrollArea = nullptr;
   QWidget *m_scrollContent = nullptr;
   QVBoxLayout *m_scrollLayout = nullptr;
-  QTextEdit *m_seedTextEdit = nullptr;
   QGridLayout *m_wordGrid = nullptr;
   QGroupBox *m_wordGroup = nullptr;
   QLabel *m_qrLabel = nullptr;
