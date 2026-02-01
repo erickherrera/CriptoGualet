@@ -1135,6 +1135,10 @@ static std::string EncodeBase58(const std::vector<uint8_t>& data) {
       b58[j] = carry % 58;
       carry /= 58;
     }
+    while (carry > 0) {
+      b58.push_back(carry % 58);
+      carry /= 58;
+    }
   }
 
   // Find the last non-zero element (actual end of data)
@@ -1380,14 +1384,8 @@ bool BIP32_DerivePath(const BIP32ExtendedKey &master, const std::string &path,
   return true;
 }
 
-bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &address, bool testnet) {
-  // Bitcoin address generation:
-  // 1. Start with public key (33 bytes compressed or 65 bytes uncompressed)
-  // 2. SHA256 hash
-  // 3. RIPEMD-160 hash
-  // 4. Add version byte (0x00 for mainnet P2PKH, 0x6F for testnet P2PKH)
-  // 5. Base58Check encode
-
+// Internal helper for address generation with custom version byte
+static bool BIP32_GetAddressWithVersion(const BIP32ExtendedKey &extKey, std::string &address, uint8_t version) {
   std::vector<uint8_t> pubkey;
 
   if (extKey.isPrivate) {
@@ -1410,7 +1408,6 @@ bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &addres
     pubkey = extKey.key;
   }
 
-  // SHA256 hash of public key
   std::array<uint8_t, 32> sha_hash;
   if (!SHA256(pubkey.data(), pubkey.size(), sha_hash)) {
     return false;
@@ -1422,16 +1419,21 @@ bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &addres
     return false;
   }
 
-  // Add version byte (0x00 for mainnet P2PKH, 0x6F for testnet P2PKH)
+  // Add version byte
   std::vector<uint8_t> versioned_hash;
   versioned_hash.reserve(21);
-  versioned_hash.push_back(testnet ? 0x6F : 0x00);
+  versioned_hash.push_back(version);
   versioned_hash.insert(versioned_hash.end(), pubkey_hash.begin(), pubkey_hash.end());
 
   // Base58Check encode
   address = EncodeBase58Check(versioned_hash);
 
   return !address.empty();
+}
+
+bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &address, bool testnet) {
+  // Bitcoin version bytes: 0x00 for mainnet P2PKH, 0x6F for testnet P2PKH
+  return BIP32_GetAddressWithVersion(extKey, address, testnet ? 0x6F : 0x00);
 }
 
 bool BIP32_GetWIF(const BIP32ExtendedKey &extKey, std::string &wif, bool testnet) {
@@ -2295,14 +2297,23 @@ bool DeriveChainAddress(const BIP32ExtendedKey &master, ChainType chain,
     case ChainType::BITCOIN_TESTNET:
       return BIP44_GetAddress(master, account, change, address_index, address, true);
 
-    case ChainType::LITECOIN:
-      // Litecoin uses same address format as Bitcoin but with different prefix
-      // For now, use Bitcoin address generation (which will work for testing)
-      // TODO: Implement proper Litecoin address generation with L/M prefix
-      return BIP44_GetAddress(master, account, change, address_index, address, false);
+    case ChainType::LITECOIN: {
+      BIP32ExtendedKey address_key;
+      if (!BIP44_DeriveAddressKey(master, account, change, address_index, address_key, false)) {
+        return false;
+      }
+      // Litecoin mainnet P2PKH version byte is 0x30 (starts with 'L')
+      return BIP32_GetAddressWithVersion(address_key, address, 0x30);
+    }
 
-    case ChainType::LITECOIN_TESTNET:
-      return BIP44_GetAddress(master, account, change, address_index, address, true);
+    case ChainType::LITECOIN_TESTNET: {
+      BIP32ExtendedKey address_key;
+      if (!BIP44_DeriveAddressKey(master, account, change, address_index, address_key, true)) {
+        return false;
+      }
+      // Litecoin testnet P2PKH version byte is 0x6F (starts with 'm' or 'n')
+      return BIP32_GetAddressWithVersion(address_key, address, 0x6F);
+    }
 
     case ChainType::ETHEREUM:
     case ChainType::ETHEREUM_TESTNET:
@@ -2372,10 +2383,24 @@ bool IsValidAddressFormat(const std::string &address, ChainType chain) {
     // Validate EIP-55 checksum if address has mixed case
     return EIP55_ValidateChecksumAddress(address);
   } else if (IsBitcoinChain(chain)) {
-    // Bitcoin address validation: Base58 format
-    // Basic validation: check length and character set
-    if (address.empty() || address.size() < 26 || address.size() > 35) {
+    // Bitcoin-like address validation
+    if (address.empty()) {
       return false;
+    }
+
+    // Check for Bech32 (SegWit) addresses - they are longer (up to 90 chars, typically 42-62)
+    bool isSegWit = (address.substr(0, 3) == "bc1" || address.substr(0, 4) == "ltc1" || 
+                     address.substr(0, 3) == "tb1" || address.substr(0, 4) == "tltc");
+    
+    if (isSegWit) {
+      if (address.size() < 42 || address.size() > 90) {
+        return false;
+      }
+    } else {
+      // Standard Base58Check addresses are typically 26-35 characters
+      if (address.size() < 26 || address.size() > 35) {
+        return false;
+      }
     }
 
     // Bitcoin addresses typically start with 1, 3, or bc1 (mainnet) or m, n, 2, tb1 (testnet)
@@ -2388,13 +2413,24 @@ bool IsValidAddressFormat(const std::string &address, ChainType chain) {
       if (first != 'm' && first != 'n' && first != '2' && address.substr(0, 3) != "tb1") {
         return false;
       }
+    } else if (chain == ChainType::LITECOIN) {
+      if (first != 'L' && first != 'M' && first != '3' && address.substr(0, 4) != "ltc1") {
+        return false;
+      }
+    } else if (chain == ChainType::LITECOIN_TESTNET) {
+      if (first != 'm' && first != 'n' && first != '2' && first != 'Q' && address.substr(0, 4) != "tltc") {
+        return false;
+      }
     }
 
     // Check for valid Base58 characters (no 0, O, I, l)
-    const std::string base58_chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    for (char c : address) {
-      if (base58_chars.find(c) == std::string::npos) {
-        return false;
+    // Only apply to non-SegWit addresses (SegWit uses Bech32)
+    if (!isSegWit) {
+      const std::string base58_chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+      for (char c : address) {
+        if (base58_chars.find(c) == std::string::npos) {
+          return false;
+        }
       }
     }
 

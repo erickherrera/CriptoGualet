@@ -21,6 +21,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "QtTokenImportDialog.cpp"
     "QtTokenCard.cpp"
     "QtTokenListWidget.cpp"
+    "LoadingOverlay.cpp"
     "include/QtLoginUI.h"
     "include/QtWalletUI.h"
     "include/QtSettingsUI.h"
@@ -36,6 +37,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "include/QtTokenImportDialog.h"
     "include/QtTokenCard.h"
     "include/QtTokenListWidget.h"
+    "include/LoadingOverlay.h"
     "include/CriptoGualetQt.h"
     "../../resources/resources.qrc"
   )

@@ -15,6 +15,12 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPalette>
+#include <QPainter>
+#include <QPen>
+#include <QColor>
+#include <QShowEvent>
+#include <QHideEvent>
+#include <QPaintEvent>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QSpacerItem>
@@ -41,7 +47,7 @@
 #include <optional>
 
 QtLoginUI::QtLoginUI(QWidget* parent)
-    : QWidget(parent), m_themeManager(&QtThemeManager::instance()) {
+    : QWidget(parent), m_themeManager(&QtThemeManager::instance()), m_loadingOverlay(nullptr) {
     // Initialize message timer
     m_messageTimer = new QTimer(this);
     m_messageTimer->setSingleShot(true);
@@ -259,13 +265,8 @@ void QtLoginUI::createLoginCard() {
 
     m_cardLayout->addSpacing(8);  // Small space between tabs and message
 
-    // Loading indicator
-    m_loadingIndicator = new QProgressBar(m_loginCard);
-    m_loadingIndicator->setRange(0, 0); // Indeterminate
-    m_loadingIndicator->setTextVisible(false);
-    m_loadingIndicator->setFixedHeight(4); // Thin line
-    m_loadingIndicator->hide();
-    m_cardLayout->addWidget(m_loadingIndicator);
+    // Loading indicator overlay (parented to card to cover it)
+    m_loadingOverlay = new LoadingOverlay(m_loginCard);
 
     // Message label (shared between tabs)
     m_messageLabel = new QLabel(m_loginCard);
@@ -322,7 +323,7 @@ void QtLoginUI::createLoginCard() {
     connect(m_confirmPasswordEdit, &QLineEdit::textChanged, this, &QtLoginUI::validateRegisterForm);
     connect(m_usernameEdit, &QLineEdit::returnPressed, this, &QtLoginUI::onRegisterClicked);
     connect(m_passwordEdit, &QLineEdit::returnPressed, this, &QtLoginUI::onRegisterClicked);
-    connect(m_passwordToggleButton, &QPushButton::clicked, this,
+    connect(m_passwordToggleButton, &QPushButton::clicked, this, 
             &QtLoginUI::onPasswordVisibilityToggled);
 
     // Tab changed signal - clear messages when switching tabs
@@ -380,26 +381,7 @@ void QtLoginUI::onRegisterClicked() {
     setAuthInProgress(true);
     QApplication::processEvents();
 
-    std::vector<std::string> mnemonic;
-    Auth::AuthResponse response = Auth::AuthManager::getInstance().RegisterUser(username.toStdString(), password.toStdString(), mnemonic);
-
-    bool seedConfirmed = true;
-    if (response.success() && !mnemonic.empty()) {
-        QtSeedDisplayDialog seedDialog(mnemonic, this);
-        const bool accepted = seedDialog.exec() == QDialog::Accepted;
-        seedConfirmed = accepted && seedDialog.userConfirmedBackup();
-    }
-
-    if (response.success() && !seedConfirmed) {
-        setAuthInProgress(false);
-        return;
-    }
-
-    if (response.success()) {
-        showMessage("Registration successful. Please sign in.", false);
-    }
-
-    onRegisterResult(response.success(), QString::fromStdString(response.message));
+    emit registerRequested(username, password);
 }
 
 void QtLoginUI::onRegisterModeToggled(bool registerMode) {
@@ -416,7 +398,7 @@ void QtLoginUI::onRegisterModeToggled(bool registerMode) {
     // Reconnect login button based on mode
     disconnect(m_loginButton, &QPushButton::clicked, nullptr, nullptr);
     if (registerMode) {
-        connect(m_loginButton, &QPushButton::clicked, this,
+        connect(m_loginButton, &QPushButton::clicked, this, 
                 [this]() { m_registerButton->setChecked(false); });
     } else {
         connect(m_loginButton, &QPushButton::clicked, this, &QtLoginUI::onLoginClicked);
@@ -438,7 +420,7 @@ void QtLoginUI::onLoginResult(bool success, const QString& message) {
             QDialog totpDialog(this);
             totpDialog.setWindowTitle("Two-Factor Authentication");
             QVBoxLayout* layout = new QVBoxLayout(&totpDialog);
-            QLabel* label =
+            QLabel* label = 
                 new QLabel("Enter your 6-digit TOTP code from your authenticator app:", &totpDialog);
             QLineEdit* codeEdit = new QLineEdit(&totpDialog);
             codeEdit->setPlaceholderText("000000");
@@ -662,17 +644,17 @@ void QtLoginUI::onRevealSeedClicked() {
         });
     }
 
-    QObject::connect(copySeed, &QPushButton::clicked, this,
+    QObject::connect(copySeed, &QPushButton::clicked, this, 
                      [&, seedBox]() { copyWithAutoClear(seedBox->toPlainText()); });
     if (copyMnemonic) {
-        QObject::connect(copyMnemonic, &QPushButton::clicked, this,
+        QObject::connect(copyMnemonic, &QPushButton::clicked, this, 
                          [&, mnemoBox]() { copyWithAutoClear(mnemoBox->toPlainText()); });
     }
     QObject::connect(box2, &QDialogButtonBox::rejected, &reveal, &QDialog::reject);
     QObject::connect(box2, &QDialogButtonBox::accepted, &reveal, &QDialog::accept);
 
     // Clear clipboard on close if it still contains our sensitive text
-    QObject::connect(&reveal, &QDialog::finished, this,
+    QObject::connect(&reveal, &QDialog::finished, this, 
                      [&, seedBox, mnemoBox, seedText, mnemonicText]() {
         QClipboard* cb = QGuiApplication::clipboard();
         const QString t = cb->text();
@@ -787,11 +769,6 @@ void QtLoginUI::updateStyles() {
     QString accentHex = m_themeManager->accentColor().name();
 
     QColor win = m_themeManager->backgroundColor();
-    QString winHex = win.name();
-
-    QColor baseText = m_themeManager->textColor();
-    QColor base = m_themeManager->surfaceColor();
-    QString baseHex = base.name();
 
     QColor subtitleColor = m_themeManager->subtitleColor();
     QString subtitleHex = subtitleColor.name();
@@ -1043,22 +1020,6 @@ void QtLoginUI::updateStyles() {
     m_loginPasswordToggleButton->setStyleSheet(toggleButtonStyle);
     m_passwordToggleButton->setStyleSheet(toggleButtonStyle);
 
-    // ProgressBar styling
-    QString progressStyle = QString(R"(
-        QProgressBar {
-            border: none;
-            background-color: transparent;
-            min-height: 4px;
-            max-height: 4px;
-            border-radius: 2px;
-        }
-        QProgressBar::chunk {
-            background-color: %1;
-            border-radius: 2px;
-        }
-    )").arg(accentHex);
-    m_loadingIndicator->setStyleSheet(progressStyle);
-
     // Position the toggle buttons inside their respective password fields
     QTimer::singleShot(0, this, [this]() {
         // Position login password toggle button
@@ -1146,8 +1107,9 @@ void QtLoginUI::clearLoginFields() {
 void QtLoginUI::setAuthInProgress(bool inProgress) {
     const bool enabled = !inProgress;
 
-    if (m_loadingIndicator) {
-        m_loadingIndicator->setVisible(inProgress);
+    if (m_loadingOverlay) {
+        inProgress ? m_loadingOverlay->show() : m_loadingOverlay->hide();
+        if (inProgress) m_loadingOverlay->raise(); // Ensure it's on top
     }
 
     if (m_loginButton) {

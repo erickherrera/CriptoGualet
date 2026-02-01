@@ -327,13 +327,14 @@ private:
     Result<bool> validateWalletType(const std::string& walletType);
 
     /**
-     * @brief Generate a Bitcoin address (simplified implementation)
+     * @brief Generate an address string for a specific wallet type (simplified implementation)
+     * @param walletType Wallet type (bitcoin, litecoin, ethereum, etc.)
      * @param walletId Wallet ID
      * @param addressIndex Address index
      * @param isChange Whether this is a change address
      * @return Generated address string
      */
-    std::string generateBitcoinAddress(int walletId, int addressIndex, bool isChange);
+    std::string generateAddressString(const std::string& walletType, int walletId, int addressIndex, bool isChange);
 
     /**
      * @brief Generate an Ethereum address (simplified implementation)

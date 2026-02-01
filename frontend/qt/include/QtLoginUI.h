@@ -22,6 +22,7 @@ class QCheckBox;
 class QPlainTextEdit;
 class QGridLayout;
 class QMessageBox;
+#include "LoadingOverlay.h"
 
 class QtLoginUI : public QWidget {
     Q_OBJECT
@@ -90,7 +91,7 @@ class QtLoginUI : public QWidget {
     QPushButton* m_registerButton;
 
     // Loading indicator
-    QProgressBar* m_loadingIndicator;
+    LoadingOverlay* m_loadingOverlay;
 
     // Shared buttons
     QPushButton* m_revealSeedButton;

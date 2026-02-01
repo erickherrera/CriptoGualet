@@ -28,6 +28,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <thread>
 
 namespace {
 constexpr const char *kProviderTypeKey = "btc.provider";
@@ -124,6 +125,9 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   // Initialize Ethereum wallet (PHASE 1 FIX: Multi-chain support)
   m_ethereumWallet = std::make_unique<WalletAPI::EthereumWallet>("mainnet");
 
+  // Initialize Litecoin wallet
+  m_litecoinWallet = std::make_unique<WalletAPI::LitecoinWallet>("ltc/main");
+
   setupUI();
   setupMenuBar();
   setupStatusBar();
@@ -196,6 +200,7 @@ void CriptoGualetQt::setupUI() {
   // Pass wallet instances and repositories to wallet UI
   m_walletUI->setWallet(m_wallet.get());
   m_walletUI->setEthereumWallet(m_ethereumWallet.get()); // PHASE 1 FIX
+  m_walletUI->setLitecoinWallet(m_litecoinWallet.get());
   if (m_userRepository && m_walletRepository) {
     m_walletUI->setRepositories(m_userRepository.get(),
                                 m_walletRepository.get());
@@ -237,62 +242,85 @@ void CriptoGualetQt::setupUI() {
           return;
         }
 
-        // Normal user authentication
-        Auth::AuthResponse response = Auth::LoginUser(stdUsername, stdPassword);
-        QString message = QString::fromStdString(response.message);
+        // Run authentication in a background thread to keep UI responsive
+        std::thread([this, stdUsername, stdPassword, username]() {
+          // Normal user authentication
+          Auth::AuthResponse response =
+              Auth::LoginUser(stdUsername, stdPassword);
+          QString message = QString::fromStdString(response.message);
 
-        if (response.success()) {
-          g_currentUser = stdUsername;
+          // Report back to UI thread
+          QMetaObject::invokeMethod(
+              this,
+              [this, response, message, stdUsername, stdPassword, username]() {
+                if (response.success()) {
+                  g_currentUser = stdUsername;
 
-          // Get user ID from repository
-          if (m_userRepository) {
-            auto userResult = m_userRepository->getUserByUsername(stdUsername);
-            if (userResult.success) {
-              int userId = userResult.data.id;
-              m_walletUI->setCurrentUserId(userId);
-              if (m_settingsUI) {
-                m_settingsUI->setCurrentUserId(userId);
-              }
-              applyBitcoinProviderSettings(userId);
+                  // Get user ID from repository
+                  if (m_userRepository) {
+                    auto userResult =
+                        m_userRepository->getUserByUsername(stdUsername);
+                    if (userResult.success) {
+                      int userId = userResult.data.id;
+                      m_walletUI->setCurrentUserId(userId);
+                      if (m_settingsUI) {
+                        m_settingsUI->setCurrentUserId(userId);
+                      }
+                      applyBitcoinProviderSettings(userId);
 
-              // PHASE 1 FIX: Derive Ethereum address from seed
-              if (m_walletRepository) {
-                auto seedResult = m_walletRepository->retrieveDecryptedSeed(
-                    userId, stdPassword);
-                if (seedResult.success && !seedResult.data.empty()) {
-                  // Convert mnemonic to seed
-                  std::array<uint8_t, 64> seed{};
-                  if (Crypto::BIP39_SeedFromMnemonic(seedResult.data, "",
-                                                     seed)) {
-                    // Derive master key
-                    Crypto::BIP32ExtendedKey masterKey;
-                    if (Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
-                      // Derive Ethereum address
-                      std::string ethAddress;
-                      if (Crypto::BIP44_GetEthereumAddress(masterKey, 0, false,
-                                                           0, ethAddress)) {
-                        m_walletUI->setEthereumAddress(
-                            QString::fromStdString(ethAddress));
+                      // PHASE 1 FIX: Derive Ethereum address from seed
+                      if (m_walletRepository) {
+                        auto seedResult =
+                            m_walletRepository->retrieveDecryptedSeed(
+                                userId, stdPassword);
+                        if (seedResult.success && !seedResult.data.empty()) {
+                          // Convert mnemonic to seed
+                          std::array<uint8_t, 64> seed{};
+                          if (Crypto::BIP39_SeedFromMnemonic(
+                                  seedResult.data, "", seed)) {
+                            // Derive master key
+                            Crypto::BIP32ExtendedKey masterKey;
+                            if (Crypto::BIP32_MasterKeyFromSeed(seed,
+                                                                masterKey)) {
+                              // Derive Ethereum address
+                              std::string ethAddress;
+                              if (Crypto::BIP44_GetEthereumAddress(
+                                      masterKey, 0, false, 0, ethAddress)) {
+                                m_walletUI->setEthereumAddress(
+                                    QString::fromStdString(ethAddress));
+                              }
+
+                              // Derive Litecoin address (BIP44 coin type 2)
+                              // Mainnet: m/44'/2'/0'/0/0
+                              std::string ltcAddress;
+                              if (Crypto::DeriveChainAddress(
+                                      masterKey, Crypto::ChainType::LITECOIN, 0,
+                                      false, 0, ltcAddress)) {
+                                m_walletUI->setLitecoinAddress(
+                                    QString::fromStdString(ltcAddress));
+                              }
+                            }
+                            seed.fill(uint8_t(0)); // Securely wipe
+                          }
+                        }
                       }
                     }
-                    seed.fill(uint8_t(0)); // Securely wipe
                   }
+
+                  m_walletUI->setUserInfo(username,
+                                          QString::fromStdString(
+                                              g_users[stdUsername].walletAddress));
+                  showWalletScreen();
+                  statusBar()->showMessage("Login successful", 3000);
+                } else {
+                  statusBar()->showMessage("Login failed", 3000);
                 }
-              }
-            }
-          }
 
-          m_walletUI->setUserInfo(
-              username,
-              QString::fromStdString(g_users[stdUsername].walletAddress));
-          showWalletScreen();
-          statusBar()->showMessage("Login successful", 3000);
-        } else {
-          statusBar()->showMessage("Login failed", 3000);
-        }
-
-        // Send result back to login UI for visual feedback
-        m_loginUI->onLoginResult(response.success(), message);
+                // Send result back to login UI for visual feedback
+                m_loginUI->onLoginResult(response.success(), message);
+              },
+              Qt::QueuedConnection);
+        }).detach();
       });
 
   connect(
@@ -305,60 +333,74 @@ void CriptoGualetQt::setupUI() {
         qDebug() << "Registration attempt - Username:" << username
                  << "Password length:" << password.length();
 
-        std::vector<std::string> mnemonic;
-        Auth::AuthResponse response =
-            Auth::RegisterUserWithMnemonic(stdUsername, stdPassword, mnemonic);
-        QString message = QString::fromStdString(response.message);
+        // Run registration in background thread
+        std::thread([this, stdUsername, stdPassword, username]() {
+          std::vector<std::string> mnemonic;
+          Auth::AuthResponse response = Auth::RegisterUserWithMnemonic(
+              stdUsername, stdPassword, mnemonic);
+          QString message = QString::fromStdString(response.message);
 
-        // Debug output
-        qDebug() << "Registration response - Success:" << response.success()
-                 << "Message:" << message;
-        qDebug() << "Auth result code:" << static_cast<int>(response.result);
+          // Report back to UI thread
+          QMetaObject::invokeMethod(
+              this,
+              [this, response, message, mnemonic, username]() {
+                // Debug output
+                qDebug()
+                    << "Registration response - Success:" << response.success()
+                    << "Message:" << message;
+                qDebug() << "Auth result code:"
+                         << static_cast<int>(response.result);
 
-        if (response.success() && !mnemonic.empty()) {
-          // Show secure seed phrase display dialog
-          QtSeedDisplayDialog seedDialog(mnemonic, this);
-          int result = seedDialog.exec();
+                if (response.success() && !mnemonic.empty()) {
+                  // Show secure seed phrase display dialog
+                  QtSeedDisplayDialog seedDialog(mnemonic, this);
+                  int result = seedDialog.exec();
 
-          if (result == QDialog::Accepted && seedDialog.userConfirmedBackup()) {
-            statusBar()->showMessage("Registration and backup completed", 3000);
+                  if (result == QDialog::Accepted &&
+                      seedDialog.userConfirmedBackup()) {
+                    statusBar()->showMessage(
+                        "Registration and backup completed", 3000);
 
-            // Registration complete - show success message
-            QtSuccessDialog successDialog(username, this);
-            successDialog.exec();
+                    // Registration complete - show success message
+                    QtSuccessDialog successDialog(username, this);
+                    successDialog.exec();
 
-            // Clear registration fields and switch to sign in
-            m_loginUI->onRegisterResult(
-                true, "Account created and seed phrase backed up!");
-          } else {
-            // User cancelled or didn't confirm backup
-            statusBar()->showMessage("Registration completed - backup required",
-                                     5000);
-            QMessageBox::warning(
-                this, "Backup Required",
-                "Your account has been created successfully, but you must "
-                "backup your seed phrase!\n\n"
-                "⚠️ WARNING: Without a backup of your seed phrase, you may "
-                "lose access to your wallet permanently.\n\n"
-                "Please use the 'Reveal Seed' button after signing in to "
-                "backup your seed phrase.");
-            m_loginUI->onRegisterResult(true,
-                                        "Account created - please backup your "
-                                        "seed phrase using 'Reveal Seed'");
-          }
-        } else if (response.success()) {
-          statusBar()->showMessage("Registration successful", 3000);
-          QMessageBox::information(
-              this, "Registration Successful",
-              QString("Account created for %1!\n\nNote: Seed phrase generation "
-                      "had issues. Please use 'Reveal Seed' after signing in.")
-                  .arg(username));
-          m_loginUI->onRegisterResult(response.success(), message);
-        } else {
-          statusBar()->showMessage("Registration failed", 3000);
-          qDebug() << "Registration failed with message:" << message;
-          m_loginUI->onRegisterResult(response.success(), message);
-        }
+                    // Clear registration fields and switch to sign in
+                    m_loginUI->onRegisterResult(
+                        true, "Account created and seed phrase backed up!");
+                  } else {
+                    // User cancelled or didn't confirm backup
+                    statusBar()->showMessage(
+                        "Registration completed - backup required", 5000);
+                    QMessageBox::warning(
+                        this, "Backup Required",
+                        "Your account has been created successfully, but you "
+                        "must backup your seed phrase!\n\n"
+                        "⚠️ WARNING: Without a backup of your seed phrase, you "
+                        "may lose access to your wallet permanently.\n\n"
+                        "Please use the 'Reveal Seed' button after signing in "
+                        "to backup your seed phrase.");
+                    m_loginUI->onRegisterResult(
+                        true, "Account created - please backup your "
+                              "seed phrase using 'Reveal Seed'");
+                  }
+                } else if (response.success()) {
+                  statusBar()->showMessage("Registration successful", 3000);
+                  QMessageBox::information(
+                      this, "Registration Successful",
+                      QString("Account created for %1!\n\nNote: Seed phrase "
+                              "generation had issues. Please use 'Reveal Seed' "
+                              "after signing in.")
+                          .arg(username));
+                  m_loginUI->onRegisterResult(response.success(), message);
+                } else {
+                  statusBar()->showMessage("Registration failed", 3000);
+                  qDebug() << "Registration failed with message:" << message;
+                  m_loginUI->onRegisterResult(response.success(), message);
+                }
+              },
+              Qt::QueuedConnection);
+        }).detach();
       });
 
   connect(m_loginUI, &QtLoginUI::totpVerificationRequired,
@@ -405,6 +447,15 @@ void CriptoGualetQt::setupUI() {
                                   masterKey, 0, false, 0, ethAddress)) {
                             m_walletUI->setEthereumAddress(
                                 QString::fromStdString(ethAddress));
+                          }
+
+                          // Derive Litecoin address
+                          std::string ltcAddress;
+                          if (Crypto::DeriveChainAddress(
+                                  masterKey, Crypto::ChainType::LITECOIN, 0,
+                                  false, 0, ltcAddress)) {
+                            m_walletUI->setLitecoinAddress(
+                                QString::fromStdString(ltcAddress));
                           }
                         }
                         seed.fill(uint8_t(0)); // Securely wipe

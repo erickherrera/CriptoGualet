@@ -67,8 +67,11 @@ void QtSeedDisplayDialog::setupUI() {
   mainScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   mainScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   mainScrollArea->setFrameShape(QFrame::NoFrame);
+  // Ensure scroll area is transparent to show dialog background
+  mainScrollArea->setStyleSheet("QScrollArea { background-color: transparent; border: none; }");
 
   QWidget *mainContentWidget = new QWidget();
+  mainContentWidget->setAttribute(Qt::WA_TranslucentBackground); // Transparent to show dialog background
   m_mainLayout = new QVBoxLayout(mainContentWidget);
 
   // Get theme instance for spacing
@@ -88,7 +91,7 @@ void QtSeedDisplayDialog::setupUI() {
   compactTitleFont.setPointSize(11); // Smaller font size for compact height
   titleLabel->setFont(compactTitleFont);
   titleLabel->setStyleSheet(QString("color: %1; padding: 4px; margin: 0px;")
-                                .arg(theme.errorColor().name()));
+                                .arg(theme.textColor().name()));
   titleLabel->setMaximumHeight(35); // Limit height to make it more compact
   m_mainLayout->addWidget(titleLabel);
 
@@ -122,10 +125,11 @@ void QtSeedDisplayDialog::setupUI() {
   m_scrollArea->setWidgetResizable(true);
   m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  m_scrollArea->setStyleSheet("QScrollArea { border: none; }");
+  m_scrollArea->setStyleSheet("QScrollArea { border: none; background-color: transparent; }");
   m_scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
   m_scrollContent = new QWidget();
+  m_scrollContent->setAttribute(Qt::WA_TranslucentBackground);
   m_scrollLayout = new QVBoxLayout(m_scrollContent);
   m_scrollLayout->setContentsMargins(4, 4, 4, 4);
   m_scrollLayout->setSpacing(8);
@@ -138,8 +142,8 @@ void QtSeedDisplayDialog::setupUI() {
   warningLabel->setStyleSheet(
       QString("background-color: %1; color: %2; padding: 6px; border: 1px "
               "solid %3; border-radius: 4px; font-size: 10px;")
-          .arg(theme.warningColor().lighter(180).name())
-          .arg(theme.warningColor().darker(200).name())
+          .arg(theme.lightWarning().name(QColor::HexArgb))
+          .arg(theme.warningColor().name())
           .arg(theme.warningColor().name()));
   warningLabel->setMaximumHeight(40);
   m_scrollLayout->addWidget(warningLabel);
@@ -165,9 +169,9 @@ void QtSeedDisplayDialog::setupUI() {
   m_seedTextEdit->setStyleSheet(
       QString("background-color: %1; color: %2; border: 1px solid %3; padding: "
               "4px; border-radius: 4px; font-size: 9px;")
-          .arg(theme.surfaceColor().darker(120).name())
+          .arg(theme.surfaceColor().name())
           .arg(theme.textColor().name())
-          .arg(theme.secondaryColor().name()));
+          .arg(theme.defaultBorderColor().name()));
   wordLayout->addWidget(m_seedTextEdit);
 
   // Copy button for easy clipboard access
@@ -282,9 +286,9 @@ void QtSeedDisplayDialog::createWordGrid() {
     wordLabel->setStyleSheet(
         QString("QLabel { background-color: %1; color: %2; border: 1px solid "
                 "%3; border-radius: 4px; padding: 6px; font-weight: bold; font-size: 10px; }")
-            .arg(theme.surfaceColor().darker(120).name())
+            .arg(theme.surfaceColor().name())
             .arg(theme.textColor().name())
-            .arg(theme.secondaryColor().name()));
+            .arg(theme.defaultBorderColor().name()));
     wordLabel->setAlignment(Qt::AlignCenter);
     wordLabel->setMinimumHeight(28);
     wordLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -422,10 +426,11 @@ void QtSeedDisplayDialog::displayQRWarning() {
   warningOverlay->setText("Fallback Pattern\n(Copy text below)");
   warningOverlay->setAlignment(Qt::AlignCenter);
   warningOverlay->setStyleSheet(
-      QString("background-color: rgba(255, 255, 255, 220); "
-              "color: %1; font-weight: bold; font-size: 10px; "
-              "border: 1px solid %2; border-radius: 4px; padding: 4px;")
-          .arg(theme.warningColor().darker(150).name())
+      QString("background-color: %1; "
+              "color: %2; font-weight: bold; font-size: 10px; "
+              "border: 1px solid %3; border-radius: 4px; padding: 4px;")
+          .arg(theme.surfaceColor().name())
+          .arg(theme.warningColor().name())
           .arg(theme.warningColor().name()));
 
   // Position overlay at bottom of QR label
