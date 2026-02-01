@@ -157,7 +157,7 @@ void QtThemeManager::setupCryptoDarkTheme() {
     m_backgroundColor = QColor(9, 9, 11);   // Zinc-950 - true black
     m_surfaceColor = QColor(24, 24, 27);    // Zinc-900 - distinct layer
     m_textColor = QColor(250, 250, 250);    // Zinc-50
-    m_accentColor = QColor(168, 85, 247);   // Purple-500 - vibrant accent
+    m_accentColor = QColor(168, 85, 247);   // Purple-500 (Canonical Dark Theme Purple)
     m_errorColor = QColor(239, 68, 68);     // Red-500 - matches other themes
     m_successColor = QColor(34, 197, 94);   // Green-500 - matches other themes
     m_warningColor = QColor(245, 158, 11);  // Amber-500 - matches other themes
@@ -165,7 +165,7 @@ void QtThemeManager::setupCryptoDarkTheme() {
     // Semantic colors
     m_positiveColor = QColor(34, 197, 94);  // Green-500 (same as success)
     m_negativeColor = QColor(239, 68, 68);  // Red-500 (same as error)
-    m_infoColor = QColor(168, 85, 247);     // Purple-500 (same as accent)
+    m_infoColor = QColor(168, 85, 247);     // Purple-500 (Canonical Dark Theme Purple)
 
     // Tinted backgrounds (15% opacity)
     m_lightPositiveColor = QColor(34, 197, 94, 38);  // Green with 15% alpha
@@ -203,7 +203,7 @@ void QtThemeManager::setupCryptoLightTheme() {
     m_backgroundColor = QColor(255, 255, 255);  // White
     m_surfaceColor = QColor(255, 255, 255);     // White - distinct from background     // White - distinct layer
     m_textColor = QColor(9, 9, 11);             // Zinc-950 - high contrast
-    m_accentColor = QColor(168, 85, 247);       // Purple-500 - matches crypto dark
+    m_accentColor = QColor(168, 85, 247);       // Purple-500 (Canonical Dark Theme Purple)
     m_errorColor = QColor(239, 68, 68);         // Red-500 - matches other themes
     m_successColor = QColor(34, 197, 94);       // Green-500 - matches other themes
     m_warningColor = QColor(245, 158, 11);      // Amber-500 - matches other themes
@@ -211,7 +211,7 @@ void QtThemeManager::setupCryptoLightTheme() {
     // Semantic colors
     m_positiveColor = QColor(34, 197, 94);  // Green-500 (same as success)
     m_negativeColor = QColor(239, 68, 68);  // Red-500 (same as error)
-    m_infoColor = QColor(168, 85, 247);     // Purple-500 (same as accent)
+    m_infoColor = QColor(168, 85, 247);     // Purple-500 (Canonical Dark Theme Purple)
 
     // Tinted backgrounds (15% opacity)
     m_lightPositiveColor = QColor(34, 197, 94, 38);  // Green with 15% alpha

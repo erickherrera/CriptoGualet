@@ -341,10 +341,14 @@ void QtSidebar::applyTheme() {
   QString pressedColor =
       accentColor.darker(110).name(); // Slight darken for pressed state
 
-  // Special color for sign out button (reddish)
+  // Special color for sign out icon (always red for visibility)
   QString signOutColor = m_themeManager->negativeColor().name();
-  QString signOutHoverColor =
-      m_themeManager->negativeColor().lighter(120).name();
+  
+  // Use accent color for button interaction
+  QString accentColorName = m_themeManager->accentColor().name();
+  QString accentHoverColor = m_themeManager->accentColor().lighter(120).name();
+  // Use surface color (grey) for hover state
+  QString surfaceColor = m_themeManager->surfaceColor().name();
 
   QString sidebarStyle = QString(R"(
         QtSidebar {
@@ -379,11 +383,13 @@ void QtSidebar::applyTheme() {
             background-color: %4;
         }
         QPushButton[class~="signout-button"] {
-            color: %6;
+            background-color: %3;
+            color: white;
+            border: none;
         }
         QPushButton[class~="signout-button"]:hover {
-            background-color: %7;
-            color: white;
+            background-color: %1;
+            color: %6;
         }
         QLabel {
             background-color: transparent;
@@ -406,7 +412,7 @@ void QtSidebar::applyTheme() {
                              .arg(pressedColor)
                              .arg(textColor)
                              .arg(signOutColor)
-                             .arg(signOutHoverColor);
+                             .arg(accentHoverColor);
 
   setStyleSheet(sidebarStyle);
 
@@ -499,12 +505,12 @@ void QtSidebar::showHoverLabel(const QString &text, int yPos, bool isSignOut) {
   m_hoverLabel->setGraphicsEffect(shadow);
 
   if (isSignOut) {
-    QString signOutColor = m_themeManager->negativeColor().name();
+    QString accentColor = m_themeManager->accentColor().name();
     m_hoverLabel->setStyleSheet(
         QString("background-color: %1; color: white; padding: 6px 12px; "
                 "border-radius: 6px; border: 1px solid %2;")
-            .arg(signOutColor)
-            .arg(signOutColor));
+            .arg(accentColor)
+            .arg(accentColor));
   } else {
     m_hoverLabel->setStyleSheet(
         QString("background-color: %1; color: %2; padding: 6px 12px; "
