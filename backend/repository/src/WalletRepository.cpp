@@ -279,8 +279,22 @@ Result<Address> WalletRepository::generateAddress(int walletId, bool isChange,
 
     int addressIndex = *indexResult;
 
+    // Get the wallet to determine its type
+    auto walletResult = getWalletById(walletId);
+    std::string walletType = "bitcoin"; // Default
+    if (walletResult) {
+        walletType = walletResult->walletType;
+    }
+
     // Generate the actual address string
-    std::string addressStr = generateBitcoinAddress(walletId, addressIndex, isChange);
+    std::string addressStr;
+    if (walletType == "ethereum") {
+        addressStr = generateEthereumAddress(walletId, addressIndex);
+    } else if (walletType == "litecoin") {
+        addressStr = generateLitecoinAddress(walletId, addressIndex, isChange);
+    } else {
+        addressStr = generateBitcoinAddress(walletId, addressIndex, isChange);
+    }
 
     // Insert address into database
     const std::string sql = R"(
@@ -652,6 +666,31 @@ std::string WalletRepository::generateBitcoinAddress(int walletId, int addressIn
     // Simplified address generation - in production would use proper BIP44 derivation
     std::ostringstream oss;
     oss << "bc1q" << std::hex << walletId << addressIndex << (isChange ? "c" : "r");
+    return oss.str();
+}
+
+std::string WalletRepository::generateEthereumAddress(int walletId, int addressIndex) {
+    // Simplified address generation - returns a valid-looking 0x address
+    // Format: 0x + 40 hex chars
+    std::ostringstream oss;
+    oss << "0x";
+    
+    // Use walletId and index to create a deterministic but unique mock address
+    // We need 40 chars. 
+    // Fill with a pattern based on walletId (4 chars) and index (4 chars) and padding
+    oss << std::hex << std::setfill('0') << std::setw(4) << walletId;
+    oss << std::hex << std::setfill('0') << std::setw(4) << addressIndex;
+    
+    // Fill remaining 32 chars with a placeholder pattern
+    oss << "00000000000000000000000000000000";
+    
+    return oss.str();
+}
+
+std::string WalletRepository::generateLitecoinAddress(int walletId, int addressIndex, bool isChange) {
+    // Simplified address generation for Litecoin (Bech32 prefix ltc1)
+    std::ostringstream oss;
+    oss << "ltc1q" << std::hex << walletId << addressIndex << (isChange ? "c" : "r");
     return oss.str();
 }
 

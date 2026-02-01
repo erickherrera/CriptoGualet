@@ -489,22 +489,20 @@ std::optional<std::string> EthereumClient::CreateSignedTransaction(
         return std::nullopt;
     }
 
-    // Sign the transaction hash
-    Crypto::ECDSASignature signature;
-    if (!Crypto::SignHash(private_key_bytes, tx_hash, signature)) {
+    // Sign the transaction hash with recovery ID
+    Crypto::RecoverableSignature signature;
+    if (!Crypto::SignHashRecoverable(private_key_bytes, tx_hash, signature)) {
         return std::nullopt;
     }
 
-    // Ensure low-s value (EIP-2) - normalize signature
-    // For Ethereum, we need raw r and s values, not DER encoding
+    // Ensure signature components are correct size
     if (signature.r.size() != 32 || signature.s.size() != 32) {
         return std::nullopt;
     }
 
     // Calculate recovery ID (v value)
     // For EIP-155: v = chain_id * 2 + 35 + recovery_id (0 or 1)
-    // We'll try recovery_id = 0 first (typically works)
-    uint64_t v = chain_id * 2 + 35;
+    uint64_t v = chain_id * 2 + 35 + signature.recovery_id;
 
     // Rebuild transaction with signature
     std::vector<std::vector<uint8_t>> signed_tx_fields;

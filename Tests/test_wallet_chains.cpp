@@ -437,17 +437,37 @@ static void testEthereumAddressGeneration(Repository::WalletRepository& walletRe
     TEST_ASSERT(walletResult.hasValue(), "Wallet creation should succeed");
 
     auto addressResult = walletRepo.generateAddress(walletResult->id, false, "Ethereum Address");
+    TEST_ASSERT(addressResult.hasValue(), "Address generation should succeed");
 
-    if (!addressResult.hasValue()) {
-        std::cout << "    Warning: Ethereum address generation not yet implemented" << std::endl;
-        TEST_PASS();
-    } else {
-        std::string addr = addressResult->address;
-        bool validFormat = (addr.length() == 42 && addr.substr(0, 2) == "0x");
-        std::cout << "    Generated Ethereum address: " << addr << std::endl;
-        std::cout << "    Address format validation: " << (validFormat ? "PASS" : "FAIL") << std::endl;
-        TEST_PASS();
-    }
+    std::string addr = addressResult->address;
+    bool validFormat = (addr.length() == 42 && addr.substr(0, 2) == "0x");
+    std::cout << "    Generated Ethereum address: " << addr << std::endl;
+    std::cout << "    Address format validation: " << (validFormat ? "PASS" : "FAIL") << std::endl;
+    
+    TEST_ASSERT(validFormat, "Ethereum address must start with 0x and be 42 characters long");
+    TEST_PASS();
+}
+
+static void testLitecoinAddressGeneration(Repository::WalletRepository& walletRepo,
+                                          Repository::UserRepository& userRepo) {
+    TEST_START("Litecoin Address Generation (Repository)");
+
+    int userId = TestUtils::createTestUser(userRepo, "ltc_addr_user");
+    auto walletResult = walletRepo.createWallet(userId, "LTC Test", "litecoin");
+    TEST_ASSERT(walletResult.hasValue(), "Wallet creation should succeed");
+
+    auto addressResult = walletRepo.generateAddress(walletResult->id, false, "Litecoin Address");
+    TEST_ASSERT(addressResult.hasValue(), "Address generation should succeed");
+
+    std::string addr = addressResult->address;
+    // Mock Litecoin addresses are generated with "ltc1" prefix in WalletRepository
+    bool validFormat = (addr.substr(0, 4) == "ltc1");
+    
+    std::cout << "    Generated Litecoin address: " << addr << std::endl;
+    std::cout << "    Address format validation: " << (validFormat ? "PASS" : "FAIL") << std::endl;
+    
+    TEST_ASSERT(validFormat, "Litecoin address must start with ltc1 prefix");
+    TEST_PASS();
 }
 
 static void testWalletChainIsolation(Repository::WalletRepository& walletRepo,
@@ -565,6 +585,7 @@ int main() {
   testMultipleWalletTypesPerUser(walletRepo, userRepo);
   testBitcoinAddressGeneration(walletRepo, userRepo);
   testEthereumAddressGeneration(walletRepo, userRepo);
+  testLitecoinAddressGeneration(walletRepo, userRepo);
   testWalletChainIsolation(walletRepo, userRepo);
   testUnsupportedChainRejection(walletRepo, userRepo);
   testBIP44DerivationPathsForDifferentChains(walletRepo, userRepo);

@@ -131,9 +131,20 @@ struct ECDSASignature {
   std::vector<uint8_t> der_encoded;  // DER encoded signature for Bitcoin
 };
 
+// ECDSA signature with recovery ID (for Ethereum)
+struct RecoverableSignature {
+  std::vector<uint8_t> r;  // R component (32 bytes)
+  std::vector<uint8_t> s;  // S component (32 bytes)
+  int recovery_id;         // Recovery ID (0-3, usually 0 or 1)
+};
+
 // Sign a 32-byte hash with a private key (returns DER-encoded signature)
 bool SignHash(const std::vector<uint8_t> &private_key, const std::array<uint8_t, 32> &hash,
               ECDSASignature &signature);
+
+// Sign a 32-byte hash with a private key (returns recoverable signature for Ethereum)
+bool SignHashRecoverable(const std::vector<uint8_t> &private_key, const std::array<uint8_t, 32> &hash,
+                         RecoverableSignature &signature);
 
 // Verify a signature against a public key and hash
 bool VerifySignature(const std::vector<uint8_t> &public_key, const std::array<uint8_t, 32> &hash,

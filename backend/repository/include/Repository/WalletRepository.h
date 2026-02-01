@@ -336,6 +336,23 @@ private:
     std::string generateBitcoinAddress(int walletId, int addressIndex, bool isChange);
 
     /**
+     * @brief Generate an Ethereum address (simplified implementation)
+     * @param walletId Wallet ID
+     * @param addressIndex Address index
+     * @return Generated address string
+     */
+    std::string generateEthereumAddress(int walletId, int addressIndex);
+
+    /**
+     * @brief Generate a Litecoin address (simplified implementation)
+     * @param walletId Wallet ID
+     * @param addressIndex Address index
+     * @param isChange Whether this is a change address
+     * @return Generated address string
+     */
+    std::string generateLitecoinAddress(int walletId, int addressIndex, bool isChange);
+
+    /**
      * @brief Calculate total wallet balance from addresses
      * @param walletId Wallet ID
      * @return Total balance in satoshis

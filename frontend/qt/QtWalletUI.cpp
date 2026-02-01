@@ -2610,9 +2610,9 @@ QtWalletUI::derivePrivateKeyForAddress(const QString &address,
     throw std::runtime_error("Failed to derive master key");
   }
 
-  // Step 3: Determine if this is Bitcoin or Ethereum address and derive
-  // accordingly
+  // Step 3: Determine chain type based on address format
   bool isEthereum = address.startsWith("0x");
+  bool isLitecoin = address.startsWith("L") || address.startsWith("M") || address.startsWith("ltc1");
 
   Crypto::BIP32ExtendedKey addressKey;
   if (isEthereum) {
@@ -2620,6 +2620,13 @@ QtWalletUI::derivePrivateKeyForAddress(const QString &address,
     if (!Crypto::BIP44_DeriveEthereumAddressKey(masterKey, 0, false, 0,
                                                 addressKey)) {
       throw std::runtime_error("Failed to derive Ethereum address key");
+    }
+  } else if (isLitecoin) {
+    // Litecoin BIP44 path: m/44'/2'/0'/0/0
+    // Use derive path directly for specific coin type 2
+    std::string path = "m/44'/2'/0'/0/0";
+    if (!Crypto::BIP32_DerivePath(masterKey, path, addressKey)) {
+      throw std::runtime_error("Failed to derive Litecoin address key");
     }
   } else {
     // Bitcoin BIP44 path: m/44'/0'/0'/0/0 (mainnet) or m/44'/1'/0'/0/0

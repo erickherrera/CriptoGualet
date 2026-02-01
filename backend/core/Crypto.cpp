@@ -20,6 +20,7 @@
 
 // Third-party headers
 #include <secp256k1.h>
+#include <secp256k1_recovery.h>
 
 // Project headers
 #include "Crypto.h"
@@ -1490,6 +1491,32 @@ bool SignHash(const std::vector<uint8_t> &private_key, const std::array<uint8_t,
   secp256k1_ecdsa_signature_serialize_compact(ctx, compact, &sig);
   signature.r.assign(compact, compact + 32);
   signature.s.assign(compact + 32, compact + 64);
+
+  return true;
+}
+
+bool SignHashRecoverable(const std::vector<uint8_t> &private_key, const std::array<uint8_t, 32> &hash,
+                         RecoverableSignature &signature) {
+  if (private_key.size() != 32) {
+    return false;
+  }
+
+  auto* ctx = GetSecp256k1Context();
+
+  // Create recoverable signature
+  secp256k1_ecdsa_recoverable_signature sig;
+  if (!secp256k1_ecdsa_sign_recoverable(ctx, &sig, hash.data(), private_key.data(), nullptr, nullptr)) {
+    return false;
+  }
+
+  // Serialize to compact format (64 bytes) + recovery id
+  uint8_t compact[64];
+  int recid;
+  secp256k1_ecdsa_recoverable_signature_serialize_compact(ctx, compact, &recid, &sig);
+
+  signature.r.assign(compact, compact + 32);
+  signature.s.assign(compact + 32, compact + 64);
+  signature.recovery_id = recid;
 
   return true;
 }
