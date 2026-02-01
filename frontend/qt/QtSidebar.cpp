@@ -12,9 +12,12 @@
 
 QtSidebar::QtSidebar(QtThemeManager *themeManager, QWidget *parent)
     : QWidget(parent), m_themeManager(themeManager), m_isExpanded(false),
-      m_hoverLabel(nullptr) {
+      m_hoverLabel(nullptr), m_selectedPage(Page::None) {
   setupUI();
   applyTheme();
+
+  // Set default selected page
+  setSelectedPage(Page::Wallet);
 
   // Connect to theme changes
   connect(m_themeManager, &QtThemeManager::themeChanged, this,
@@ -44,13 +47,24 @@ void QtSidebar::setupUI() {
   m_menuButton->setFixedHeight(50); // Only fix height, allow width to expand
   m_navLayout->addWidget(m_menuButton);
 
-  // Connect menu button to toggle sidebargemi
-  connect(m_menuButton, &QPushButton::clicked, this, &QtSidebar::toggleSidebar);
+  // Add shadows to buttons for depth
+  auto addShadow = [](QWidget *widget) {
+    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(widget);
+    shadow->setBlurRadius(10);
+    shadow->setOffset(2, 2);
+    shadow->setColor(QColor(0, 0, 0, 100));
+    widget->setGraphicsEffect(shadow);
+  };
 
-  // Add some spacing after menu button
-  m_navLayout->addSpacing(20);
+  // Add shadow to menu button
+  addShadow(m_menuButton);
 
   createNavigationButtons();
+
+  // Add shadows to nav buttons
+  addShadow(m_walletButton);
+  addShadow(m_topCryptosButton);
+  addShadow(m_settingsButton);
 
   // Add stretch to push buttons to top
   m_navLayout->addStretch();
@@ -61,6 +75,7 @@ void QtSidebar::setupUI() {
   m_signOutButton->setCursor(Qt::PointingHandCursor);
   m_signOutButton->setToolTip("Sign Out");
   m_signOutButton->setFixedHeight(50);
+  addShadow(m_signOutButton);
 
   QHBoxLayout *signOutLayout = new QHBoxLayout(m_signOutButton);
   signOutLayout->setContentsMargins(8, 0, 8, 0);
@@ -136,6 +151,7 @@ void QtSidebar::createNavigationButtons() {
   m_navLayout->addWidget(m_walletButton);
 
   connect(m_walletButton, &QPushButton::clicked, this, [this]() {
+    setSelectedPage(Page::Wallet);
     emit navigateToWallet();
     if (m_isExpanded) {
       toggleSidebar();
@@ -169,6 +185,7 @@ void QtSidebar::createNavigationButtons() {
   m_navLayout->addWidget(m_topCryptosButton);
 
   connect(m_topCryptosButton, &QPushButton::clicked, this, [this]() {
+    setSelectedPage(Page::TopCryptos);
     emit navigateToTopCryptos();
     if (m_isExpanded) {
       toggleSidebar();
@@ -202,11 +219,53 @@ void QtSidebar::createNavigationButtons() {
   m_navLayout->addWidget(m_settingsButton);
 
   connect(m_settingsButton, &QPushButton::clicked, this, [this]() {
+    setSelectedPage(Page::Settings);
     emit navigateToSettings();
     if (m_isExpanded) {
       toggleSidebar();
     }
   });
+}
+
+void QtSidebar::setSelectedPage(Page page) {
+  m_selectedPage = page;
+  m_walletButton->setProperty("selected", page == Page::Wallet);
+  m_topCryptosButton->setProperty("selected", page == Page::TopCryptos);
+  m_settingsButton->setProperty("selected", page == Page::Settings);
+
+  // Update styles to reflect the change
+  auto updateButtonStyle = [](QPushButton *btn) {
+    btn->style()->unpolish(btn);
+    btn->style()->polish(btn);
+  };
+
+  updateButtonStyle(m_walletButton);
+  updateButtonStyle(m_topCryptosButton);
+  updateButtonStyle(m_settingsButton);
+
+  // Update icon and text colors based on selection
+  auto updateIconAndText = [this](QPushButton *btn, bool selected,
+                                  const QString &iconPath,
+                                  const QString &textName,
+                                  const QString &iconName) {
+    QLabel *iconLabel = btn->findChild<QLabel *>(iconName);
+    QLabel *textLabel = btn->findChild<QLabel *>(textName);
+    QColor color = selected ? Qt::white : m_themeManager->textColor();
+
+    if (iconLabel) {
+      QIcon icon = createColoredIcon(iconPath, color);
+      iconLabel->setPixmap(icon.pixmap(QSize(24, 24)));
+    }
+    if (textLabel) {
+      textLabel->setStyleSheet(QString("color: %1;").arg(color.name()));
+    }
+  };
+
+  updateIconAndText(m_walletButton, page == Page::Wallet, ":/icons/icons/wallet.svg", "walletText", "walletIcon");
+  updateIconAndText(m_topCryptosButton, page == Page::TopCryptos, ":/icons/icons/chart.svg", "topCryptosText", "topCryptosIcon");
+  updateIconAndText(m_settingsButton, page == Page::Settings, ":/icons/icons/settings.svg", "settingsText", "settingsIcon");
+
+  update();
 }
 
 void QtSidebar::toggleSidebar() {
@@ -337,18 +396,19 @@ void QtSidebar::applyTheme() {
   textColor = m_themeManager->textColor().name();
   iconColor = m_themeManager->textColor();
   QColor accentColor = m_themeManager->accentColor();
-  QString hoverColor = accentColor.name();
+
+  // Grey hover color from theme manager (using surface color for contrast)
+  QString greyHover = m_themeManager->surfaceColor().name();
+
   QString pressedColor =
       accentColor.darker(110).name(); // Slight darken for pressed state
 
   // Special color for sign out icon (always red for visibility)
   QString signOutColor = m_themeManager->negativeColor().name();
-  
+
   // Use accent color for button interaction
-  QString accentColorName = m_themeManager->accentColor().name();
-  QString accentHoverColor = m_themeManager->accentColor().lighter(120).name();
-  // Use surface color (grey) for hover state
-  QString surfaceColor = m_themeManager->surfaceColor().name();
+  QString accentColorName = accentColor.name();
+  QString accentHoverColor = accentColor.lighter(120).name();
 
   QString sidebarStyle = QString(R"(
         QtSidebar {
@@ -363,7 +423,7 @@ void QtSidebar::applyTheme() {
             text-align: center;
         }
         QPushButton[class="sidebar-menu-button"]:hover {
-            background-color: %3;
+            background-color: %7;
         }
         QPushButton[class="sidebar-menu-button"]:pressed {
             background-color: %4;
@@ -377,10 +437,14 @@ void QtSidebar::applyTheme() {
             text-align: left;
         }
         QPushButton[class="sidebar-nav-button"]:hover {
-            background-color: %3;
+            background-color: %7;
         }
         QPushButton[class="sidebar-nav-button"]:pressed {
             background-color: %4;
+        }
+        QPushButton[class="sidebar-nav-button"][selected="true"] {
+            background-color: %3;
+            color: white;
         }
         QPushButton[class~="signout-button"] {
             background-color: %3;
@@ -389,7 +453,7 @@ void QtSidebar::applyTheme() {
             border-radius: 12px;
         }
         QPushButton[class~="signout-button"]:hover {
-            background-color: %1;
+            background-color: %7;
             color: %6;
         }
         QLabel {
@@ -407,13 +471,13 @@ void QtSidebar::applyTheme() {
             border: 1px solid %2;
         }
     )")
-                             .arg(sidebarBg)
-                             .arg(borderColor)
-                             .arg(hoverColor)
-                             .arg(pressedColor)
-                             .arg(textColor)
-                             .arg(signOutColor)
-                             .arg(accentHoverColor);
+                             .arg(sidebarBg)      // %1
+                             .arg(borderColor)    // %2
+                             .arg(accentColorName) // %3
+                             .arg(pressedColor)    // %4
+                             .arg(textColor)       // %5
+                             .arg(signOutColor)    // %6
+                             .arg(greyHover);      // %7
 
   setStyleSheet(sidebarStyle);
 
@@ -489,6 +553,11 @@ void QtSidebar::applyTheme() {
 
   // Force visual refresh
   update();
+
+  // Re-apply selected page state and icon colors
+  if (m_selectedPage != Page::None) {
+    setSelectedPage(m_selectedPage);
+  }
 }
 
 void QtSidebar::showHoverLabel(const QString &text, int yPos, bool isSignOut) {
