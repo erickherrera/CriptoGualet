@@ -92,6 +92,7 @@ class QtWalletUI : public QWidget {
   protected:
     void resizeEvent(QResizeEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;  // PHASE 3: Accessibility
+    void hideEvent(QHideEvent* event) override;
 
   private slots:
     void onLogoutClicked();

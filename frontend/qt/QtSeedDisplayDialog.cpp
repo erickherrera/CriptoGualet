@@ -211,9 +211,15 @@ void QtSeedDisplayDialog::setupUI() {
   checkboxFont.setPointSize(std::max(8, checkboxFont.pointSize() - 1));
   m_confirmCheckbox->setFont(checkboxFont);
   m_confirmCheckbox->setStyleSheet(
-      QString("QCheckBox { font-weight: bold; padding: 4px; color: %1; font-size: 10px; }")
-          .arg(theme.textColor().name()));
+      QString("QCheckBox { font-weight: bold; padding: 4px; color: %1; font-size: 10px; }"
+              " QCheckBox::indicator { border: 1px solid %2; width: 14px; height: 14px; background-color: %3; }"
+              " QCheckBox::indicator:checked { background-color: %4; }")
+          .arg(theme.textColor().name())
+          .arg(theme.defaultBorderColor().name())
+          .arg(theme.surfaceColor().name())
+          .arg(theme.accentColor().name()));
   m_mainLayout->addWidget(m_confirmCheckbox);
+
 
   QHBoxLayout *buttonLayout = new QHBoxLayout();
 

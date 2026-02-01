@@ -17,6 +17,7 @@
 #include <QClipboard>
 #include <QDateTime>
 #include <QEvent>
+#include <QHideEvent>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -59,7 +60,7 @@ QtWalletUI::QtWalletUI(QWidget *parent)
       m_currentBTCPrice(43000.0), m_currentLTCPrice(70.0),
       m_currentETHPrice(2500.0), m_isLoadingBTC(false),
       m_isLoadingLTC(false), m_isLoadingETH(false), m_statusLabel(nullptr),
-      m_balanceVisible(true), m_mockMode(false) {
+      m_balanceVisible(false), m_mockMode(false) {
   // Get theme manager SAFELY
   m_themeManager = &QtThemeManager::instance();
 
@@ -1681,6 +1682,19 @@ void QtWalletUI::keyPressEvent(QKeyEvent *event) {
 
   // Pass to base class
   QWidget::keyPressEvent(event);
+}
+
+void QtWalletUI::hideEvent(QHideEvent *event) {
+  // Reset to default (hidden) state when leaving the page
+  if (m_balanceVisible) {
+    m_balanceVisible = false;
+    updateUSDBalance();
+    if (m_toggleBalanceButton) {
+      m_toggleBalanceButton->setText("🚫");
+    }
+  }
+
+  QWidget::hideEvent(event);
 }
 
 void QtWalletUI::updateScrollAreaWidth() {
