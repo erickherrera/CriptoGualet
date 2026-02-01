@@ -386,6 +386,7 @@ void QtSidebar::applyTheme() {
             background-color: %3;
             color: white;
             border: none;
+            border-radius: 12px;
         }
         QPushButton[class~="signout-button"]:hover {
             background-color: %1;
