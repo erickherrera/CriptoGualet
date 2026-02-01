@@ -111,7 +111,7 @@ void QtThemeManager::setupLightTheme() {
     m_secondaryColor =
         QColor(148, 163, 184);  // Slate-400 - FIXED: better contrast (was 226,232,240)
     m_backgroundColor = QColor(248, 250, 252);  // Slate-50
-    m_surfaceColor = QColor(241, 245, 249);     // Slate-100 - distinct from white
+    m_surfaceColor = QColor(255, 255, 255);     // White - distinct from background     // White - distinct from background
     m_textColor = QColor(15, 23, 42);           // Slate-900 - better contrast
     m_accentColor = QColor(59, 130, 246);       // Blue-500 - matches dark theme
     m_errorColor = QColor(239, 68, 68);         // Red-500 - matches dark theme
@@ -201,7 +201,7 @@ void QtThemeManager::setupCryptoLightTheme() {
     m_secondaryColor =
         QColor(161, 161, 170);  // Zinc-400 - FIXED: better contrast (was 228,228,231)
     m_backgroundColor = QColor(250, 250, 250);  // Zinc-50
-    m_surfaceColor = QColor(244, 244, 245);     // Zinc-100 - distinct layer
+    m_surfaceColor = QColor(255, 255, 255);     // White - distinct from background     // White - distinct layer
     m_textColor = QColor(9, 9, 11);             // Zinc-950 - high contrast
     m_accentColor = QColor(168, 85, 247);       // Purple-500 - matches crypto dark
     m_errorColor = QColor(239, 68, 68);         // Red-500 - matches other themes
