@@ -50,9 +50,11 @@ QtSeedDisplayDialog::QtSeedDisplayDialog(
   );
 
   // Apply theme styling to the dialog
+  setObjectName("SeedDisplayDialog");
+  setAttribute(Qt::WA_StyledBackground, true);
   QtThemeManager &theme = QtThemeManager::instance();
-  setStyleSheet(QString("QDialog { background-color: %1; color: %2; }")
-                    .arg(theme.backgroundColor().name())
+  setStyleSheet(QString("#SeedDisplayDialog { background-color: %1; color: %2; }")
+                    .arg(theme.surfaceColor().name())
                     .arg(theme.textColor().name()));
 
   setupUI();
@@ -61,21 +63,23 @@ QtSeedDisplayDialog::QtSeedDisplayDialog(
 }
 
 void QtSeedDisplayDialog::setupUI() {
+  // Get theme instance early
+  QtThemeManager &theme = QtThemeManager::instance();
+
   // Create main scroll area that wraps entire dialog content
   QScrollArea *mainScrollArea = new QScrollArea(this);
   mainScrollArea->setWidgetResizable(true);
   mainScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   mainScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   mainScrollArea->setFrameShape(QFrame::NoFrame);
-  // Ensure scroll area is transparent to show dialog background
-  mainScrollArea->setStyleSheet("QScrollArea { background-color: transparent; border: none; }");
+  // Ensure scroll area uses surface color
+  mainScrollArea->setStyleSheet(QString("QScrollArea { background-color: %1; border: none; }").arg(theme.surfaceColor().name()));
 
   QWidget *mainContentWidget = new QWidget();
-  mainContentWidget->setAttribute(Qt::WA_TranslucentBackground); // Transparent to show dialog background
+  // Explicit background instead of translucent
+  mainContentWidget->setStyleSheet(QString("background-color: %1;").arg(theme.surfaceColor().name()));
   m_mainLayout = new QVBoxLayout(mainContentWidget);
 
-  // Get theme instance for spacing
-  QtThemeManager &theme = QtThemeManager::instance();
   m_mainLayout->setSpacing(theme.spacing(2));  // 8px
   m_mainLayout->setContentsMargins(
       theme.compactSpacing(),  // 12px
@@ -125,11 +129,11 @@ void QtSeedDisplayDialog::setupUI() {
   m_scrollArea->setWidgetResizable(true);
   m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  m_scrollArea->setStyleSheet("QScrollArea { border: none; background-color: transparent; }");
+  m_scrollArea->setStyleSheet(QString("QScrollArea { border: none; background-color: %1; }").arg(theme.surfaceColor().name()));
   m_scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
   m_scrollContent = new QWidget();
-  m_scrollContent->setAttribute(Qt::WA_TranslucentBackground);
+  m_scrollContent->setStyleSheet(QString("background-color: %1;").arg(theme.surfaceColor().name()));
   m_scrollLayout = new QVBoxLayout(m_scrollContent);
   m_scrollLayout->setContentsMargins(4, 4, 4, 4);
   m_scrollLayout->setSpacing(8);
