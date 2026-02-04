@@ -10,6 +10,7 @@ class QtThemeManager;
 
 class QtSidebar : public QWidget {
     Q_OBJECT
+    Q_PROPERTY(int sidebarWidth READ width WRITE setSidebarWidth)
 
   public:
     enum class Page { Wallet, TopCryptos, Settings, None };
@@ -19,6 +20,7 @@ class QtSidebar : public QWidget {
     void toggleSidebar();
     void applyTheme();
     void setSelectedPage(Page page);
+    void setSidebarWidth(int width);
 
   signals:
     void navigateToWallet();
@@ -37,6 +39,8 @@ class QtSidebar : public QWidget {
     QIcon createColoredIcon(const QString& svgPath, const QColor& color);
     void showHoverLabel(const QString& text, int yPos, bool isSignOut = false);
     void hideHoverLabel();
+    void updateLabelsVisibility(bool visible);
+    void setShadowsEnabled(bool enabled);
 
     QtThemeManager* m_themeManager;
     QWidget* m_sidebarContent;
@@ -53,6 +57,7 @@ class QtSidebar : public QWidget {
     QLabel* m_hoverLabel;
 
     bool m_isExpanded;
+    bool m_textVisible;
     Page m_selectedPage;
 
     static constexpr int COLLAPSED_WIDTH = 70;

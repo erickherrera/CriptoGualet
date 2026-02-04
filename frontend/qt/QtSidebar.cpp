@@ -12,8 +12,8 @@
 #include <QStyle>
 
 QtSidebar::QtSidebar(QtThemeManager *themeManager, QWidget *parent)
-    : QWidget(parent), m_themeManager(themeManager), m_isExpanded(false),
-      m_hoverLabel(nullptr), m_selectedPage(Page::None) {
+    : QWidget(parent), m_themeManager(themeManager), m_hoverLabel(nullptr),
+      m_isExpanded(false), m_textVisible(false), m_selectedPage(Page::None) {
   setupUI();
   applyTheme();
 
@@ -109,10 +109,14 @@ void QtSidebar::setupUI() {
   m_hoverLabel->setObjectName("hoverLabel");
   m_hoverLabel->hide();
 
-  // Setup animation for width (using geometry)
-  m_widthAnimation = new QPropertyAnimation(this, "geometry");
-  m_widthAnimation->setDuration(300);
-  m_widthAnimation->setEasingCurve(QEasingCurve::InOutQuad);
+  // Setup animation for width
+  m_widthAnimation = new QPropertyAnimation(this, "sidebarWidth");
+  m_widthAnimation->setDuration(250); // Snappier
+  m_widthAnimation->setEasingCurve(QEasingCurve::OutQuad);
+
+  connect(m_widthAnimation, &QPropertyAnimation::finished, this, [this]() {
+      setShadowsEnabled(true);
+  });
 
   // Install event filter on parent to detect clicks outside
   if (parent()) {
@@ -277,41 +281,31 @@ void QtSidebar::toggleSidebar() {
 }
 
 void QtSidebar::animateSidebar(bool expand) {
+  int startWidth = width();
   int targetWidth = expand ? EXPANDED_WIDTH : COLLAPSED_WIDTH;
 
-  // Update fixed width immediately
-  setFixedWidth(targetWidth);
-
-  // Emit signal so parent layout can adjust content margin
-  emit sidebarWidthChanged(targetWidth);
-
-  // Hide hover label when expanding
-  if (expand) {
-    hideHoverLabel();
+  if (m_widthAnimation->state() == QAbstractAnimation::Running) {
+    m_widthAnimation->stop();
   }
 
-  // Update button text visibility based on state
-  QLabel *walletText = m_walletButton->findChild<QLabel *>("walletText");
-  QLabel *topCryptosText =
-      m_topCryptosButton->findChild<QLabel *>("topCryptosText");
-  QLabel *settingsText = m_settingsButton->findChild<QLabel *>("settingsText");
-  QLabel *signOutText = m_signOutButton->findChild<QLabel *>("signOutText");
+  // Disable shadows during animation for performance
+  setShadowsEnabled(false);
 
-  if (walletText) {
-    walletText->setVisible(expand);
-  }
-  if (topCryptosText) {
-    topCryptosText->setVisible(expand);
-  }
-  if (settingsText) {
-    settingsText->setVisible(expand);
-  }
-  if (signOutText) {
-    signOutText->setVisible(expand);
-  }
+  m_widthAnimation->setStartValue(startWidth);
+  m_widthAnimation->setEndValue(targetWidth);
+
+  // Hide hover label immediately when animating
+  hideHoverLabel();
+
+  m_widthAnimation->start();
 }
 
 bool QtSidebar::eventFilter(QObject *obj, QEvent *event) {
+  // Ignore interaction during animation to prevent stutter
+  if (m_widthAnimation && m_widthAnimation->state() == QAbstractAnimation::Running) {
+      return QWidget::eventFilter(obj, event);
+  }
+
   if (event->type() == QEvent::MouseButtonPress && m_isExpanded) {
     QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
 
@@ -567,18 +561,20 @@ void QtSidebar::showHoverLabel(const QString &text, int yPos, bool isSignOut) {
   if (!m_hoverLabel)
     return;
 
-  m_hoverLabel->setText(text);
-  m_hoverLabel->adjustSize();
-
-  QGraphicsDropShadowEffect *shadow =
-      new QGraphicsDropShadowEffect(m_hoverLabel);
-  shadow->setBlurRadius(8);
-  shadow->setColor(QColor(0, 0, 0, 80));
-  shadow->setOffset(2, 2);
-  m_hoverLabel->setGraphicsEffect(shadow);
-
-  if (isSignOut) {
-    QString accentColor = m_themeManager->accentColor().name();
+    m_hoverLabel->setText(text);
+    m_hoverLabel->adjustSize();
+  
+    // Create shadow only if it doesn't exist
+    if (!m_hoverLabel->graphicsEffect()) {
+        QGraphicsDropShadowEffect *shadow =
+            new QGraphicsDropShadowEffect(m_hoverLabel);
+        shadow->setBlurRadius(8);
+        shadow->setColor(QColor(0, 0, 0, 80));
+        shadow->setOffset(2, 2);
+        m_hoverLabel->setGraphicsEffect(shadow);
+    }
+  
+    if (isSignOut) {    QString accentColor = m_themeManager->accentColor().name();
     m_hoverLabel->setStyleSheet(
         QString("background-color: %1; color: white; padding: 6px 12px; "
                 "border-radius: 6px; border: 1px solid %2;")
@@ -604,4 +600,49 @@ void QtSidebar::hideHoverLabel() {
   if (m_hoverLabel) {
     m_hoverLabel->hide();
   }
+}
+
+void QtSidebar::updateLabelsVisibility(bool visible) {
+  QLabel *walletText = m_walletButton->findChild<QLabel *>("walletText");
+  QLabel *topCryptosText =
+      m_topCryptosButton->findChild<QLabel *>("topCryptosText");
+  QLabel *settingsText = m_settingsButton->findChild<QLabel *>("settingsText");
+  QLabel *signOutText = m_signOutButton->findChild<QLabel *>("signOutText");
+
+  if (walletText)
+    walletText->setVisible(visible);
+  if (topCryptosText)
+    topCryptosText->setVisible(visible);
+  if (settingsText)
+    settingsText->setVisible(visible);
+  if (signOutText)
+    signOutText->setVisible(visible);
+}
+
+void QtSidebar::setSidebarWidth(int width) {
+    setFixedWidth(width);
+    
+    // Threshold-based visibility for smooth "simultaneous" feel
+    // Text appears when width is sufficient (e.g. > 120px)
+    bool showText = (width > 120);
+    if (showText != m_textVisible) {
+        updateLabelsVisibility(showText);
+        m_textVisible = showText;
+    }
+
+    // Removed emit sidebarWidthChanged(width) to avoid redundant layout updates
+}
+
+void QtSidebar::setShadowsEnabled(bool enabled) {
+    auto toggleShadow = [enabled](QWidget* widget) {
+        if (widget && widget->graphicsEffect()) {
+            widget->graphicsEffect()->setEnabled(enabled);
+        }
+    };
+
+    toggleShadow(m_menuButton);
+    toggleShadow(m_walletButton);
+    toggleShadow(m_topCryptosButton);
+    toggleShadow(m_settingsButton);
+    toggleShadow(m_signOutButton);
 }
