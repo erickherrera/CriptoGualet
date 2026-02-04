@@ -1,13 +1,10 @@
 #include "QtSidebar.h"
 #include "QtThemeManager.h"
 
-#include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
-#include <QSpacerItem>
 #include <QSvgRenderer>
 #include <QStyle>
 
@@ -45,29 +42,12 @@ void QtSidebar::setupUI() {
   m_menuButton->setProperty("class", "sidebar-menu-button");
   m_menuButton->setCursor(Qt::PointingHandCursor);
   m_menuButton->setToolTip("Toggle Menu");
-  m_menuButton->setFixedHeight(50); // Only fix height, allow width to expand
+  m_menuButton->setFixedHeight(50);
   m_navLayout->addWidget(m_menuButton);
 
   connect(m_menuButton, &QPushButton::clicked, this, &QtSidebar::toggleSidebar);
 
-  // Add shadows to buttons for depth
-  auto addShadow = [](QWidget *widget) {
-    QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect(widget);
-    shadow->setBlurRadius(10);
-    shadow->setOffset(2, 2);
-    shadow->setColor(QColor(0, 0, 0, 100));
-    widget->setGraphicsEffect(shadow);
-  };
-
-  // Add shadow to menu button
-  addShadow(m_menuButton);
-
   createNavigationButtons();
-
-  // Add shadows to nav buttons
-  addShadow(m_walletButton);
-  addShadow(m_topCryptosButton);
-  addShadow(m_settingsButton);
 
   // Add stretch to push buttons to top
   m_navLayout->addStretch();
@@ -78,7 +58,6 @@ void QtSidebar::setupUI() {
   m_signOutButton->setCursor(Qt::PointingHandCursor);
   m_signOutButton->setToolTip("Sign Out");
   m_signOutButton->setFixedHeight(50);
-  addShadow(m_signOutButton);
 
   QHBoxLayout *signOutLayout = new QHBoxLayout(m_signOutButton);
   signOutLayout->setContentsMargins(8, 0, 8, 0);
@@ -109,10 +88,10 @@ void QtSidebar::setupUI() {
   m_hoverLabel->setObjectName("hoverLabel");
   m_hoverLabel->hide();
 
-  // Setup animation for width
+  // Setup animation for width - optimized for smoother performance
   m_widthAnimation = new QPropertyAnimation(this, "sidebarWidth");
-  m_widthAnimation->setDuration(250); // Snappier
-  m_widthAnimation->setEasingCurve(QEasingCurve::OutQuad);
+  m_widthAnimation->setDuration(120);
+  m_widthAnimation->setEasingCurve(QEasingCurve::OutCubic);
 
   connect(m_widthAnimation, &QPropertyAnimation::finished, this, [this]() {
       setShadowsEnabled(true);
@@ -160,9 +139,6 @@ void QtSidebar::createNavigationButtons() {
   connect(m_walletButton, &QPushButton::clicked, this, [this]() {
     setSelectedPage(Page::Wallet);
     emit navigateToWallet();
-    if (m_isExpanded) {
-      toggleSidebar();
-    }
   });
 
   // Top Cryptos button with icon and text
@@ -194,9 +170,6 @@ void QtSidebar::createNavigationButtons() {
   connect(m_topCryptosButton, &QPushButton::clicked, this, [this]() {
     setSelectedPage(Page::TopCryptos);
     emit navigateToTopCryptos();
-    if (m_isExpanded) {
-      toggleSidebar();
-    }
   });
 
   // Settings button with icon and text
@@ -228,9 +201,6 @@ void QtSidebar::createNavigationButtons() {
   connect(m_settingsButton, &QPushButton::clicked, this, [this]() {
     setSelectedPage(Page::Settings);
     emit navigateToSettings();
-    if (m_isExpanded) {
-      toggleSidebar();
-    }
   });
 }
 
@@ -306,16 +276,6 @@ bool QtSidebar::eventFilter(QObject *obj, QEvent *event) {
       return QWidget::eventFilter(obj, event);
   }
 
-  if (event->type() == QEvent::MouseButtonPress && m_isExpanded) {
-    QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
-
-    // Check if click was outside sidebar
-    if (!geometry().contains(mouseEvent->pos())) {
-      toggleSidebar();
-      return true;
-    }
-  }
-
   // Handle hover labels when collapsed
   if (!m_isExpanded) {
     if (obj == m_walletButton || obj == m_topCryptosButton ||
@@ -348,57 +308,34 @@ bool QtSidebar::eventFilter(QObject *obj, QEvent *event) {
 
 QIcon QtSidebar::createColoredIcon(const QString &svgPath,
                                    const QColor &color) {
-  // Render at higher resolution for better quality (2x scaling)
-  const int size = 48;
-  const int displaySize = 24;
-
   QSvgRenderer renderer(svgPath);
-  QPixmap pixmap(size, size);
+  QPixmap pixmap(24, 24);
   pixmap.fill(Qt::transparent);
 
   QPainter painter(&pixmap);
   painter.setRenderHint(QPainter::Antialiasing, true);
-  painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
   
-  // Render SVG directly
   renderer.render(&painter);
-  
-  // Colorize using CompositionMode_SourceIn
-  // This uses the alpha channel of the rendered SVG to mask the fill color
   painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
   painter.fillRect(pixmap.rect(), color);
   painter.end();
 
-  // Scale down to display size for crisp rendering
-  QPixmap scaledPixmap = pixmap.scaled(
-      displaySize, displaySize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-
-  return QIcon(scaledPixmap);
+  return QIcon(pixmap);
 }
 
 void QtSidebar::applyTheme() {
-  // Define gray tones for each theme
   QString sidebarBg, borderColor, textColor;
   QColor iconColor;
-  // Use theme manager colors directly - works across all themes
   sidebarBg = m_themeManager->secondaryColor().name();
   borderColor = m_themeManager->accentColor().name();
   textColor = m_themeManager->textColor().name();
   iconColor = m_themeManager->textColor();
   QColor accentColor = m_themeManager->accentColor();
 
-  // Grey hover color from theme manager (using surface color for contrast)
-  QString greyHover = m_themeManager->surfaceColor().name();
-
-  QString pressedColor =
-      accentColor.darker(110).name(); // Slight darken for pressed state
-
-  // Special color for sign out icon (always red for visibility)
+  QString hoverColor = m_themeManager->lightInfo().name();
+  QString pressedColor = accentColor.darker(110).name();
   QString signOutColor = m_themeManager->negativeColor().name();
-
-  // Use accent color for button interaction
   QString accentColorName = accentColor.name();
-  QString accentHoverColor = accentColor.lighter(120).name();
 
   QString sidebarStyle = QString(R"(
         QtSidebar {
@@ -461,70 +398,52 @@ void QtSidebar::applyTheme() {
             border: 1px solid %2;
         }
     )")
-                             .arg(sidebarBg)      // %1
-                             .arg(borderColor)    // %2
-                             .arg(accentColorName) // %3
-                             .arg(pressedColor)    // %4
-                             .arg(textColor)       // %5
-                             .arg(signOutColor)    // %6
-                             .arg(greyHover);      // %7
+                             .arg(sidebarBg)
+                             .arg(borderColor)
+                             .arg(accentColorName)
+                             .arg(pressedColor)
+                             .arg(textColor)
+                             .arg(signOutColor)
+                             .arg(hoverColor);
 
   setStyleSheet(sidebarStyle);
 
-  // Refresh the icon cache with new theme colors
   cacheIcons();
 
-  // Create colored SVG icons that match text color for static buttons
   QIcon menuIcon = createColoredIcon(":/icons/icons/menu.svg", iconColor);
-  
-  // For sign out, use the new logout icon
-  QIcon signOutIcon =
-      createColoredIcon(":/icons/icons/logout.svg", QColor(signOutColor));
+  QIcon signOutIcon = createColoredIcon(":/icons/icons/logout.svg", QColor(signOutColor));
 
-  // Set icons on buttons
   m_menuButton->setIcon(menuIcon);
   m_menuButton->setIconSize(QSize(24, 24));
 
-  // Set icons on navigation buttons
-  // Note: Wallet, TopCryptos, and Settings icons are now handled by setSelectedPage via m_iconCache
-  QLabel *signOutIconLabel =
-      m_signOutButton->findChild<QLabel *>("signOutIcon");
-
+  QLabel *signOutIconLabel = m_signOutButton->findChild<QLabel *>("signOutIcon");
   if (signOutIconLabel) {
     QPixmap signOutPixmap = signOutIcon.pixmap(QSize(24, 24));
     signOutIconLabel->setPixmap(signOutPixmap);
   }
 
-  // Apply fonts to button labels
   QFont textFont = m_themeManager->buttonFont();
   textFont.setPointSize(13);
   textFont.setWeight(QFont::Medium);
 
-  // Apply to wallet button text
   QLabel *walletText = m_walletButton->findChild<QLabel *>("walletText");
   if (walletText)
     walletText->setFont(textFont);
 
-  // Apply to top cryptos button text
-  QLabel *topCryptosText =
-      m_topCryptosButton->findChild<QLabel *>("topCryptosText");
+  QLabel *topCryptosText = m_topCryptosButton->findChild<QLabel *>("topCryptosText");
   if (topCryptosText)
     topCryptosText->setFont(textFont);
 
-  // Apply to settings button text
   QLabel *settingsText = m_settingsButton->findChild<QLabel *>("settingsText");
   if (settingsText)
     settingsText->setFont(textFont);
 
-  // Apply to sign out button text
   QLabel *signOutText = m_signOutButton->findChild<QLabel *>("signOutText");
   if (signOutText)
     signOutText->setFont(textFont);
 
-  // Force visual refresh
   update();
 
-  // Re-apply selected page state and icon colors
   if (m_selectedPage != Page::None) {
     setSelectedPage(m_selectedPage);
   }
@@ -534,20 +453,11 @@ void QtSidebar::showHoverLabel(const QString &text, int yPos, bool isSignOut) {
   if (!m_hoverLabel)
     return;
 
-    m_hoverLabel->setText(text);
-    m_hoverLabel->adjustSize();
-  
-    // Create shadow only if it doesn't exist
-    if (!m_hoverLabel->graphicsEffect()) {
-        QGraphicsDropShadowEffect *shadow =
-            new QGraphicsDropShadowEffect(m_hoverLabel);
-        shadow->setBlurRadius(8);
-        shadow->setColor(QColor(0, 0, 0, 80));
-        shadow->setOffset(2, 2);
-        m_hoverLabel->setGraphicsEffect(shadow);
-    }
-  
-    if (isSignOut) {    QString accentColor = m_themeManager->accentColor().name();
+  m_hoverLabel->setText(text);
+  m_hoverLabel->adjustSize();
+
+  if (isSignOut) {
+    QString accentColor = m_themeManager->accentColor().name();
     m_hoverLabel->setStyleSheet(
         QString("background-color: %1; color: white; padding: 6px 12px; "
                 "border-radius: 6px; border: 1px solid %2;")
@@ -577,8 +487,7 @@ void QtSidebar::hideHoverLabel() {
 
 void QtSidebar::updateLabelsVisibility(bool visible) {
   QLabel *walletText = m_walletButton->findChild<QLabel *>("walletText");
-  QLabel *topCryptosText =
-      m_topCryptosButton->findChild<QLabel *>("topCryptosText");
+  QLabel *topCryptosText = m_topCryptosButton->findChild<QLabel *>("topCryptosText");
   QLabel *settingsText = m_settingsButton->findChild<QLabel *>("settingsText");
   QLabel *signOutText = m_signOutButton->findChild<QLabel *>("signOutText");
 
@@ -593,45 +502,32 @@ void QtSidebar::updateLabelsVisibility(bool visible) {
 }
 
 void QtSidebar::setSidebarWidth(int width) {
-    setFixedWidth(width);
-    
-    // Threshold-based visibility for smooth "simultaneous" feel
-    // Text appears when width is sufficient (e.g. > 120px)
-    bool showText = (width > 120);
-    if (showText != m_textVisible) {
-        updateLabelsVisibility(showText);
-        m_textVisible = showText;
-    }
-
-    // Removed emit sidebarWidthChanged(width) to avoid redundant layout updates
+  setFixedWidth(width);
+  
+  bool showText = (width > 120);
+  if (showText != m_textVisible) {
+    updateLabelsVisibility(showText);
+    m_textVisible = showText;
+  }
 }
 
 void QtSidebar::setShadowsEnabled(bool enabled) {
-    auto toggleShadow = [enabled](QWidget* widget) {
-        if (widget && widget->graphicsEffect()) {
-            widget->graphicsEffect()->setEnabled(enabled);
-        }
-    };
-
-    toggleShadow(m_menuButton);
-    toggleShadow(m_walletButton);
-    toggleShadow(m_topCryptosButton);
-    toggleShadow(m_settingsButton);
-    toggleShadow(m_signOutButton);
+  // No-op - using CSS box-shadow instead for better performance
+  Q_UNUSED(enabled);
 }
 
 void QtSidebar::cacheIcons() {
-    QColor activeColor = Qt::white;
-    QColor inactiveColor = m_themeManager->textColor();
+  QColor activeColor = Qt::white;
+  QColor inactiveColor = m_themeManager->textColor();
 
-    auto cacheForPage = [&](Page page, const QString& path) {
-        m_iconCache[page] = {
-            createColoredIcon(path, activeColor).pixmap(24, 24),
-            createColoredIcon(path, inactiveColor).pixmap(24, 24)
-        };
+  auto cacheForPage = [&](Page page, const QString& path) {
+    m_iconCache[page] = {
+      createColoredIcon(path, activeColor).pixmap(24, 24),
+      createColoredIcon(path, inactiveColor).pixmap(24, 24)
     };
+  };
 
-    cacheForPage(Page::Wallet, ":/icons/icons/wallet.svg");
-    cacheForPage(Page::TopCryptos, ":/icons/icons/chart.svg");
-    cacheForPage(Page::Settings, ":/icons/icons/settings.svg");
+  cacheForPage(Page::Wallet, ":/icons/icons/wallet.svg");
+  cacheForPage(Page::TopCryptos, ":/icons/icons/chart.svg");
+  cacheForPage(Page::Settings, ":/icons/icons/settings.svg");
 }
