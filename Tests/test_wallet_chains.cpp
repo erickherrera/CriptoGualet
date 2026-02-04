@@ -493,28 +493,6 @@ static void testLitecoinAddressGeneration(Repository::WalletRepository& walletRe
 
     auto addressResult = walletRepo.generateAddress(walletResult->id, false, "Litecoin Address");
     TEST_ASSERT(addressResult.hasValue(), "Address generation should succeed");
-
-    std::string addr = addressResult->address;
-    // Mock Litecoin addresses are generated with "ltc1" prefix in WalletRepository
-    bool validFormat = (addr.substr(0, 4) == "ltc1");
-    
-    std::cout << "    Generated Litecoin address: " << addr << std::endl;
-    std::cout << "    Address format validation: " << (validFormat ? "PASS" : "FAIL") << std::endl;
-    
-    TEST_ASSERT(validFormat, "Litecoin address must start with ltc1 prefix");
-    TEST_PASS();
-}
-
-static void testLitecoinAddressGeneration(Repository::WalletRepository& walletRepo,
-                                          Repository::UserRepository& userRepo) {
-    TEST_START("Litecoin Address Generation (Repository)");
-
-    int userId = TestUtils::createTestUser(userRepo, "ltc_addr_user");
-    auto walletResult = walletRepo.createWallet(userId, "LTC Test", "litecoin");
-    TEST_ASSERT(walletResult.hasValue(), "Wallet creation should succeed");
-
-    auto addressResult = walletRepo.generateAddress(walletResult->id, false, "Litecoin Address");
-    TEST_ASSERT(addressResult.hasValue(), "Address generation should succeed");
     TEST_ASSERT(!addressResult->address.empty(), "Address should not be empty");
 
     // Litecoin addresses should start with specific prefixes (L, M, or ltc1)

@@ -154,6 +154,63 @@
         }
       },
       "description": "ClangCL Release with Link-Time Optimization - maximum runtime performance."
+    },
+    {
+      "name": "win-vs2026-x64-debug",
+      "displayName": "MSVC 2026 Debug",
+      "inherits": "vcpkg-base",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "ENABLE_UNITY_BUILD": "ON",
+        "ENABLE_MSVC_MP": "ON"
+      },
+      "description": "MSVC 2026 Debug builds."
+    },
+    {
+      "name": "win-vs2026-x64-release",
+      "displayName": "MSVC 2026 Release",
+      "inherits": "win-vs2026-x64-debug",
+      "cacheVariables": {},
+      "description": "MSVC 2026 Release builds."
+    },
+    {
+      "name": "win-vs2026-clangcl-debug",
+      "displayName": "ClangCL 2026 Debug (Qt)",
+      "inherits": "vcpkg-base",
+      "generator": "Visual Studio 18 2026",
+      "toolset": "ClangCL",
+      "architecture": "x64",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "QT_DIR": {
+          "type": "PATH",
+          "value": "C:/Qt/6.9.1/msvc2022_64"
+        }
+      },
+      "description": "ClangCL Debug builds with VS 2026."
+    },
+    {
+      "name": "win-vs2026-clangcl-release",
+      "displayName": "ClangCL 2026 Release",
+      "inherits": "win-vs2026-clangcl-debug",
+      "cacheVariables": {},
+      "description": "ClangCL Release builds with VS 2026."
     }
   ],
   "buildPresets": [
@@ -202,6 +259,30 @@
       "name": "linux-clang-build-release",
       "displayName": "Linux Clang Release",
       "configurePreset": "linux-clang-release"
+    },
+    {
+      "name": "win-vs2026-build",
+      "displayName": "Windows VS2026 Debug",
+      "configurePreset": "win-vs2026-x64-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "win-vs2026-build-release",
+      "displayName": "Windows VS2026 Release",
+      "configurePreset": "win-vs2026-x64-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "win-vs2026-clangcl-build",
+      "displayName": "Windows VS2026 ClangCL Debug",
+      "configurePreset": "win-vs2026-clangcl-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "win-vs2026-clangcl-build-release",
+      "displayName": "Windows VS2026 ClangCL Release",
+      "configurePreset": "win-vs2026-clangcl-release",
+      "configuration": "Release"
     }
   ],
   "testPresets": [
@@ -218,6 +299,15 @@
       "name": "win-vs2022-test",
       "displayName": "Windows MSVC Tests",
       "configurePreset": "win-vs2022-x64-debug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "win-vs2026-clangcl-test",
+      "displayName": "Windows ClangCL 2026 Tests",
+      "configurePreset": "win-vs2026-clangcl-debug",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true

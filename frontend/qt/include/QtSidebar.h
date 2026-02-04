@@ -41,6 +41,13 @@ class QtSidebar : public QWidget {
     void hideHoverLabel();
     void updateLabelsVisibility(bool visible);
     void setShadowsEnabled(bool enabled);
+    void cacheIcons();
+
+    struct IconPair {
+        QPixmap active;
+        QPixmap inactive;
+    };
+    QMap<Page, IconPair> m_iconCache;
 
     QtThemeManager* m_themeManager;
     QWidget* m_sidebarContent;

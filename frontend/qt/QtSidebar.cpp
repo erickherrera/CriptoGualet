@@ -250,27 +250,27 @@ void QtSidebar::setSelectedPage(Page page) {
   updateButtonStyle(m_topCryptosButton);
   updateButtonStyle(m_settingsButton);
 
-  // Update icon and text colors based on selection
+  // Update icon and text colors based on selection using cache
   auto updateIconAndText = [this](QPushButton *btn, bool selected,
-                                  const QString &iconPath,
+                                  Page pageType,
                                   const QString &textName,
                                   const QString &iconName) {
     QLabel *iconLabel = btn->findChild<QLabel *>(iconName);
     QLabel *textLabel = btn->findChild<QLabel *>(textName);
     QColor color = selected ? Qt::white : m_themeManager->textColor();
 
-    if (iconLabel) {
-      QIcon icon = createColoredIcon(iconPath, color);
-      iconLabel->setPixmap(icon.pixmap(QSize(24, 24)));
+    if (iconLabel && m_iconCache.contains(pageType)) {
+      const auto& icons = m_iconCache[pageType];
+      iconLabel->setPixmap(selected ? icons.active : icons.inactive);
     }
     if (textLabel) {
       textLabel->setStyleSheet(QString("color: %1;").arg(color.name()));
     }
   };
 
-  updateIconAndText(m_walletButton, page == Page::Wallet, ":/icons/icons/wallet.svg", "walletText", "walletIcon");
-  updateIconAndText(m_topCryptosButton, page == Page::TopCryptos, ":/icons/icons/chart.svg", "topCryptosText", "topCryptosIcon");
-  updateIconAndText(m_settingsButton, page == Page::Settings, ":/icons/icons/settings.svg", "settingsText", "settingsIcon");
+  updateIconAndText(m_walletButton, page == Page::Wallet, Page::Wallet, "walletText", "walletIcon");
+  updateIconAndText(m_topCryptosButton, page == Page::TopCryptos, Page::TopCryptos, "topCryptosText", "topCryptosIcon");
+  updateIconAndText(m_settingsButton, page == Page::Settings, Page::Settings, "settingsText", "settingsIcon");
 
   update();
 }
@@ -356,28 +356,21 @@ QIcon QtSidebar::createColoredIcon(const QString &svgPath,
   QPixmap pixmap(size, size);
   pixmap.fill(Qt::transparent);
 
-  // Enable high-quality rendering
   QPainter painter(&pixmap);
   painter.setRenderHint(QPainter::Antialiasing, true);
   painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+  
+  // Render SVG directly
   renderer.render(&painter);
+  
+  // Colorize using CompositionMode_SourceIn
+  // This uses the alpha channel of the rendered SVG to mask the fill color
+  painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+  painter.fillRect(pixmap.rect(), color);
   painter.end();
 
-  // Colorize the icon
-  QPixmap coloredPixmap(size, size);
-  coloredPixmap.fill(Qt::transparent);
-
-  QPainter colorPainter(&coloredPixmap);
-  colorPainter.setRenderHint(QPainter::Antialiasing, true);
-  colorPainter.setRenderHint(QPainter::SmoothPixmapTransform, true);
-  colorPainter.setCompositionMode(QPainter::CompositionMode_Source);
-  colorPainter.drawPixmap(0, 0, pixmap);
-  colorPainter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-  colorPainter.fillRect(coloredPixmap.rect(), color);
-  colorPainter.end();
-
   // Scale down to display size for crisp rendering
-  QPixmap scaledPixmap = coloredPixmap.scaled(
+  QPixmap scaledPixmap = pixmap.scaled(
       displaySize, displaySize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
   return QIcon(scaledPixmap);
@@ -478,13 +471,12 @@ void QtSidebar::applyTheme() {
 
   setStyleSheet(sidebarStyle);
 
-  // Create colored SVG icons that match text color
-  QIcon menuIcon = createColoredIcon(":/icons/icons/menu.svg", iconColor);
-  QIcon walletIcon = createColoredIcon(":/icons/icons/wallet.svg", iconColor);
-  QIcon chartIcon = createColoredIcon(":/icons/icons/chart.svg", iconColor);
-  QIcon settingsIcon =
-      createColoredIcon(":/icons/icons/settings.svg", iconColor);
+  // Refresh the icon cache with new theme colors
+  cacheIcons();
 
+  // Create colored SVG icons that match text color for static buttons
+  QIcon menuIcon = createColoredIcon(":/icons/icons/menu.svg", iconColor);
+  
   // For sign out, use the new logout icon
   QIcon signOutIcon =
       createColoredIcon(":/icons/icons/logout.svg", QColor(signOutColor));
@@ -494,28 +486,9 @@ void QtSidebar::applyTheme() {
   m_menuButton->setIconSize(QSize(24, 24));
 
   // Set icons on navigation buttons
-  QLabel *walletIconLabel = m_walletButton->findChild<QLabel *>("walletIcon");
-  QLabel *topCryptosIconLabel =
-      m_topCryptosButton->findChild<QLabel *>("topCryptosIcon");
-  QLabel *settingsIconLabel =
-      m_settingsButton->findChild<QLabel *>("settingsIcon");
+  // Note: Wallet, TopCryptos, and Settings icons are now handled by setSelectedPage via m_iconCache
   QLabel *signOutIconLabel =
       m_signOutButton->findChild<QLabel *>("signOutIcon");
-
-  if (walletIconLabel) {
-    QPixmap walletPixmap = walletIcon.pixmap(QSize(24, 24));
-    walletIconLabel->setPixmap(walletPixmap);
-  }
-
-  if (topCryptosIconLabel) {
-    QPixmap chartPixmap = chartIcon.pixmap(QSize(24, 24));
-    topCryptosIconLabel->setPixmap(chartPixmap);
-  }
-
-  if (settingsIconLabel) {
-    QPixmap settingsPixmap = settingsIcon.pixmap(QSize(24, 24));
-    settingsIconLabel->setPixmap(settingsPixmap);
-  }
 
   if (signOutIconLabel) {
     QPixmap signOutPixmap = signOutIcon.pixmap(QSize(24, 24));
@@ -645,4 +618,20 @@ void QtSidebar::setShadowsEnabled(bool enabled) {
     toggleShadow(m_topCryptosButton);
     toggleShadow(m_settingsButton);
     toggleShadow(m_signOutButton);
+}
+
+void QtSidebar::cacheIcons() {
+    QColor activeColor = Qt::white;
+    QColor inactiveColor = m_themeManager->textColor();
+
+    auto cacheForPage = [&](Page page, const QString& path) {
+        m_iconCache[page] = {
+            createColoredIcon(path, activeColor).pixmap(24, 24),
+            createColoredIcon(path, inactiveColor).pixmap(24, 24)
+        };
+    };
+
+    cacheForPage(Page::Wallet, ":/icons/icons/wallet.svg");
+    cacheForPage(Page::TopCryptos, ":/icons/icons/chart.svg");
+    cacheForPage(Page::Settings, ":/icons/icons/settings.svg");
 }
