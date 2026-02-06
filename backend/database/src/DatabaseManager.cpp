@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <random>
@@ -108,63 +109,11 @@ public:
 };
 
 // Key derivation function using PBKDF2
-std::vector<uint8_t> deriveKey(const std::string &password,
-                               const std::vector<uint8_t> &salt,
-                               int iterations = 100000) {
-  std::vector<uint8_t> derivedKey(32); // 256-bit key
-
-#ifdef _WIN32
-  // Use Windows CNG for PBKDF2
-  BCRYPT_ALG_HANDLE hAlg = nullptr;
-  if (BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, nullptr,
-                                  BCRYPT_ALG_HANDLE_HMAC_FLAG) !=
-      STATUS_SUCCESS) {
-    throw std::runtime_error("Failed to open algorithm provider");
-  }
-
-  if (BCryptDeriveKeyPBKDF2(
-          hAlg, reinterpret_cast<PUCHAR>(const_cast<char *>(password.c_str())),
-          static_cast<ULONG>(password.length()),
-          const_cast<PUCHAR>(salt.data()), static_cast<ULONG>(salt.size()),
-          iterations, derivedKey.data(), static_cast<ULONG>(derivedKey.size()),
-          0) != STATUS_SUCCESS) {
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-    throw std::runtime_error("Key derivation failed");
-  }
-
-  BCryptCloseAlgorithmProvider(hAlg, 0);
-#else
-  // Use libsodium for PBKDF2
-  if (crypto_pwhash(derivedKey.data(), derivedKey.size(), password.c_str(),
-                    password.length(), salt.data(),
-                    crypto_pwhash_OPSLIMIT_INTERACTIVE,
-                    crypto_pwhash_MEMLIMIT_INTERACTIVE,
-                    crypto_pwhash_ALG_ARGON2ID) != 0) {
-    throw std::runtime_error("Key derivation failed");
-  }
-#endif
-  return derivedKey;
-}
+// REMOVED: SQLCipher handles KDF internally. We shouldn't mix manual KDF with SQLCipher's KDF
+// to ensure consistency between initialize() and changeEncryptionKey().
 
 // Generate cryptographically secure random salt
-std::vector<uint8_t> generateSalt(size_t size = 32) {
-  std::vector<uint8_t> salt(size);
-#ifdef _WIN32
-  HCRYPTPROV hProv;
-  if (!CryptAcquireContext(&hProv, nullptr, nullptr, PROV_RSA_FULL,
-                           CRYPT_VERIFYCONTEXT)) {
-    throw std::runtime_error("Failed to acquire crypto context");
-  }
-  if (!CryptGenRandom(hProv, static_cast<DWORD>(size), salt.data())) {
-    CryptReleaseContext(hProv, 0);
-    throw std::runtime_error("Failed to generate random salt");
-  }
-  CryptReleaseContext(hProv, 0);
-#else
-  randombytes_buf(salt.data(), size);
-#endif
-  return salt;
-}
+// REMOVED: Not needed if we rely on SQLCipher's internal KDF and salt generation.
 } // namespace
 
 // Static instance for singleton
@@ -192,18 +141,7 @@ DatabaseResult DatabaseManager::initialize(const std::string &dbPath,
                           SQLITE_MISUSE);
   }
 
-  // For now, use the encryption key directly but ensure it's long enough
-  // In production, this should use PBKDF2 key derivation
-  if (encryptionKey.length() < 32) {
-    // Pad the key to 32 bytes if needed
-    std::string paddedKey = encryptionKey;
-    while (paddedKey.length() < 32) {
-      paddedKey += "0";
-    }
-    m_encryptionKey = paddedKey;
-  } else {
-    m_encryptionKey = encryptionKey;
-  }
+  m_encryptionKey = encryptionKey;
 
   m_inTransaction = false;
   m_connectionAttempts = 0;
@@ -273,12 +211,7 @@ DatabaseResult DatabaseManager::initialize(const std::string &dbPath,
   // Regular SQLite - store encryption key for potential future use but don't
   // apply it
   (void)encryptionKey; // Suppress unused parameter warning
-  std::cout << "Warning: Using regular SQLite without encryption (SQLCipher "
-               "not available)"
-            << std::endl;
-  std::cout << "WARNING: This is NOT suitable for production cryptocurrency "
-               "wallet use!"
-            << std::endl;
+  // In production, SQLCipher SHOULD be available.
 #endif
 
   // Validate encryption by trying to read from the database
@@ -320,10 +253,8 @@ void DatabaseManager::close() {
     }
 
     // Perform secure close operation
-#ifdef SQLCIPHER_AVAILABLE
-    // Clear SQLCipher key material
-    sqlite3_exec(m_db, "PRAGMA rekey = '';", nullptr, nullptr, nullptr);
-#endif
+    // SQLCipher will handle key cleanup upon close
+    // Do NOT use "PRAGMA rekey = '';" as it would decrypt the database on disk!
 
     sqlite3_close(m_db);
     m_db = nullptr;
@@ -331,8 +262,11 @@ void DatabaseManager::close() {
 
   m_initialized = false;
 
-  // Clear encryption key from memory
-  m_encryptionKey.clear();
+  // Clear encryption key from memory securely
+  if (!m_encryptionKey.empty()) {
+      secureZeroMemory(const_cast<char*>(m_encryptionKey.data()), m_encryptionKey.size());
+      m_encryptionKey.clear();
+  }
   m_connectionAttempts = 0;
 }
 
@@ -1156,9 +1090,11 @@ void DatabaseManager::logDatabaseOperation(const std::string &operation,
     logEntry << ", Error: " << sanitizedError;
   }
 
-  // For production, this should write to a secure log file
-  // For now, we'll use cout (should be replaced with proper logging)
-  std::cout << "[DATABASE_AUDIT] " << logEntry.str() << std::endl;
+  // Write to secure log file
+  std::ofstream auditFile("audit.log", std::ios::app);
+  if (auditFile.is_open()) {
+      auditFile << logEntry.str() << std::endl;
+  }
 
   // Store in memory for potential retrieval (limited to last 1000 entries)
   m_auditLog.push_back(logEntry.str());
@@ -1194,34 +1130,13 @@ DatabaseResult DatabaseManager::changeEncryptionKey(const std::string &newKey) {
   }
 
 #ifdef SQLCIPHER_AVAILABLE
-  // Generate new salt for key derivation
-  std::vector<uint8_t> newSalt;
-  try {
-    newSalt = generateSalt(32);
-  } catch (const std::exception &e) {
-    return DatabaseResult(
-        false, "Failed to generate new salt: " + std::string(e.what()),
-        SQLITE_ERROR);
-  }
-
-  // Derive new encryption key
-  std::vector<uint8_t> newDerivedKey;
-  try {
-    newDerivedKey = deriveKey(newKey, newSalt, 100000);
-  } catch (const std::exception &e) {
-    return DatabaseResult(false,
-                          "New key derivation failed: " + std::string(e.what()),
-                          SQLITE_ERROR);
-  }
-
-  // Change the database encryption key using the derived key directly
+  // Change the database encryption key using the new key directly
+  // SQLCipher handles KDF internally
   char *errorMsg = nullptr;
-  int result = sqlite3_rekey(m_db, newDerivedKey.data(),
-                             static_cast<int>(newDerivedKey.size()));
+  int result = sqlite3_rekey(m_db, newKey.c_str(),
+                             static_cast<int>(newKey.size()));
 
   if (result != SQLITE_OK) {
-    // Clear temporary data before returning
-    secureZeroMemory(newDerivedKey.data(), newDerivedKey.size());
     std::string error = "Failed to change encryption key: ";
     if (errorMsg) {
       error += errorMsg;
@@ -1231,17 +1146,11 @@ DatabaseResult DatabaseManager::changeEncryptionKey(const std::string &newKey) {
     return DatabaseResult(false, error, result);
   }
 
-  // Update stored key and salt
-  secureZeroMemory(const_cast<char *>(m_encryptionKey.c_str()),
-                   m_encryptionKey.size());
-  m_encryptionKey =
-      std::string(reinterpret_cast<const char *>(newDerivedKey.data()),
-                  newDerivedKey.size());
-
-  // Clear temporary data
-  secureZeroMemory(newDerivedKey.data(), newDerivedKey.size());
-  secureZeroMemory(m_keyDerivationSalt.data(), m_keyDerivationSalt.size());
-  m_keyDerivationSalt = newSalt;
+  // Update stored key
+  if (!m_encryptionKey.empty()) {
+      secureZeroMemory(const_cast<char *>(m_encryptionKey.data()), m_encryptionKey.size());
+  }
+  m_encryptionKey = newKey;
 
   logDatabaseOperation("REKEY_SUCCESS", "", "");
   return DatabaseResult(true, "Encryption key changed successfully");

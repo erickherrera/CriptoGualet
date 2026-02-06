@@ -16,6 +16,12 @@ std::string GenerateSecureRandomString(size_t byteLength);
 std::string B64Encode(const std::vector<uint8_t> &data);
 std::vector<uint8_t> B64Decode(const std::string &s);
 
+// === Base58 Encoding/Decoding ===
+std::string EncodeBase58(const std::vector<uint8_t> &data);
+std::vector<uint8_t> DecodeBase58(const std::string &str);
+std::string EncodeBase58Check(const std::vector<uint8_t> &data);
+bool DecodeBase58Check(const std::string &address, std::vector<uint8_t> &payload);
+
 // === Hash Functions ===
 bool SHA256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out);
 bool RIPEMD160(const uint8_t *data, size_t len, std::array<uint8_t, 20> &out);
@@ -43,7 +49,7 @@ bool BIP39_SeedFromMnemonic(const std::vector<std::string> &mnemonic, const std:
 bool ConstantTimeEquals(const std::vector<uint8_t> &a, const std::vector<uint8_t> &b);
 
 // === Memory Security Functions ===
-void SecureZeroMemory(void *ptr, size_t size);
+void SecureClear(void *ptr, size_t size);
 void SecureWipeVector(std::vector<uint8_t> &vec);
 void SecureWipeString(std::string &str);
 
@@ -115,6 +121,9 @@ bool BIP32_DeriveChild(const BIP32ExtendedKey &parent, uint32_t index,
 // Derive key from BIP44 path (e.g., "m/44'/0'/0'/0/0")
 bool BIP32_DerivePath(const BIP32ExtendedKey &master, const std::string &path,
                       BIP32ExtendedKey &derived);
+
+// Import extended key from Base58Check string (XPUB/XPRV)
+bool ImportExtendedKey(const std::string &encoded, BIP32ExtendedKey &outKey);
 
 // Generate Bitcoin address from extended public key
 bool BIP32_GetBitcoinAddress(const BIP32ExtendedKey &extKey, std::string &address, bool testnet = false);

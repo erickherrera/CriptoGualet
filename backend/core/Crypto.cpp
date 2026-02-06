@@ -667,7 +667,11 @@ bool ConstantTimeEquals(const std::vector<uint8_t> &a,
 }
 
 // === Memory Security Functions ===
-void SecureZeroMemory(void *ptr, size_t size) {
+#ifdef SecureZeroMemory
+#undef SecureZeroMemory
+#endif
+
+void SecureClear(void *ptr, size_t size) {
   if (!ptr || size == 0)
     return;
 
@@ -687,7 +691,7 @@ void SecureZeroMemory(void *ptr, size_t size) {
 
 void SecureWipeVector(std::vector<uint8_t> &vec) {
   if (!vec.empty()) {
-    SecureZeroMemory(vec.data(), vec.size());
+    SecureClear(vec.data(), vec.size());
     vec.clear();
     vec.shrink_to_fit();
   }
@@ -695,7 +699,7 @@ void SecureWipeVector(std::vector<uint8_t> &vec) {
 
 void SecureWipeString(std::string &str) {
   if (!str.empty()) {
-    SecureZeroMemory(&str[0], str.size());
+    SecureClear(&str[0], str.size());
     str.clear();
     str.shrink_to_fit();
   }
@@ -1117,7 +1121,7 @@ static void WriteBE32(uint8_t* ptr, uint32_t value) {
 // Helper: Base58 encoding for Bitcoin addresses and WIF
 static const char* BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-static std::string EncodeBase58(const std::vector<uint8_t>& data) {
+std::string EncodeBase58(const std::vector<uint8_t>& data) {
   // Count leading zeros
   size_t leading_zeros = 0;
   for (size_t i = 0; i < data.size() && data[i] == 0; ++i) {
@@ -1142,7 +1146,6 @@ static std::string EncodeBase58(const std::vector<uint8_t>& data) {
   }
 
   // Find the last non-zero element (actual end of data)
-  // This is the FIX: the allocated array may have trailing zeros that shouldn't be encoded
   size_t b58_end = b58.size();
   while (b58_end > 0 && b58[b58_end - 1] == 0) {
     --b58_end;
@@ -1166,8 +1169,78 @@ static std::string EncodeBase58(const std::vector<uint8_t>& data) {
   return result;
 }
 
+// Helper: Base58 decoding
+std::vector<uint8_t> DecodeBase58(const std::string& str) {
+  std::vector<uint8_t> result;
+  // Map base58 characters to values
+  static const int8_t mapBase58[256] = {
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1, 0, 1, 2, 3, 4, 5, 6,  7, 8,-1,-1,-1,-1,-1,-1,
+      -1, 9,10,11,12,13,14,15, 16,-1,17,18,19,20,21,-1,
+      22,23,24,25,26,27,28,29, 30,31,32,-1,-1,-1,-1,-1,
+      -1,33,34,35,36,37,38,39, 40,41,42,43,-1,44,45,46,
+      47,48,49,50,51,52,53,54, 55,56,57,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+      -1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1,
+  };
+
+  // Skip leading spaces
+  size_t i = 0;
+  while (i < str.length() && isspace(str[i]))
+      i++;
+  // Skip and count leading '1's
+  size_t zeroes = 0;
+  while (i < str.length() && str[i] == '1') {
+      zeroes++;
+      i++;
+  }
+  // Allocate enough space in big-endian base256 representation
+  size_t size = (str.length() - i) * 733 / 1000 + 1; // log(58) / log(256), rounded up
+  std::vector<uint8_t> b256(size);
+  // Process the characters
+  while (i < str.length() && !isspace(str[i])) {
+      // Decode base58 character
+      int carry = mapBase58[(uint8_t)str[i]];
+      if (carry == -1) // Invalid b58 character
+          return std::vector<uint8_t>();
+      int j = 0;
+      for (std::vector<uint8_t>::reverse_iterator it = b256.rbegin(); (it != b256.rend()) || (carry != 0); ++it, ++j) {
+          if (it == b256.rend()) {
+              if (carry != 0) {
+                  b256.insert(b256.begin(), 0);
+                  it = b256.rbegin() + j;
+              } else {
+                  break;
+              }
+          }
+          carry += 58 * (*it);
+          *it = carry % 256;
+          carry /= 256;
+      }
+      i++;
+  }
+  // Skip leading zeroes in b256
+  std::vector<uint8_t>::iterator it = b256.begin();
+  while (it != b256.end() && *it == 0)
+      it++;
+  // Copy result into output vector
+  result.reserve(zeroes + (b256.end() - it));
+  result.assign(zeroes, 0x00);
+  while (it != b256.end())
+      result.push_back(*(it++));
+  return result;
+}
+
 // Helper: Base58Check encoding (with double SHA256 checksum)
-static std::string EncodeBase58Check(const std::vector<uint8_t>& data) {
+std::string EncodeBase58Check(const std::vector<uint8_t>& data) {
   // Add 4-byte checksum (first 4 bytes of double SHA256)
   std::array<uint8_t, 32> hash1, hash2;
   if (!SHA256(data.data(), data.size(), hash1)) {
@@ -1181,6 +1254,72 @@ static std::string EncodeBase58Check(const std::vector<uint8_t>& data) {
   data_with_checksum.insert(data_with_checksum.end(), hash2.begin(), hash2.begin() + 4);
 
   return EncodeBase58(data_with_checksum);
+}
+
+// Helper: Decode Base58Check to get payload (without version byte and checksum)
+bool DecodeBase58Check(const std::string &address, std::vector<uint8_t> &payload) {
+  std::vector<uint8_t> decoded = DecodeBase58(address);
+  if (decoded.size() < 4) {
+      return false; // Too short to contain checksum
+  }
+
+  // Split data and checksum
+  std::vector<uint8_t> data(decoded.begin(), decoded.end() - 4);
+  std::vector<uint8_t> checksum(decoded.end() - 4, decoded.end());
+
+  // Calculate expected checksum
+  std::array<uint8_t, 32> hash1, hash2;
+  if (!SHA256(data.data(), data.size(), hash1)) return false;
+  if (!SHA256(hash1.data(), hash1.size(), hash2)) return false;
+
+  // Compare checksums
+  for (int i = 0; i < 4; i++) {
+      if (checksum[i] != hash2[i]) return false;
+  }
+
+  payload = data;
+  return true;
+}
+
+bool ImportExtendedKey(const std::string &encoded, BIP32ExtendedKey &outKey) {
+  // Decode Base58Check
+  std::vector<uint8_t> decoded;
+  if (!DecodeBase58Check(encoded, decoded)) {
+    return false;
+  }
+
+  // Check length: 4 (version) + 1 (depth) + 4 (fingerprint) + 4 (child) + 32 (chain) + 33 (key) = 78
+  if (decoded.size() != 78) {
+    return false;
+  }
+
+  // Parse fields
+  // Version bytes (4)
+  uint32_t version = ReadBE32(decoded.data());
+  // Determine if private or public based on version
+  // Mainnet Public: 0x0488B21E (xpub)
+  // Mainnet Private: 0x0488ADE4 (xprv)
+  // Testnet Public: 0x043587CF (tpub)
+  // Testnet Private: 0x04358394 (tprv)
+  bool isPrivate = (version == 0x0488ADE4 || version == 0x04358394);
+
+  // Depth (1)
+  outKey.depth = decoded[4];
+
+  // Fingerprint (4)
+  outKey.fingerprint = ReadBE32(decoded.data() + 5);
+
+  // Child number (4)
+  outKey.childNumber = ReadBE32(decoded.data() + 9);
+
+  // Chain code (32)
+  outKey.chainCode.assign(decoded.begin() + 13, decoded.begin() + 45);
+
+  // Key data (33)
+  outKey.key.assign(decoded.begin() + 45, decoded.begin() + 78);
+  outKey.isPrivate = isPrivate;
+
+  return true;
 }
 
 // NOTE: For production use, this requires secp256k1 library for proper elliptic curve operations
@@ -1630,32 +1769,29 @@ static void WriteUInt64LE(std::vector<uint8_t> &out, uint64_t value) {
   }
 }
 
-// Helper: Decode Base58Check to get payload (without version byte and checksum)
-static bool DecodeBase58Check(const std::string &address, std::vector<uint8_t> &payload) {
-  // Suppress unused parameter warnings until full implementation
-  (void)address;
-  (void)payload;
-  // This is a simplified version - in production, implement full Base58 decoding
-  // For now, return empty to indicate we need full implementation
-  // TODO: Implement proper Base58 decoding
-  return false;
-}
-
 bool CreateP2PKHScript(const std::string &address, std::vector<uint8_t> &script) {
   // Decode address to get public key hash
-  std::vector<uint8_t> decoded;
-  if (!DecodeBase58Check(address, decoded)) {
-    // Fallback: Create script manually if we have the hash
-    // TODO: Implement proper Base58 decoding
+  std::vector<uint8_t> payload;
+  if (!DecodeBase58Check(address, payload)) {
     return false;
   }
+
+  // Version 0x00 is Mainnet, 0x6F is Testnet.
+  // The payload includes the version byte as the first byte.
+  // We need to extract the 20-byte hash (skip the version byte).
+  if (payload.empty()) return false;
+  
+  // Basic validation: ensure payload is 21 bytes (1 version + 20 hash)
+  if (payload.size() != 21) return false;
+
+  std::vector<uint8_t> pubKeyHash(payload.begin() + 1, payload.end());
 
   // P2PKH script: OP_DUP OP_HASH160 <pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
   script.clear();
   script.push_back(0x76);  // OP_DUP
   script.push_back(0xA9);  // OP_HASH160
   script.push_back(0x14);  // Push 20 bytes
-  script.insert(script.end(), decoded.begin(), decoded.end());
+  script.insert(script.end(), pubKeyHash.begin(), pubKeyHash.end());
   script.push_back(0x88);  // OP_EQUALVERIFY
   script.push_back(0xAC);  // OP_CHECKSIG
 

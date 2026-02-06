@@ -58,10 +58,8 @@ AuthResponse AuthManager::LoginUser(const std::string& username, const std::stri
             }
         }
         
-        // Fallback if database initialization fails
-        int userId = 1; // placeholder
-        std::string sessionId = sessionManager_.createSession(userId, username);
-        return {AuthResult::SUCCESS, "Login successful. Session created: " + sessionId};
+        // Return error if database initialization or user retrieval failed
+        return {AuthResult::SYSTEM_ERROR, "Failed to initialize session"};
     }
     
     return authResponse;

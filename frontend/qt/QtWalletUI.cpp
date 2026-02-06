@@ -65,7 +65,7 @@ QtWalletUI::QtWalletUI(QWidget *parent)
   m_themeManager = &QtThemeManager::instance();
 
   // Initialize mock users first (doesn't touch UI)
-  initializeMockUsers();
+  // initializeMockUsers(); // Mock users disabled for production
 
   // Create all UI widgets
   setupUI();
@@ -436,21 +436,7 @@ void QtWalletUI::setUserInfo(const QString &username, const QString &address) {
 }
 
 void QtWalletUI::onViewBalanceClicked() {
-  if (!m_currentMockUser) {
-    return;
-  }
-
-  double usdBalance = m_currentMockUser->balance * m_currentBTCPrice;
-
-  QMessageBox::information(
-      this, "Balance Updated",
-      QString("Your current balance:\n%1 BTC\n$%L2 USD\n\nBTC Price: "
-              "$%L3\n\nThis is "
-              "mock data for testing purposes.")
-          .arg(QString::number(m_currentMockUser->balance, 'f', 8))
-          .arg(usdBalance, 0, 'f', 2)
-          .arg(m_currentBTCPrice, 0, 'f', 2));
-
+  // Mock mode disabled
   emit viewBalanceRequested();
 }
 
@@ -1817,89 +1803,24 @@ void QtWalletUI::updateScrollAreaWidth() {
 
 void QtWalletUI::initializeMockUsers() {
   m_mockUsers.clear();
-
-  MockUserData alice;
-  alice.username = "alice";
-  alice.password = "password123";
-  alice.primaryAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
-  alice.addresses << alice.primaryAddress
-                  << "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
-  alice.balance = 0.15234567;
-
-  MockTransaction tx1;
-  tx1.type = "RECEIVED";
-  tx1.address = "1HB5XMLmzFVj8ALj6mfBsbifRoD4miY36v";
-  tx1.amount = 0.05;
-  tx1.timestamp = "2024-01-15 10:30:00";
-  tx1.status = "Confirmed";
-  tx1.txId = "abc123def456";
-  alice.transactions << tx1;
-
-  m_mockUsers["alice"] = alice;
-
-  MockUserData bob;
-  bob.username = "bob";
-  bob.password = "securepass";
-  bob.primaryAddress = "1BoBMSEYstWetqTFn5Au4m4GFg7xJaNVN3";
-  bob.addresses << bob.primaryAddress;
-  bob.balance = 0.28456789;
-  m_mockUsers["bob"] = bob;
+  // Mock users removed for production security
 }
 
 bool QtWalletUI::authenticateMockUser(const QString &username,
                                       const QString &password) {
-  if (m_mockUsers.contains(username)) {
-    const MockUserData &user = m_mockUsers[username];
-    if (user.password == password) {
-      setMockUser(username);
-      return true;
-    }
-  }
+  // Always fail mock authentication
   return false;
 }
 
 void QtWalletUI::setMockUser(const QString &username) {
-  if (m_mockUsers.contains(username)) {
-    m_currentMockUser = &m_mockUsers[username];
-    m_mockMode = true;
-    setUserInfo(username, m_currentMockUser->primaryAddress);
-
-    // Use real-time BTC price
-    updateUSDBalance();
-
-    // Update Bitcoin wallet card balance
-    if (m_bitcoinWalletCard) {
-      m_bitcoinWalletCard->setBalance(
-          QString("%1 BTC").arg(m_currentMockUser->balance, 0, 'f', 8));
-    }
-
-    updateMockTransactionHistory();
-  }
+  // Mock user support removed
 }
 
 void QtWalletUI::updateMockTransactionHistory() {
   if (!m_bitcoinWalletCard)
     return;
 
-  if (!m_currentMockUser || m_currentMockUser->transactions.isEmpty()) {
-    m_bitcoinWalletCard->setTransactionHistory("No transactions yet.");
-    return;
-  }
-
-  QString historyHtml;
-  for (const MockTransaction &tx : m_currentMockUser->transactions) {
-    historyHtml += QString("<b>%1:</b> %2 BTC %3 %4<br>Time: %5<br>Status: "
-                           "%6<br>Tx ID: %7<br><br>")
-                       .arg(tx.type)
-                       .arg(QString::number(tx.amount, 'f', 8))
-                       .arg(tx.type == "SENT" ? "to" : "from")
-                       .arg(tx.address.left(20) + "...")
-                       .arg(tx.timestamp)
-                       .arg(tx.status)
-                       .arg(tx.txId);
-  }
-
-  m_bitcoinWalletCard->setTransactionHistory(historyHtml);
+  // Mock transactions removed
 }
 
 void QtWalletUI::updateResponsiveLayout() {
@@ -2169,12 +2090,7 @@ void QtWalletUI::updateUSDBalance() {
 
     // Use cached token USD value from background refresh
     tokensUsdValue = m_cachedTokenUsdValue;
-  } else if (m_currentMockUser) {
-    // Use mock balance if in mock mode (only BTC for now)
-    btcBalance = m_currentMockUser->balance;
-    ltcBalance = 0.0; // Mock mode doesn't have LTC yet
-    ethBalance = 0.0; // Mock mode doesn't have ETH yet
-  }
+  } 
 
   // Calculate USD value for each currency
   double btcUsdValue = btcBalance * btcPriceToUse;
@@ -2268,9 +2184,6 @@ void QtWalletUI::fetchRealBalance() {
   if (!m_balanceFetchWatcher || m_balanceFetchWatcher->isRunning()) {
     return;
   }
-
-  // Disable mock mode when fetching real balance
-  m_mockMode = false;
 
   setLoadingState(true, "Bitcoin");
   if (m_litecoinWallet && !m_litecoinAddress.isEmpty()) {
@@ -2591,8 +2504,8 @@ void QtWalletUI::sendRealTransaction(const QString &recipientAddress,
 
   // Step 10: Clean up sensitive data
   // TODO: Re-enable secure memory cleanup after fixing linkage
-  // Crypto::SecureWipeVector(privateKeyBytes);
-  // Crypto::SecureZeroMemory(seed.data(), seed.size());
+  Crypto::SecureWipeVector(privateKeyBytes);
+  Crypto::SecureClear(seed.data(), seed.size());
   privateKeyBytes.clear();
 }
 

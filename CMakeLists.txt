@@ -477,6 +477,7 @@ add_subdirectory(backend/core)
 add_subdirectory(frontend/qt)
 
 # Add test suite
+enable_testing()
 add_subdirectory(Tests)
 
 # Set Visual Studio startup target if requested (must be after add_subdirectory)
