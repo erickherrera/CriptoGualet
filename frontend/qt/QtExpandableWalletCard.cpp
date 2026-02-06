@@ -19,7 +19,8 @@ QtExpandableWalletCard::QtExpandableWalletCard(QtThemeManager *themeManager,
       m_balanceLabel(nullptr), m_expandIndicator(nullptr),
       m_expandedContent(nullptr), m_sendButton(nullptr),
       m_receiveButton(nullptr), m_tokenListWidget(nullptr),
-      m_historyTitleLabel(nullptr), m_historyText(nullptr), m_cryptoSymbol() {
+      m_historyTitleLabel(nullptr), m_historyText(nullptr),
+      m_expandAnimation(nullptr), m_cryptoSymbol() {
   setupUI();
   applyTheme();
 
@@ -353,12 +354,52 @@ void QtExpandableWalletCard::setFallbackIcon() {
 
 void QtExpandableWalletCard::toggleExpanded() {
   m_isExpanded = !m_isExpanded;
-  if (m_expandedContent) {
-    m_expandedContent->setVisible(m_isExpanded);
-  }
+  
   if (m_expandIndicator) {
     m_expandIndicator->setText(m_isExpanded ? "⌃" : "⌄");
   }
+
+  if (!m_expandedContent) return;
+
+  // Create animation on first use
+  if (!m_expandAnimation) {
+    m_expandAnimation = new QPropertyAnimation(m_expandedContent, "maximumHeight", this);
+    m_expandAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    connect(m_expandAnimation, &QPropertyAnimation::finished, this, [this]() {
+      if (!m_isExpanded) {
+        // Hide after collapse completes to free layout space
+        m_expandedContent->setVisible(false);
+      } else {
+        // Remove height constraint after expand completes for natural sizing
+        m_expandedContent->setMaximumHeight(16777215); // QWIDGETSIZE_MAX
+      }
+    });
+  }
+
+  // Stop any running animation for smooth interruption
+  if (m_expandAnimation->state() == QAbstractAnimation::Running) {
+    m_expandAnimation->stop();
+  }
+
+  if (m_isExpanded) {
+    // Expanding: measure natural height, then animate from 0 to target
+    m_expandedContent->setVisible(true);
+    m_expandedContent->setMaximumHeight(0);
+    m_expandedContent->adjustSize();
+    int targetHeight = m_expandedContent->sizeHint().height();
+    
+    m_expandAnimation->setDuration(EXPAND_DURATION);
+    m_expandAnimation->setStartValue(0);
+    m_expandAnimation->setEndValue(targetHeight);
+  } else {
+    // Collapsing: animate from current height to 0
+    int currentHeight = m_expandedContent->height();
+    m_expandAnimation->setDuration(EXPAND_DURATION);
+    m_expandAnimation->setStartValue(currentHeight);
+    m_expandAnimation->setEndValue(0);
+  }
+
+  m_expandAnimation->start();
 }
 
 bool QtExpandableWalletCard::eventFilter(QObject *obj, QEvent *event) {

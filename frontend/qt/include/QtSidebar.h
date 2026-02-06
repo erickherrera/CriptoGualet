@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QGraphicsOpacityEffect>
 #include <QLabel>
 #include <QPropertyAnimation>
 #include <QPushButton>
@@ -42,6 +43,11 @@ class QtSidebar : public QWidget {
     void updateLabelsVisibility(bool visible);
     void setShadowsEnabled(bool enabled);
     void cacheIcons();
+    void setupTextOpacityEffects();
+    void animateTextOpacity(qreal targetOpacity, int duration = 150, int delay = 0);
+    void animateHoverLabelOpacity(qreal targetOpacity);
+    void stopActiveTextAnimations();
+    void createOpacityAnimation(QGraphicsOpacityEffect* effect, qreal targetOpacity, int duration, int delay = 0);
 
     struct IconPair {
         QPixmap active;
@@ -61,12 +67,26 @@ class QtSidebar : public QWidget {
     QPushButton* m_signOutButton;
 
     QPropertyAnimation* m_widthAnimation;
+    QPropertyAnimation* m_hoverFadeAnimation;
+    QList<QPropertyAnimation*> m_activeTextAnimations;
+    QMetaObject::Connection m_hoverFadeFinishedConn;
+    
     QLabel* m_hoverLabel;
+    
+    QGraphicsOpacityEffect* m_walletTextOpacity;
+    QGraphicsOpacityEffect* m_topCryptosTextOpacity;
+    QGraphicsOpacityEffect* m_settingsTextOpacity;
+    QGraphicsOpacityEffect* m_signOutTextOpacity;
 
     bool m_isExpanded;
     bool m_textVisible;
+    bool m_wasAnimatingExpand;
     Page m_selectedPage;
 
-    static constexpr int COLLAPSED_WIDTH = 70;
-    static constexpr int EXPANDED_WIDTH = 240;
+    static constexpr int COLLAPSED_WIDTH = 90;
+    static constexpr int EXPANDED_WIDTH = 310;
+    static constexpr int ICON_SIZE = 32;
+    static constexpr int BUTTON_HEIGHT = 60;
+    static constexpr int TEXT_STAGGER_DELAY = 60;
+    static constexpr int TEXT_HIDE_ADVANCE = 30;
 };

@@ -31,7 +31,9 @@ void LoadingOverlay::hideEvent(QHideEvent* event) {
 
 bool LoadingOverlay::eventFilter(QObject* obj, QEvent* event) {
     if (obj == parentWidget() && event->type() == QEvent::Resize) {
-        resize(static_cast<QWidget*>(obj)->size());
+        if (QWidget* widget = qobject_cast<QWidget*>(obj)) {
+            resize(widget->size());
+        }
     }
     return QWidget::eventFilter(obj, event);
 }

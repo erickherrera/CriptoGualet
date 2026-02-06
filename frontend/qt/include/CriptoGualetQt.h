@@ -16,6 +16,11 @@
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <memory>
+#include <QThreadPool>
+#include <QRunnable>
+#include <QMutex>
+#include <QFutureWatcher>
+#include <QtConcurrent>
 
 class QtLoginUI;
 class QtWalletUI;
@@ -23,6 +28,10 @@ class QtSettingsUI;
 class QtTopCryptosPage;
 class QtThemeManager;
 class QtSidebar;
+
+namespace Auth {
+    struct AuthResponse;
+}
 
 class CriptoGualetQt : public QMainWindow {
     Q_OBJECT
@@ -56,6 +65,16 @@ class CriptoGualetQt : public QMainWindow {
                                                 const QString& rpcPassword,
                                                 bool allowInsecureHttp,
                                                 bool enableFallback);
+    
+    // Helper methods for reliability
+    bool validateUserSession() const;
+    bool initializeRepositories();
+    void deriveMultiChainAddresses(int userId, const QString& password);
+    void handleAuthenticationResult(const QString& username, const QString& password, 
+                                   const Auth::AuthResponse& response);
+    
+    // Thread pool for background operations
+    QThreadPool* m_threadPool;
 
     QWidget* m_centralWidget;
     QVBoxLayout* m_mainLayout;

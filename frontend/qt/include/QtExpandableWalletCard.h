@@ -4,6 +4,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QPropertyAnimation>
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -69,6 +70,10 @@ private:
   QtTokenListWidget *m_tokenListWidget;
   QLabel *m_historyTitleLabel;
   QTextEdit *m_historyText;
+
+  // Animation
+  QPropertyAnimation* m_expandAnimation;
+  static constexpr int EXPAND_DURATION = 250;
 
   // State
   bool m_isExpanded;

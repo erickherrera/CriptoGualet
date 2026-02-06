@@ -1,4 +1,4 @@
-#include "CriptoGualetQt.h"
+#include "../frontend/qt/include/CriptoGualetQt.h"
 #include "../backend/core/include/Auth.h"
 #include "../backend/core/include/AuthManager.h"
 #include "../backend/core/include/Crypto.h"
@@ -28,7 +28,8 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <thread>
+#include <QRunnable>
+#include <QPointer>
 
 namespace {
 constexpr const char *kProviderTypeKey = "btc.provider";
@@ -40,10 +41,14 @@ constexpr const char *kProviderFallbackKey = "btc.provider.fallback";
 } // namespace
 
 CriptoGualetQt::CriptoGualetQt(QWidget *parent)
-    : QMainWindow(parent), m_stackedWidget(nullptr), m_loginUI(nullptr),
-      m_walletUI(nullptr), m_themeManager(nullptr), m_centralWidget(nullptr),
-      m_mainLayout(nullptr), m_contentLayout(nullptr), m_contentWidget(nullptr),
-      m_sidebar(nullptr) {
+    : QMainWindow(parent), m_threadPool(nullptr), m_stackedWidget(nullptr), 
+      m_loginUI(nullptr), m_walletUI(nullptr), m_themeManager(nullptr), 
+      m_centralWidget(nullptr), m_mainLayout(nullptr), m_contentLayout(nullptr), 
+      m_contentWidget(nullptr), m_sidebar(nullptr) {
+
+  // Use global thread pool for background operations
+  m_threadPool = QThreadPool::globalInstance();
+  m_threadPool->setMaxThreadCount(4); // Limit concurrent threads
 
   // Initialize theme manager first - ensure singleton is properly constructed
   try {
@@ -66,57 +71,8 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
   setAttribute(Qt::WA_ShowWithoutActivating, false);
 
   // Initialize database and repositories
-  // Note: Defer error dialogs until after event loop starts to avoid pre-launch
-  // errors
-  try {
-    auto &dbManager = Database::DatabaseManager::getInstance();
-
-    // Derive secure machine-specific encryption key
-    std::string encryptionKey;
-    if (!Auth::DeriveSecureEncryptionKey(encryptionKey)) {
-      qCritical() << "Failed to derive encryption key for database";
-      // Defer error dialog until after event loop starts
-      QTimer::singleShot(0, [this]() {
-        QMessageBox::critical(this, "Security Error",
-                              "Failed to derive secure encryption key. Cannot "
-                              "initialize database.");
-      });
-      return;
-    }
-
-    auto dbResult = dbManager.initialize("criptogualet.db", encryptionKey);
-
-    // Securely wipe the key from memory after use
-    std::fill(encryptionKey.begin(), encryptionKey.end(), '\0');
-
-    if (!dbResult) {
-      qCritical() << "Database initialization failed:"
-                  << dbResult.message.c_str()
-                  << "Error code:" << dbResult.errorCode;
-      // Defer error dialog until after event loop starts
-      QString errorMsg = QString("Failed to initialize database: %1")
-                             .arg(QString::fromStdString(dbResult.message));
-      QTimer::singleShot(0, this, [this, errorMsg]() {
-        QMessageBox::critical(this, "Database Error", errorMsg);
-      });
-    } else {
-      m_userRepository =
-          std::make_unique<Repository::UserRepository>(dbManager);
-      m_walletRepository =
-          std::make_unique<Repository::WalletRepository>(dbManager);
-      m_tokenRepository =
-          std::make_unique<Repository::TokenRepository>(dbManager);
-      m_settingsRepository =
-          std::make_unique<Repository::SettingsRepository>(dbManager);
-    }
-  } catch (const std::exception &e) {
-    qCritical() << "Exception during database initialization:" << e.what();
-    // Defer error dialog until after event loop starts
-    QString errorMsg =
-        QString("Failed to initialize database: %1").arg(e.what());
-    QTimer::singleShot(0, this, [this, errorMsg]() {
-      QMessageBox::critical(this, "Initialization Error", errorMsg);
-    });
+  if (!initializeRepositories()) {
+    qCritical() << "Critical: Failed to initialize repositories. Application may not function correctly.";
   }
 
   // Initialize Bitcoin wallet
@@ -143,6 +99,107 @@ CriptoGualetQt::CriptoGualetQt(QWidget *parent)
     connect(m_loginUI, &QtLoginUI::loginSuccessful, this,
             &CriptoGualetQt::showWalletScreen);
   }
+}
+
+bool CriptoGualetQt::initializeRepositories() {
+  try {
+    auto &dbManager = Database::DatabaseManager::getInstance();
+
+    // Derive secure machine-specific encryption key
+    std::string encryptionKey;
+    if (!Auth::DeriveSecureEncryptionKey(encryptionKey)) {
+      qCritical() << "Failed to derive encryption key for database";
+      QTimer::singleShot(0, [this]() {
+        QMessageBox::critical(this, "Security Error",
+                              "Failed to derive secure encryption key. Cannot "
+                              "initialize database.");
+      });
+      return false;
+    }
+
+    auto dbResult = dbManager.initialize("criptogualet.db", encryptionKey);
+
+    // Securely wipe the key from memory after use
+    std::fill(encryptionKey.begin(), encryptionKey.end(), '\0');
+
+    if (!dbResult) {
+      qCritical() << "Database initialization failed:"
+                  << dbResult.message.c_str()
+                  << "Error code:" << dbResult.errorCode;
+      QString errorMsg = QString("Failed to initialize database: %1")
+                             .arg(QString::fromStdString(dbResult.message));
+      QTimer::singleShot(0, this, [this, errorMsg]() {
+        QMessageBox::critical(this, "Database Error", errorMsg);
+      });
+      return false;
+    }
+
+    m_userRepository = std::make_unique<Repository::UserRepository>(dbManager);
+    m_walletRepository = std::make_unique<Repository::WalletRepository>(dbManager);
+    m_tokenRepository = std::make_unique<Repository::TokenRepository>(dbManager);
+    m_settingsRepository = std::make_unique<Repository::SettingsRepository>(dbManager);
+    
+    return true;
+  } catch (const std::exception &e) {
+    qCritical() << "Exception during database initialization:" << e.what();
+    QString errorMsg = QString("Failed to initialize database: %1").arg(e.what());
+    QTimer::singleShot(0, this, [this, errorMsg]() {
+      QMessageBox::critical(this, "Initialization Error", errorMsg);
+    });
+    return false;
+  }
+}
+
+bool CriptoGualetQt::validateUserSession() const {
+  if (g_currentUser.empty()) {
+    qWarning() << "No active user session";
+    return false;
+  }
+  if (g_users.find(g_currentUser) == g_users.end()) {
+    qWarning() << "User not found in global users map:" << QString::fromStdString(g_currentUser);
+    return false;
+  }
+  return true;
+}
+
+void CriptoGualetQt::deriveMultiChainAddresses(int userId, const QString& password) {
+  if (!m_walletRepository || userId <= 0 || password.isEmpty()) {
+    qWarning() << "Cannot derive addresses: invalid parameters";
+    return;
+  }
+
+  auto seedResult = m_walletRepository->retrieveDecryptedSeed(userId, password.toStdString());
+  if (!seedResult.success || seedResult.data.empty()) {
+    qWarning() << "Failed to retrieve seed for address derivation";
+    return;
+  }
+
+  std::array<uint8_t, 64> seed{};
+  if (!Crypto::BIP39_SeedFromMnemonic(seedResult.data, "", seed)) {
+    qWarning() << "Failed to convert mnemonic to seed";
+    return;
+  }
+
+  Crypto::BIP32ExtendedKey masterKey;
+  if (!Crypto::BIP32_MasterKeyFromSeed(seed, masterKey)) {
+    qWarning() << "Failed to derive master key";
+    seed.fill(uint8_t(0));
+    return;
+  }
+
+  // Derive Ethereum address
+  std::string ethAddress;
+  if (Crypto::BIP44_GetEthereumAddress(masterKey, 0, false, 0, ethAddress)) {
+    m_walletUI->setEthereumAddress(QString::fromStdString(ethAddress));
+  }
+
+  // Derive Litecoin address
+  std::string ltcAddress;
+  if (Crypto::DeriveChainAddress(masterKey, Crypto::ChainType::LITECOIN, 0, false, 0, ltcAddress)) {
+    m_walletUI->setLitecoinAddress(QString::fromStdString(ltcAddress));
+  }
+
+  seed.fill(uint8_t(0)); // Securely wipe
 }
 
 void CriptoGualetQt::setupUI() {
@@ -229,12 +286,9 @@ void CriptoGualetQt::setupUI() {
   connect(
       m_loginUI, &QtLoginUI::loginRequested,
       [this](const QString &username, const QString &password) {
-        std::string stdUsername = username.toStdString();
-        std::string stdPassword = password.toStdString();
-
-        // Check for mock user first
+        // Check for mock user first (synchronous - no thread needed)
         if (m_walletUI->authenticateMockUser(username, password)) {
-          g_currentUser = stdUsername;
+          g_currentUser = username.toStdString();
           showWalletScreen();
           statusBar()->showMessage("Mock login successful (testuser)", 3000);
           m_loginUI->onLoginResult(
@@ -242,85 +296,61 @@ void CriptoGualetQt::setupUI() {
           return;
         }
 
-        // Run authentication in a background thread to keep UI responsive
-        std::thread([this, stdUsername, stdPassword, username]() {
-          // Normal user authentication
-          Auth::AuthResponse response =
-              Auth::LoginUser(stdUsername, stdPassword);
-          QString message = QString::fromStdString(response.message);
-
-          // Report back to UI thread
-          QMetaObject::invokeMethod(
-              this,
-              [this, response, message, stdUsername, stdPassword, username]() {
-                if (response.success()) {
-                  g_currentUser = stdUsername;
-
-                  // Get user ID from repository
-                  if (m_userRepository) {
-                    auto userResult =
-                        m_userRepository->getUserByUsername(stdUsername);
-                    if (userResult.success) {
-                      int userId = userResult.data.id;
-                      m_walletUI->setCurrentUserId(userId);
-                      if (m_settingsUI) {
-                        m_settingsUI->setCurrentUserId(userId);
-                      }
-                      applyBitcoinProviderSettings(userId);
-
-                      // PHASE 1 FIX: Derive Ethereum address from seed
-                      if (m_walletRepository) {
-                        auto seedResult =
-                            m_walletRepository->retrieveDecryptedSeed(
-                                userId, stdPassword);
-                        if (seedResult.success && !seedResult.data.empty()) {
-                          // Convert mnemonic to seed
-                          std::array<uint8_t, 64> seed{};
-                          if (Crypto::BIP39_SeedFromMnemonic(
-                                  seedResult.data, "", seed)) {
-                            // Derive master key
-                            Crypto::BIP32ExtendedKey masterKey;
-                            if (Crypto::BIP32_MasterKeyFromSeed(seed,
-                                                                masterKey)) {
-                              // Derive Ethereum address
-                              std::string ethAddress;
-                              if (Crypto::BIP44_GetEthereumAddress(
-                                      masterKey, 0, false, 0, ethAddress)) {
-                                m_walletUI->setEthereumAddress(
-                                    QString::fromStdString(ethAddress));
-                              }
-
-                              // Derive Litecoin address (BIP44 coin type 2)
-                              // Mainnet: m/44'/2'/0'/0/0
-                              std::string ltcAddress;
-                              if (Crypto::DeriveChainAddress(
-                                      masterKey, Crypto::ChainType::LITECOIN, 0,
-                                      false, 0, ltcAddress)) {
-                                m_walletUI->setLitecoinAddress(
-                                    QString::fromStdString(ltcAddress));
-                              }
-                            }
-                            seed.fill(uint8_t(0)); // Securely wipe
-                          }
-                        }
-                      }
-                    }
-                  }
-
-                  m_walletUI->setUserInfo(username,
-                                          QString::fromStdString(
-                                              g_users[stdUsername].walletAddress));
-                  showWalletScreen();
-                  statusBar()->showMessage("Login successful", 3000);
-                } else {
-                  statusBar()->showMessage("Login failed", 3000);
-                }
-
-                // Send result back to login UI for visual feedback
-                m_loginUI->onLoginResult(response.success(), message);
-              },
-              Qt::QueuedConnection);
-        }).detach();
+        // Run authentication in thread pool to keep UI responsive
+        class AuthTask : public QRunnable {
+        public:
+          AuthTask(CriptoGualetQt* app, const QString& user, const QString& pass)
+            : m_app(app), m_username(user), m_password(pass) {
+            setAutoDelete(false);
+          }
+          
+          void run() override {
+            std::string stdUsername = m_username.toStdString();
+            std::string stdPassword = m_password.toStdString();
+            Auth::AuthResponse response = Auth::LoginUser(stdUsername, stdPassword);
+            
+            // Report back to UI thread
+            QMetaObject::invokeMethod(m_app, [this, response]() {
+              if (!m_app) return;
+              handleAuthResponse(response);
+            }, Qt::QueuedConnection);
+          }
+          
+        private:
+          void handleAuthResponse(const Auth::AuthResponse& response) {
+            QString message = QString::fromStdString(response.message);
+            
+            if (response.success()) {
+              g_currentUser = m_username.toStdString();
+              m_app->handleAuthenticationResult(m_username, m_password, response);
+            } else {
+              m_app->statusBar()->showMessage("Login failed", 3000);
+              m_app->m_loginUI->onLoginResult(false, message);
+            }
+            delete this;
+          }
+          
+          QPointer<CriptoGualetQt> m_app;
+          QString m_username;
+          QString m_password;
+        };
+        
+        if (m_threadPool) {
+          m_threadPool->start(new AuthTask(this, username, password));
+        } else {
+          // Fallback to synchronous execution if thread pool unavailable
+          std::string stdUsername = username.toStdString();
+          std::string stdPassword = password.toStdString();
+          Auth::AuthResponse response = Auth::LoginUser(stdUsername, stdPassword);
+          
+          if (response.success()) {
+            g_currentUser = stdUsername;
+            handleAuthenticationResult(username, password, response);
+          } else {
+            statusBar()->showMessage("Login failed", 3000);
+            m_loginUI->onLoginResult(false, QString::fromStdString(response.message));
+          }
+        }
       });
 
   connect(
@@ -662,6 +692,44 @@ void CriptoGualetQt::createSidebar() {
     qDebug() << "Sign Out requested from sidebar";
     showLoginScreen();
   });
+}
+
+void CriptoGualetQt::handleAuthenticationResult(const QString& username, const QString& password, 
+                                               const Auth::AuthResponse& response) {
+  // Get user ID from repository
+  if (!m_userRepository) {
+    qWarning() << "User repository not available";
+    return;
+  }
+
+  std::string stdUsername = username.toStdString();
+  auto userResult = m_userRepository->getUserByUsername(stdUsername);
+  
+  if (!userResult.success) {
+    qWarning() << "Failed to get user by username:" << username;
+    m_loginUI->onLoginResult(false, "User not found in database");
+    return;
+  }
+
+  int userId = userResult.data.id;
+  m_walletUI->setCurrentUserId(userId);
+  
+  if (m_settingsUI) {
+    m_settingsUI->setCurrentUserId(userId);
+  }
+  
+  applyBitcoinProviderSettings(userId);
+
+  // Derive multi-chain addresses
+  deriveMultiChainAddresses(userId, password);
+
+  m_walletUI->setUserInfo(username,
+                          QString::fromStdString(g_users[stdUsername].walletAddress));
+  showWalletScreen();
+  statusBar()->showMessage("Login successful", 3000);
+  
+  QString message = QString::fromStdString(response.message);
+  m_loginUI->onLoginResult(true, message);
 }
 
 void CriptoGualetQt::setupMenuBar() {

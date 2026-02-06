@@ -7,10 +7,15 @@
 #include <QPixmap>
 #include <QSvgRenderer>
 #include <QStyle>
+#include <QTimer>
 
 QtSidebar::QtSidebar(QtThemeManager *themeManager, QWidget *parent)
     : QWidget(parent), m_themeManager(themeManager), m_hoverLabel(nullptr),
-      m_isExpanded(false), m_textVisible(false), m_selectedPage(Page::None) {
+      m_widthAnimation(nullptr), m_hoverFadeAnimation(nullptr),
+      m_walletTextOpacity(nullptr), m_topCryptosTextOpacity(nullptr),
+      m_settingsTextOpacity(nullptr), m_signOutTextOpacity(nullptr),
+      m_isExpanded(false), m_textVisible(false),
+      m_wasAnimatingExpand(false), m_selectedPage(Page::None) {
   setupUI();
   applyTheme();
 
@@ -34,15 +39,27 @@ void QtSidebar::setupUI() {
   // Sidebar content widget
   m_sidebarContent = new QWidget(this);
   m_navLayout = new QVBoxLayout(m_sidebarContent);
-  m_navLayout->setContentsMargins(10, 20, 10, 20);
-  m_navLayout->setSpacing(15);
+  m_navLayout->setContentsMargins(14, 24, 14, 24);
+  m_navLayout->setSpacing(18);
 
   // Hamburger menu button at the top
   m_menuButton = new QPushButton(m_sidebarContent);
   m_menuButton->setProperty("class", "sidebar-menu-button");
   m_menuButton->setCursor(Qt::PointingHandCursor);
   m_menuButton->setToolTip("Toggle Menu");
-  m_menuButton->setFixedHeight(50);
+  m_menuButton->setFixedHeight(BUTTON_HEIGHT);
+  
+  QHBoxLayout *menuLayout = new QHBoxLayout(m_menuButton);
+  // Center icon: button width = 90 - 14*2(nav margins) = 62, so (62 - 32) / 2 = 15
+  menuLayout->setContentsMargins(15, 0, 15, 0);
+  menuLayout->setSpacing(0);
+
+  QLabel *menuIcon = new QLabel(m_menuButton);
+  menuIcon->setObjectName("menuIcon");
+  menuIcon->setAlignment(Qt::AlignCenter);
+  menuIcon->setFixedSize(ICON_SIZE, ICON_SIZE);
+  menuLayout->addWidget(menuIcon, 0, Qt::AlignCenter);
+
   m_navLayout->addWidget(m_menuButton);
 
   connect(m_menuButton, &QPushButton::clicked, this, &QtSidebar::toggleSidebar);
@@ -57,22 +74,23 @@ void QtSidebar::setupUI() {
   m_signOutButton->setProperty("class", "sidebar-nav-button signout-button");
   m_signOutButton->setCursor(Qt::PointingHandCursor);
   m_signOutButton->setToolTip("Sign Out");
-  m_signOutButton->setFixedHeight(50);
+  m_signOutButton->setFixedHeight(BUTTON_HEIGHT);
 
   QHBoxLayout *signOutLayout = new QHBoxLayout(m_signOutButton);
-  signOutLayout->setContentsMargins(8, 0, 8, 0);
-  signOutLayout->setSpacing(12);
+  // Center icon: button width = 90 - 14*2(nav margins) = 62, so (62 - 32) / 2 = 15
+  signOutLayout->setContentsMargins(15, 0, 15, 0);
+  signOutLayout->setSpacing(16);
 
-  signOutLayout->addStretch();
   QLabel *signOutIcon = new QLabel(m_signOutButton);
   signOutIcon->setObjectName("signOutIcon");
   signOutIcon->setAlignment(Qt::AlignCenter);
-  signOutIcon->setFixedSize(24, 24);
-  signOutLayout->addWidget(signOutIcon);
+  signOutIcon->setFixedSize(ICON_SIZE, ICON_SIZE);
+  signOutLayout->addWidget(signOutIcon, 0, Qt::AlignCenter);
 
   QLabel *signOutText = new QLabel("Sign Out", m_signOutButton);
   signOutText->setObjectName("signOutText");
   signOutText->setVisible(false);
+  signOutText->setFixedWidth(100); // Fixed width to prevent layout recalculations
   signOutLayout->addWidget(signOutText);
   signOutLayout->addStretch();
 
@@ -88,14 +106,25 @@ void QtSidebar::setupUI() {
   m_hoverLabel->setObjectName("hoverLabel");
   m_hoverLabel->hide();
 
-  // Setup animation for width - optimized for smoother performance
+  // Setup width animation with spring physics (OutBack)
   m_widthAnimation = new QPropertyAnimation(this, "sidebarWidth");
-  m_widthAnimation->setDuration(120);
-  m_widthAnimation->setEasingCurve(QEasingCurve::OutCubic);
+  m_widthAnimation->setDuration(300);
+  m_widthAnimation->setEasingCurve(QEasingCurve::OutBack);
 
   connect(m_widthAnimation, &QPropertyAnimation::finished, this, [this]() {
       setShadowsEnabled(true);
+      if (m_isExpanded) {
+        m_textVisible = true;
+      } else {
+        // Safely hide labels only after collapse animation completes
+        updateLabelsVisibility(false);
+      }
   });
+  
+  // Setup hover label fade animation
+  m_hoverFadeAnimation = new QPropertyAnimation(this);
+  m_hoverFadeAnimation->setDuration(150);
+  m_hoverFadeAnimation->setEasingCurve(QEasingCurve::OutQuad);
 
   // Install event filter on parent to detect clicks outside
   if (parent()) {
@@ -115,22 +144,23 @@ void QtSidebar::createNavigationButtons() {
   m_walletButton->setProperty("class", "sidebar-nav-button");
   m_walletButton->setCursor(Qt::PointingHandCursor);
   m_walletButton->setToolTip("Wallet");
-  m_walletButton->setFixedHeight(50);
+  m_walletButton->setFixedHeight(BUTTON_HEIGHT);
 
   QHBoxLayout *walletLayout = new QHBoxLayout(m_walletButton);
-  walletLayout->setContentsMargins(8, 0, 8, 0);
-  walletLayout->setSpacing(12);
+  // Center icon: button width = 90 - 14*2(nav margins) = 62, so (62 - 32) / 2 = 15
+  walletLayout->setContentsMargins(15, 0, 15, 0);
+  walletLayout->setSpacing(16);
 
-  walletLayout->addStretch();
   QLabel *walletIcon = new QLabel(m_walletButton);
   walletIcon->setObjectName("walletIcon");
   walletIcon->setAlignment(Qt::AlignCenter);
-  walletIcon->setFixedSize(24, 24);
-  walletLayout->addWidget(walletIcon);
+  walletIcon->setFixedSize(ICON_SIZE, ICON_SIZE);
+  walletLayout->addWidget(walletIcon, 0, Qt::AlignCenter);
 
   QLabel *walletText = new QLabel("Wallet", m_walletButton);
   walletText->setObjectName("walletText");
   walletText->setVisible(false);
+  walletText->setFixedWidth(100); // Fixed width to prevent layout recalculations
   walletLayout->addWidget(walletText);
   walletLayout->addStretch();
 
@@ -146,22 +176,23 @@ void QtSidebar::createNavigationButtons() {
   m_topCryptosButton->setProperty("class", "sidebar-nav-button");
   m_topCryptosButton->setCursor(Qt::PointingHandCursor);
   m_topCryptosButton->setToolTip("Markets");
-  m_topCryptosButton->setFixedHeight(50);
+  m_topCryptosButton->setFixedHeight(BUTTON_HEIGHT);
 
   QHBoxLayout *topCryptosLayout = new QHBoxLayout(m_topCryptosButton);
-  topCryptosLayout->setContentsMargins(8, 0, 8, 0);
-  topCryptosLayout->setSpacing(12);
+  // Center icon: button width = 90 - 14*2(nav margins) = 62, so (62 - 32) / 2 = 15
+  topCryptosLayout->setContentsMargins(15, 0, 15, 0);
+  topCryptosLayout->setSpacing(16);
 
-  topCryptosLayout->addStretch();
   QLabel *topCryptosIcon = new QLabel(m_topCryptosButton);
   topCryptosIcon->setObjectName("topCryptosIcon");
   topCryptosIcon->setAlignment(Qt::AlignCenter);
-  topCryptosIcon->setFixedSize(24, 24);
-  topCryptosLayout->addWidget(topCryptosIcon);
+  topCryptosIcon->setFixedSize(ICON_SIZE, ICON_SIZE);
+  topCryptosLayout->addWidget(topCryptosIcon, 0, Qt::AlignCenter);
 
   QLabel *topCryptosText = new QLabel("Markets", m_topCryptosButton);
   topCryptosText->setObjectName("topCryptosText");
   topCryptosText->setVisible(false);
+  topCryptosText->setFixedWidth(100); // Fixed width to prevent layout recalculations
   topCryptosLayout->addWidget(topCryptosText);
   topCryptosLayout->addStretch();
 
@@ -177,22 +208,23 @@ void QtSidebar::createNavigationButtons() {
   m_settingsButton->setProperty("class", "sidebar-nav-button");
   m_settingsButton->setCursor(Qt::PointingHandCursor);
   m_settingsButton->setToolTip("Settings");
-  m_settingsButton->setFixedHeight(50);
+  m_settingsButton->setFixedHeight(BUTTON_HEIGHT);
 
   QHBoxLayout *settingsLayout = new QHBoxLayout(m_settingsButton);
-  settingsLayout->setContentsMargins(8, 0, 8, 0);
-  settingsLayout->setSpacing(12);
+  // Center icon: button width = 90 - 14*2(nav margins) = 62, so (62 - 32) / 2 = 15
+  settingsLayout->setContentsMargins(15, 0, 15, 0);
+  settingsLayout->setSpacing(16);
 
-  settingsLayout->addStretch();
   QLabel *settingsIcon = new QLabel(m_settingsButton);
   settingsIcon->setObjectName("settingsIcon");
   settingsIcon->setAlignment(Qt::AlignCenter);
-  settingsIcon->setFixedSize(24, 24);
-  settingsLayout->addWidget(settingsIcon);
+  settingsIcon->setFixedSize(ICON_SIZE, ICON_SIZE);
+  settingsLayout->addWidget(settingsIcon, 0, Qt::AlignCenter);
 
   QLabel *settingsText = new QLabel("Settings", m_settingsButton);
   settingsText->setObjectName("settingsText");
   settingsText->setVisible(false);
+  settingsText->setFixedWidth(100); // Fixed width to prevent layout recalculations
   settingsLayout->addWidget(settingsText);
   settingsLayout->addStretch();
 
@@ -251,15 +283,35 @@ void QtSidebar::toggleSidebar() {
 }
 
 void QtSidebar::animateSidebar(bool expand) {
-  int startWidth = width();
   int targetWidth = expand ? EXPANDED_WIDTH : COLLAPSED_WIDTH;
+  int startWidth = width();
+  int totalDistance = EXPANDED_WIDTH - COLLAPSED_WIDTH;
 
+  // Stop any running text opacity animations to prevent overlap/flickering
+  stopActiveTextAnimations();
+
+  // Calculate remaining distance fraction for consistent animation speed
+  qreal remainingFraction = 1.0;
   if (m_widthAnimation->state() == QAbstractAnimation::Running) {
     m_widthAnimation->stop();
+    // Calculate fraction based purely on pixel distance remaining
+    int distanceToTarget = qAbs(targetWidth - startWidth);
+    remainingFraction = static_cast<qreal>(distanceToTarget) / totalDistance;
   }
 
   // Disable shadows during animation for performance
   setShadowsEnabled(false);
+
+  // Handle text visibility with staggered timing
+  if (!expand) {
+    // Fade out text, then hide labels when animation finishes
+    animateTextOpacity(0.0, TEXT_HIDE_ADVANCE, 0);
+    m_textVisible = false;
+  }
+
+  // Adjust duration proportionally to remaining distance for consistent speed
+  int adjustedDuration = static_cast<int>(300 * remainingFraction);
+  m_widthAnimation->setDuration(qMax(adjustedDuration, 100));
 
   m_widthAnimation->setStartValue(startWidth);
   m_widthAnimation->setEndValue(targetWidth);
@@ -267,7 +319,17 @@ void QtSidebar::animateSidebar(bool expand) {
   // Hide hover label immediately when animating
   hideHoverLabel();
 
+  // Track direction for interruption handling
+  m_wasAnimatingExpand = expand;
+
   m_widthAnimation->start();
+  
+  // For expansion, stagger text appearance after width animation starts
+  if (expand) {
+    updateLabelsVisibility(true);
+    animateTextOpacity(0.0, 0, 0); // Start at invisible
+    animateTextOpacity(1.0, 200, TEXT_STAGGER_DELAY);
+  }
 }
 
 bool QtSidebar::eventFilter(QObject *obj, QEvent *event) {
@@ -309,7 +371,7 @@ bool QtSidebar::eventFilter(QObject *obj, QEvent *event) {
 QIcon QtSidebar::createColoredIcon(const QString &svgPath,
                                    const QColor &color) {
   QSvgRenderer renderer(svgPath);
-  QPixmap pixmap(24, 24);
+  QPixmap pixmap(ICON_SIZE, ICON_SIZE);
   pixmap.fill(Qt::transparent);
 
   QPainter painter(&pixmap);
@@ -413,17 +475,24 @@ void QtSidebar::applyTheme() {
   QIcon menuIcon = createColoredIcon(":/icons/icons/menu.svg", iconColor);
   QIcon signOutIcon = createColoredIcon(":/icons/icons/logout.svg", QColor(signOutColor));
 
-  m_menuButton->setIcon(menuIcon);
-  m_menuButton->setIconSize(QSize(24, 24));
+  // Update menu icon
+  QLabel *menuIconLabel = m_menuButton->findChild<QLabel *>("menuIcon");
+  if (menuIconLabel) {
+      menuIconLabel->setPixmap(menuIcon.pixmap(ICON_SIZE, ICON_SIZE));
+  } else {
+      // Fallback if layout not ready (should not happen with new logic)
+      m_menuButton->setIcon(menuIcon);
+      m_menuButton->setIconSize(QSize(ICON_SIZE, ICON_SIZE));
+  }
 
   QLabel *signOutIconLabel = m_signOutButton->findChild<QLabel *>("signOutIcon");
   if (signOutIconLabel) {
-    QPixmap signOutPixmap = signOutIcon.pixmap(QSize(24, 24));
+    QPixmap signOutPixmap = signOutIcon.pixmap(QSize(ICON_SIZE, ICON_SIZE));
     signOutIconLabel->setPixmap(signOutPixmap);
   }
 
   QFont textFont = m_themeManager->buttonFont();
-  textFont.setPointSize(13);
+  textFont.setPointSize(14);
   textFont.setWeight(QFont::Medium);
 
   QLabel *walletText = m_walletButton->findChild<QLabel *>("walletText");
@@ -476,12 +545,52 @@ void QtSidebar::showHoverLabel(const QString &text, int yPos, bool isSignOut) {
   int labelY = yPos - m_hoverLabel->height() / 2;
   m_hoverLabel->move(labelX, labelY);
   m_hoverLabel->raise();
-  m_hoverLabel->show();
+  
+  // Animate opacity for smooth fade-in
+  animateHoverLabelOpacity(1.0);
+}
+
+void QtSidebar::animateHoverLabelOpacity(qreal targetOpacity) {
+  if (!m_hoverLabel) return;
+  
+  // Setup opacity effect if not already set
+  QGraphicsOpacityEffect *opacityEffect = qobject_cast<QGraphicsOpacityEffect*>(m_hoverLabel->graphicsEffect());
+  if (!opacityEffect) {
+    opacityEffect = new QGraphicsOpacityEffect(m_hoverLabel);
+    m_hoverLabel->setGraphicsEffect(opacityEffect);
+  }
+  
+  if (targetOpacity > 0) {
+    opacityEffect->setOpacity(0.0);
+    m_hoverLabel->show();
+  }
+  
+  if (m_hoverFadeAnimation->state() == QAbstractAnimation::Running) {
+    m_hoverFadeAnimation->stop();
+  }
+
+  // Disconnect previous finished handler precisely
+  if (m_hoverFadeFinishedConn) {
+    disconnect(m_hoverFadeFinishedConn);
+  }
+  
+  m_hoverFadeAnimation->setTargetObject(opacityEffect);
+  m_hoverFadeAnimation->setPropertyName("opacity");
+  m_hoverFadeAnimation->setStartValue(opacityEffect->opacity());
+  m_hoverFadeAnimation->setEndValue(targetOpacity);
+  m_hoverFadeAnimation->start();
+  
+  if (targetOpacity == 0.0) {
+    m_hoverFadeFinishedConn = connect(m_hoverFadeAnimation, &QPropertyAnimation::finished, this, [this]() {
+      if (m_hoverLabel) m_hoverLabel->hide();
+    });
+  }
 }
 
 void QtSidebar::hideHoverLabel() {
   if (m_hoverLabel) {
-    m_hoverLabel->hide();
+    // Use fade out animation instead of immediate hide
+    animateHoverLabelOpacity(0.0);
   }
 }
 
@@ -491,24 +600,96 @@ void QtSidebar::updateLabelsVisibility(bool visible) {
   QLabel *settingsText = m_settingsButton->findChild<QLabel *>("settingsText");
   QLabel *signOutText = m_signOutButton->findChild<QLabel *>("signOutText");
 
-  if (walletText)
+  if (walletText) {
     walletText->setVisible(visible);
-  if (topCryptosText)
+    if (!m_walletTextOpacity) {
+      m_walletTextOpacity = new QGraphicsOpacityEffect(walletText);
+      walletText->setGraphicsEffect(m_walletTextOpacity);
+    }
+  }
+  if (topCryptosText) {
     topCryptosText->setVisible(visible);
-  if (settingsText)
+    if (!m_topCryptosTextOpacity) {
+      m_topCryptosTextOpacity = new QGraphicsOpacityEffect(topCryptosText);
+      topCryptosText->setGraphicsEffect(m_topCryptosTextOpacity);
+    }
+  }
+  if (settingsText) {
     settingsText->setVisible(visible);
-  if (signOutText)
+    if (!m_settingsTextOpacity) {
+      m_settingsTextOpacity = new QGraphicsOpacityEffect(settingsText);
+      settingsText->setGraphicsEffect(m_settingsTextOpacity);
+    }
+  }
+  if (signOutText) {
     signOutText->setVisible(visible);
+    if (!m_signOutTextOpacity) {
+      m_signOutTextOpacity = new QGraphicsOpacityEffect(signOutText);
+      signOutText->setGraphicsEffect(m_signOutTextOpacity);
+    }
+  }
+}
+
+void QtSidebar::animateTextOpacity(qreal targetOpacity, int duration, int delay) {
+  if (delay > 0) {
+    QTimer::singleShot(delay, this, [this, targetOpacity, duration]() {
+      animateTextOpacity(targetOpacity, duration, 0);
+    });
+    return;
+  }
+  
+  if (m_walletTextOpacity) {
+    createOpacityAnimation(m_walletTextOpacity, targetOpacity, duration, 0);
+  }
+  if (m_topCryptosTextOpacity) {
+    createOpacityAnimation(m_topCryptosTextOpacity, targetOpacity, duration, TEXT_STAGGER_DELAY / 2);
+  }
+  if (m_settingsTextOpacity) {
+    createOpacityAnimation(m_settingsTextOpacity, targetOpacity, duration, TEXT_STAGGER_DELAY);
+  }
+  if (m_signOutTextOpacity) {
+    createOpacityAnimation(m_signOutTextOpacity, targetOpacity, duration, TEXT_STAGGER_DELAY + 20);
+  }
+}
+
+void QtSidebar::stopActiveTextAnimations() {
+  for (QPropertyAnimation *anim : m_activeTextAnimations) {
+    if (anim && anim->state() == QAbstractAnimation::Running) {
+      anim->stop();
+    }
+  }
+  m_activeTextAnimations.clear();
+}
+
+void QtSidebar::createOpacityAnimation(QGraphicsOpacityEffect* effect, qreal targetOpacity, int duration, int delay) {
+  if (!effect) return;
+  
+  QPropertyAnimation *anim = new QPropertyAnimation(effect, "opacity");
+  anim->setDuration(duration);
+  anim->setStartValue(effect->opacity());
+  anim->setEndValue(targetOpacity);
+  anim->setEasingCurve(QEasingCurve::OutQuad);
+
+  // Track this animation so it can be stopped on interruption
+  m_activeTextAnimations.append(anim);
+  connect(anim, &QPropertyAnimation::finished, this, [this, anim]() {
+    m_activeTextAnimations.removeOne(anim);
+  });
+  connect(anim, &QObject::destroyed, this, [this, anim]() {
+    m_activeTextAnimations.removeOne(anim);
+  });
+  
+  if (delay > 0) {
+    QTimer::singleShot(delay, this, [anim]() {
+      if (anim) anim->start(QAbstractAnimation::DeleteWhenStopped);
+    });
+  } else {
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+  }
 }
 
 void QtSidebar::setSidebarWidth(int width) {
   setFixedWidth(width);
-  
-  bool showText = (width > 120);
-  if (showText != m_textVisible) {
-    updateLabelsVisibility(showText);
-    m_textVisible = showText;
-  }
 }
 
 void QtSidebar::setShadowsEnabled(bool enabled) {
@@ -522,8 +703,8 @@ void QtSidebar::cacheIcons() {
 
   auto cacheForPage = [&](Page page, const QString& path) {
     m_iconCache[page] = {
-      createColoredIcon(path, activeColor).pixmap(24, 24),
-      createColoredIcon(path, inactiveColor).pixmap(24, 24)
+      createColoredIcon(path, activeColor).pixmap(ICON_SIZE, ICON_SIZE),
+      createColoredIcon(path, inactiveColor).pixmap(ICON_SIZE, ICON_SIZE)
     };
   };
 
