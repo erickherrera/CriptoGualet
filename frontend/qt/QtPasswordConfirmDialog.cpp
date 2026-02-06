@@ -1,18 +1,31 @@
 #include "QtPasswordConfirmDialog.h"
-#include "QtThemeManager.h"
 #include "../../backend/core/include/Auth.h"
+#include "QtThemeManager.h"
 
-#include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QMessageBox>
+#include <QVBoxLayout>
 
-QtPasswordConfirmDialog::QtPasswordConfirmDialog(const QString &username,
-                                                 const QString &title,
-                                                 const QString &message,
-                                                 QWidget *parent)
-    : QDialog(parent), m_username(username), m_title(title), m_message(message),
+QtPasswordConfirmDialog::~QtPasswordConfirmDialog() {
+    // SECURITY: Securely wipe the password from memory before destruction.
+    // QString uses copy-on-write semantics, so we overwrite the internal data.
+    if (!m_password.isEmpty()) {
+        m_password.fill(QChar('\0'));
+        m_password.clear();
+    }
+    // Also clear the line edit's internal buffer
+    if (m_passwordEdit) {
+        m_passwordEdit->clear();
+    }
+}
+
+QtPasswordConfirmDialog::QtPasswordConfirmDialog(const QString& username, const QString& title,
+                                                 const QString& message, QWidget* parent)
+    : QDialog(parent),
+      m_username(username),
+      m_title(title),
+      m_message(message),
       m_themeManager(&QtThemeManager::instance()) {
-
     setWindowTitle(title);
     setModal(true);
     setMinimumWidth(450);
@@ -72,7 +85,7 @@ void QtPasswordConfirmDialog::setupUI() {
     m_mainLayout->addWidget(m_errorLabel);
 
     // Buttons
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(10);
 
     m_cancelButton = new QPushButton("Cancel", this);
@@ -94,8 +107,7 @@ void QtPasswordConfirmDialog::setupUI() {
     // Connect signals
     connect(m_confirmButton, &QPushButton::clicked, this,
             &QtPasswordConfirmDialog::onConfirmClicked);
-    connect(m_cancelButton, &QPushButton::clicked, this,
-            &QtPasswordConfirmDialog::onCancelClicked);
+    connect(m_cancelButton, &QPushButton::clicked, this, &QtPasswordConfirmDialog::onCancelClicked);
     connect(m_passwordEdit, &QLineEdit::returnPressed, this,
             &QtPasswordConfirmDialog::onConfirmClicked);
 }
@@ -113,7 +125,8 @@ void QtPasswordConfirmDialog::applyTheme() {
             color: %1;
             background-color: transparent;
         }
-    )").arg(m_themeManager->textColor().name());
+    )")
+                             .arg(m_themeManager->textColor().name());
     m_titleLabel->setStyleSheet(titleStyle);
 
     // Message styling
@@ -122,7 +135,8 @@ void QtPasswordConfirmDialog::applyTheme() {
             color: %1;
             background-color: transparent;
         }
-    )").arg(m_themeManager->subtitleColor().name());
+    )")
+                               .arg(m_themeManager->subtitleColor().name());
     m_messageLabel->setStyleSheet(messageStyle);
 
     // Password input styling
@@ -138,10 +152,10 @@ void QtPasswordConfirmDialog::applyTheme() {
             border-color: %4;
         }
     )")
-        .arg(m_themeManager->surfaceColor().name())
-        .arg(m_themeManager->textColor().name())
-        .arg(m_themeManager->secondaryColor().name())
-        .arg(m_themeManager->accentColor().name());
+                             .arg(m_themeManager->surfaceColor().name())
+                             .arg(m_themeManager->textColor().name())
+                             .arg(m_themeManager->secondaryColor().name())
+                             .arg(m_themeManager->accentColor().name());
     m_passwordEdit->setStyleSheet(inputStyle);
 
     // Error label styling
@@ -170,9 +184,9 @@ void QtPasswordConfirmDialog::applyTheme() {
             background-color: %3;
         }
     )")
-        .arg(m_themeManager->accentColor().name())
-        .arg(m_themeManager->accentColor().lighter(110).name())
-        .arg(m_themeManager->accentColor().darker(110).name());
+                               .arg(m_themeManager->accentColor().name())
+                               .arg(m_themeManager->accentColor().lighter(110).name())
+                               .arg(m_themeManager->accentColor().darker(110).name());
     m_confirmButton->setStyleSheet(confirmStyle);
 
     // Cancel button styling
@@ -193,14 +207,14 @@ void QtPasswordConfirmDialog::applyTheme() {
             background-color: %4;
         }
     )")
-        .arg(m_themeManager->surfaceColor().name())
-        .arg(m_themeManager->textColor().name())
-        .arg(m_themeManager->secondaryColor().name())
-        .arg(m_themeManager->secondaryColor().darker(110).name());
+                              .arg(m_themeManager->surfaceColor().name())
+                              .arg(m_themeManager->textColor().name())
+                              .arg(m_themeManager->secondaryColor().name())
+                              .arg(m_themeManager->secondaryColor().darker(110).name());
     m_cancelButton->setStyleSheet(cancelStyle);
 }
 
-void QtPasswordConfirmDialog::showError(const QString &error) {
+void QtPasswordConfirmDialog::showError(const QString& error) {
     m_errorLabel->setText(error);
     m_errorLabel->show();
 }
@@ -214,8 +228,7 @@ void QtPasswordConfirmDialog::onConfirmClicked() {
     }
 
     // Verify password against database
-    Auth::AuthResponse response =
-        Auth::LoginUser(m_username.toStdString(), password.toStdString());
+    Auth::AuthResponse response = Auth::LoginUser(m_username.toStdString(), password.toStdString());
 
     if (response.success()) {
         // Password confirmed

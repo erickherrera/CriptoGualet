@@ -1,7 +1,7 @@
 #include "AuthManager.h"
 #include "Auth.h"
-#include "Repository/UserRepository.h"
 #include "Database/DatabaseManager.h"
+#include "Repository/UserRepository.h"
 
 namespace Auth {
 
@@ -18,24 +18,25 @@ AuthManager::~AuthManager() {
     //
 }
 
-AuthResponse AuthManager::RegisterUser(const std::string& username, const std::string& password, std::vector<std::string>& outMnemonic) {
+AuthResponse AuthManager::RegisterUser(const std::string& username, const std::string& password,
+                                       std::vector<std::string>& outMnemonic) {
     // Call the extended registration that returns mnemonic words
     auto response = Auth::RegisterUserWithMnemonic(username, password, outMnemonic);
-    
+
     if (response.success() && !outMnemonic.empty()) {
         // Note: The QtSeedDisplayDialog will be handled by the frontend/UI layer
         // The backend just provides the mnemonic words for secure display
         // The UI should create and show QtSeedDisplayDialog with these words
         // and wait for user confirmation before proceeding
     }
-    
+
     return response;
 }
 
 AuthResponse AuthManager::LoginUser(const std::string& username, const std::string& password) {
     // Authenticate user using the Auth namespace
     auto authResponse = Auth::LoginUser(username, password);
-    
+
     if (authResponse.success()) {
         // Authentication successful - get user ID and create a session
         // We need to initialize database and get user ID from repository
@@ -43,39 +44,38 @@ AuthResponse AuthManager::LoginUser(const std::string& username, const std::stri
             try {
                 auto& dbManager = Database::DatabaseManager::getInstance();
                 Repository::UserRepository userRepo(dbManager);
-                
+
                 auto userResult = userRepo.getUserByUsername(username);
                 if (userResult.success) {
                     int userId = userResult.data.id;
                     std::string sessionId = sessionManager_.createSession(userId, username);
-                    
-                    // Return success with session ID
-                    return {AuthResult::SUCCESS, "Login successful. Session created: " + sessionId};
+
+                    // SECURITY: Do not include session ID in user-visible message
+                    return {AuthResult::SUCCESS, "Login successful. Welcome to CriptoGualet!"};
                 }
             } catch (const std::exception&) {
                 // Fall back to placeholder if repository fails
                 return {AuthResult::SYSTEM_ERROR, "Failed to retrieve user information"};
             }
         }
-        
+
         // Return error if database initialization or user retrieval failed
         return {AuthResult::SYSTEM_ERROR, "Failed to initialize session"};
     }
-    
+
     return authResponse;
 }
 
-AuthResponse AuthManager::RevealSeed(const std::string& username,
-                                    const std::string& password,
-                                    std::string& outSeedHex,
-                                    std::optional<std::string>& outMnemonic) {
+AuthResponse AuthManager::RevealSeed(const std::string& username, const std::string& password,
+                                     std::string& outSeedHex,
+                                     std::optional<std::string>& outMnemonic) {
     return Auth::RevealSeed(username, password, outSeedHex, outMnemonic);
 }
 
 AuthResponse AuthManager::RestoreFromSeed(const std::string& username,
-                                         const std::string& mnemonicText,
-                                         const std::string& passphrase,
-                                         const std::string& passwordForReauth) {
+                                          const std::string& mnemonicText,
+                                          const std::string& passphrase,
+                                          const std::string& passwordForReauth) {
     return Auth::RestoreFromSeed(username, mnemonicText, passphrase, passwordForReauth);
 }
 
@@ -94,4 +94,4 @@ UserSession* AuthManager::getSession(const std::string& sessionId) {
     return nullptr;
 }
 
-} // namespace Auth
+}  // namespace Auth

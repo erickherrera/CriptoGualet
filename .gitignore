@@ -80,6 +80,7 @@ ipch/
 # Test and runtime generated files
 *.db
 registration_debug.log
+audit.log
 seed_vault/
 *_mnemonic_SHOW_ONCE.txt
 
