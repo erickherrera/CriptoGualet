@@ -1,15 +1,18 @@
 // QtSendDialog.cpp
 #include "QtSendDialog.h"
-#include "QtThemeManager.h"
+#include "../../backend/core/include/Crypto.h"
 #include "../../backend/core/include/WalletAPI.h"
+#include "QtThemeManager.h"
 
 #include <QGroupBox>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
+#include <cmath>
 
-QtSendDialog::QtSendDialog(ChainType chainType, double currentBalance, double price, QWidget* parent)
+QtSendDialog::QtSendDialog(ChainType chainType, double currentBalance, double price,
+                           QWidget* parent)
     : QDialog(parent),
       m_themeManager(&QtThemeManager::instance()),
       m_chainType(chainType),
@@ -17,7 +20,6 @@ QtSendDialog::QtSendDialog(ChainType chainType, double currentBalance, double pr
       m_cryptoPrice(price),
       m_estimatedFeeSatoshis(DEFAULT_FEE_SATOSHIS),
       m_gasLimit(DEFAULT_GAS_LIMIT) {
-
     // Set window title based on chain type
     if (m_chainType == ChainType::BITCOIN) {
         setWindowTitle("Send Bitcoin");
@@ -39,12 +41,11 @@ QtSendDialog::QtSendDialog(ChainType chainType, double currentBalance, double pr
 
 void QtSendDialog::setupUI() {
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setSpacing(m_themeManager->standardSpacing());  // 16px (was 20)
-    m_mainLayout->setContentsMargins(
-        m_themeManager->generousMargin(),  // 32px (was 30)
-        m_themeManager->generousMargin(),  // 32px (was 30)
-        m_themeManager->generousMargin(),  // 32px (was 30)
-        m_themeManager->generousMargin()   // 32px (was 30)
+    m_mainLayout->setSpacing(m_themeManager->standardSpacing());        // 16px (was 20)
+    m_mainLayout->setContentsMargins(m_themeManager->generousMargin(),  // 32px (was 30)
+                                     m_themeManager->generousMargin(),  // 32px (was 30)
+                                     m_themeManager->generousMargin(),  // 32px (was 30)
+                                     m_themeManager->generousMargin()   // 32px (was 30)
     );
 
     const bool isBitcoin = (m_chainType == ChainType::BITCOIN);
@@ -56,17 +57,21 @@ void QtSendDialog::setupUI() {
     QGroupBox* recipientGroup = new QGroupBox("Recipient");
     QVBoxLayout* recipientLayout = new QVBoxLayout(recipientGroup);
 
-    QString addrLabel = isBitcoin ? "Bitcoin Address:" : (isLitecoin ? "Litecoin Address:" : "Ethereum Address:");
+    QString addrLabel =
+        isBitcoin ? "Bitcoin Address:" : (isLitecoin ? "Litecoin Address:" : "Ethereum Address:");
     m_recipientLabel = new QLabel(addrLabel);
     recipientLayout->addWidget(m_recipientLabel);
 
     m_recipientInput = new QLineEdit();
     if (isBitcoin) {
-        m_recipientInput->setPlaceholderText("Enter Bitcoin address (e.g., 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)");
+        m_recipientInput->setPlaceholderText(
+            "Enter Bitcoin address (e.g., 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)");
     } else if (isLitecoin) {
-        m_recipientInput->setPlaceholderText("Enter Litecoin address (e.g., LZKqVn1CnZUjz5pN1jLjE8Q6NR3q5jQX9e)");
+        m_recipientInput->setPlaceholderText(
+            "Enter Litecoin address (e.g., LZKqVn1CnZUjz5pN1jLjE8Q6NR3q5jQX9e)");
     } else {
-        m_recipientInput->setPlaceholderText("Enter Ethereum address (e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb)");
+        m_recipientInput->setPlaceholderText(
+            "Enter Ethereum address (e.g., 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb)");
     }
     recipientLayout->addWidget(m_recipientInput);
 
@@ -88,7 +93,8 @@ void QtSendDialog::setupUI() {
     QHBoxLayout* amountInputLayout = new QHBoxLayout();
     m_amountInput = new QDoubleSpinBox();
     m_amountInput->setDecimals(isBitcoinLike ? 8 : 18);  // BTC/LTC: 8 decimals, ETH: 18 decimals
-    m_amountInput->setMinimum(isBitcoinLike ? 0.00000001 : 0.000000000000000001);  // 1 satoshi/litoshi or 1 wei
+    m_amountInput->setMinimum(isBitcoinLike ? 0.00000001
+                                            : 0.000000000000000001);  // 1 satoshi/litoshi or 1 wei
     m_amountInput->setMaximum(m_currentBalance);
     m_amountInput->setSingleStep(isBitcoinLike ? 0.001 : 0.01);
     m_amountInput->setValue(isBitcoinLike ? 0.001 : 0.01);
@@ -102,7 +108,8 @@ void QtSendDialog::setupUI() {
     amountLayout->addLayout(amountInputLayout);
 
     m_amountUSD = new QLabel();
-    m_amountUSD->setStyleSheet(QString("color: %1; font-size: 12px;").arg(m_themeManager->dimmedTextColor().name()));
+    m_amountUSD->setStyleSheet(
+        QString("color: %1; font-size: 12px;").arg(m_themeManager->dimmedTextColor().name()));
     amountLayout->addWidget(m_amountUSD);
 
     m_amountError = new QLabel();
@@ -134,7 +141,7 @@ void QtSendDialog::setupUI() {
         gasLayout->addWidget(m_gasLimitLabel);
 
         m_gasLimitInput = new QSpinBox();
-        m_gasLimitInput->setMinimum(21000);  // Minimum for ETH transfer
+        m_gasLimitInput->setMinimum(21000);    // Minimum for ETH transfer
         m_gasLimitInput->setMaximum(1000000);  // Reasonable maximum
         m_gasLimitInput->setValue(DEFAULT_GAS_LIMIT);
         m_gasLimitInput->setSingleStep(1000);
@@ -143,8 +150,10 @@ void QtSendDialog::setupUI() {
         m_mainLayout->addWidget(gasGroup);
 
         // Connect gas controls
-        connect(m_gasPriceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &QtSendDialog::onGasPriceChanged);
-        connect(m_gasLimitInput, QOverload<int>::of(&QSpinBox::valueChanged), this, &QtSendDialog::onGasLimitChanged);
+        connect(m_gasPriceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                &QtSendDialog::onGasPriceChanged);
+        connect(m_gasLimitInput, QOverload<int>::of(&QSpinBox::valueChanged), this,
+                &QtSendDialog::onGasLimitChanged);
     } else {
         // Initialize to nullptr for Bitcoin
         m_gasPriceLabel = nullptr;
@@ -176,7 +185,8 @@ void QtSendDialog::setupUI() {
     // === Available Balance Section ===
     QHBoxLayout* availableLayout = new QHBoxLayout();
     m_availableLabel = new QLabel("Available Balance:");
-    m_availableValue = new QLabel(QString("%1 %2").arg(formatCrypto(m_currentBalance)).arg(coinSymbol));
+    m_availableValue =
+        new QLabel(QString("%1 %2").arg(formatCrypto(m_currentBalance)).arg(coinSymbol));
     availableLayout->addWidget(m_availableLabel);
     availableLayout->addStretch();
     availableLayout->addWidget(m_availableValue);
@@ -207,8 +217,10 @@ void QtSendDialog::setupUI() {
     m_mainLayout->addLayout(m_buttonLayout);
 
     // Connect signals
-    connect(m_recipientInput, &QLineEdit::textChanged, this, &QtSendDialog::onRecipientAddressChanged);
-    connect(m_amountInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &QtSendDialog::onAmountChanged);
+    connect(m_recipientInput, &QLineEdit::textChanged, this,
+            &QtSendDialog::onRecipientAddressChanged);
+    connect(m_amountInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            &QtSendDialog::onAmountChanged);
     connect(m_maxButton, &QPushButton::clicked, this, &QtSendDialog::onSendMaxClicked);
     connect(m_confirmButton, &QPushButton::clicked, this, &QtSendDialog::onConfirmClicked);
     connect(m_cancelButton, &QPushButton::clicked, this, &QtSendDialog::onCancelClicked);
@@ -218,7 +230,8 @@ void QtSendDialog::setupUI() {
 }
 
 void QtSendDialog::applyTheme() {
-    if (!m_themeManager) return;
+    if (!m_themeManager)
+        return;
 
     // Apply theme to dialog
     QString bgColor = m_themeManager->backgroundColor().name();
@@ -271,13 +284,14 @@ void QtSendDialog::applyTheme() {
         QPushButton:pressed {
             background-color: %7;
         }
-    )").arg(bgColor)
-       .arg(textColor)
-       .arg(surfaceColor)
-       .arg(m_themeManager->surfaceColor().lighter(120).name())
-       .arg(accentColor)
-       .arg(m_themeManager->accentColor().lighter(110).name())
-       .arg(m_themeManager->accentColor().darker(110).name()));
+    )")
+                      .arg(bgColor)
+                      .arg(textColor)
+                      .arg(surfaceColor)
+                      .arg(m_themeManager->surfaceColor().lighter(120).name())
+                      .arg(accentColor)
+                      .arg(m_themeManager->accentColor().lighter(110).name())
+                      .arg(m_themeManager->accentColor().darker(110).name()));
 }
 
 void QtSendDialog::onRecipientAddressChanged() {
@@ -343,23 +357,23 @@ void QtSendDialog::onConfirmClicked() {
         double totalAmount = amount + fee;
 
         summary = QString(
-            "<b>%1 Transaction Summary</b><br><br>"
-            "Recipient: %2<br>"
-            "Amount: %3 %4 (%5)<br>"
-            "Fee: %6 %7 (%8)<br>"
-            "<b>Total: %9 %10 (%11)</b><br><br>"
-            "Are you sure you want to send this transaction?"
-        ).arg(coinName)
-         .arg(m_recipientInput->text())
-         .arg(formatCrypto(amount))
-         .arg(coinSymbol)
-         .arg(formatUSD(amount * m_cryptoPrice))
-         .arg(formatCrypto(fee))
-         .arg(coinSymbol)
-         .arg(formatUSD(fee * m_cryptoPrice))
-         .arg(formatCrypto(totalAmount))
-         .arg(coinSymbol)
-         .arg(formatUSD(totalAmount * m_cryptoPrice));
+                      "<b>%1 Transaction Summary</b><br><br>"
+                      "Recipient: %2<br>"
+                      "Amount: %3 %4 (%5)<br>"
+                      "Fee: %6 %7 (%8)<br>"
+                      "<b>Total: %9 %10 (%11)</b><br><br>"
+                      "Are you sure you want to send this transaction?")
+                      .arg(coinName)
+                      .arg(m_recipientInput->text())
+                      .arg(formatCrypto(amount))
+                      .arg(coinSymbol)
+                      .arg(formatUSD(amount * m_cryptoPrice))
+                      .arg(formatCrypto(fee))
+                      .arg(coinSymbol)
+                      .arg(formatUSD(fee * m_cryptoPrice))
+                      .arg(formatCrypto(totalAmount))
+                      .arg(coinSymbol)
+                      .arg(formatUSD(totalAmount * m_cryptoPrice));
     } else {
         // Ethereum confirmation summary
         QString gasPrice = m_proposeGasPrice;
@@ -375,23 +389,23 @@ void QtSendDialog::onConfirmClicked() {
         double totalETH = amount + gasCostEth;
 
         summary = QString(
-            "<b>Ethereum Transaction Summary</b><br><br>"
-            "Recipient: %1<br>"
-            "Amount: %2 ETH (%3)<br>"
-            "Gas Price: %4 Gwei<br>"
-            "Gas Limit: %5<br>"
-            "Gas Fee: %6 ETH (%7)<br>"
-            "<b>Total: %8 ETH (%9)</b><br><br>"
-            "Are you sure you want to send this transaction?"
-        ).arg(m_recipientInput->text())
-         .arg(formatCrypto(amount))
-         .arg(formatUSD(amount * m_cryptoPrice))
-         .arg(gasPrice)
-         .arg(m_gasLimit)
-         .arg(formatCrypto(gasCostEth))
-         .arg(formatUSD(gasCostEth * m_cryptoPrice))
-         .arg(formatCrypto(totalETH))
-         .arg(formatUSD(totalETH * m_cryptoPrice));
+                      "<b>Ethereum Transaction Summary</b><br><br>"
+                      "Recipient: %1<br>"
+                      "Amount: %2 ETH (%3)<br>"
+                      "Gas Price: %4 Gwei<br>"
+                      "Gas Limit: %5<br>"
+                      "Gas Fee: %6 ETH (%7)<br>"
+                      "<b>Total: %8 ETH (%9)</b><br><br>"
+                      "Are you sure you want to send this transaction?")
+                      .arg(m_recipientInput->text())
+                      .arg(formatCrypto(amount))
+                      .arg(formatUSD(amount * m_cryptoPrice))
+                      .arg(gasPrice)
+                      .arg(m_gasLimit)
+                      .arg(formatCrypto(gasCostEth))
+                      .arg(formatUSD(gasCostEth * m_cryptoPrice))
+                      .arg(formatCrypto(totalETH))
+                      .arg(formatUSD(totalETH * m_cryptoPrice));
     }
 
     QMessageBox confirmBox(this);
@@ -409,13 +423,8 @@ void QtSendDialog::onConfirmClicked() {
     // Request password for signing
     bool ok;
     QString password = QInputDialog::getText(
-        this,
-        "Authentication Required",
-        "Enter your password to sign the transaction:",
-        QLineEdit::Password,
-        "",
-        &ok
-    );
+        this, "Authentication Required",
+        "Enter your password to sign the transaction:", QLineEdit::Password, "", &ok);
 
     if (!ok || password.isEmpty()) {
         return;
@@ -428,7 +437,8 @@ void QtSendDialog::onConfirmClicked() {
 
     if (m_chainType == ChainType::BITCOIN) {
         txData.amountBTC = amount;
-        txData.amountSatoshis = static_cast<uint64_t>(amount * 100000000);
+        // SECURITY: Use std::llround to avoid floating-point precision loss
+        txData.amountSatoshis = static_cast<uint64_t>(std::llround(amount * 100000000.0));
         txData.estimatedFeeSatoshis = m_estimatedFeeSatoshis;
         txData.totalSatoshis = txData.amountSatoshis + m_estimatedFeeSatoshis;
 
@@ -444,7 +454,8 @@ void QtSendDialog::onConfirmClicked() {
         txData.totalCostETH = 0.0;
     } else if (m_chainType == ChainType::LITECOIN) {
         txData.amountLTC = amount;
-        txData.amountLitoshis = static_cast<uint64_t>(amount * 100000000);
+        // SECURITY: Use std::llround to avoid floating-point precision loss
+        txData.amountLitoshis = static_cast<uint64_t>(std::llround(amount * 100000000.0));
         txData.estimatedFeeLitoshis = m_estimatedFeeSatoshis;  // Use same fee field
         txData.totalLitoshis = txData.amountLitoshis + m_estimatedFeeSatoshis;
 
@@ -492,6 +503,10 @@ void QtSendDialog::onConfirmClicked() {
 
     m_transactionData = txData;
 
+    // SECURITY: Disable confirm button immediately to prevent double-submit
+    m_confirmButton->setEnabled(false);
+    m_confirmButton->setText("Sending...");
+
     accept();
 }
 
@@ -519,12 +534,16 @@ void QtSendDialog::updateEstimates() {
         QString coinSymbol = (m_chainType == ChainType::BITCOIN) ? "BTC" : "LTC";
         double fee = m_estimatedFeeSatoshis / 100000000.0;
         double feeUSD = fee * m_cryptoPrice;
-        m_feeValue->setText(QString("%1 %2 (%3)").arg(formatCrypto(fee)).arg(coinSymbol).arg(formatUSD(feeUSD)));
+        m_feeValue->setText(
+            QString("%1 %2 (%3)").arg(formatCrypto(fee)).arg(coinSymbol).arg(formatUSD(feeUSD)));
 
         // Update total
         double total = amount + fee;
         double totalUSD = total * m_cryptoPrice;
-        m_totalValue->setText(QString("%1 %2 (%3)").arg(formatCrypto(total)).arg(coinSymbol).arg(formatUSD(totalUSD)));
+        m_totalValue->setText(QString("%1 %2 (%3)")
+                                  .arg(formatCrypto(total))
+                                  .arg(coinSymbol)
+                                  .arg(formatUSD(totalUSD)));
     } else {
         // Ethereum gas fee estimation
         QString gasPrice = m_proposeGasPrice;
@@ -541,15 +560,16 @@ void QtSendDialog::updateEstimates() {
             double gasCostUSD = gasCostEth * m_cryptoPrice;
 
             m_feeValue->setText(QString("%1 Gwei × %2 = %3 ETH (%4)")
-                .arg(gasPrice)
-                .arg(m_gasLimit)
-                .arg(formatCrypto(gasCostEth))
-                .arg(formatUSD(gasCostUSD)));
+                                    .arg(gasPrice)
+                                    .arg(m_gasLimit)
+                                    .arg(formatCrypto(gasCostEth))
+                                    .arg(formatUSD(gasCostUSD)));
 
             // Update total
             double totalETH = amount + gasCostEth;
             double totalUSD = totalETH * m_cryptoPrice;
-            m_totalValue->setText(QString("%1 ETH (%2)").arg(formatCrypto(totalETH)).arg(formatUSD(totalUSD)));
+            m_totalValue->setText(
+                QString("%1 ETH (%2)").arg(formatCrypto(totalETH)).arg(formatUSD(totalUSD)));
         } else {
             m_feeValue->setText("Fetching gas prices...");
             m_totalValue->setText(QString("%1 ETH + fees").arg(formatCrypto(amount)));
@@ -581,7 +601,9 @@ bool QtSendDialog::validateInputs() {
             }
         } else {
             if (!validateEthereumAddress(recipientAddr)) {
-                m_recipientError->setText("Invalid Ethereum address format (must start with 0x and contain 40 hex characters)");
+                m_recipientError->setText(
+                    "Invalid Ethereum address format (must start with 0x and contain 40 hex "
+                    "characters)");
                 m_recipientError->show();
                 valid = false;
             }
@@ -600,9 +622,10 @@ bool QtSendDialog::validateInputs() {
             double fee = m_estimatedFeeSatoshis / 100000000.0;
             double total = amount + fee;
             if (total > m_currentBalance) {
-                m_amountError->setText(QString("Insufficient balance. You need %1 %2 (including fee)")
-                    .arg(formatCrypto(total))
-                    .arg(coinSymbol));
+                m_amountError->setText(
+                    QString("Insufficient balance. You need %1 %2 (including fee)")
+                        .arg(formatCrypto(total))
+                        .arg(coinSymbol));
                 m_amountError->show();
                 valid = false;
             }
@@ -622,8 +645,9 @@ bool QtSendDialog::validateInputs() {
                 double totalETH = amount + gasCostEth;
 
                 if (totalETH > m_currentBalance) {
-                    m_amountError->setText(QString("Insufficient balance. You need %1 ETH (including gas)")
-                        .arg(formatCrypto(totalETH)));
+                    m_amountError->setText(
+                        QString("Insufficient balance. You need %1 ETH (including gas)")
+                            .arg(formatCrypto(totalETH)));
                     m_amountError->show();
                     valid = false;
                 }
@@ -665,24 +689,80 @@ bool QtSendDialog::validateBitcoinAddress(const QString& address) const {
     // P2PKH addresses start with 1 and are 26-35 characters
     // P2SH addresses start with 3 and are 26-35 characters
     // Bech32 addresses start with bc1 and can be longer
+    // Testnet addresses start with m, n, or 2
     if (address.length() < 26 || address.length() > 90) {
         return false;
     }
 
-    // Check if starts with valid prefix
-    if (!address.startsWith('1') && !address.startsWith('3') && !address.startsWith("bc1")) {
+    // Check if starts with valid prefix (mainnet or testnet)
+    bool isLegacy = address.startsWith('1') || address.startsWith('3') || address.startsWith('m') ||
+                    address.startsWith('n') || address.startsWith('2');
+    bool isBech32 = address.startsWith("bc1") || address.startsWith("tb1");
+
+    if (!isLegacy && !isBech32) {
         return false;
     }
 
     // Check for valid characters (Base58 for legacy, bech32 for segwit)
-    if (address.startsWith("bc1")) {
+    if (isBech32) {
         // Bech32 validation (simplified)
-        QRegularExpression bech32Regex("^bc1[a-z0-9]{39,87}$", QRegularExpression::CaseInsensitiveOption);
+        QRegularExpression bech32Regex("^(bc1|tb1)[a-z0-9]{39,87}$",
+                                       QRegularExpression::CaseInsensitiveOption);
         return bech32Regex.match(address).hasMatch();
     } else {
-        // Base58 validation (no 0, O, I, l)
-        QRegularExpression base58Regex("^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$");
-        return base58Regex.match(address).hasMatch();
+        // Base58Check validation: character set + checksum
+        static const QString base58Chars =
+            "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+        for (QChar c : address) {
+            if (!base58Chars.contains(c)) {
+                return false;
+            }
+        }
+
+        // SECURITY: Decode Base58 and verify checksum (double SHA256)
+        // Decode from Base58 to bytes
+        std::vector<uint8_t> decoded;
+        decoded.reserve(25);
+        std::vector<uint8_t> temp;
+        for (QChar qc : address) {
+            int carry = base58Chars.indexOf(qc);
+            if (carry < 0)
+                return false;
+            for (size_t j = 0; j < temp.size(); j++) {
+                carry += 58 * temp[j];
+                temp[j] = static_cast<uint8_t>(carry & 0xFF);
+                carry >>= 8;
+            }
+            while (carry > 0) {
+                temp.push_back(static_cast<uint8_t>(carry & 0xFF));
+                carry >>= 8;
+            }
+        }
+        // Add leading zeros
+        for (QChar qc : address) {
+            if (qc != '1')
+                break;
+            temp.push_back(0);
+        }
+        // Reverse to get big-endian
+        decoded.assign(temp.rbegin(), temp.rend());
+
+        // A valid Base58Check address decodes to exactly 25 bytes (1 version + 20 hash + 4
+        // checksum)
+        if (decoded.size() != 25) {
+            return false;
+        }
+
+        // Verify checksum: last 4 bytes must equal first 4 bytes of double SHA256 of first 21 bytes
+        std::vector<uint8_t> payload(decoded.begin(), decoded.begin() + 21);
+        std::array<uint8_t, 32> hash1{}, hash2{};
+        if (!Crypto::SHA256(payload.data(), payload.size(), hash1))
+            return false;
+        if (!Crypto::SHA256(hash1.data(), hash1.size(), hash2))
+            return false;
+
+        return decoded[21] == hash2[0] && decoded[22] == hash2[1] && decoded[23] == hash2[2] &&
+               decoded[24] == hash2[3];
     }
 }
 
@@ -696,19 +776,21 @@ bool QtSendDialog::validateLitecoinAddress(const QString& address) const {
     }
 
     // Check if starts with valid Litecoin prefix
-    if (!address.startsWith('L') && !address.startsWith('M') && 
-        !address.startsWith('3') && !address.startsWith("ltc1")) {
+    if (!address.startsWith('L') && !address.startsWith('M') && !address.startsWith('3') &&
+        !address.startsWith("ltc1")) {
         return false;
     }
 
     // Check for valid characters
     if (address.startsWith("ltc1")) {
         // Bech32 validation (simplified)
-        QRegularExpression bech32Regex("^ltc1[a-z0-9]{39,87}$", QRegularExpression::CaseInsensitiveOption);
+        QRegularExpression bech32Regex("^ltc1[a-z0-9]{39,87}$",
+                                       QRegularExpression::CaseInsensitiveOption);
         return bech32Regex.match(address).hasMatch();
     } else {
         // Base58 validation (no 0, O, I, l)
-        QRegularExpression base58Regex("^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$");
+        QRegularExpression base58Regex(
+            "^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$");
         return base58Regex.match(address).hasMatch();
     }
 }

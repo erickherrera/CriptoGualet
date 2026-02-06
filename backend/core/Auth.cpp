@@ -235,6 +235,15 @@ static bool InitializeDatabase() {
         UNIQUE (user_id, setting_key)
       );
 
+      CREATE TABLE IF NOT EXISTS rate_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        identifier TEXT NOT NULL UNIQUE,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        last_attempt_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        lockout_until TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
       -- Basic indexes
       CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
       CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
@@ -244,6 +253,7 @@ static bool InitializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_transactions_txid ON transactions(txid);
       CREATE INDEX IF NOT EXISTS idx_erc20_tokens_wallet_contract ON erc20_tokens(wallet_id, contract_address);
       CREATE INDEX IF NOT EXISTS idx_user_settings_user_key ON user_settings(user_id, setting_key);
+      CREATE INDEX IF NOT EXISTS idx_rate_limits_identifier ON rate_limits(identifier);
 
       -- Phase 3: Composite indexes for query optimization
       CREATE INDEX IF NOT EXISTS idx_wallets_user_type ON wallets(user_id, wallet_type);
@@ -769,12 +779,114 @@ bool IsValidPassword(const std::string& password) {
     return hasUpper && hasLower && hasDigit && hasSpecial;
 }
 
+// Helper: Persist rate limit entry to database for cross-restart persistence
+static void PersistRateLimit(const std::string& identifier, const RateLimitEntry& entry) {
+    if (!g_databaseInitialized)
+        return;
+    try {
+        auto& dbManager = Database::DatabaseManager::getInstance();
+        // Convert time points to ISO8601 strings for SQLite storage
+        auto lastAttemptTime = std::chrono::system_clock::now();  // approximate
+        auto lockoutTime =
+            lastAttemptTime + std::chrono::duration_cast<std::chrono::system_clock::duration>(
+                                  entry.lockoutUntil - std::chrono::steady_clock::now());
+
+        char lastBuf[64] = {0};
+        auto lastTt = std::chrono::system_clock::to_time_t(lastAttemptTime);
+        struct tm lastTm;
+        gmtime_s(&lastTm, &lastTt);
+        std::strftime(lastBuf, sizeof(lastBuf), "%Y-%m-%dT%H:%M:%SZ", &lastTm);
+
+        std::string lockoutStr;
+        if (entry.lockoutUntil > std::chrono::steady_clock::now()) {
+            char lockBuf[64] = {0};
+            auto lockTt = std::chrono::system_clock::to_time_t(lockoutTime);
+            struct tm lockTm;
+            gmtime_s(&lockTm, &lockTt);
+            std::strftime(lockBuf, sizeof(lockBuf), "%Y-%m-%dT%H:%M:%SZ", &lockTm);
+            lockoutStr = lockBuf;
+        }
+
+        std::string sql =
+            "INSERT OR REPLACE INTO rate_limits "
+            "(identifier, attempt_count, last_attempt_at, lockout_until) "
+            "VALUES (?, ?, ?, ?)";
+        dbManager.executeQuery(sql, {identifier, std::to_string(entry.attemptCount),
+                                     std::string(lastBuf), lockoutStr});
+    } catch (...) {
+        // Best-effort persistence -- in-memory rate limiting still works
+    }
+}
+
+// Helper: Load rate limit entry from database on startup
+static bool LoadRateLimitFromDB(const std::string& identifier, RateLimitEntry& entry) {
+    if (!g_databaseInitialized)
+        return false;
+    try {
+        auto& dbManager = Database::DatabaseManager::getInstance();
+        std::string sql =
+            "SELECT attempt_count, last_attempt_at, lockout_until FROM rate_limits WHERE "
+            "identifier = ?";
+        int attemptCount = 0;
+        std::string lockoutUntilStr;
+        bool found = false;
+
+        dbManager.executeQuery(sql, {identifier}, [&](sqlite3* db) {
+            sqlite3_stmt* stmt = nullptr;
+            if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+                sqlite3_bind_text(stmt, 1, identifier.c_str(), -1, SQLITE_STATIC);
+                if (sqlite3_step(stmt) == SQLITE_ROW) {
+                    found = true;
+                    attemptCount = sqlite3_column_int(stmt, 0);
+                    const unsigned char* lockPtr = sqlite3_column_text(stmt, 2);
+                    lockoutUntilStr = lockPtr ? reinterpret_cast<const char*>(lockPtr) : "";
+                }
+                sqlite3_finalize(stmt);
+            }
+        });
+
+        if (!found)
+            return false;
+
+        entry.attemptCount = attemptCount;
+        entry.lastAttempt = std::chrono::steady_clock::now();
+
+        if (!lockoutUntilStr.empty()) {
+            // Parse ISO8601 timestamp and convert to steady_clock
+            struct tm lockTm = {};
+            std::istringstream iss(lockoutUntilStr);
+            iss >> std::get_time(&lockTm, "%Y-%m-%dT%H:%M:%SZ");
+            if (!iss.fail()) {
+                auto lockTimePoint = std::chrono::system_clock::from_time_t(_mkgmtime(&lockTm));
+                auto remainingDuration = lockTimePoint - std::chrono::system_clock::now();
+                if (remainingDuration.count() > 0) {
+                    entry.lockoutUntil =
+                        std::chrono::steady_clock::now() +
+                        std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                            remainingDuration);
+                }
+            }
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 bool IsRateLimited(const std::string& identifier) {
     auto now = std::chrono::steady_clock::now();
     auto it = g_rateLimits.find(identifier);
 
-    if (it == g_rateLimits.end())
-        return false;
+    // If not in memory, try loading from database (persisted across restarts)
+    if (it == g_rateLimits.end()) {
+        RateLimitEntry dbEntry;
+        if (LoadRateLimitFromDB(identifier, dbEntry)) {
+            g_rateLimits[identifier] = dbEntry;
+            it = g_rateLimits.find(identifier);
+        } else {
+            return false;
+        }
+    }
 
     RateLimitEntry& entry = it->second;
 
@@ -792,6 +904,14 @@ bool IsRateLimited(const std::string& identifier) {
 
 void ClearRateLimit(const std::string& identifier) {
     g_rateLimits.erase(identifier);
+    // Also clear from database
+    if (g_databaseInitialized) {
+        try {
+            auto& dbManager = Database::DatabaseManager::getInstance();
+            dbManager.executeQuery("DELETE FROM rate_limits WHERE identifier = ?", {identifier});
+        } catch (...) {
+        }
+    }
 }
 
 static void RecordFailedAttempt(const std::string& identifier) {
@@ -810,6 +930,9 @@ static void RecordFailedAttempt(const std::string& identifier) {
     if (entry.attemptCount >= MAX_LOGIN_ATTEMPTS) {
         entry.lockoutUntil = now + LOCKOUT_DURATION;
     }
+
+    // Persist to database for cross-restart durability
+    PersistRateLimit(identifier, entry);
 }
 
 // === Helper: Derive wallet credentials from BIP39 seed ===
@@ -966,6 +1089,12 @@ static bool GenerateAndActivateSeedForUser(const std::string& username,
 AuthResponse RegisterUser(const std::string& username, const std::string& password) {
     AUTH_DEBUG_LOG_OPEN(logFile);
 
+    // SECURITY: Rate limit registration attempts to prevent brute-force account creation
+    if (IsRateLimited("reg:" + username)) {
+        return {AuthResult::RATE_LIMITED,
+                "Too many registration attempts. Please wait 10 minutes before trying again."};
+    }
+
     // Basic input validation
     if (username.empty() || password.empty()) {
         return {AuthResult::INVALID_CREDENTIALS, "Username and password cannot be empty."};
@@ -1111,6 +1240,12 @@ AuthResponse RegisterUserWithMnemonic(const std::string& username, const std::st
     AUTH_DEBUG_LOG_STREAM(logFile) << "\n=== Extended Registration Attempt ===\n";
     AUTH_DEBUG_LOG_FLUSH(logFile);
     // SECURITY: Do not log usernames or password details to files
+
+    // SECURITY: Rate limit registration attempts
+    if (IsRateLimited("reg:" + username)) {
+        return {AuthResult::RATE_LIMITED,
+                "Too many registration attempts. Please wait 10 minutes before trying again."};
+    }
 
     // Basic input validation
     if (username.empty() || password.empty()) {
@@ -1469,13 +1604,20 @@ TwoFactorSetupData InitiateTwoFactorSetup(const std::string& username,
         result.success = true;
         return result;
 
-    } catch (const std::exception& e) {
-        result.errorMessage = std::string("Error: ") + e.what();
+    } catch (const std::exception&) {
+        // SECURITY: Do not expose internal error details to UI
+        result.errorMessage = "An unexpected error occurred during 2FA setup.";
         return result;
     }
 }
 
 AuthResponse ConfirmTwoFactorSetup(const std::string& username, const std::string& totpCode) {
+    // SECURITY: Rate limit TOTP confirmation to prevent brute-force
+    if (IsRateLimited("totp:" + username)) {
+        return {AuthResult::RATE_LIMITED,
+                "Too many verification attempts. Please wait 10 minutes before trying again."};
+    }
+
     if (!InitializeDatabase() || !g_userRepo) {
         return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
     }
@@ -1517,8 +1659,9 @@ AuthResponse ConfirmTwoFactorSetup(const std::string& username, const std::strin
             return {AuthResult::SYSTEM_ERROR, "Invalid TOTP secret."};
         }
 
-        // Verify the provided TOTP code with a window of ±1 time period (30 seconds each way)
+        // Verify the provided TOTP code with a window of +/-1 time period (30 seconds each way)
         if (!Crypto::VerifyTOTP(secret, totpCode, 1)) {
+            RecordFailedAttempt("totp:" + username);
             return {
                 AuthResult::INVALID_CREDENTIALS,
                 "Invalid verification code. Please check your authenticator app and try again."};
@@ -1571,12 +1714,19 @@ AuthResponse ConfirmTwoFactorSetup(const std::string& username, const std::strin
                 "Two-factor authentication enabled successfully!\n\n"
                 "Please save your backup codes in a secure location."};
 
-    } catch (const std::exception& e) {
-        return {AuthResult::SYSTEM_ERROR, std::string("Error: ") + e.what()};
+    } catch (const std::exception&) {
+        // SECURITY: Do not expose internal error details to UI
+        return {AuthResult::SYSTEM_ERROR, "An unexpected error occurred during 2FA confirmation."};
     }
 }
 
 AuthResponse VerifyTwoFactorCode(const std::string& username, const std::string& totpCode) {
+    // SECURITY: Rate limit TOTP login verification
+    if (IsRateLimited("totp:" + username)) {
+        return {AuthResult::RATE_LIMITED,
+                "Too many verification attempts. Please wait 10 minutes before trying again."};
+    }
+
     if (!InitializeDatabase() || !g_userRepo) {
         return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
     }
@@ -1619,15 +1769,17 @@ AuthResponse VerifyTwoFactorCode(const std::string& username, const std::string&
             return {AuthResult::SYSTEM_ERROR, "Invalid TOTP secret."};
         }
 
-        // Verify the code with a window of ±1 time period (30 seconds each way)
+        // Verify the code with a window of +/-1 time period (30 seconds each way)
         if (!Crypto::VerifyTOTP(secret, totpCode, 1)) {
+            RecordFailedAttempt("totp:" + username);
             return {AuthResult::INVALID_CREDENTIALS, "Invalid verification code."};
         }
 
         return {AuthResult::SUCCESS, "Verification successful."};
 
-    } catch (const std::exception& e) {
-        return {AuthResult::SYSTEM_ERROR, std::string("Error: ") + e.what()};
+    } catch (const std::exception&) {
+        // SECURITY: Do not expose internal error details to UI
+        return {AuthResult::SYSTEM_ERROR, "An unexpected error occurred during verification."};
     }
 }
 
@@ -1669,7 +1821,8 @@ AuthResponse DisableTwoFactor(const std::string& username, const std::string& pa
         return {AuthResult::SUCCESS, "Two-factor authentication has been disabled."};
 
     } catch (const std::exception& e) {
-        return {AuthResult::SYSTEM_ERROR, std::string("Error: ") + e.what()};
+        // SECURITY: Do not expose internal error details to UI
+        return {AuthResult::SYSTEM_ERROR, "An unexpected error occurred while disabling 2FA."};
     }
 }
 
@@ -1732,12 +1885,19 @@ BackupCodesResult GetBackupCodes(const std::string& username, const std::string&
         return result;
 
     } catch (const std::exception& e) {
-        result.errorMessage = std::string("Error: ") + e.what();
+        // SECURITY: Do not expose internal error details to UI
+        result.errorMessage = "An unexpected error occurred while retrieving backup codes.";
         return result;
     }
 }
 
 AuthResponse UseBackupCode(const std::string& username, const std::string& backupCode) {
+    // SECURITY: Rate limit backup code attempts
+    if (IsRateLimited("backup:" + username)) {
+        return {AuthResult::RATE_LIMITED,
+                "Too many backup code attempts. Please wait 10 minutes before trying again."};
+    }
+
     if (!InitializeDatabase() || !g_userRepo) {
         return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
     }
@@ -1790,6 +1950,7 @@ AuthResponse UseBackupCode(const std::string& username, const std::string& backu
         }
 
         if (!codeFound) {
+            RecordFailedAttempt("backup:" + username);
             return {AuthResult::INVALID_CREDENTIALS, "Invalid backup code."};
         }
 
@@ -1819,8 +1980,9 @@ AuthResponse UseBackupCode(const std::string& username, const std::string& backu
                 "Two-factor authentication has been disabled using backup code.\n"
                 "Please set up 2FA again for enhanced security."};
 
-    } catch (const std::exception& e) {
-        return {AuthResult::SYSTEM_ERROR, std::string("Error: ") + e.what()};
+    } catch (const std::exception&) {
+        // SECURITY: Do not expose internal error details to UI
+        return {AuthResult::SYSTEM_ERROR, "An unexpected error occurred while using backup code."};
     }
 }
 

@@ -1058,8 +1058,9 @@ void CriptoGualetQt::applyBitcoinProviderSettings(int userId) {
     if (passIt != settings.end()) {
         config.rpcPassword = passIt->second;
     }
+    // SECURITY: Default to false -- require explicit opt-in for insecure HTTP
     config.allowInsecureHttp =
-        allowIt == settings.end() || allowIt->second == "true" || allowIt->second == "1";
+        allowIt != settings.end() && (allowIt->second == "true" || allowIt->second == "1");
     config.enableFallback =
         fallbackIt == settings.end() || fallbackIt->second == "true" || fallbackIt->second == "1";
 

@@ -1,28 +1,28 @@
 // QtLoginUI.cpp
 #include "QtLoginUI.h"
-#include "QtSeedDisplayDialog.h"
-#include "../../backend/core/include/AuthManager.h"
 #include "../../backend/core/include/Auth.h"
+#include "../../backend/core/include/AuthManager.h"
+#include "QtSeedDisplayDialog.h"
 #include "QtThemeManager.h"
 
 #include <QTabBar>
 #include <QTimer>
 #include <QApplication>
+#include <QColor>
 #include <QComboBox>
 #include <QEvent>
 #include <QFont>
 #include <QHBoxLayout>
+#include <QHideEvent>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPalette>
-#include <QPainter>
-#include <QPen>
-#include <QColor>
-#include <QShowEvent>
-#include <QHideEvent>
 #include <QPaintEvent>
+#include <QPainter>
+#include <QPalette>
+#include <QPen>
 #include <QPushButton>
 #include <QResizeEvent>
+#include <QShowEvent>
 #include <QSpacerItem>
 #include <QStackedWidget>
 #include <QVBoxLayout>
@@ -160,11 +160,13 @@ void QtLoginUI::createLoginCard() {
     m_loginUsernameEdit = new QLineEdit(signInTab);
     m_loginUsernameEdit->setPlaceholderText("Username");
     m_loginUsernameEdit->setMinimumHeight(44);
+    m_loginUsernameEdit->setMaxLength(50);  // SECURITY: Match backend username limit
 
     m_loginPasswordEdit = new QLineEdit(signInTab);
     m_loginPasswordEdit->setPlaceholderText("Password");
     m_loginPasswordEdit->setEchoMode(QLineEdit::Password);
     m_loginPasswordEdit->setMinimumHeight(44);
+    m_loginPasswordEdit->setMaxLength(128);  // SECURITY: Match backend password limit
 
     // Create password toggle button for login
     m_loginPasswordToggleButton = new QPushButton("Show", m_loginPasswordEdit);
@@ -211,11 +213,13 @@ void QtLoginUI::createLoginCard() {
     m_usernameEdit = new QLineEdit(registerTab);
     m_usernameEdit->setPlaceholderText("Username");
     m_usernameEdit->setMinimumHeight(44);
+    m_usernameEdit->setMaxLength(50);  // SECURITY: Match backend username limit
 
     m_passwordEdit = new QLineEdit(registerTab);
     m_passwordEdit->setPlaceholderText("Password");
     m_passwordEdit->setEchoMode(QLineEdit::Password);
     m_passwordEdit->setMinimumHeight(44);
+    m_passwordEdit->setMaxLength(128);  // SECURITY: Match backend password limit
     m_passwordEdit->setToolTip(
         "Password must contain:\n• At least 12 characters\n• At least one "
         "uppercase letter\n• At least one lowercase letter\n• At least one "
@@ -225,6 +229,7 @@ void QtLoginUI::createLoginCard() {
     m_confirmPasswordEdit->setPlaceholderText("Confirm Password");
     m_confirmPasswordEdit->setEchoMode(QLineEdit::Password);
     m_confirmPasswordEdit->setMinimumHeight(44);
+    m_confirmPasswordEdit->setMaxLength(128);  // SECURITY: Match backend password limit
 
     // Create password toggle button for register
     m_passwordToggleButton = new QPushButton("Show", m_passwordEdit);
@@ -323,11 +328,13 @@ void QtLoginUI::createLoginCard() {
     connect(m_confirmPasswordEdit, &QLineEdit::textChanged, this, &QtLoginUI::validateRegisterForm);
     connect(m_usernameEdit, &QLineEdit::returnPressed, this, &QtLoginUI::onRegisterClicked);
     connect(m_passwordEdit, &QLineEdit::returnPressed, this, &QtLoginUI::onRegisterClicked);
-    connect(m_passwordToggleButton, &QPushButton::clicked, this, 
+    connect(m_passwordToggleButton, &QPushButton::clicked, this,
             &QtLoginUI::onPasswordVisibilityToggled);
 
     // Tab changed signal - clear messages when switching tabs
-    connect(m_tabBar, &QTabBar::currentChanged, this, [this]() { clearMessage(); });
+    connect(m_tabBar, &QTabBar::currentChanged, this, [this]() {
+        clearMessage();
+    });
 
     // Secondary actions
     connect(m_revealSeedButton, &QPushButton::clicked, this, &QtLoginUI::onRevealSeedClicked);
@@ -347,7 +354,7 @@ void QtLoginUI::onLoginClicked() {
 
     showMessage("Signing in...", false);
     setAuthInProgress(true);
-    QApplication::processEvents(); // Force repaint so spinner appears
+    QApplication::processEvents();  // Force repaint so spinner appears
     emit loginRequested(username, password);
 }
 
@@ -371,13 +378,37 @@ void QtLoginUI::onRegisterClicked() {
         showMessage("Username must be at least 3 characters long", true);
         return;
     }
-    if (password.length() < 6) {
-        showMessage("Password must be at least 6 characters long", true);
+    // SECURITY: Client-side validation must match backend Auth::IsValidPassword()
+    // Backend requires: 12-128 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special
+    if (password.length() < 12) {
+        showMessage("Password must be at least 12 characters long", true);
         return;
+    }
+    if (password.length() > 128) {
+        showMessage("Password must be at most 128 characters long", true);
+        return;
+    }
+    {
+        bool hasUpper = false, hasLower = false, hasDigit = false, hasSpecial = false;
+        for (QChar c : password) {
+            if (c.isUpper())
+                hasUpper = true;
+            else if (c.isLower())
+                hasLower = true;
+            else if (c.isDigit())
+                hasDigit = true;
+            else
+                hasSpecial = true;
+        }
+        if (!hasUpper || !hasLower || !hasDigit || !hasSpecial) {
+            showMessage("Password must include uppercase, lowercase, digit, and special character",
+                        true);
+            return;
+        }
     }
 
     showMessage("Creating account... generating your seed phrase securely.", false);
-    
+
     setAuthInProgress(true);
     QApplication::processEvents();
 
@@ -398,8 +429,9 @@ void QtLoginUI::onRegisterModeToggled(bool registerMode) {
     // Reconnect login button based on mode
     disconnect(m_loginButton, &QPushButton::clicked, nullptr, nullptr);
     if (registerMode) {
-        connect(m_loginButton, &QPushButton::clicked, this, 
-                [this]() { m_registerButton->setChecked(false); });
+        connect(m_loginButton, &QPushButton::clicked, this, [this]() {
+            m_registerButton->setChecked(false);
+        });
     } else {
         connect(m_loginButton, &QPushButton::clicked, this, &QtLoginUI::onLoginClicked);
     }
@@ -420,8 +452,8 @@ void QtLoginUI::onLoginResult(bool success, const QString& message) {
             QDialog totpDialog(this);
             totpDialog.setWindowTitle("Two-Factor Authentication");
             QVBoxLayout* layout = new QVBoxLayout(&totpDialog);
-            QLabel* label = 
-                new QLabel("Enter your 6-digit TOTP code from your authenticator app:", &totpDialog);
+            QLabel* label = new QLabel("Enter your 6-digit TOTP code from your authenticator app:",
+                                       &totpDialog);
             QLineEdit* codeEdit = new QLineEdit(&totpDialog);
             codeEdit->setPlaceholderText("000000");
             QDialogButtonBox* box = new QDialogButtonBox(
@@ -524,9 +556,9 @@ void QtLoginUI::onRevealSeedClicked() {
     // Call Auth to verify & pull seed (Qt-free core: std::optional<std::string>)
     std::string seedHex;
     std::optional<std::string> mnemonic;
-    auto resp = Auth::AuthManager::getInstance().RevealSeed(
-        username.toStdString(), pwd->text().toStdString(), seedHex,
-        /*outMnemonic*/ mnemonic);
+    auto resp = Auth::AuthManager::getInstance().RevealSeed(username.toStdString(),
+                                                            pwd->text().toStdString(), seedHex,
+                                                            /*outMnemonic*/ mnemonic);
 
     if (resp.result != Auth::AuthResult::SUCCESS) {
         showMessage(QString::fromStdString(resp.message), true);
@@ -608,7 +640,9 @@ void QtLoginUI::onRevealSeedClicked() {
     auto copyWithAutoClear = [&](const QString& text) {
         QClipboard* cb = QGuiApplication::clipboard();
         cb->setText(text);
-        QTimer::singleShot(30000, this, [cb]() { cb->clear(); });  // clear in 30s
+        QTimer::singleShot(30000, this, [cb]() {
+            cb->clear();
+        });  // clear in 30s
         QMessageBox::information(this, "Copied",
                                  "Copied to clipboard. It will be cleared in 30 seconds.");
     };
@@ -644,28 +678,30 @@ void QtLoginUI::onRevealSeedClicked() {
         });
     }
 
-    QObject::connect(copySeed, &QPushButton::clicked, this, 
-                     [&, seedBox]() { copyWithAutoClear(seedBox->toPlainText()); });
+    QObject::connect(copySeed, &QPushButton::clicked, this, [&, seedBox]() {
+        copyWithAutoClear(seedBox->toPlainText());
+    });
     if (copyMnemonic) {
-        QObject::connect(copyMnemonic, &QPushButton::clicked, this, 
-                         [&, mnemoBox]() { copyWithAutoClear(mnemoBox->toPlainText()); });
+        QObject::connect(copyMnemonic, &QPushButton::clicked, this, [&, mnemoBox]() {
+            copyWithAutoClear(mnemoBox->toPlainText());
+        });
     }
     QObject::connect(box2, &QDialogButtonBox::rejected, &reveal, &QDialog::reject);
     QObject::connect(box2, &QDialogButtonBox::accepted, &reveal, &QDialog::accept);
 
     // Clear clipboard on close if it still contains our sensitive text
-    QObject::connect(&reveal, &QDialog::finished, this, 
+    QObject::connect(&reveal, &QDialog::finished, this,
                      [&, seedBox, mnemoBox, seedText, mnemonicText]() {
-        QClipboard* cb = QGuiApplication::clipboard();
-        const QString t = cb->text();
-        if (t == seedText || (!mnemonicText.isEmpty() && t == mnemonicText)) {
-            cb->clear();
-        }
-        seedBox->clear();
-        if (mnemoBox) {
-            mnemoBox->clear();
-        }
-    });
+                         QClipboard* cb = QGuiApplication::clipboard();
+                         const QString t = cb->text();
+                         if (t == seedText || (!mnemonicText.isEmpty() && t == mnemonicText)) {
+                             cb->clear();
+                         }
+                         seedBox->clear();
+                         if (mnemoBox) {
+                             mnemoBox->clear();
+                         }
+                     });
 
     reveal.exec();
 }
@@ -746,8 +782,7 @@ void QtLoginUI::onRestoreSeedClicked() {
 
     // Call Auth: verify password, then restore
     const auto resp = Auth::AuthManager::getInstance().RestoreFromSeed(
-        username.toStdString(), mnemonicText.toStdString(),
-        passphrase->text().toStdString(),
+        username.toStdString(), mnemonicText.toStdString(), passphrase->text().toStdString(),
         pwd->text().toStdString()  // re-auth
     );
 
@@ -759,8 +794,12 @@ void QtLoginUI::onRestoreSeedClicked() {
     }
 }
 
-void QtLoginUI::onThemeChanged() { applyTheme(); }
-void QtLoginUI::applyTheme() { updateStyles(); }
+void QtLoginUI::onThemeChanged() {
+    applyTheme();
+}
+void QtLoginUI::applyTheme() {
+    updateStyles();
+}
 
 void QtLoginUI::updateStyles() {
     QString appBg = m_themeManager->backgroundColor().name();  // Use background for main window
@@ -839,8 +878,7 @@ void QtLoginUI::updateStyles() {
     QString selectedTabColor =
         m_themeManager->textColor().name();  // Always use theme text color for selected tab
 
-    QString tabBarStyle =
-        QString(R"(
+    QString tabBarStyle = QString(R"(
         QTabBar {
             background: transparent;
             border: none;
@@ -877,10 +915,10 @@ void QtLoginUI::updateStyles() {
             border-bottom: 2px solid transparent;
         }
     )")
-            .arg(borderColor)
-            .arg(accentHex)
-            .arg(inactiveTabColor)
-            .arg(selectedTabColor);
+                              .arg(borderColor)
+                              .arg(accentHex)
+                              .arg(inactiveTabColor)
+                              .arg(selectedTabColor);
     m_tabBar->setStyleSheet(tabBarStyle);
 
     // Enhanced LineEdit styling with proper backgrounds and contrast
@@ -1092,7 +1130,8 @@ void QtLoginUI::onPasswordVisibilityToggled() {
 
 void QtLoginUI::validateRegisterForm() {
     const bool usernameFilled = !m_usernameEdit->text().trimmed().isEmpty();
-    const bool passwordsFilled = !m_passwordEdit->text().isEmpty() && !m_confirmPasswordEdit->text().isEmpty();
+    const bool passwordsFilled =
+        !m_passwordEdit->text().isEmpty() && !m_confirmPasswordEdit->text().isEmpty();
     const bool passwordsMatch = m_passwordEdit->text() == m_confirmPasswordEdit->text();
 
     m_registerButton->setEnabled(usernameFilled && passwordsFilled && passwordsMatch);
@@ -1109,7 +1148,8 @@ void QtLoginUI::setAuthInProgress(bool inProgress) {
 
     if (m_loadingOverlay) {
         inProgress ? m_loadingOverlay->show() : m_loadingOverlay->hide();
-        if (inProgress) m_loadingOverlay->raise(); // Ensure it's on top
+        if (inProgress)
+            m_loadingOverlay->raise();  // Ensure it's on top
     }
 
     if (m_loginButton) {
