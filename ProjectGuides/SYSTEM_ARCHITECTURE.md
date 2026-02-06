@@ -76,7 +76,7 @@ graph TB
 
             Crypto[Crypto Module<br/>Technology: C++, secp256k1<br/>- BIP39 mnemonic generation<br/>- BIP32/BIP44 key derivation<br/>- Bitcoin/Ethereum address generation<br/>- ECDSA signing]
 
-            WalletAPI[WalletAPI Layer<br/>Technology: C++<br/>- SimpleWallet (Bitcoin)<br/>- EthereumWallet (Ethereum)<br/>- Unified wallet operations]
+            WalletAPI[WalletAPI Layer<br/>Technology: C++<br/>- SimpleWallet Bitcoin<br/>- EthereumWallet Ethereum<br/>- Unified wallet operations]
         end
 
         subgraph "Blockchain Integration"
