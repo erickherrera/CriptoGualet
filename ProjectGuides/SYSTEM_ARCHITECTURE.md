@@ -40,7 +40,7 @@ graph TB
     end
 
     BlockCypherAPI[BlockCypher API<br/>Bitcoin Blockchain Service]
-    EtherscanAPI[Etherscan API<br/>Ethereum Blockchain Service]
+    EtherscanAPI[Etherscan API<br/>>Ethereum Blockchain Service]
     PriceAPI[Price Service APIs<br/>CoinGecko/CoinMarketCap]
     WindowsDPAPI[Windows DPAPI<br/>OS-Level Encryption]
 
