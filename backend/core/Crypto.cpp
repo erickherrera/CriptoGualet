@@ -387,34 +387,91 @@ bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data,
   return BCRYPT_SUCCESS(st);
 }
 
-bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data,
-                size_t data_len, std::vector<uint8_t> &out) {
-  out.assign(64, 0);
+// Helper for manual HMAC
+static bool SHA512_Raw(const uint8_t *data, size_t len, std::vector<uint8_t> &out) {
+  out.resize(64);
   BCRYPT_ALG_HANDLE hAlg = nullptr;
   BCRYPT_HASH_HANDLE hHash = nullptr;
-  NTSTATUS st = BCryptOpenAlgorithmProvider(
-      &hAlg, BCRYPT_SHA512_ALGORITHM, nullptr, BCRYPT_ALG_HANDLE_HMAC_FLAG);
-  if (!BCRYPT_SUCCESS(st))
+  
+  if (!BCRYPT_SUCCESS(BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA512_ALGORITHM, nullptr, 0)))
     return false;
 
-  st = BCryptCreateHash(hAlg, &hHash, nullptr, 0, (PUCHAR)key.data(),
-                        (ULONG)key.size(), 0);
-  if (!BCRYPT_SUCCESS(st)) {
+  if (!BCRYPT_SUCCESS(BCryptCreateHash(hAlg, &hHash, nullptr, 0, nullptr, 0, 0))) {
     BCryptCloseAlgorithmProvider(hAlg, 0);
     return false;
   }
 
-  st = BCryptHashData(hHash, (PUCHAR)data, (ULONG)data_len, 0);
-  if (!BCRYPT_SUCCESS(st)) {
+  if (!BCRYPT_SUCCESS(BCryptHashData(hHash, (PUCHAR)data, (ULONG)len, 0))) {
     BCryptDestroyHash(hHash);
     BCryptCloseAlgorithmProvider(hAlg, 0);
     return false;
   }
 
-  st = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
+  NTSTATUS st = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
   BCryptDestroyHash(hHash);
   BCryptCloseAlgorithmProvider(hAlg, 0);
   return BCRYPT_SUCCESS(st);
+}
+
+bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data,
+                size_t data_len, std::vector<uint8_t> &out) {
+  const size_t blockSize = 128; // SHA-512 block size
+  std::vector<uint8_t> processedKey(blockSize, 0);
+
+  if (key.size() > blockSize) {
+    std::vector<uint8_t> hash;
+    if (!SHA512_Raw(key.data(), key.size(), hash)) return false;
+    std::memcpy(processedKey.data(), hash.data(), hash.size());
+  } else {
+    std::memcpy(processedKey.data(), key.data(), key.size());
+  }
+
+  std::vector<uint8_t> ipad(blockSize);
+  std::vector<uint8_t> opad(blockSize);
+
+  for (size_t i = 0; i < blockSize; ++i) {
+    ipad[i] = processedKey[i] ^ 0x36;
+    opad[i] = processedKey[i] ^ 0x5c;
+  }
+
+  // Inner hash: SHA512(ipad || data)
+  std::vector<uint8_t> innerHash;
+  {
+      BCRYPT_ALG_HANDLE hAlg = nullptr;
+      BCRYPT_HASH_HANDLE hHash = nullptr;
+      if (!BCRYPT_SUCCESS(BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA512_ALGORITHM, nullptr, 0))) return false;
+      if (!BCRYPT_SUCCESS(BCryptCreateHash(hAlg, &hHash, nullptr, 0, nullptr, 0, 0))) { BCryptCloseAlgorithmProvider(hAlg, 0); return false; }
+      
+      BCryptHashData(hHash, ipad.data(), (ULONG)ipad.size(), 0);
+      BCryptHashData(hHash, (PUCHAR)data, (ULONG)data_len, 0);
+      
+      innerHash.resize(64);
+      BCryptFinishHash(hHash, innerHash.data(), 64, 0);
+      BCryptDestroyHash(hHash);
+      BCryptCloseAlgorithmProvider(hAlg, 0);
+  }
+
+  // Outer hash: SHA512(opad || innerHash)
+  {
+      BCRYPT_ALG_HANDLE hAlg = nullptr;
+      BCRYPT_HASH_HANDLE hHash = nullptr;
+      if (!BCRYPT_SUCCESS(BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA512_ALGORITHM, nullptr, 0))) return false;
+      if (!BCRYPT_SUCCESS(BCryptCreateHash(hAlg, &hHash, nullptr, 0, nullptr, 0, 0))) { BCryptCloseAlgorithmProvider(hAlg, 0); return false; }
+      
+      BCryptHashData(hHash, opad.data(), (ULONG)opad.size(), 0);
+      BCryptHashData(hHash, innerHash.data(), (ULONG)innerHash.size(), 0);
+      
+      out.resize(64);
+      BCryptFinishHash(hHash, out.data(), 64, 0);
+      BCryptDestroyHash(hHash);
+      BCryptCloseAlgorithmProvider(hAlg, 0);
+  }
+  
+  // Wipe sensitive data
+  SecureWipeVector(processedKey);
+  SecureWipeVector(ipad);
+  SecureWipeVector(opad);
+  return true;
 }
 
 // === Key Derivation Functions ===
