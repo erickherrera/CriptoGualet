@@ -171,28 +171,21 @@ graph TB
     end
 
     subgraph "Auth Module"
-        RegisterUser[RegisterUserWithMnemonic<br/>Rate Limited Registration]
-        LoginUser[LoginUser<br/>Rate Limited Login]
-        SeedGenerator[GenerateAndActivateSeedForUser]
-        WalletCreator[CreateMultiChainWallets]
-        RateLimit[RateLimiting<br/>IsRateLimited<br/>RecordFailedAttempt<br/>ClearRateLimit]
-        ThreadSafety[Thread Safety<br/>g_usersMutex Protection]
+        RegisterUser[RegisterUser<br/>Rate Limited]
+        LoginUser[Login<br/>Rate Limited]
+        SeedGenerator[Seed Generation]
+        WalletCreator[Wallet Creation]
+        RateLimit[Rate Limiting]
+        ThreadSafety[Thread Safety]
     end
 
     subgraph "Crypto Module"
-        BIP39[BIP39 Functions<br/>- GenerateEntropy<br/>- MnemonicFromEntropy<br/>- SeedFromMnemonic]
-
-        BIP32[BIP32 Functions<br/>- MasterKeyFromSeed<br/>- DeriveChild<br/>- DerivePath]
-
-        BIP44[BIP44 Functions<br/>- GetAddress (Bitcoin)<br/>- GetEthereumAddress<br/>- DeriveChainAddress]
-
-        AddressGen[Address Generators<br/>- GetBitcoinAddress<br/>- GetEthereumAddress<br/>- Keccak256 (ETH)<br/>Base58Check Validation]
-
-        Signing[Signature Functions<br/>- SignHash<br/>- ECDSA with secp256k1<br/>Secure Memory Wipe]
-
-        Encryption[Encryption Functions<br/>- EncryptDBData (AES-GCM)<br/>- DecryptDBData<br/>- DeriveDBEncryptionKey]
-        
-        KeyMgmt[On-Demand Key Management<br/>Derive & Wipe Immediately<br/>No Persistent Caching]
+        BIP39[BIP39<br/>Seed Generation]
+        BIP32[BIP32<br/>Key Derivation]
+        AddressGen[Address Generation<br/>Base58Check Validation]
+        Signing[ECDSA Signing<br/>Secure Memory Wipe]
+        Encryption[AES-256 Encryption]
+        KeyMgmt[On-Demand Keys<br/>No Caching]
     end
 
     subgraph "WalletAPI Layer"
@@ -202,13 +195,10 @@ graph TB
     end
 
     subgraph "Repository Layer"
-        UserRepo[UserRepository<br/>- createUser<br/>- authenticateUser<br/>- getUserByUsername]
-
-        WalletRepo[WalletRepository<br/>- createWallet<br/>- getWalletsByUserId<br/>- storeEncryptedSeed<br/>- retrieveDecryptedSeed]
-
-        TxRepo[TransactionRepository<br/>- createTransaction<br/>- getTransactionsByWallet<br/>- updateTransactionStatus]
-        
-        RateLimitRepo[RateLimitRepository<br/>- IsRateLimited<br/>- RecordFailedAttempt<br/>- ClearRateLimit<br/>Persistent Storage]
+        UserRepo[User Repository]
+        WalletRepo[Wallet Repository]
+        TxRepo[Transaction Repository]
+        RateLimitRepo[Rate Limit Repository<br/>Persistent]
     end
 
     QtLoginUI --> RegisterUser
@@ -262,9 +252,9 @@ graph TB
     end
 
     subgraph "Authentication Views"
-        QtLoginUI[QtLoginUI<br/>Login/Registration<br/>12+ Char Validation]
-        SeedDialog[QtSeedDisplayDialog<br/>Seed Phrase Display<br/>Auto-Clear Clipboard]
-        PasswordDialog[QtPasswordConfirmDialog<br/>Secure Password Input<br/>Memory Wipe on Destroy]
+        QtLoginUI[Login/Registration<br/>Validated Input]
+        SeedDialog[Seed Display<br/>Auto-Clear Clipboard]
+        PasswordDialog[Secure Password<br/>Memory Wipe]
     end
 
     subgraph "Wallet Views"
@@ -275,9 +265,9 @@ graph TB
     end
 
     subgraph "Wallet Components"
-        BTCCard[QtExpandableWalletCard<br/>Bitcoin Wallet]
-        ETHCard[QtExpandableWalletCard<br/>Ethereum Wallet]
-        SendDialog[QtSendDialog<br/>Transaction Send Dialog<br/>Double-Submit Prevention]
+        BTCCard[Bitcoin Wallet]
+        ETHCard[Ethereum Wallet]
+        SendDialog[Transaction Dialog<br/>Double-Submit Prevention]
     end
 
     subgraph "Backend Integration"
@@ -637,417 +627,126 @@ graph TB
 
 ## Security Architecture
 
-### Threat Model
+### Core Security Components
 
 **Protected Assets:**
-- BIP39 seed phrases (12-word mnemonics)
-- Private keys derived from seeds (on-demand only)
+- BIP39 seed phrases
+- Private keys (on-demand only) 
 - User passwords
 - Transaction data
 
-**Threat Actors & Mitigations:**
+**Key Security Mechanisms:**
 
-| Threat Actor | Capabilities | Implemented Mitigations |
-|--------------|-------------|------------------------|
-| **Malware** | Memory scraping, keylogging, file access | ✅ Secure memory wiping<br/>✅ No persistent private key storage<br/>✅ DPAPI + Database dual encryption<br/>✅ No credential logging |
-| **Network Attackers** | MITM, API exploitation, replay attacks | ✅ HTTPS-only communications<br/>✅ Default allowInsecureHttp=false<br/>✅ Input validation & sanitization<br/>✅ Rate limiting prevents API abuse |
-| **Physical Attackers** | Device theft, forensic analysis | ✅ Machine-bound DPAPI encryption<br/>✅ Password-protected database<br/>✅ No plaintext seeds on disk<br/>✅ Secure logout wipes all data |
-| **Brute Force Attackers** | Password guessing, credential stuffing | ✅ Comprehensive rate limiting (5/15min)<br/>✅ Database-persistent limits<br/>✅ 12+ char password complexity<br/>✅ Generic error messages |
-| **Insider Threats** | API compromise, data breaches | ✅ No hardcoded API tokens<br/>✅ Minimal data exposure in errors<br/>✅ Sanitized error messages<br/>✅ Session-based authentication |
+1. **Dual Encryption**: DPAPI (machine-bound) + AES-256 (password-based)
+2. **On-Demand Keys**: Derive → Use → Wipe immediately
+3. **Rate Limiting**: 5 attempts per 15 minutes, database persistent
+4. **Thread Safety**: Mutex protection of all shared state
+5. **Input Validation**: Base58Check + address checksums
+6. **Memory Security**: Secure wiping after operations
+7. **Network Security**: HTTPS-only, secure defaults
 
-**Updated Attack Surface Analysis:**
-
-**🔴 HIGH RISK → 🔵 MITIGATED**
-- **Private Key Exposure**: Eliminated via on-demand derivation + immediate wiping
-- **Seed Phrase Theft**: Dual encryption (DPAPI + AES-256) requires both device + password
-- **Password Cracking**: PBKDF2 + rate limiting + complexity requirements
-- **Memory Scraping**: Systematic secure wiping of sensitive data
-
-**🟡 MEDIUM RISK → 🔵 MITIGATED**  
-- **Transaction Manipulation**: Double-submit prevention + validation
-- **Address Spoofing**: Base58Check + checksum verification
-- **Information Leakage**: Generic errors + no credential logging
-- **Race Conditions**: Thread safety with mutex protection
-
-**🟢 LOW RISK**
-- **API Rate Limit Exceeded**: Respectful external API usage
-- **Data Corruption**: ACID compliance + error handling
-- **UI/UX Issues**: Input validation + user feedback
-
-### Security Mechanisms
-
-#### 1. Seed Phrase Protection
-
-**Dual-Layer Encryption:**
+### Security Architecture Diagram
 
 ```mermaid
 graph TB
-    Plaintext[Plaintext Seed Phrase<br/>12 words]
-
-    subgraph "Encryption Layer 1: DPAPI"
-        DPAPI[Windows DPAPI Encryption<br/>Machine + User Bound]
-        DPAPIFile[seed_vault/username.bin<br/>Encrypted Binary]
+    User[User Interface]
+    
+    subgraph "Security Layer"
+        Auth[Authentication<br/>Rate Limited<br/>Thread Safe]
+        Crypto[Cryptographic Operations<br/>On-Demand Keys<br/>Secure Memory]
+        Validation[Input Validation<br/>Address Checksums<br/>Double-Submit Prevention]
     end
-
-    subgraph "Encryption Layer 2: Database"
-        PasswordKey[Password-Derived Key<br/>PBKDF2-HMAC-SHA256<br/>100,000 iterations]
-        AESGCM[AES-256-GCM Encryption]
-        DBBlob[encrypted_seeds table<br/>Encrypted Blob]
+    
+    subgraph "Storage Layer"
+        Database[Encrypted Database<br/>AES-256 Protected]
+        DPAPI[DPAPI Storage<br/>Machine Bound]
+        RateLimitDB[Rate Limit Persistence<br/>Cross-Restart]
     end
-
-    Plaintext --> DPAPI
-    DPAPI --> DPAPIFile
-
-    Plaintext --> PasswordKey
-    PasswordKey --> AESGCM
-    AESGCM --> DBBlob
-
-    DPAPIFile -.Attacker needs<br/>user account + machine.-> Attack1[X]
-    DBBlob -.Attacker needs<br/>user password.-> Attack2[X]
+    
+    User --> Auth
+    User --> Crypto
+    User --> Validation
+    
+    Auth --> RateLimitDB
+    Crypto --> Database
+    Crypto --> DPAPI
+    
+    style Auth fill:#FF6B6B,stroke:#C92A2A,color:#fff
+    style Crypto fill:#FF6B6B,stroke:#C92A2A,color:#fff
+    style Validation fill:#FF6B6B,stroke:#C92A2A,color:#fff
 ```
-
-**Security Properties:**
-- **DPAPI**: Protects against file theft (requires user account access)
-- **Database**: Protects against unauthorized device access (requires password)
-- **Combined**: Attacker needs both device access AND password
-
-#### 2. Private Key Management
-
-**On-Demand Derivation:**
-1. User enters password for transaction
-2. Seed decrypted from database
-3. Private key derived via BIP32/BIP44
-4. Transaction signed
-5. Private key wiped from memory immediately
-
-**No Caching:**
-- Keys never stored in memory longer than necessary
-- Reduces attack surface for memory dumps
-
-#### 3. Password Security
-
-**Storage:**
-- PBKDF2-HMAC-SHA256 with random salt
-- 100,000+ iterations (configurable)
-- Constant-time comparison to prevent timing attacks
-- 12+ character minimum with complexity requirements
-
-**Verification:**
-- Comprehensive rate limiting (5 attempts, then lockout)
-- Database-persistent rate limits across application restarts
-- Prevents brute force and enumeration attacks
-
-#### 4. Rate Limiting & Access Control
-
-**Cross-Cutting Rate Limiting:**
-- Registration: 5 attempts per 15 minutes
-- Login: 5 attempts per 15 minutes  
-- TOTP: 5 attempts per 15 minutes
-- Backup Codes: 5 attempts per 15 minutes
-- Database persistence ensures limits survive restarts
-
-**Thread Safety:**
-- std::mutex g_usersMutex protects all global user state
-- Thread-safe access to g_users and g_currentUser
-- Prevents race conditions in multi-threaded Qt environment
-
-#### 5. Input Validation & Sanitization
-
-**Enhanced Address Validation:**
-- Bitcoin: Full Base58Check checksum verification
-- Ethereum: Address format validation with checksum
-- Prevents fund loss from invalid addresses
-
-**Transaction Security:**
-- Double-submit prevention (button disabled after confirmation)
-- Satoshis/Wei precision with std::llround() to prevent floating-point errors
-- Comprehensive transaction validation before signing
-
-**Error Message Sanitization:**
-- Generic error messages to prevent information leakage
-- Removal of e.what() exposure from UI
-- Rate limiting feedback without revealing system internals
-
-#### 6. Network Security
-
-**API Communication:**
-- HTTPS for all external API calls
-- API tokens stored securely (not in source code)
-- Respectful rate limiting to external services
-- Default allowInsecureHttp=false for security
-
-**Secure Configuration:**
-- Explicit opt-in required for HTTP endpoints
-- Timeout handling prevents hanging connections
-- Input sanitization before API calls
-
-#### 7. UI Security & Memory Management
-
-**Secure UI Components:**
-- QtPasswordConfirmDialog destructor wipes password memory
-- Auto-clear clipboard for seed phrases (60-second timer)
-- No sensitive data in logs or debug output
-- Generic success messages to prevent session ID exposure
-
-**Memory Security:**
-- Systematic secure wiping of privateKeyHex after operations
-- TransactionData.password wiped immediately after use
-- User credential data wiped on logout
-- On-demand key derivation with immediate memory cleanup
-
-**Credential Lifecycle:**
-- Private keys derived only when needed, then wiped
-- No persistent caching of sensitive cryptographic material
-- Secure logout wipes all cached user data
-
-### Cross-Cutting Security Concerns
-
-#### Rate Limiting Architecture
-
-```mermaid
-graph TB
-    UserRequest[User Request]
-    
-    subgraph "Rate Limiting Layer"
-        IsRateLimited[IsRateLimited<br/>Check Database Limits]
-        RecordAttempt[RecordFailedAttempt<br/>Update Attempt Count]
-        ClearLimit[ClearRateLimit<br/>Reset on Success]
-    end
-    
-    subgraph "Persistent Storage"
-        RateLimitDB[(rate_limits table<br/>Cross-Restart Persistence)]
-    end
-    
-    subgraph "Protected Actions"
-        Registration[User Registration<br/>5 attempts/15min]
-        Login[User Login<br/>5 attempts/15min]
-        TOTP[TOTP Verification<br/>5 attempts/15min]
-        BackupCodes[Backup Code Verification<br/>5 attempts/15min]
-    end
-    
-    UserRequest --> IsRateLimited
-    IsRateLimited --> RateLimitDB
-    
-    IsRateLimited -- Denied --> UserRequest
-    IsRateLimited -- Allowed --> Registration
-    IsRateLimited -- Allowed --> Login
-    IsRateLimited -- Allowed --> TOTP
-    IsRateLimited -- Allowed --> BackupCodes
-    
-    Registration -- Failed --> RecordAttempt
-    Login -- Failed --> RecordAttempt
-    TOTP -- Failed --> RecordAttempt
-    BackupCodes -- Failed --> RecordAttempt
-    
-    RecordAttempt --> RateLimitDB
-    
-    Registration -- Success --> ClearLimit
-    Login -- Success --> ClearLimit
-    TOTP -- Success --> ClearLimit
-    BackupCodes -- Success --> ClearLimit
-    
-    ClearLimit --> RateLimitDB
-    
-    style IsRateLimited fill:#FF6B6B,stroke:#C92A2A,color:#fff
-    style RateLimitDB fill:#4ECDC4,stroke:#2B8A8A,color:#fff
-```
-
-**Rate Limiting Features:**
-- **Database Persistence**: Limits survive application restarts
-- **Multiple Identifiers**: IP, username, or global rate limiting
-- **Configurable Thresholds**: Easy to adjust limits per action
-- **Automatic Cleanup**: Stale entries automatically cleared
-- **Thread-Safe**: Concurrent requests properly handled
-
-#### Thread Safety Model
-
-```mermaid
-graph TB
-    Thread1[Qt Thread 1<br/>UI Operations]
-    Thread2[Qt Thread 2<br/>Background Tasks]
-    Thread3[Qt Thread 3<br/>Network Requests]
-    
-    subgraph "Critical Section"
-        g_usersMutex[std::mutex g_usersMutex<br/>Global User State Lock]
-        g_users[g_users vector<br/>All User Objects]
-        g_currentUser[g_currentUser<br/>Active Session Pointer]
-    end
-    
-    Thread1 -->|Lock/Unlock| g_usersMutex
-    Thread2 -->|Lock/Unlock| g_usersMutex  
-    Thread3 -->|Lock/Unlock| g_usersMutex
-    
-    g_usersMutex --> g_users
-    g_usersMutex --> g_currentUser
-    
-    style g_usersMutex fill:#FF6B6B,stroke:#C92A2A,color:#fff
-    style Thread1 fill:#4ECDC4,stroke:#2B8A8A
-    style Thread2 fill:#4ECDC4,stroke:#2B8A8A
-    style Thread3 fill:#4ECDC4,stroke:#2B8A8A
-```
-
-**Thread Safety Guarantees:**
-- **Mutex Protection**: All access to global user state synchronized
-- **Deadlock Prevention**: Single mutex avoids circular dependencies
-- **Performance Optimization**: Minimal lock duration
-- **Exception Safety**: RAII ensures locks released on exceptions
 
 ### Security Best Practices
 
-1. **Regular Security Audits**: Code reviews for cryptographic operations
-2. **Dependency Updates**: Keep libraries updated for security patches
-3. **Secure Coding**: No buffer overflows, proper error handling
-4. **Minimal Logging**: Never log seeds, private keys, or passwords
-5. **User Education**: Clear warnings about seed phrase backup importance
-6. **Rate Limiting**: Comprehensive protection against brute force attacks
-7. **Thread Safety**: Proper synchronization for multi-threaded operations
-8. **Memory Security**: Systematic wiping of sensitive cryptographic material
-9. **Input Validation**: Comprehensive validation and sanitization of all inputs
-10. **Defense in Depth**: Multiple layers of security controls
+1. **Defense in Depth**: Multiple layers of security controls
+2. **Secure Memory**: On-demand keys with immediate wiping
+3. **Rate Limiting**: Comprehensive protection across restarts
+4. **Thread Safety**: Mutex protection of shared state
+5. **Input Validation**: Comprehensive checksum verification
+6. **Minimal Logging**: No sensitive data exposure
+7. **Secure Defaults**: HTTPS-only, explicit opt-in for risks
 
 ---
 
 ## Database Schema
 
-### Updated User Structure
-
-```cpp
-struct User {
-    int userId;
-    std::string username;
-    std::string passwordHash;           // PBKDF2-HMAC-SHA256
-    std::string salt;
-    std::vector<std::string> wallets;   // Wallet IDs
-    // NOTE: Private keys removed - now derived on-demand
-    // NOTE: sensitive data wiped on logout
-};
-```
-
-### Tables Schema
-
-```sql
--- Core user and wallet tables
-users (
-    user_id INTEGER PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    salt TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-wallets (
-    wallet_id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    chain TEXT NOT NULL,  -- 'bitcoin', 'ethereum'
-    derivation_path TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-);
-
-addresses (
-    address_id INTEGER PRIMARY KEY,
-    wallet_id INTEGER NOT NULL,
-    address TEXT NOT NULL,
-    derivation_index INTEGER NOT NULL,
-    is_active BOOLEAN DEFAULT 1,
-    FOREIGN KEY (wallet_id) REFERENCES wallets(wallet_id)
-);
-
--- Encrypted seed storage (dual encryption)
-encrypted_seeds (
-    user_id INTEGER PRIMARY KEY,
-    encrypted_seed_blob TEXT NOT NULL,  -- AES-256-GCM encrypted
-    salt TEXT NOT NULL,
-    iv TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-);
-
--- Transaction history
-transactions (
-    transaction_id INTEGER PRIMARY KEY,
-    wallet_id INTEGER NOT NULL,
-    tx_hash TEXT,
-    from_address TEXT,
-    to_address TEXT NOT NULL,
-    amount REAL NOT NULL,  -- SAT for BTC, Wei for ETH
-    fee REAL,
-    status TEXT,  -- 'pending', 'confirmed', 'failed'
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    confirmed_at TIMESTAMP,
-    FOREIGN KEY (wallet_id) REFERENCES wallets(wallet_id)
-);
-
--- NEW: Persistent rate limiting
-rate_limits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    identifier TEXT NOT NULL,  -- IP, username, or global
-    action_type TEXT NOT NULL,  -- 'registration', 'login', 'totp', 'backup'
-    attempt_count INTEGER DEFAULT 1,
-    last_attempt_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_locked BOOLEAN DEFAULT 0,
-    lock_until TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(identifier, action_type)
-);
-
--- Session management (for secure logout)
-user_sessions (
-    session_id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-);
-```
-
-### Data Flow Security
+### Core Tables
 
 ```mermaid
-graph TB
-    User[User Action]
+erDiagram
+    users ||--o{ wallets : owns
+    users ||--|| encrypted_seeds : has
+    users ||--o{ transactions : creates
+    users ||--o{ rate_limits : subject
+    wallets ||--o{ addresses : contains
+    wallets ||--o{ transactions : generates
     
-    subgraph "Thread-Safe Access"
-        Mutex[std::mutex g_usersMutex]
-        GlobalUsers[g_users global vector]
-        CurrentUser[g_currentUser pointer]
-    end
+    users {
+        int user_id PK
+        string username UK
+        string password_hash
+        string salt
+        timestamp created_at
+    }
     
-    subgraph "Database Operations"
-        UserRepo[UserRepository<br/>Thread-safe queries]
-        RateRepo[RateLimitRepository<br/>Persistent limits]
-        SeedRepo[SeedRepository<br/>Dual-encrypted storage]
-    end
+    wallets {
+        int wallet_id PK
+        int user_id FK
+        string chain
+        string derivation_path
+    }
     
-    subgraph "Memory Security"
-        OnDemand[On-Demand Key Derivation]
-        Wipe[Secure Memory Wipe]
-        NoCache[No Persistent Caching]
-    end
+    encrypted_seeds {
+        int user_id PK
+        text encrypted_blob
+        text salt
+        text iv
+    }
     
-    User --> Mutex
-    Mutex --> GlobalUsers
-    Mutex --> CurrentUser
+    transactions {
+        int tx_id PK
+        int wallet_id FK
+        string tx_hash
+        string to_address
+        real amount
+        string status
+    }
     
-    GlobalUsers --> UserRepo
-    CurrentUser --> SeedRepo
-    
-    UserRepo --> RateRepo
-    
-    SeedRepo --> OnDemand
-    OnDemand --> Wipe
-    Wipe --> NoCache
-    
-    style Mutex fill:#FF6B6B,stroke:#C92A2A,color:#fff
-    style Wipe fill:#FF6B6B,stroke:#C92A2A,color:#fff
+    rate_limits {
+        int id PK
+        string identifier
+        string action_type
+        int attempt_count
+        boolean is_locked
+        timestamp lock_until
+    }
 ```
 
-**Key Security Improvements:**
-- **Removed private key fields** from User struct - now derived on-demand
-- **Added rate_limits table** with persistent storage across restarts
-- **Thread safety** with mutex protection of all shared state
-- **Memory wiping** after cryptographic operations
-- **Enhanced validation** with Base58Check and address verification
+**Key Features:**
+- **No private keys** stored - derived on-demand
+- **Rate limiting** persistence across restarts  
+- **Dual encryption** (DPAPI + AES-256)
+- **Thread-safe** access patterns
 
 ---
 
