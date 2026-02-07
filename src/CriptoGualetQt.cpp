@@ -13,6 +13,7 @@
 #include "../frontend/qt/include/QtThemeManager.h"
 #include "../frontend/qt/include/QtTopCryptosPage.h"
 #include "../frontend/qt/include/QtWalletUI.h"
+#include "../frontend/qt/include/QtTestConsole.h"
 
 #include <QTimer>
 #include <QAction>
@@ -787,7 +788,10 @@ void CriptoGualetQt::setupMenuBar() {
     });
 
     QMenu* helpMenu = menuBar()->addMenu("&Help");
+    QAction* diagnosticsAction = helpMenu->addAction("System &Diagnostics");
     QAction* aboutAction = helpMenu->addAction("&About");
+
+    connect(diagnosticsAction, &QAction::triggered, this, &CriptoGualetQt::showDiagnosticsConsole);
 
     connect(aboutAction, &QAction::triggered, [this]() {
         QMessageBox::about(this, "About CriptoGualet",
@@ -796,6 +800,14 @@ void CriptoGualetQt::setupMenuBar() {
                            "Features:\n• Modern Qt UI with theming\n• Secure authentication\n• "
                            "Bitcoin address generation\n• Secure wallet functionality");
     });
+}
+
+void CriptoGualetQt::showDiagnosticsConsole() {
+    QtTestConsole* console = new QtTestConsole(this);
+    console->setAttribute(Qt::WA_DeleteOnClose);
+    console->show();
+    console->raise();
+    console->activateWindow();
 }
 
 void CriptoGualetQt::setupStatusBar() {

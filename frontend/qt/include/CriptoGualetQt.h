@@ -28,6 +28,7 @@ class QtSettingsUI;
 class QtTopCryptosPage;
 class QtThemeManager;
 class QtSidebar;
+class QtTestConsole;
 
 namespace Auth {
     struct AuthResponse;
@@ -45,6 +46,7 @@ class CriptoGualetQt : public QMainWindow {
     void showWalletScreen(const QString& sessionId = "");
     void showSettingsScreen();
     void showTopCryptosPage();
+    void showDiagnosticsConsole();
     void onThemeChanged();
     void onSidebarWidthChanged(int width);
 
