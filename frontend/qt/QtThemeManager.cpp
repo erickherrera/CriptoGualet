@@ -287,6 +287,43 @@ QString QtThemeManager::getButtonStyleSheet() const {
         .arg(m_accentColor.darker(200).name());
 }
 
+QString QtThemeManager::getOutlinedButtonStyleSheet() const {
+    return QString(R"(
+        QPushButton {
+            background-color: transparent;
+            color: %1;
+            border: 2px solid %2;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-family: %3;
+            font-size: %4px;
+            font-weight: 600;
+            min-height: 20px;
+        }
+        QPushButton:hover {
+            background-color: %5;
+            border-color: %6;
+        }
+        QPushButton:pressed {
+            background-color: %7;
+            transform: translateY(1px);
+        }
+        QPushButton:disabled {
+            color: %8;
+            border-color: %9;
+        }
+    )")
+        .arg(m_textColor.name())
+        .arg(m_accentColor.name())
+        .arg(m_buttonFont.family())
+        .arg(m_buttonFont.pointSize())
+        .arg(m_lightInfoColor.name())  // hover bg (tinted)
+        .arg(m_accentColor.lighter(110).name())
+        .arg(m_lightInfoColor.darker(110).name())
+        .arg(m_disabledTextColor.name())
+        .arg(m_secondaryColor.name());
+}
+
 QString QtThemeManager::getLineEditStyleSheet() const {
     return QString(R"(
         QLineEdit {

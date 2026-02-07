@@ -24,6 +24,7 @@ enum class AuthResult {
 struct AuthResponse {
   AuthResult result;
   std::string message;
+  std::string sessionId;
   bool success() const { return result == AuthResult::SUCCESS; }
 };
 

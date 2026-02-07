@@ -7,6 +7,7 @@
 #include <QMessageBox>
 #include <QClipboard>
 #include <QApplication>
+#include <QScreen>
 #include <QImage>
 #include <QPainter>
 #include <QBuffer>
@@ -17,6 +18,9 @@ QtReceiveDialog::QtReceiveDialog(ChainType chainType, const QString& address, QW
       m_themeManager(&QtThemeManager::instance()),
       m_chainType(chainType),
       m_address(address),
+      m_scrollArea(nullptr),
+      m_scrollContent(nullptr),
+      m_contentLayout(nullptr),
       m_includeAmount(false),
       m_requestAmount(0.0) {
 
@@ -30,8 +34,17 @@ QtReceiveDialog::QtReceiveDialog(ChainType chainType, const QString& address, QW
     }
 
     setModal(true);
-    setMinimumWidth(500);
-    setMinimumHeight(650);
+    
+    // Set responsive initial size
+    int screenWidth = QApplication::primaryScreen()->geometry().width();
+    int screenHeight = QApplication::primaryScreen()->geometry().height();
+    
+    int targetWidth = qMin(550, screenWidth - 40);
+    int targetHeight = qMin(750, screenHeight - 80);
+    
+    resize(targetWidth, targetHeight);
+    setMinimumWidth(qMin(320, screenWidth));
+    setMinimumHeight(qMin(400, screenHeight));
 
     setupUI();
     applyTheme();
@@ -43,8 +56,19 @@ QtReceiveDialog::QtReceiveDialog(ChainType chainType, const QString& address, QW
 
 void QtReceiveDialog::setupUI() {
     m_mainLayout = new QVBoxLayout(this);
-    m_mainLayout->setSpacing(m_themeManager->standardSpacing());  // 16px
-    m_mainLayout->setContentsMargins(
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);
+    m_mainLayout->setSpacing(0);
+
+    // Create Scroll Area
+    m_scrollArea = new QScrollArea(this);
+    m_scrollArea->setWidgetResizable(true);
+    m_scrollArea->setFrameShape(QFrame::NoFrame);
+    m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    
+    m_scrollContent = new QWidget();
+    m_contentLayout = new QVBoxLayout(m_scrollContent);
+    m_contentLayout->setSpacing(m_themeManager->standardSpacing());  // 16px
+    m_contentLayout->setContentsMargins(
         m_themeManager->generousMargin(),  // 32px
         m_themeManager->generousMargin(),  // 32px
         m_themeManager->generousMargin(),  // 32px
@@ -64,14 +88,14 @@ void QtReceiveDialog::setupUI() {
     titleFont.setPointSize(18);
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
-    m_mainLayout->addWidget(m_titleLabel);
+    m_contentLayout->addWidget(m_titleLabel);
 
     m_subtitleLabel = new QLabel("Share this address to receive payments");
     m_subtitleLabel->setAlignment(Qt::AlignCenter);
     m_subtitleLabel->setStyleSheet(QString("color: %1; font-size: 12px;").arg(m_themeManager->dimmedTextColor().name()));
-    m_mainLayout->addWidget(m_subtitleLabel);
+    m_contentLayout->addWidget(m_subtitleLabel);
 
-    m_mainLayout->addSpacing(m_themeManager->standardSpacing());
+    m_contentLayout->addSpacing(m_themeManager->standardSpacing());
 
     // === QR Code Section ===
     QGroupBox* qrGroup = new QGroupBox("QR Code");
@@ -80,9 +104,8 @@ void QtReceiveDialog::setupUI() {
 
     m_qrCodeLabel = new QLabel();
     m_qrCodeLabel->setAlignment(Qt::AlignCenter);
-    m_qrCodeLabel->setMinimumSize(QR_CODE_SIZE, QR_CODE_SIZE);
-    m_qrCodeLabel->setMaximumSize(QR_CODE_SIZE, QR_CODE_SIZE);
-    m_qrCodeLabel->setScaledContents(false);
+    m_qrCodeLabel->setMinimumSize(100, 100);
+    m_qrCodeLabel->setScaledContents(true);
     qrLayout->addWidget(m_qrCodeLabel);
 
     m_qrStatusLabel = new QLabel();
@@ -91,7 +114,7 @@ void QtReceiveDialog::setupUI() {
     m_qrStatusLabel->hide();
     qrLayout->addWidget(m_qrStatusLabel);
 
-    m_mainLayout->addWidget(qrGroup);
+    m_contentLayout->addWidget(qrGroup);
 
     // === Address Section ===
     QGroupBox* addressGroup = new QGroupBox("Address");
@@ -114,7 +137,7 @@ void QtReceiveDialog::setupUI() {
 
     addressLayout->addLayout(addressInputLayout);
 
-    m_mainLayout->addWidget(addressGroup);
+    m_contentLayout->addWidget(addressGroup);
 
     // === Optional Amount Section ===
     QGroupBox* amountGroup = new QGroupBox("Payment Request (Optional)");
@@ -146,10 +169,19 @@ void QtReceiveDialog::setupUI() {
     m_amountNote->setEnabled(false);
     amountLayout->addWidget(m_amountNote);
 
-    m_mainLayout->addWidget(amountGroup);
+    m_contentLayout->addWidget(amountGroup);
+
+    m_scrollArea->setWidget(m_scrollContent);
+    m_mainLayout->addWidget(m_scrollArea);
 
     // === Buttons ===
     m_buttonLayout = new QHBoxLayout();
+    m_buttonLayout->setContentsMargins(
+        m_themeManager->standardMargin(),
+        m_themeManager->standardMargin(),
+        m_themeManager->standardMargin(),
+        m_themeManager->standardMargin()
+    );
     m_buttonLayout->addStretch();
 
     m_closeButton = new QPushButton("Close");
@@ -181,6 +213,30 @@ void QtReceiveDialog::applyTheme() {
         QDialog {
             background-color: %1;
             color: %2;
+        }
+        QScrollArea {
+            background-color: transparent;
+            border: none;
+        }
+        QScrollBar:vertical {
+            background: %1;
+            width: 10px;
+            border-radius: 5px;
+            margin: 2px;
+        }
+        QScrollBar::handle:vertical {
+            background: %4;
+            border-radius: 5px;
+            min-height: 20px;
+        }
+        QScrollBar::handle:vertical:hover {
+            background: %5;
+        }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            height: 0px;
+        }
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+            background: none;
         }
         QGroupBox {
             background-color: %3;
@@ -258,9 +314,41 @@ void QtReceiveDialog::applyTheme() {
        .arg(m_themeManager->surfaceColor().darker(120).name())
        .arg(m_themeManager->dimmedTextColor().name()));
 
+    // Style the scroll content background
+    if (m_scrollContent) {
+        m_scrollContent->setStyleSheet(QString("QWidget { background-color: %1; }").arg(bgColor));
+    }
+
     // Regenerate QR code with theme-appropriate colors
     generateQRCode();
 }
+
+void QtReceiveDialog::resizeEvent(QResizeEvent* event) {
+    QDialog::resizeEvent(event);
+    updateResponsiveLayout();
+}
+
+void QtReceiveDialog::updateResponsiveLayout() {
+    int dialogWidth = width();
+    
+    // Adjust content margins based on width
+    if (m_contentLayout) {
+        int margin = dialogWidth < 450 ? 15 : 32;
+        m_contentLayout->setContentsMargins(margin, margin, margin, margin);
+    }
+    
+    // Adjust QR code size if necessary
+    if (m_qrCodeLabel) {
+        int margins = m_contentLayout ? m_contentLayout->contentsMargins().left() + m_contentLayout->contentsMargins().right() : 64;
+        int availableWidth = dialogWidth - margins - 40; // 40 for groupbox padding etc
+        int targetSize = qMin(QR_CODE_SIZE + 40, availableWidth);
+        
+        if (targetSize > 100) {
+            m_qrCodeLabel->setFixedSize(targetSize, targetSize);
+        }
+    }
+}
+
 
 void QtReceiveDialog::onCopyAddressClicked() {
     QClipboard* clipboard = QApplication::clipboard();

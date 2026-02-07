@@ -405,7 +405,7 @@ void QtSidebar::applyTheme() {
             border-right: 3px solid %2;
         }
         QPushButton[class="sidebar-menu-button"] {
-            background-color: transparent;
+            background-color: %8;
             border: none;
             border-radius: 12px;
             padding: 0px;
@@ -466,13 +466,14 @@ void QtSidebar::applyTheme() {
                              .arg(pressedColor)
                              .arg(textColor)
                              .arg(signOutColor)
-                             .arg(hoverColor);
+                             .arg(hoverColor)
+                             .arg(accentColorName);
 
   setStyleSheet(sidebarStyle);
 
   cacheIcons();
 
-  QIcon menuIcon = createColoredIcon(":/icons/icons/menu.svg", iconColor);
+  QIcon menuIcon = createColoredIcon(":/icons/icons/menu.svg", Qt::white);
   QIcon signOutIcon = createColoredIcon(":/icons/icons/logout.svg", QColor(signOutColor));
 
   // Update menu icon

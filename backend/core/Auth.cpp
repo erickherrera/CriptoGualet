@@ -1735,9 +1735,10 @@ AuthResponse VerifyTwoFactorCode(const std::string& username, const std::string&
         auto& dbManager = Database::DatabaseManager::getInstance();
 
         // Get TOTP secret
-        std::string querySQL = "SELECT totp_secret, totp_enabled FROM users WHERE username = ?";
+        std::string querySQL = "SELECT totp_secret, totp_enabled, id FROM users WHERE username = ?";
         std::string totpSecret;
         int enabled = 0;
+        int userId = 0;
         bool found = false;
 
         auto result = dbManager.executeQuery(querySQL, {username}, [&](sqlite3* db) {
@@ -1750,6 +1751,7 @@ AuthResponse VerifyTwoFactorCode(const std::string& username, const std::string&
                     const unsigned char* ptr = sqlite3_column_text(stmt, 0);
                     totpSecret = ptr ? reinterpret_cast<const char*>(ptr) : "";
                     enabled = sqlite3_column_int(stmt, 1);
+                    userId = sqlite3_column_int(stmt, 2);
                 }
                 sqlite3_finalize(stmt);
             }

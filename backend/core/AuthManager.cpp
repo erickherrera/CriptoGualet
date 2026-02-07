@@ -51,7 +51,9 @@ AuthResponse AuthManager::LoginUser(const std::string& username, const std::stri
                     std::string sessionId = sessionManager_.createSession(userId, username);
 
                     // SECURITY: Do not include session ID in user-visible message
-                    return {AuthResult::SUCCESS, "Login successful. Welcome to CriptoGualet!"};
+                    AuthResponse response = {AuthResult::SUCCESS, "Login successful. Welcome to CriptoGualet!"};
+                    response.sessionId = sessionId;
+                    return response;
                 }
             } catch (const std::exception&) {
                 // Fall back to placeholder if repository fails
@@ -79,6 +81,34 @@ AuthResponse AuthManager::RestoreFromSeed(const std::string& username,
     return Auth::RestoreFromSeed(username, mnemonicText, passphrase, passwordForReauth);
 }
 
+AuthResponse AuthManager::VerifyTwoFactorCode(const std::string& username, const std::string& totpCode) {
+    auto authResponse = Auth::VerifyTwoFactorCode(username, totpCode);
+
+    if (authResponse.success()) {
+        if (InitializeAuthDatabase()) {
+            try {
+                auto& dbManager = Database::DatabaseManager::getInstance();
+                Repository::UserRepository userRepo(dbManager);
+
+                auto userResult = userRepo.getUserByUsername(username);
+                if (userResult.success) {
+                    int userId = userResult.data.id;
+                    std::string sessionId = sessionManager_.createSession(userId, username);
+
+                    AuthResponse response = {AuthResult::SUCCESS, "Verification successful."};
+                    response.sessionId = sessionId;
+                    return response;
+                }
+            } catch (const std::exception&) {
+                return {AuthResult::SYSTEM_ERROR, "Failed to retrieve user information"};
+            }
+        }
+        return {AuthResult::SYSTEM_ERROR, "Failed to initialize session"};
+    }
+
+    return authResponse;
+}
+
 void AuthManager::cleanupSessions() {
     sessionManager_.cleanup();
 }
@@ -89,7 +119,7 @@ void AuthManager::LogoutUser(const std::string& sessionId) {
 
 UserSession* AuthManager::getSession(const std::string& sessionId) {
     if (sessionManager_.validateSession(sessionId)) {
-        return sessionManager_.getCurrentSession();
+        return sessionManager_.getSession(sessionId);
     }
     return nullptr;
 }

@@ -41,6 +41,7 @@ public:
     void refreshSession(const std::string& sessionId);
     void invalidateSession(const std::string& sessionId);
     UserSession* getCurrentSession();
+    UserSession* getSession(const std::string& sessionId);
     void cleanup();
 
 private:

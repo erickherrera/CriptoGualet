@@ -248,7 +248,6 @@ void QtWalletUI::createHeaderSection() {
 
     // PHASE 3: Manual refresh button - size optimized
     m_refreshButton = new QPushButton(m_headerSection);
-    m_refreshButton->setText("🔄");
     m_refreshButton->setFixedSize(28, 28);  // Reduced from 32,32 for consistency
     m_refreshButton->setToolTip(
         "Refresh balances and prices (F5 or Ctrl+R)");  // PHASE 3: Accessibility
@@ -449,13 +448,8 @@ void QtWalletUI::onViewBalanceClicked() {
 }
 
 void QtWalletUI::onSendBitcoinClicked() {
-    UserSession* session = Auth::AuthManager::getInstance().getSession(m_sessionId.toStdString());
-    if (!session) {
-        QMessageBox::critical(this, "Error", "Session not found");
-        return;
-    }
-
-    double currentBalance = session->walletData.btcBalance;
+    // Determine current balance
+    double currentBalance = m_realBalanceBTC;
 
     // Create and show send dialog
     QtSendDialog dialog(QtSendDialog::ChainType::BITCOIN, currentBalance, m_currentBTCPrice, this);
@@ -1428,19 +1422,19 @@ void QtWalletUI::updateStyles() {
         QPushButton {
             background-color: transparent;
             border: none;
-            border-radius: 16px;
-            font-size: %2px;
+            border-radius: 14px;
         }
         QPushButton:hover {
             background-color: %1;
         }
     )")
-                .arg(m_themeManager->secondaryColor().name())  // Theme-aware hover background
-                .arg(toggleButtonSize);
+                .arg(m_themeManager->secondaryColor().name());
         m_toggleBalanceButton->setStyleSheet(toggleButtonStyle);
 
-        // Use emoji icons (SVG loading disabled for stability)
-        m_toggleBalanceButton->setText(m_balanceVisible ? "👁" : "🚫");
+        QString iconPath = m_balanceVisible ? ":/icons/icons/eye-open.svg" : ":/icons/icons/eye-closed.svg";
+        m_toggleBalanceButton->setIcon(createColoredIcon(iconPath, m_themeManager->textColor()));
+        m_toggleBalanceButton->setIconSize(QSize(toggleButtonSize, toggleButtonSize));
+        m_toggleBalanceButton->setText("");
     }
 
     // Refresh button styling - match toggle button style
@@ -1449,8 +1443,7 @@ void QtWalletUI::updateStyles() {
         QPushButton {
             background-color: transparent;
             border: none;
-            border-radius: 16px;
-            font-size: %2px;
+            border-radius: 14px;
         }
         QPushButton:hover {
             background-color: %1;
@@ -1459,9 +1452,12 @@ void QtWalletUI::updateStyles() {
             opacity: 0.5;
         }
     )")
-                                         .arg(m_themeManager->secondaryColor().name())
-                                         .arg(toggleButtonSize);
+                                         .arg(m_themeManager->secondaryColor().name());
         m_refreshButton->setStyleSheet(refreshButtonStyle);
+        
+        m_refreshButton->setIcon(createColoredIcon(":/icons/icons/refresh.svg", m_themeManager->textColor()));
+        m_refreshButton->setIconSize(QSize(toggleButtonSize, toggleButtonSize));
+        m_refreshButton->setText("");
     }
 
     if (m_importTokenButton) {
@@ -1527,8 +1523,9 @@ void QtWalletUI::onToggleBalanceClicked() {
 
     m_balanceVisible = !m_balanceVisible;
 
-    // Update button text (no icons for now)
-    m_toggleBalanceButton->setText(m_balanceVisible ? "👁" : "🚫");
+    // Update icon
+    QString iconPath = m_balanceVisible ? ":/icons/icons/eye-open.svg" : ":/icons/icons/eye-closed.svg";
+    m_toggleBalanceButton->setIcon(createColoredIcon(iconPath, m_themeManager->textColor()));
 
     // Update balance display
     updateUSDBalance();
@@ -1550,13 +1547,11 @@ void QtWalletUI::onRefreshClicked() {
 
     // Visual feedback: briefly disable button
     m_refreshButton->setEnabled(false);
-    m_refreshButton->setText("⏳");
 
     // Re-enable after 2 seconds
     QTimer::singleShot(2000, this, [this]() {
         if (m_refreshButton) {
             m_refreshButton->setEnabled(true);
-            m_refreshButton->setText("🔄");
         }
     });
 }
@@ -1645,7 +1640,7 @@ void QtWalletUI::hideEvent(QHideEvent* event) {
         m_balanceVisible = false;
         updateUSDBalance();
         if (m_toggleBalanceButton) {
-            m_toggleBalanceButton->setText("🚫");
+            m_toggleBalanceButton->setIcon(createColoredIcon(":/icons/icons/eye-closed.svg", m_themeManager->textColor()));
         }
     }
 

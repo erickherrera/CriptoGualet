@@ -81,6 +81,14 @@ UserSession* SessionManager::getCurrentSession() {
     return nullptr;
 }
 
+UserSession* SessionManager::getSession(const std::string& sessionId) {
+    auto it = activeSessions_.find(sessionId);
+    if (it != activeSessions_.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
 void SessionManager::cleanup() {
     activeSessions_.clear();
     currentSessionId_.clear();

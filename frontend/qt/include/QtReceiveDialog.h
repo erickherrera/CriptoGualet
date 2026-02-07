@@ -9,9 +9,11 @@
 #include <QDoubleSpinBox>
 #include <QCheckBox>
 #include <QPixmap>
+#include <QScrollArea>
 
 // Forward declarations
 class QtThemeManager;
+class QResizeEvent;
 
 /**
  * @brief Dialog for receiving Bitcoin and Ethereum payments
@@ -43,6 +45,9 @@ public:
      */
     explicit QtReceiveDialog(ChainType chainType, const QString& address, QWidget* parent = nullptr);
 
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+
 private slots:
     void onCopyAddressClicked();
     void onAmountChanged(double value);
@@ -54,6 +59,7 @@ private:
     void applyTheme();
     void generateQRCode();
     void updateQRCode();
+    void updateResponsiveLayout();
     QString getPaymentURI() const;
     QString formatCrypto(double amount) const;
 
@@ -64,6 +70,9 @@ private:
 
     // UI Components
     QVBoxLayout* m_mainLayout;
+    QScrollArea* m_scrollArea;
+    QWidget* m_scrollContent;
+    QVBoxLayout* m_contentLayout;
 
     // Title section
     QLabel* m_titleLabel;

@@ -300,28 +300,10 @@ void QtSettingsUI::setupUI() {
   m_btcProviderStatusLabel->setWordWrap(true);
 
   QPushButton* configureProviderButton = new QPushButton("Configure Node Provider", providerSection);
+  configureProviderButton->setObjectName("configureProviderButton");
   configureProviderButton->setCursor(Qt::PointingHandCursor);
   configureProviderButton->setMinimumWidth(200);
-  
-  // Style for configuration buttons on the main page
-  QString configButtonStyle = QString(R"(
-      QPushButton {
-          background-color: transparent;
-          color: %1;
-          border: 2px solid %2;
-          border-radius: 8px;
-          padding: 8px 16px;
-          font-weight: 600;
-      }
-      QPushButton:hover {
-          background-color: %3;
-          border-color: %2;
-      }
-  )")
-  .arg(m_themeManager->textColor().name())
-  .arg(m_themeManager->accentColor().name())
-  .arg(m_themeManager->secondaryColor().lighter(110).name());
-  configureProviderButton->setStyleSheet(configButtonStyle);
+  configureProviderButton->setStyleSheet(m_themeManager->getOutlinedButtonStyleSheet());
 
   providerSectionLayout->addWidget(providerHeader);
   providerSectionLayout->addWidget(m_btcProviderStatusLabel);
@@ -454,26 +436,10 @@ void QtSettingsUI::setupUI() {
       updateVisibility(providerSelector->currentIndex());
 
       // Styling inputs
-      QString inputStyle = QString(R"(
-          QLineEdit {
-              background-color: %1;
-              border: 2px solid %2;
-              border-radius: 8px;
-              padding: 10px;
-              color: %3;
-          }
-          QLineEdit:focus {
-              border-color: %4;
-          }
-      )")
-      .arg(m_themeManager->surfaceColor().name())
-      .arg(m_themeManager->secondaryColor().name())
-      .arg(m_themeManager->textColor().name())
-      .arg(m_themeManager->accentColor().name());
+      urlEdit->setStyleSheet(m_themeManager->getLineEditStyleSheet());
+      userEdit->setStyleSheet(m_themeManager->getLineEditStyleSheet());
+      passEdit->setStyleSheet(m_themeManager->getLineEditStyleSheet());
       
-      urlEdit->setStyleSheet(inputStyle);
-      userEdit->setStyleSheet(inputStyle);
-      passEdit->setStyleSheet(inputStyle);
       providerSelector->setStyleSheet(QString(R"(
           QComboBox {
               background-color: %1;
@@ -482,10 +448,16 @@ void QtSettingsUI::setupUI() {
               padding: 10px;
               color: %3;
           }
+          QComboBox QAbstractItemView {
+              background-color: %1;
+              color: %3;
+              selection-background-color: %4;
+          }
       )")
       .arg(m_themeManager->surfaceColor().name())
       .arg(m_themeManager->secondaryColor().name())
-      .arg(m_themeManager->textColor().name()));
+      .arg(m_themeManager->textColor().name())
+      .arg(m_themeManager->accentColor().name()));
 
       // Action Buttons
       QHBoxLayout* btnLayout = new QHBoxLayout();
@@ -495,47 +467,9 @@ void QtSettingsUI::setupUI() {
       QPushButton* cancelBtn = new QPushButton("Cancel", card);
       QPushButton* saveBtn = new QPushButton("Save Configuration", card);
 
-      // Calculate contrast for accent button
-      QColor accent = m_themeManager->accentColor();
-      int lum = (0.299 * accent.red() + 0.587 * accent.green() + 0.114 * accent.blue());
-      QString textOnAccent = (lum > 128) ? "#000000" : "#FFFFFF";
-
-      // Button Styling
-      QString primaryBtnStyle = QString(R"(
-          QPushButton {
-              background-color: %1;
-              color: %2;
-              border: 2px solid %1;
-              border-radius: 8px;
-              padding: 10px 20px;
-              font-weight: 600;
-          }
-          QPushButton:hover { background-color: %3; border-color: %3; }
-          QPushButton:pressed { background-color: %4; border-color: %4; }
-      )")
-      .arg(m_themeManager->accentColor().name())
-      .arg(textOnAccent)
-      .arg(m_themeManager->accentColor().lighter(110).name())
-      .arg(m_themeManager->accentColor().darker(110).name());
-
-      QString secondaryBtnStyle = QString(R"(
-          QPushButton {
-              background-color: transparent;
-              color: %1;
-              border: 2px solid %2;
-              border-radius: 8px;
-              padding: 10px 20px;
-              font-weight: 600;
-          }
-          QPushButton:hover { background-color: %3; }
-      )")
-      .arg(m_themeManager->textColor().name())
-      .arg(m_themeManager->accentColor().name())
-      .arg(m_themeManager->secondaryColor().lighter(110).name());
-
-      saveBtn->setStyleSheet(primaryBtnStyle);
-      cancelBtn->setStyleSheet(secondaryBtnStyle);
-      testBtn->setStyleSheet(secondaryBtnStyle);
+      saveBtn->setStyleSheet(m_themeManager->getButtonStyleSheet());
+      cancelBtn->setStyleSheet(m_themeManager->getButtonStyleSheet());
+      testBtn->setStyleSheet(m_themeManager->getButtonStyleSheet());
 
       btnLayout->addWidget(testBtn);
       btnLayout->addStretch();
@@ -643,9 +577,10 @@ void QtSettingsUI::setupUI() {
   m_hardwareStatusLabel->setWordWrap(true);
 
   QPushButton* configureHardwareButton = new QPushButton("Configure Hardware Wallet", hardwareSection);
+  configureHardwareButton->setObjectName("configureHardwareButton");
   configureHardwareButton->setCursor(Qt::PointingHandCursor);
   configureHardwareButton->setMinimumWidth(200);
-  configureHardwareButton->setStyleSheet(configButtonStyle); // Reuse style from provider button
+  configureHardwareButton->setStyleSheet(m_themeManager->getOutlinedButtonStyleSheet());
 
   hardwareSectionLayout->addWidget(hardwareHeader);
   hardwareSectionLayout->addWidget(m_hardwareStatusLabel);
@@ -751,22 +686,9 @@ void QtSettingsUI::setupUI() {
       statusLbl->setStyleSheet(QString("color: %1;").arg(m_themeManager->subtitleColor().name()));
 
       // Styling
-      QString inputStyle = QString(R"(
-          QLineEdit {
-              background-color: %1;
-              border: 2px solid %2;
-              border-radius: 8px;
-              padding: 10px;
-              color: %3;
-          }
-          QLineEdit:focus { border-color: %4; }
-      )")
-      .arg(m_themeManager->surfaceColor().name())
-      .arg(m_themeManager->secondaryColor().name())
-      .arg(m_themeManager->textColor().name())
-      .arg(m_themeManager->accentColor().name());
-
-      QString comboStyle = QString(R"(
+      pathEdit->setStyleSheet(m_themeManager->getLineEditStyleSheet());
+      
+      deviceSelector->setStyleSheet(QString(R"(
           QComboBox {
               background-color: %1;
               border: 2px solid %2;
@@ -774,29 +696,18 @@ void QtSettingsUI::setupUI() {
               padding: 10px;
               color: %3;
           }
+          QComboBox QAbstractItemView {
+              background-color: %1;
+              color: %3;
+              selection-background-color: %4;
+          }
       )")
       .arg(m_themeManager->surfaceColor().name())
       .arg(m_themeManager->secondaryColor().name())
-      .arg(m_themeManager->textColor().name());
-
-      QString btnStyle = QString(R"(
-          QPushButton {
-              background-color: transparent;
-              color: %1;
-              border: 2px solid %2;
-              border-radius: 8px;
-              padding: 8px 16px;
-              font-weight: 600;
-          }
-          QPushButton:hover { background-color: %3; }
-      )")
       .arg(m_themeManager->textColor().name())
-      .arg(m_themeManager->accentColor().name())
-      .arg(m_themeManager->secondaryColor().lighter(110).name());
+      .arg(m_themeManager->accentColor().name()));
 
-      pathEdit->setStyleSheet(inputStyle);
-      deviceSelector->setStyleSheet(comboStyle);
-      detectBtn->setStyleSheet(btnStyle);
+      detectBtn->setStyleSheet(m_themeManager->getButtonStyleSheet());
 
       cardLayout->addWidget(new QLabel("Device Selection:", card));
       QHBoxLayout* selLayout = new QHBoxLayout();
@@ -814,30 +725,8 @@ void QtSettingsUI::setupUI() {
       QPushButton* importBtn = new QPushButton("Import Xpub", card);
       QPushButton* cancelBtn = new QPushButton("Close", card);
 
-      // Calculate contrast for accent button
-      QColor accent = m_themeManager->accentColor();
-      int lum = (0.299 * accent.red() + 0.587 * accent.green() + 0.114 * accent.blue());
-      QString textOnAccent = (lum > 128) ? "#000000" : "#FFFFFF";
-
-      QString primaryStyle = QString(R"(
-          QPushButton {
-              background-color: %1;
-              color: %2;
-              border: 2px solid %1;
-              border-radius: 8px;
-              padding: 10px 20px;
-              font-weight: 600;
-          }
-          QPushButton:hover { background-color: %3; border-color: %3; }
-          QPushButton:pressed { background-color: %4; border-color: %4; }
-      )")
-      .arg(m_themeManager->accentColor().name())
-      .arg(textOnAccent)
-      .arg(m_themeManager->accentColor().lighter(110).name())
-      .arg(m_themeManager->accentColor().darker(110).name());
-
-      importBtn->setStyleSheet(primaryStyle);
-      cancelBtn->setStyleSheet(btnStyle);
+      importBtn->setStyleSheet(m_themeManager->getButtonStyleSheet());
+      cancelBtn->setStyleSheet(m_themeManager->getButtonStyleSheet());
 
       actionLayout->addStretch();
       actionLayout->addWidget(cancelBtn);
@@ -1221,6 +1110,18 @@ void QtSettingsUI::updateStyles() {
   if (m_disable2FAButton) {
     m_disable2FAButton->setStyleSheet(buttonStyle);
   }
+  
+  // Update outlined buttons
+  QPushButton* providerBtn = findChild<QPushButton*>("configureProviderButton");
+  if (providerBtn) {
+      providerBtn->setStyleSheet(m_themeManager->getOutlinedButtonStyleSheet());
+  }
+  
+  QPushButton* hardwareBtn = findChild<QPushButton*>("configureHardwareButton");
+  if (hardwareBtn) {
+      hardwareBtn->setStyleSheet(m_themeManager->getOutlinedButtonStyleSheet());
+  }
+
   if (m_btcTestConnectionButton) {
     m_btcTestConnectionButton->setStyleSheet(buttonStyle);
   }

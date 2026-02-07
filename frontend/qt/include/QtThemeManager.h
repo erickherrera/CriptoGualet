@@ -77,6 +77,7 @@ public:
 
   // Style sheet generators
   QString getButtonStyleSheet() const;
+  QString getOutlinedButtonStyleSheet() const;
   QString getLineEditStyleSheet() const;
   QString getLabelStyleSheet() const;
   QString getMainWindowStyleSheet() const;

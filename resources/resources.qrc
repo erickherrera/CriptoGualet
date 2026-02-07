@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/icons">
+        <file>logo_criptogualet.png</file>
         <file>icons/eye-open.svg</file>
         <file>icons/eye-closed.svg</file>
         <file>icons/wallet.svg</file>
@@ -7,5 +8,6 @@
         <file>icons/settings.svg</file>
         <file>icons/menu.svg</file>
         <file>icons/logout.svg</file>
+        <file>icons/refresh.svg</file>
     </qresource>
 </RCC>

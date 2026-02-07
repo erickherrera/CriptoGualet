@@ -34,8 +34,14 @@ QtTestConsole::QtTestConsole(QWidget *parent)
 }
 
 QtTestConsole::~QtTestConsole() {
-    if (m_currentProcess && m_currentProcess->state() == QProcess::Running) {
-        m_currentProcess->kill();
+    // Stop the queue and disconnect signals to prevent callbacks during destruction
+    m_testQueue.clear();
+    if (m_currentProcess) {
+        m_currentProcess->disconnect(this);
+        if (m_currentProcess->state() != QProcess::NotRunning) {
+            m_currentProcess->kill();
+            m_currentProcess->waitForFinished(500);
+        }
     }
 }
 
@@ -131,20 +137,15 @@ void QtTestConsole::appendOutput(const QString &text) {
     QString html = text.toHtmlEscaped();
     
     // Convert basic ANSI colors to HTML spans
-    // Green
-    html.replace(QRegularExpression("\x1b\[32m"), "<span style='color:#4CAF50;'>");
-    // Red
-    html.replace(QRegularExpression("\x1b\[31m"), "<span style='color:#F44336;'>");
-    // Blue
-    html.replace(QRegularExpression("\x1b\[34m"), "<span style='color:#2196F3;'>");
-    // Cyan
-    html.replace(QRegularExpression("\x1b\[36m"), "<span style='color:#00BCD4;'>");
-    // Reset
-    html.replace(QRegularExpression("\x1b\[0m"), "</span>");
+    // We match the ESC character (\x1b) followed by [ and the color code
+    html.replace(QRegularExpression("\x1b\\[32m"), QStringLiteral("<span style='color:#4CAF50;'>"));
+    html.replace(QRegularExpression("\x1b\\[31m"), QStringLiteral("<span style='color:#F44336;'>"));
+    html.replace(QRegularExpression("\x1b\\[34m"), QStringLiteral("<span style='color:#2196F3;'>"));
+    html.replace(QRegularExpression("\x1b\\[36m"), QStringLiteral("<span style='color:#00BCD4;'>"));
+    html.replace(QRegularExpression("\x1b\\[0m"), QStringLiteral("</span>"));
     
-    // Replace newlines
-    html.replace("
-", "<br>");
+    // Replace newlines with HTML line breaks
+    html.replace(QLatin1Char('\n'), QStringLiteral("<br>"));
 
     m_consoleOutput->moveCursor(QTextCursor::End);
     m_consoleOutput->insertHtml(html);
@@ -271,8 +272,23 @@ void QtTestConsole::onRunClicked() {
 }
 
 void QtTestConsole::onCloseClicked() {
-    if (m_isRunning) {
-        m_currentProcess->kill();
-    }
-    accept();
+    done(QDialog::Rejected);
 }
+
+void QtTestConsole::done(int r) {
+    m_isRunning = false;
+    m_testQueue.clear(); 
+    
+    if (m_currentProcess) {
+        // Disconnect all signals so we don't get any more callbacks
+        m_currentProcess->disconnect(this);
+        
+        if (m_currentProcess->state() != QProcess::NotRunning) {
+            m_currentProcess->kill();
+            m_currentProcess->waitForFinished(500);
+        }
+    }
+    
+    QDialog::done(r);
+}
+

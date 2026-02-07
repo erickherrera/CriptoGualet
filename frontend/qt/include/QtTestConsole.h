@@ -23,6 +23,8 @@ public:
     // Run all available tests
     void runAllTests();
 
+    void done(int r) override;
+
 private slots:
     void onProcessReadyReadStandardOutput();
     void onProcessReadyReadStandardError();

@@ -27,6 +27,12 @@
 #include <QRunnable>
 #include <QStackedWidget>
 #include <QStatusBar>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <shellapi.h>
+#endif
+
 #include <array>
 #include <map>
 #include <mutex>
@@ -69,6 +75,7 @@ CriptoGualetQt::CriptoGualetQt(QWidget* parent)
     // Clean up sessions
     Auth::AuthManager::getInstance().cleanupSessions();
     setWindowTitle("CriptoGualet - Securely own your cryptos");
+    setWindowIcon(QIcon(":/icons/logo_criptogualet.png"));
     setMinimumSize(800, 600);
 
     // Set window to windowed fullscreen (maximized)
@@ -102,10 +109,6 @@ CriptoGualetQt::CriptoGualetQt(QWidget* parent)
         applyNavbarStyling();
         connect(m_themeManager, &QtThemeManager::themeChanged, this,
                 &CriptoGualetQt::onThemeChanged);
-    }
-
-    if (m_loginUI) {
-        connect(m_loginUI, &QtLoginUI::loginSuccessful, this, &CriptoGualetQt::showWalletScreen);
     }
 }
 
@@ -314,7 +317,7 @@ void CriptoGualetQt::setupUI() {
                     void run() override {
                         std::string stdUsername = m_username.toStdString();
                         std::string stdPassword = m_password.toStdString();
-                        Auth::AuthResponse response = Auth::LoginUser(stdUsername, stdPassword);
+                        Auth::AuthResponse response = Auth::AuthManager::getInstance().LoginUser(stdUsername, stdPassword);
 
                         // Report back to UI thread
                         QMetaObject::invokeMethod(
@@ -355,7 +358,7 @@ void CriptoGualetQt::setupUI() {
                     // Fallback to synchronous execution if thread pool unavailable
                     std::string stdUsername = username.toStdString();
                     std::string stdPassword = password.toStdString();
-                    Auth::AuthResponse response = Auth::LoginUser(stdUsername, stdPassword);
+                    Auth::AuthResponse response = Auth::AuthManager::getInstance().LoginUser(stdUsername, stdPassword);
 
                     if (response.success()) {
                         {
@@ -461,7 +464,7 @@ void CriptoGualetQt::setupUI() {
                 std::string stdPassword = password.toStdString();
                 std::string stdTotpCode = totpCode.toStdString();
 
-                Auth::AuthResponse response = Auth::VerifyTwoFactorCode(stdUsername, stdTotpCode);
+                Auth::AuthResponse response = Auth::AuthManager::getInstance().VerifyTwoFactorCode(stdUsername, stdTotpCode);
                 QString message = QString::fromStdString(response.message);
 
                 if (response.success()) {
@@ -521,7 +524,7 @@ void CriptoGualetQt::setupUI() {
                         m_walletUI->setUserInfo(
                             username, QString::fromStdString(g_users[stdUsername].walletAddress));
                     }
-                    showWalletScreen();
+                    showWalletScreen(QString::fromStdString(response.sessionId));
                     statusBar()->showMessage("Login successful with 2FA", 3000);
                 } else {
                     statusBar()->showMessage("TOTP verification failed", 3000);
@@ -564,76 +567,13 @@ void CriptoGualetQt::setupUI() {
     });
 
     connect(m_walletUI, &QtWalletUI::sendBitcoinRequested, [this]() {
-        std::string walletAddress;
-        {
-            std::lock_guard<std::mutex> lock(g_usersMutex);
-            if (!m_wallet || g_currentUser.empty() ||
-                g_users.find(g_currentUser) == g_users.end()) {
-                QMessageBox::warning(this, "Error", "Wallet not initialized or user not logged in");
-                return;
-            }
-            walletAddress = g_users[g_currentUser].walletAddress;
-        }
-
-        // Send Bitcoin transaction
-        uint64_t currentBalance = m_wallet->GetBalance(walletAddress);
-        double balanceBTC = m_wallet->ConvertSatoshisToBTC(currentBalance);
-        uint64_t estimatedFee = m_wallet->EstimateTransactionFee();
-        double feeBTC = m_wallet->ConvertSatoshisToBTC(estimatedFee);
-
-        QString balanceText = QString(
-                                  "Current Balance: %1 BTC\n"
-                                  "Estimated Fee: %2 BTC\n"
-                                  "Available to Send: %3 BTC")
-                                  .arg(balanceBTC, 0, 'f', 8)
-                                  .arg(feeBTC, 0, 'f', 8)
-                                  .arg(balanceBTC - feeBTC, 0, 'f', 8);
-
-        QMessageBox::information(this, "Send Bitcoin", balanceText);
+        // Logging or background status updates can go here
+        statusBar()->showMessage("Bitcoin transaction requested", 3000);
     });
 
     connect(m_walletUI, &QtWalletUI::receiveBitcoinRequested, [this]() {
-        std::string walletAddress;
-        {
-            std::lock_guard<std::mutex> lock(g_usersMutex);
-            if (!m_wallet || g_currentUser.empty() ||
-                g_users.find(g_currentUser) == g_users.end()) {
-                QMessageBox::warning(this, "Error", "Wallet not initialized or user not logged in");
-                return;
-            }
-            walletAddress = g_users[g_currentUser].walletAddress;
-        }
-
-        // Get address info and recent transactions
-        WalletAPI::ReceiveInfo info = m_wallet->GetAddressInfo(walletAddress);
-
-        QString receiveText = QString(
-                                  "Your Bitcoin Address:\n%1\n\n"
-                                  "Share this address to receive Bitcoin payments.\n\n"
-                                  "Recent Transactions:\n")
-                                  .arg(QString::fromStdString(info.address));
-
-        if (info.recent_transactions.empty()) {
-            receiveText += "No recent transactions found.";
-        } else {
-            int count = 0;
-            for (const auto& txHash : info.recent_transactions) {
-                if (count >= 3)
-                    break;  // Show only first 3 for brevity
-                receiveText +=
-                    QString("- %1...\n").arg(QString::fromStdString(txHash.substr(0, 16)));
-                count++;
-            }
-            if (info.recent_transactions.size() > 3) {
-                receiveText += QString("... and %1 more").arg(info.recent_transactions.size() - 3);
-            }
-        }
-
-        // Copy address to clipboard
-        QApplication::clipboard()->setText(QString::fromStdString(info.address));
-        receiveText += "\n\nAddress copied to clipboard!";
-
-        QMessageBox::information(this, "Receive Bitcoin", receiveText);
+        // Logging or background status updates can go here
+        statusBar()->showMessage("Bitcoin receive dialog opened", 3000);
     });
 
     // PHASE 2: Connect Ethereum receive handler
@@ -756,7 +696,7 @@ void CriptoGualetQt::handleAuthenticationResult(const QString& username, const Q
         m_walletUI->setUserInfo(username,
                                 QString::fromStdString(g_users[stdUsername].walletAddress));
     }
-    showWalletScreen();
+    showWalletScreen(QString::fromStdString(response.sessionId));
     statusBar()->showMessage("Login successful", 3000);
 
     QString message = QString::fromStdString(response.message);
@@ -1102,11 +1042,26 @@ void CriptoGualetQt::applyBitcoinProviderSettingsFromValues(
 }
 
 int main(int argc, char* argv[]) {
+#ifdef Q_OS_WIN
+    // Set the AppUserModelID to ensure the taskbar icon is displayed correctly on Windows.
+    // This must be done before any windows are created.
+    const wchar_t* appId = L"ErickHerrera.CriptoGualet.1.0";
+    typedef HRESULT (WINAPI *SetAppIDFunc)(PCWSTR);
+    HMODULE hShell32 = GetModuleHandleW(L"shell32.dll");
+    if (hShell32) {
+        SetAppIDFunc setAppID = (SetAppIDFunc)GetProcAddress(hShell32, "SetCurrentProcessExplicitAppUserModelID");
+        if (setAppID) {
+            setAppID(appId);
+        }
+    }
+#endif
+
     QApplication app(argc, argv);
 
     app.setApplicationName("CriptoGualet");
     app.setApplicationVersion("1.0");
     app.setOrganizationName("CriptoGualet");
+    app.setWindowIcon(QIcon(":/icons/logo_criptogualet.png"));
 
     qDebug() << "Creating main window...";
     CriptoGualetQt window;

@@ -20,6 +20,7 @@ public:
     AuthResponse RestoreFromSeed(const std::string& username, const std::string& mnemonicText,
                                  const std::string& passphrase,
                                  const std::string& passwordForReauth);
+    AuthResponse VerifyTwoFactorCode(const std::string& username, const std::string& totpCode);
     void LogoutUser(const std::string& sessionId);
     void cleanupSessions();
     UserSession* getSession(const std::string& sessionId);
