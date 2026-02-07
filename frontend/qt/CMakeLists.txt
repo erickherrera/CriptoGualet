@@ -173,6 +173,61 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       "$<TARGET_FILE_DIR:CriptoGualetQt>"
       COMMENT "Copying OpenSSL SSL DLL to output directory")
   endif()
+
+  # -----------------------------------------------------------------------------
+  # Installation & Packaging
+  # -----------------------------------------------------------------------------
+
+  # 1. Install the main executable
+  install(TARGETS CriptoGualetQt RUNTIME DESTINATION bin)
+
+  # 2. Install Assets (BIP39 wordlists, etc.)
+  # Places 'assets' folder next to the executable in 'bin/assets'
+  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../assets"
+          DESTINATION bin
+          COMPONENT Runtime)
+
+  # 3. Install Runtime Dependencies (DLLs) from vcpkg
+  if(WIN32)
+    # Define the vcpkg bin directory
+    set(VCPKG_BIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin")
+
+    # List of DLLs to install
+    # We use file(GLOB) or explicit lists. Explicit is safer.
+    install(FILES
+      "${VCPKG_BIN_DIR}/libcrypto-3-x64.dll"
+      "${VCPKG_BIN_DIR}/libssl-3-x64.dll"
+      "${VCPKG_BIN_DIR}/zlib1.dll"
+      "${VCPKG_BIN_DIR}/libcurl.dll"
+      "${VCPKG_BIN_DIR}/sqlcipher.dll"
+      "${VCPKG_BIN_DIR}/sqlite3.dll"
+      "${VCPKG_BIN_DIR}/secp256k1.dll"
+      DESTINATION bin
+      COMPONENT Runtime
+    )
+
+    # Optional DLLs
+    if(LIBQRENCODE_FOUND)
+      install(FILES "${VCPKG_BIN_DIR}/qrencode.dll" "${VCPKG_BIN_DIR}/libpng16.dll"
+              DESTINATION bin COMPONENT Runtime)
+    endif()
+
+    # 4. Run windeployqt during installation
+    # This ensures Qt DLLs, plugins (platforms, imageformats), and QML are copied to the install directory
+    find_program(QT_DEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
+    if(QT_DEPLOYQT_EXECUTABLE)
+      install(CODE "
+        message(STATUS \"Running windeployqt...\")
+        execute_process(
+          COMMAND \"${QT_DEPLOYQT_EXECUTABLE}\"
+                  --no-translations
+                  --no-compiler-runtime
+                  --dir \"\${CMAKE_INSTALL_PREFIX}/bin\"
+                  \"\${CMAKE_INSTALL_PREFIX}/bin/CriptoGualetQt.exe\"
+        )
+      " COMPONENT Runtime)
+    endif()
+  endif()
 elseif(BUILD_GUI_QT AND NOT Qt6_FOUND)
   message(STATUS "Qt6 not found - install Qt6 from https://qt.io to build the modern Qt GUI")
 endif()

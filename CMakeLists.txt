@@ -491,3 +491,32 @@ if(CRYPTOGUWALET_VS_STARTUP_TARGET)
 endif()
 
 # Test executables are now defined in Tests/CMakeLists.txt
+
+# -----------------------------------------------------------------------------
+# CPack Packaging Configuration
+# -----------------------------------------------------------------------------
+if(WIN32)
+  set(CPACK_GENERATOR "NSIS;ZIP")
+  set(CPACK_PACKAGE_NAME "CriptoGualet")
+  set(CPACK_PACKAGE_VENDOR "CriptoGualet Team")
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Secure Non-Custodial Cryptocurrency Wallet")
+  set(CPACK_PACKAGE_VERSION "1.0.0")
+  set(CPACK_PACKAGE_INSTALL_DIRECTORY "CriptoGualet")
+  set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/wallet.ico") # Ensure you have an icon
+  
+  # NSIS Specifics
+  set(CPACK_NSIS_DISPLAY_NAME "CriptoGualet Wallet")
+  set(CPACK_NSIS_PACKAGE_NAME "CriptoGualet")
+  set(CPACK_NSIS_MODIFY_PATH ON)
+  
+  # Create a shortcut in the Start Menu
+  set(CPACK_NSIS_CREATE_ICONS_EXTRA 
+      "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\CriptoGualet.lnk' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe'")
+      
+  # Create a desktop shortcut
+  set(CPACK_NSIS_CREATE_ICONS_EXTRA 
+      "${CPACK_NSIS_CREATE_ICONS_EXTRA}
+       CreateShortCut '$DESKTOP\\\\CriptoGualet.lnk' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe'")
+
+  include(CPack)
+endif()
