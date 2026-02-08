@@ -75,7 +75,7 @@ CriptoGualetQt::CriptoGualetQt(QWidget* parent)
     // Clean up sessions
     Auth::AuthManager::getInstance().cleanupSessions();
     setWindowTitle("CriptoGualet - Securely own your cryptos");
-    setWindowIcon(QIcon(":/icons/logo_criptogualet.png"));
+    setWindowIcon(QIcon(":/icons/icons/logo_criptogualet.ico"));
     setMinimumSize(800, 600);
 
     // Set window to windowed fullscreen (maximized)
@@ -1061,7 +1061,7 @@ int main(int argc, char* argv[]) {
     app.setApplicationName("CriptoGualet");
     app.setApplicationVersion("1.0");
     app.setOrganizationName("CriptoGualet");
-    app.setWindowIcon(QIcon(":/icons/logo_criptogualet.png"));
+    app.setWindowIcon(QIcon(":/icons/icons/logo_criptogualet.ico"));
 
     qDebug() << "Creating main window...";
     CriptoGualetQt window;

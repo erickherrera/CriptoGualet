@@ -42,6 +42,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     "include/LoadingOverlay.h"
     "include/CriptoGualetQt.h"
     "../../resources/resources.qrc"
+    "../../resources/app.rc"
   )
 
   set(QT_LINK_LIBRARIES

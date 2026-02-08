@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/icons">
         <file>logo_criptogualet.png</file>
+        <file>icons/logo_criptogualet.ico</file>
         <file>icons/eye-open.svg</file>
         <file>icons/eye-closed.svg</file>
         <file>icons/wallet.svg</file>
