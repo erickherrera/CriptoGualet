@@ -529,16 +529,10 @@ void QtTopCryptosPage::createHeader() {
     headerLayout->setContentsMargins(0, 0, 0, 8);  // Compacted (was 16)
     headerLayout->setSpacing(8);                   // Compacted (was 12)
 
-    // Top row: Back button and refresh button
+    // Top row: Refresh button only
     QHBoxLayout* topRow = new QHBoxLayout();
     topRow->setSpacing(10);  // Compacted
 
-    m_backButton = new QPushButton("← Back", m_headerWidget);
-    m_backButton->setFixedHeight(36);  // Compacted (was 40)
-    m_backButton->setCursor(Qt::PointingHandCursor);
-    connect(m_backButton, &QPushButton::clicked, this, &QtTopCryptosPage::onBackClicked);
-
-    topRow->addWidget(m_backButton);
     topRow->addStretch();
 
     m_refreshButton = new QPushButton("⟳ Refresh", m_headerWidget);
@@ -567,11 +561,11 @@ void QtTopCryptosPage::createHeader() {
     // Search and filter controls row
     QHBoxLayout* controlsRow = new QHBoxLayout();
     controlsRow->setSpacing(10);  // Compacted
-
     createSearchBar();
     createSortDropdown();
 
     controlsRow->addWidget(m_searchBox, 1);
+    controlsRow->addWidget(m_clearSearchButton);
     controlsRow->addWidget(m_sortDropdown);
 
     headerLayout->addLayout(controlsRow);
@@ -600,7 +594,17 @@ void QtTopCryptosPage::createSearchBar() {
     m_searchBox->setPlaceholderText("Search by name or symbol (e.g., Bitcoin, BTC)...");
     m_searchBox->setFixedHeight(38);            // Compacted (was 44)
     m_searchBox->setClearButtonEnabled(false);  // We'll use custom clear button
-
+    
+    // Create clear button
+    m_clearSearchButton = new QPushButton("✕", m_headerWidget);
+    m_clearSearchButton->setFixedSize(38, 38);  // Same height as search box
+    m_clearSearchButton->setCursor(Qt::PointingHandCursor);
+    m_clearSearchButton->setVisible(false);  // Hide initially, show when search has text
+    m_clearSearchButton->setToolTip("Clear search");
+    
+    // Connect clear button
+    connect(m_clearSearchButton, &QPushButton::clicked, this, &QtTopCryptosPage::onClearClicked);
+    
     // Connect search text changes with debouncing
     connect(m_searchBox, &QLineEdit::textChanged, this, &QtTopCryptosPage::onSearchTextChanged);
 }
@@ -985,23 +989,7 @@ void QtTopCryptosPage::applyTheme() {
         card->applyTheme();
     }
 
-    // Back button styling
-    QString backButtonStyle = QString(
-                                  "QPushButton {"
-                                  "  background-color: transparent;"
-                                  "  border: none;"
-                                  "  font-size: 16px;"
-                                  "  font-weight: 600;"
-                                  "  padding: 8px 16px;"
-                                  "  text-align: left;"
-                                  "  color: %1;"
-                                  "}"
-                                  "QPushButton:hover {"
-                                  "  background-color: %2;"
-                                  "  border-radius: 8px;"
-                                  "}")
-                                  .arg(txtColor, surfaceColor);
-    m_backButton->setStyleSheet(backButtonStyle);
+    
 
     // Refresh button styling
     QString refreshButtonStyle = QString(
@@ -1044,7 +1032,8 @@ void QtTopCryptosPage::applyTheme() {
                                  "}"
                                  "QLineEdit:disabled {"
                                  "  opacity: 0.5;"
-                                 "}")
+                                 "}"
+                                 )
                                  .arg(surfaceColor)
                                  .arg(m_themeManager->accentColor().red())
                                  .arg(m_themeManager->accentColor().green())
@@ -1052,6 +1041,31 @@ void QtTopCryptosPage::applyTheme() {
                                  .arg(txtColor)
                                  .arg(accentColor);
     m_searchBox->setStyleSheet(searchBoxStyle);
+    
+    // Clear button styling
+    QString clearButtonStyle = QString(
+                                    "QPushButton {"
+                                    "  background-color: transparent;"
+                                    "  border: none;"
+                                    "  border-radius: 6px;"
+                                    "  color: %1;"
+                                    "  font-size: 16px;"
+                                    "  font-weight: 600;"
+                                    "  padding: 0px;"
+                                    "  min-width: 38px;"
+                                    "  max-width: 38px;"
+                                    "}"
+                                    "QPushButton:hover {"
+                                    "  background-color: rgba(%2, %3, %4, 0.1);"
+                                    "}"
+                                    "QPushButton:pressed {"
+                                    "  background-color: rgba(%2, %3, %4, 0.2);"
+                                    "}")
+                                    .arg(m_themeManager->dimmedTextColor().name())
+                                    .arg(m_themeManager->accentColor().red())
+                                    .arg(m_themeManager->accentColor().green())
+                                    .arg(m_themeManager->accentColor().blue());
+    m_clearSearchButton->setStyleSheet(clearButtonStyle);
 
     // Sort dropdown styling
     QString dropdownStyle = QString(
@@ -1120,16 +1134,21 @@ void QtTopCryptosPage::onRefreshClicked() {
     fetchTopCryptos();
 }
 
-void QtTopCryptosPage::onBackClicked() { emit backRequested(); }
+
 
 void QtTopCryptosPage::onAutoRefreshTimer() { fetchTopCryptos(); }
 
 void QtTopCryptosPage::onSearchTextChanged(const QString& text) {
     m_searchText = text;
-
+    
+    // Show/hide clear button based on search text
+    if (m_clearSearchButton) {
+        m_clearSearchButton->setVisible(!text.isEmpty());
+    }
+    
     // Stop existing timer
     m_searchDebounceTimer->stop();
-
+    
     // Start new timer (300ms debounce)
     m_searchDebounceTimer->start(300);
 }
@@ -1137,8 +1156,18 @@ void QtTopCryptosPage::onSearchTextChanged(const QString& text) {
 void QtTopCryptosPage::onSortChanged(int index) {
     m_currentSortIndex = index;
     qDebug() << "Sort changed to index" << index;
-
+    
     // Re-apply filter and sort
+    filterAndSortData();
+}
+
+void QtTopCryptosPage::onClearClicked() {
+    m_searchBox->clear();
+    // Hide clear button immediately since search is now empty
+    if (m_clearSearchButton) {
+        m_clearSearchButton->setVisible(false);
+    }
+    // Apply filter (will clear search and show all results)
     filterAndSortData();
 }
 

@@ -73,13 +73,13 @@ protected:
 
   private slots:
     void onRefreshClicked();
-    void onBackClicked();
     void onAutoRefreshTimer();
     void onSearchTextChanged(const QString &text);
     void onSortChanged(int index);
     void onSearchDebounceTimer();
     void onTopCryptosFetched();
     void onRetryStatusTimer();
+    void onClearClicked();
 
 
 private:
