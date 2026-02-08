@@ -59,6 +59,7 @@ QtWalletUI::QtWalletUI(QWidget* parent)
       m_litecoinWallet(nullptr),
       m_ethereumWallet(nullptr),
       m_balanceUpdateTimer(nullptr),
+      m_lastManualRefresh(),
       m_realBalanceBTC(0.0),
       m_realBalanceLTC(0.0),
       m_realBalanceETH(0.0),
@@ -120,11 +121,11 @@ QtWalletUI::QtWalletUI(QWidget* parent)
                          &QtWalletUI::onPriceUpdateTimer);
         self->m_priceUpdateTimer->start(60000);  // 60 seconds
 
-        // Setup balance update timer (refresh every 30 seconds)
+        // Setup balance update timer (refresh every 15 minutes)
         self->m_balanceUpdateTimer = new QTimer(self.data());
         QObject::connect(self->m_balanceUpdateTimer, &QTimer::timeout, self.data(),
                          &QtWalletUI::onBalanceUpdateTimer);
-        self->m_balanceUpdateTimer->start(30000);  // 30 seconds
+        self->m_balanceUpdateTimer->start(900000);  // 15 minutes (900,000 ms)
 
         // Apply theme
         if (self->m_themeManager) {
@@ -1536,6 +1537,30 @@ void QtWalletUI::onRefreshClicked() {
     if (!m_refreshButton) {
         return;
     }
+
+    // Rate limit: 30 seconds between manual refreshes
+    QDateTime now = QDateTime::currentDateTime();
+    if (m_lastManualRefresh.isValid() && m_lastManualRefresh.secsTo(now) < 30) {
+        int remaining = 30 - m_lastManualRefresh.secsTo(now);
+        if (m_statusLabel) {
+            m_statusLabel->setText(QString("Please wait %1s before refreshing again").arg(remaining));
+            m_statusLabel->setVisible(true);
+            
+            // Apply warning styling if theme manager is available
+            if (m_themeManager) {
+                m_statusLabel->setStyleSheet(QString("color: %1; font-weight: 600;")
+                    .arg(m_themeManager->warningColor().name()));
+            }
+            
+            // Clear message after 3 seconds
+            QTimer::singleShot(3000, this, [this]() {
+                if (m_statusLabel) updateStatusLabel();
+            });
+        }
+        return;
+    }
+
+    m_lastManualRefresh = now;
 
     // Refresh both balances and prices
     fetchAllPrices();

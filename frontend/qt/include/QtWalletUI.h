@@ -10,6 +10,7 @@
 #include "QtTokenCard.h"
 #include <QTextEdit>
 #include <QTimer>
+#include <QDateTime>
 #include <QColor>
 #include <QFrame>
 #include <QFutureWatcher>
@@ -233,6 +234,7 @@ class QtWalletUI : public QWidget {
     WalletAPI::LitecoinWallet* m_litecoinWallet;
     WalletAPI::EthereumWallet* m_ethereumWallet;  // PHASE 1 FIX
     QTimer* m_balanceUpdateTimer;
+    QDateTime m_lastManualRefresh;
     double m_realBalanceBTC;
     double m_realBalanceLTC;
     double m_realBalanceETH;
