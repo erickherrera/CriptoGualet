@@ -131,15 +131,15 @@ project(CriptoGualet LANGUAGES CXX)
 
 # Set MSVC runtime library based on build type
 # With CMP0091 policy set, CMake handles runtime library selection properly
-# For multi-config generators (Visual Studio), we set a default that works for Debug
-# Individual targets can override if needed for Release builds
+# For multi-config generators (Visual Studio), we use a generator expression 
+# to ensure the correct runtime is used for both Debug and Release configurations.
 if(MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
   if(CMAKE_CONFIGURATION_TYPES)
-    # Multi-config generator (Visual Studio) - default to Debug runtime for safety
-    # Release builds can override via target properties if needed
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library")
+    # Multi-config generator (Visual Studio) - use generator expression for consistency
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL" CACHE STRING "MSVC runtime library")
     set_property(CACHE CMAKE_MSVC_RUNTIME_LIBRARY PROPERTY STRINGS 
-      "MultiThreaded" "MultiThreadedDLL" "MultiThreadedDebug" "MultiThreadedDebugDLL")
+      "MultiThreaded" "MultiThreadedDLL" "MultiThreadedDebug" "MultiThreadedDebugDLL"
+      "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   else()
     # Single-config generator - set based on build type
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -153,8 +153,9 @@ endif()
 # Ensure MSVC runtime consistency for ClangCL + Qt compatibility
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
   if(CMAKE_CONFIGURATION_TYPES)
-    # Multi-config generator - set consistent runtime
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL" CACHE STRING "MSVC runtime library for ClangCL")
+    # Multi-config generator - set consistent runtime using generator expressions
+    # This is CRITICAL for preventing _ITERATOR_DEBUG_LEVEL mismatches in Release builds
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL" CACHE STRING "MSVC runtime library for ClangCL" FORCE)
   endif()
 endif()
 

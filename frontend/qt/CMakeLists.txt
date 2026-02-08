@@ -202,7 +202,6 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       "${VCPKG_BIN_DIR}/libcurl.dll"
       "${VCPKG_BIN_DIR}/sqlcipher.dll"
       "${VCPKG_BIN_DIR}/sqlite3.dll"
-      "${VCPKG_BIN_DIR}/secp256k1.dll"
       DESTINATION bin
       COMPONENT Runtime
     )
