@@ -55,6 +55,8 @@ constexpr const char *kSettingsProviderFallbackKey = "btc.provider.fallback";
 
 QtSettingsUI::QtSettingsUI(QWidget *parent)
     : QWidget(parent), m_themeManager(&QtThemeManager::instance()),
+      m_mainLayout(nullptr), m_centeringLayout(nullptr),
+      m_leftSpacer(nullptr), m_rightSpacer(nullptr),
       m_scrollArea(nullptr), m_centerContainer(nullptr),
       m_2FATitleLabel(nullptr), m_2FAStatusLabel(nullptr),
       m_enable2FAButton(nullptr), m_disable2FAButton(nullptr),
@@ -125,8 +127,25 @@ void QtSettingsUI::setupUI() {
 
   m_scrollArea->setWidget(m_centerContainer);
 
-  // Add scroll area directly to fill available space
-  outerLayout->addWidget(m_scrollArea);
+  // Create a horizontal layout to center content with max width
+  m_centeringLayout = new QHBoxLayout();
+
+  // Add left spacer (expanding)
+  m_leftSpacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+  m_centeringLayout->addItem(m_leftSpacer);
+
+  // Add scroll area directly to centering layout
+  m_centeringLayout->addWidget(m_scrollArea);
+
+  // Add right spacer (expanding)
+  m_rightSpacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+  m_centeringLayout->addItem(m_rightSpacer);
+
+  // Add centering layout to outer layout
+  outerLayout->addLayout(m_centeringLayout);
+
+  // Initialize responsive layout
+  QTimer::singleShot(0, this, [this]() { updateScrollAreaWidth(); });
 
   // Title
   m_titleLabel = new QLabel("Settings", m_centerContainer);
@@ -844,6 +863,47 @@ void QtSettingsUI::setupUI() {
 
   // Add stretch at the end
   m_mainLayout->addStretch();
+}
+
+void QtSettingsUI::resizeEvent(QResizeEvent* event) {
+  QWidget::resizeEvent(event);
+  updateScrollAreaWidth();
+}
+
+void QtSettingsUI::updateScrollAreaWidth() {
+  if (m_scrollArea && m_leftSpacer && m_rightSpacer) {
+    int windowWidth = this->width();
+    int windowHeight = this->height();
+
+    if (windowWidth <= 0 || windowHeight <= 0) {
+      return;
+    }
+
+    // Apply a 55% maximum width for large and ultra-wide screens
+    // to keep content centered and readable in the user's focus area.
+    if (windowWidth > 1200) {
+      int targetWidth = static_cast<int>(windowWidth * 0.55);
+      m_scrollArea->setMaximumWidth(targetWidth);
+      m_scrollArea->setMinimumWidth(targetWidth);
+
+      // Enable spacers for centering
+      m_leftSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+      m_rightSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+    } else {
+      // Full width on smaller screens
+      m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
+      m_scrollArea->setMinimumWidth(0);
+
+      // Disable spacers
+      m_leftSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+      m_rightSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    }
+
+    // Ensure layout is refreshed
+    if (m_centeringLayout) {
+      m_centeringLayout->invalidate();
+    }
+  }
 }
 
 void QtSettingsUI::applyTheme() {

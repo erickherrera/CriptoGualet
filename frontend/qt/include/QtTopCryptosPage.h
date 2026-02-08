@@ -101,6 +101,9 @@ private:
 
     // Layout
     QVBoxLayout *m_mainLayout;
+    QHBoxLayout *m_centeringLayout;
+    QSpacerItem *m_leftSpacer;
+    QSpacerItem *m_rightSpacer;
     QScrollArea *m_scrollArea;
     QWidget *m_scrollContent;
     QVBoxLayout *m_contentLayout;

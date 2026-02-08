@@ -2,10 +2,13 @@
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QResizeEvent>
 #include <QScrollArea>
+#include <QSpacerItem>
 #include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -32,6 +35,9 @@ class QtSettingsUI : public QWidget {
                          Repository::SettingsRepository* settingsRepository);
     void setCurrentUserId(int userId);
 
+  protected:
+    void resizeEvent(QResizeEvent* event) override;
+
   signals:
     void bitcoinProviderSettingsChanged(const QString& providerType,
                                         const QString& rpcUrl,
@@ -52,11 +58,15 @@ class QtSettingsUI : public QWidget {
     void setupUI();
     void update2FAStatus();
     void updateStyles();
+    void updateScrollAreaWidth();
     void loadAdvancedSettings();
     void updateHardwareWalletStatus(const QString& message, bool success);
 
     QtThemeManager* m_themeManager;
     QVBoxLayout* m_mainLayout;
+    QHBoxLayout* m_centeringLayout;
+    QSpacerItem* m_leftSpacer;
+    QSpacerItem* m_rightSpacer;
     QScrollArea* m_scrollArea;
     QWidget* m_centerContainer;
     QLabel* m_titleLabel;

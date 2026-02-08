@@ -82,9 +82,7 @@ void QtCryptoCard::setupUI() {
     m_changeLabel->setAlignment(Qt::AlignRight);
     m_changeLabel->setStyleSheet(
         "font-size: 13px;"  // Slightly smaller
-        "font-weight: 600;"
-        "padding: 2px 10px;"  // Compacted
-        "border-radius: 10px;");
+        "font-weight: 600;");
 
     priceLayout->addWidget(m_priceLabel);
     priceLayout->addWidget(m_changeLabel);
@@ -133,20 +131,12 @@ void QtCryptoCard::setCryptoData(const PriceService::CryptoPriceData& cryptoData
     if (cryptoData.price_change_24h >= 0) {
         m_changeLabel->setStyleSheet(QString("font-size: 13px;"
                                              "font-weight: 600;"
-                                             "padding: 2px 10px;"
-                                             "border-radius: 10px;"
-                                             "background-color: %1;"
-                                             "color: %2;")
-                                         .arg(m_themeManager->lightPositive().name(QColor::HexArgb))
+                                             "color: %1;")
                                          .arg(m_themeManager->positiveColor().name()));
     } else {
         m_changeLabel->setStyleSheet(QString("font-size: 13px;"
                                              "font-weight: 600;"
-                                             "padding: 2px 10px;"
-                                             "border-radius: 10px;"
-                                             "background-color: %1;"
-                                             "color: %2;")
-                                         .arg(m_themeManager->lightNegative().name(QColor::HexArgb))
+                                             "color: %1;")
                                          .arg(m_themeManager->negativeColor().name()));
     }
 }
@@ -513,8 +503,22 @@ void QtTopCryptosPage::setupUI() {
     connect(m_scrollArea->verticalScrollBar(), &QScrollBar::valueChanged, this,
             [this]() { QTimer::singleShot(50, this, &QtTopCryptosPage::loadVisibleIcons); });
 
-    // Add scroll area directly to main layout to maximize width
-    m_mainLayout->addWidget(m_scrollArea);
+    // Create a horizontal layout to center content with max width
+    m_centeringLayout = new QHBoxLayout();
+    
+    // Add left spacer (expanding)
+    m_leftSpacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+    m_centeringLayout->addItem(m_leftSpacer);
+
+    // Add scroll area directly to centering layout
+    m_centeringLayout->addWidget(m_scrollArea);
+
+    // Add right spacer (expanding)
+    m_rightSpacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+    m_centeringLayout->addItem(m_rightSpacer);
+
+    // Add centering layout to main layout
+    m_mainLayout->addLayout(m_centeringLayout);
 
     // Create initial empty cards
     createCryptoCards();
@@ -1211,9 +1215,37 @@ void QtTopCryptosPage::resizeEvent(QResizeEvent* event) {
 }
 
 void QtTopCryptosPage::updateScrollAreaWidth() {
-    if (m_scrollArea) {
-        // Remove max-width constraints to maximize space usage on all screens
-        m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
-        m_scrollArea->setMinimumWidth(0);
+    if (m_scrollArea && m_leftSpacer && m_rightSpacer) {
+        int windowWidth = this->width();
+        int windowHeight = this->height();
+
+        if (windowWidth <= 0 || windowHeight <= 0) {
+            return;
+        }
+
+        // Apply a 55% maximum width for large and ultra-wide screens
+        // to keep content centered and readable in the user's focus area.
+        if (windowWidth > 1200) {
+            int targetWidth = static_cast<int>(windowWidth * 0.55);
+            m_scrollArea->setMaximumWidth(targetWidth);
+            m_scrollArea->setMinimumWidth(targetWidth);
+            
+            // Enable spacers for centering
+            m_leftSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+            m_rightSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+        } else {
+            // Full width on smaller screens
+            m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
+            m_scrollArea->setMinimumWidth(0);
+            
+            // Disable spacers
+            m_leftSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+            m_rightSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+        }
+        
+        // Ensure layout is refreshed
+        if (m_centeringLayout) {
+            m_centeringLayout->invalidate();
+        }
     }
 }
