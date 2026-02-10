@@ -77,4 +77,6 @@ We welcome contributions\! Please feel free to fork the repository, make changes
 
 ## License
 
-This project is licensed under the **MIT License**. See the `LICENSE` file for details.
+Copyright (c) 2026 CriptoGualet Team
+
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.

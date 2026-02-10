@@ -113,8 +113,28 @@ static bool InitializeDatabase() {
     try {
         auto& dbManager = Database::DatabaseManager::getInstance();
 
-        // Get database path from environment or use default
-        std::string dbPath = "wallet.db";
+        // Get database path from environment or use a secure location in Local AppData
+        std::string dbPath;
+        
+#ifdef _WIN32
+        const char* localAppData = std::getenv("LOCALAPPDATA");
+        if (localAppData) {
+            std::string appDir = std::string(localAppData) + "\\CriptoGualet";
+            
+            // Ensure directory exists
+            DWORD dwAttrib = GetFileAttributesA(appDir.c_str());
+            if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY)) {
+                CreateDirectoryA(appDir.c_str(), NULL);
+            }
+            
+            dbPath = appDir + "\\wallet.db";
+        } else {
+            dbPath = "wallet.db"; // Fallback
+        }
+#else
+        dbPath = "wallet.db";
+#endif
+
 #pragma warning(push)
 #pragma warning(disable : 4996)  // Suppress getenv warning
         if (const char* envPath = std::getenv("WALLET_DB_PATH")) {

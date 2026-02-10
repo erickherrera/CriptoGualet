@@ -503,12 +503,12 @@ if(WIN32)
   set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Secure Non-Custodial Cryptocurrency Wallet")
   set(CPACK_PACKAGE_VERSION "1.0.0")
   set(CPACK_PACKAGE_INSTALL_DIRECTORY "CriptoGualet")
-  set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/wallet.ico") # Ensure you have an icon
+  set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/logo_criptogualet.ico") # Ensure you have an icon
   
   # NSIS Specifics
   set(CPACK_NSIS_DISPLAY_NAME "CriptoGualet Wallet")
   set(CPACK_NSIS_PACKAGE_NAME "CriptoGualet")
-  set(CPACK_NSIS_MODIFY_PATH ON)
+  set(CPACK_NSIS_MODIFY_PATH OFF)
   
   # Create a shortcut in the Start Menu
   set(CPACK_NSIS_CREATE_ICONS_EXTRA 

@@ -128,7 +128,29 @@ bool CriptoGualetQt::initializeRepositories() {
             return false;
         }
 
-        auto dbResult = dbManager.initialize("criptogualet.db", encryptionKey);
+        // Get database path from environment or use a secure location in Local AppData
+        std::string dbPath;
+        
+#ifdef Q_OS_WIN
+        const char* localAppData = std::getenv("LOCALAPPDATA");
+        if (localAppData) {
+            std::string appDir = std::string(localAppData) + "\\CriptoGualet";
+            
+            // Ensure directory exists using Windows API
+            DWORD dwAttrib = GetFileAttributesA(appDir.c_str());
+            if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY)) {
+                CreateDirectoryA(appDir.c_str(), NULL);
+            }
+            
+            dbPath = appDir + "\\criptogualet.db";
+        } else {
+            dbPath = "criptogualet.db"; // Fallback
+        }
+#else
+        dbPath = "criptogualet.db";
+#endif
+
+        auto dbResult = dbManager.initialize(dbPath, encryptionKey);
 
         // Securely wipe the key from memory after use
         std::fill(encryptionKey.begin(), encryptionKey.end(), '\0');

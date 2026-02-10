@@ -180,7 +180,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
   # -----------------------------------------------------------------------------
 
   # 1. Install the main executable
-  install(TARGETS CriptoGualetQt RUNTIME DESTINATION bin)
+  install(TARGETS CriptoGualetQt RUNTIME DESTINATION bin COMPONENT Runtime)
 
   # 2. Install Assets (BIP39 wordlists, etc.)
   # Places 'assets' folder next to the executable in 'bin/assets'
@@ -202,6 +202,9 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       "${VCPKG_BIN_DIR}/libcurl.dll"
       "${VCPKG_BIN_DIR}/sqlcipher.dll"
       "${VCPKG_BIN_DIR}/sqlite3.dll"
+      "${VCPKG_BIN_DIR}/cpr.dll"
+      "${VCPKG_BIN_DIR}/charset-1.dll"
+      "${VCPKG_BIN_DIR}/iconv-2.dll"
       DESTINATION bin
       COMPONENT Runtime
     )
