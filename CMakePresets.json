@@ -49,7 +49,7 @@
       }
     },
     {
-      "name": "win-vs2026-x64-debug",
+      "name": "w-msvc-dbg",
       "displayName": "MSVC 2026 Debug",
       "inherits": "vcpkg-base",
       "generator": "Visual Studio 18 2026",
@@ -69,14 +69,14 @@
       "description": "MSVC 2026 Debug builds."
     },
     {
-      "name": "win-vs2026-x64-release",
+      "name": "w-msvc-rel",
       "displayName": "MSVC 2026 Release",
-      "inherits": "win-vs2026-x64-debug",
+      "inherits": "w-msvc-dbg",
       "cacheVariables": {},
       "description": "MSVC 2026 Release builds."
     },
     {
-      "name": "win-vs2026-clangcl-debug",
+      "name": "w-cl-dbg",
       "displayName": "ClangCL 2026 Debug (Qt)",
       "inherits": "vcpkg-base",
       "generator": "Visual Studio 18 2026",
@@ -99,9 +99,9 @@
       "description": "ClangCL Debug builds with VS 2026."
     },
     {
-      "name": "win-vs2026-clangcl-release",
+      "name": "w-cl-rel",
       "displayName": "ClangCL 2026 Release",
-      "inherits": "win-vs2026-clangcl-debug",
+      "inherits": "w-cl-dbg",
       "cacheVariables": {},
       "description": "ClangCL Release builds with VS 2026."
     }
@@ -118,35 +118,35 @@
       "configurePreset": "linux-clang-release"
     },
     {
-      "name": "win-vs2026-build",
-      "displayName": "Windows VS2026 Debug",
-      "configurePreset": "win-vs2026-x64-debug",
+      "name": "w-msvc-build",
+      "displayName": "Windows MSVC Debug",
+      "configurePreset": "w-msvc-dbg",
       "configuration": "Debug"
     },
     {
-      "name": "win-vs2026-build-release",
-      "displayName": "Windows VS2026 Release",
-      "configurePreset": "win-vs2026-x64-release",
+      "name": "w-msvc-build-release",
+      "displayName": "Windows MSVC Release",
+      "configurePreset": "w-msvc-rel",
       "configuration": "Release"
     },
     {
-      "name": "win-vs2026-clangcl-build",
-      "displayName": "Windows VS2026 ClangCL Debug",
-      "configurePreset": "win-vs2026-clangcl-debug",
+      "name": "w-cl-build",
+      "displayName": "Windows ClangCL Debug",
+      "configurePreset": "w-cl-dbg",
       "configuration": "Debug"
     },
     {
-      "name": "win-vs2026-clangcl-build-release",
-      "displayName": "Windows VS2026 ClangCL Release",
-      "configurePreset": "win-vs2026-clangcl-release",
+      "name": "w-cl-build-release",
+      "displayName": "Windows ClangCL Release",
+      "configurePreset": "w-cl-rel",
       "configuration": "Release"
     }
   ],
   "testPresets": [
     {
-      "name": "win-vs2026-clangcl-test",
+      "name": "w-cl-test",
       "displayName": "Windows ClangCL 2026 Tests",
-      "configurePreset": "win-vs2026-clangcl-debug",
+      "configurePreset": "w-cl-dbg",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true

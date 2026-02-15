@@ -7,7 +7,7 @@
             "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
             "args": [
                 "--build",
-                "${workspaceFolder}/out/build/win-vs2022-x64-debug",
+                "${workspaceFolder}/out/build/w-msvc-dbg",
                 "--config",
                 "Debug"
             ],
@@ -62,7 +62,7 @@
             "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
             "args": [
                 "--preset",
-                "win-vs2022-x64-debug"
+                "w-msvc-dbg"
             ],
             "group": "build",
             "presentation": {
@@ -206,7 +206,7 @@
             "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
             "args": [
                 "--build",
-                "${workspaceFolder}/out/build/win-vs2022-clangcl-debug-asan",
+                "${workspaceFolder}/out/build/w-cl-dbg-asan",
                 "--config",
                 "Debug"
             ],
@@ -233,7 +233,7 @@
             "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
             "args": [
                 "--build",
-                "${workspaceFolder}/out/build/win-vs2022-clangcl-release-lto",
+                "${workspaceFolder}/out/build/w-cl-rel-lto",
                 "--config",
                 "Release"
             ],

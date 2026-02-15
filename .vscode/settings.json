@@ -6,7 +6,7 @@
     // clangd will automatically search parent directories, so this should work
     "--compile-commands-dir=${workspaceFolder}",
     // Specify the build directory for better path resolution
-    "--path-mappings=${workspaceFolder}/out/build/win-ninja-x64-debug=${workspaceFolder}",
+    "--path-mappings=${workspaceFolder}/out/build/w-msvc-dbg=${workspaceFolder}",
     // Enable background indexing
     "--background-index",
     // Use clang-tidy for additional diagnostics
@@ -43,7 +43,7 @@
   
   // clangd-specific settings
   "clangd.fallbackFlags": [
-    "-std=c++17"
+    "-std=c++20"
   ],
   
   // Enable clangd features
@@ -61,7 +61,7 @@
   "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
   
   // vcpkg configuration for CMake Tools
-  "cmake.vcpkgPath": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\vcpkg",
+  "cmake.vcpkgPath": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\vcpkg",
 
   // Test explorer settings
   "testExplorer.useNativeTesting": true,

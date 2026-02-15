@@ -5,9 +5,9 @@
             "name": "Debug CriptoGualet Qt (Visual Studio Build)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/CriptoGualetQt.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug",
+            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
             "env": {
                 "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
             },
@@ -17,9 +17,9 @@
             "name": "Debug CriptoGualet Qt (ClangCL + ASan)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-vs2022-clangcl-debug-asan/bin/Debug/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/w-cl-dbg-asan/bin/Debug/CriptoGualetQt.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-vs2022-clangcl-debug-asan/bin/Debug",
+            "cwd": "${workspaceFolder}/out/build/w-cl-dbg-asan/bin/Debug",
             "env": {
                 "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}",
                 "ASAN_OPTIONS": "detect_leaks=1:detect_stack_use_after_return=1"
@@ -30,9 +30,9 @@
             "name": "Debug CriptoGualet Qt (ClangCL + LTO)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-vs2022-clangcl-release-lto/bin/Release/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/w-cl-rel-lto/bin/Release/CriptoGualetQt.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-vs2022-clangcl-release-lto/bin/Release",
+            "cwd": "${workspaceFolder}/out/build/w-cl-rel-lto/bin/Release",
             "env": {
                 "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
             },
@@ -101,11 +101,11 @@
             "name": "Debug 2FA Tests (Visual Studio Build)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug/test_2fa.exe",
+            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/test_2fa.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug",
+            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
             "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
             },
             "preLaunchTask": "CMake: build"
         },
@@ -122,11 +122,11 @@
             "name": "Debug Current Test File (Visual Studio Build)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug/${fileBasenameNoExtension}.exe",
+            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/${fileBasenameNoExtension}.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug",
+            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
             "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
             },
             "preLaunchTask": "CMake: build"
         },
@@ -143,11 +143,11 @@
             "name": "Debug BIP39 Tests (Visual Studio Build)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug/test_bip39.exe",
+            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/test_bip39.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug",
+            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
             "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
             },
             "preLaunchTask": "CMake: build"
         },
@@ -155,11 +155,11 @@
             "name": "Debug Repository Integration Tests (Visual Studio Build)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug/test_repository_integration.exe",
+            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/test_repository_integration.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug",
+            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
             "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
             },
             "preLaunchTask": "CMake: build"
         },
@@ -167,11 +167,11 @@
             "name": "Debug Auth Database Tests (Visual Studio Build)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug/test_auth_database_integration.exe",
+            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/test_auth_database_integration.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-vs2022-x64-debug/bin/Debug",
+            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
             "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceFolder}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
+                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
             },
             "preLaunchTask": "CMake: build"
         }

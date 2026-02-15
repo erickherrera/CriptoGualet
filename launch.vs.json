@@ -3,19 +3,18 @@
   "configurations": [
     {
       "type": "cppdbg",
-      "name": "CriptoGualet Qt Application (Debug)",
+      "name": "CriptoGualet Qt Application (MSVC Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug/CriptoGualetQt.exe",
+      "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/CriptoGualetQt.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-clangcl-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-clangcl-debug\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
         }
       ],
-
       "externalConsole": false,
       "MIMode": "vsdbg",
       "preLaunchTask": "CMake: build"
@@ -24,14 +23,14 @@
       "type": "cppdbg",
       "name": "CriptoGualet Qt Application (ClangCL Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin/Debug/CriptoGualetQt.exe",
+      "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/CriptoGualetQt.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-clangcl-debug\\bin\\Debug;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\w-cl-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-cl-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -42,14 +41,14 @@
       "type": "cppdbg",
       "name": "CriptoGualet Qt Application (Release)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-x64-release/bin/Release/CriptoGualetQt.exe",
+      "program": "${workspaceRoot}/out/build/w-msvc-rel/bin/Release/CriptoGualetQt.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-x64-release/bin/Release",
+      "cwd": "${workspaceRoot}/out/build/w-msvc-rel/bin/Release",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-release\\bin\\Release;C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\w-msvc-rel\\bin\\Release;${workspaceRoot}\\out\\build\\w-msvc-rel\\vcpkg_installed\\x64-windows\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -57,16 +56,29 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA Tests",
+      "name": "CriptoGualet Qt Application (Linux Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug/test_2fa.exe",
+      "program": "${workspaceRoot}/out/build/linux-clang-debug/bin/CriptoGualetQt",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/linux-clang-debug/bin",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "projectTarget": "CriptoGualetQt"
+    },
+    {
+      "type": "cppdbg",
+      "name": "Test: 2FA Tests (MSVC Debug)",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/test_2fa.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -76,14 +88,14 @@
       "type": "cppdbg",
       "name": "Test: 2FA Tests (ClangCL Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin/Debug/test_2fa.exe",
+      "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/test_2fa.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-clangcl-debug\\bin;${workspaceRoot}\\out\\build\\win-vs2022-clangcl-debug\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\w-cl-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-cl-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -91,16 +103,16 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 Tests",
+      "name": "Test: BIP39 Tests (MSVC Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug/test_bip39.exe",
+      "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/test_bip39.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-x64-debug/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-x64-debug\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -110,14 +122,14 @@
       "type": "cppdbg",
       "name": "Test: BIP39 Tests (ClangCL Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin/Debug/test_bip39.exe",
+      "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/test_bip39.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-clangcl-debug\\bin\\Debug;${workspaceRoot}\\out\\build\\win-vs2022-clangcl-debug\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\w-cl-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-cl-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
