@@ -178,58 +178,430 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
   # -----------------------------------------------------------------------------
   # Installation & Packaging
   # -----------------------------------------------------------------------------
+  # This section configures proper dependency bundling for CPack installers.
+  # The key challenge is that CPack stages binaries into an isolated directory,
+  # stripping build-time metadata including RPATH entries. We must ensure all
+  # transitive dependencies are correctly bundled and discoverable at runtime.
 
   # 1. Install the main executable
-  install(TARGETS CriptoGualetQt RUNTIME DESTINATION bin COMPONENT Runtime)
-
-  # 2. Install Assets (BIP39 wordlists, etc.)
-  # Places 'assets' folder next to the executable in 'bin/assets'
-  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../assets"
-          DESTINATION bin
+  install(TARGETS CriptoGualetQt 
+          RUNTIME DESTINATION bin 
           COMPONENT Runtime)
 
-  # 3. Install Runtime Dependencies (DLLs) from vcpkg
-  if(WIN32)
-    # Define the vcpkg bin directory
-    set(VCPKG_BIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin")
-
-    # List of DLLs to install
-    # We use file(GLOB) or explicit lists. Explicit is safer.
-    install(FILES
-      "${VCPKG_BIN_DIR}/libcrypto-3-x64.dll"
-      "${VCPKG_BIN_DIR}/libssl-3-x64.dll"
-      "${VCPKG_BIN_DIR}/zlib1.dll"
-      "${VCPKG_BIN_DIR}/libcurl.dll"
-      "${VCPKG_BIN_DIR}/sqlcipher.dll"
-      "${VCPKG_BIN_DIR}/sqlite3.dll"
-      "${VCPKG_BIN_DIR}/cpr.dll"
-      "${VCPKG_BIN_DIR}/charset-1.dll"
-      "${VCPKG_BIN_DIR}/iconv-2.dll"
-      DESTINATION bin
-      COMPONENT Runtime
-    )
-
-    # Optional DLLs
-    if(LIBQRENCODE_FOUND)
-      install(FILES "${VCPKG_BIN_DIR}/qrencode.dll" "${VCPKG_BIN_DIR}/libpng16.dll"
-              DESTINATION bin COMPONENT Runtime)
+  # 2. Install Assets (BIP39 wordlists, etc.)
+  # CRITICAL: The assets folder contains the BIP39 wordlist required for seed generation.
+  # Without this, user registration will fail with "Cannot load BIP-39 wordlist" error.
+  # 
+  # Directory structure after installation:
+  #   C:\Program Files\CriptoGualet\
+  #     bin\
+  #       CriptoGualetQt.exe
+  #       assets\
+  #         bip39\
+  #           english.txt    <-- REQUIRED for seed phrase generation
+  
+  # Use CMAKE_SOURCE_DIR for reliable path resolution
+  set(ASSETS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/assets")
+  
+  if(EXISTS "${ASSETS_SOURCE_DIR}")
+    message(STATUS "Installing assets from: ${ASSETS_SOURCE_DIR}")
+    install(DIRECTORY "${ASSETS_SOURCE_DIR}/"
+            DESTINATION bin/assets
+            COMPONENT Runtime
+            FILES_MATCHING 
+            PATTERN "*.txt"
+            PATTERN "*.json")
+    
+    # Also verify the critical BIP39 wordlist exists
+    if(EXISTS "${ASSETS_SOURCE_DIR}/bip39/english.txt")
+      message(STATUS "  BIP39 wordlist found: ${ASSETS_SOURCE_DIR}/bip39/english.txt")
+    else()
+      message(WARNING "  BIP39 wordlist NOT FOUND - seed generation will fail!")
     endif()
+  else()
+    message(WARNING "Assets directory not found at ${ASSETS_SOURCE_DIR}")
+    message(WARNING "Seed phrase generation will fail without the BIP39 wordlist!")
+    
+    # Try alternative locations
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../assets")
+      message(STATUS "Found assets at alternative location, using that instead")
+      install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../assets/"
+              DESTINATION bin/assets
+              COMPONENT Runtime)
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+      message(STATUS "Found assets in frontend/qt/assets, using that")
+      install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/assets/"
+              DESTINATION bin/assets
+              COMPONENT Runtime)
+    endif()
+  endif()
 
-    # 4. Run windeployqt during installation
-    # This ensures Qt DLLs, plugins (platforms, imageformats), and QML are copied to the install directory
+  # 3. Handle Dependencies (DLLs) using platform-specific mechanisms
+  if(WIN32)
+    # -----------------------------------------------------------------------------
+    # Windows DLL Bundling Strategy
+    # -----------------------------------------------------------------------------
+    # On Windows, the "DLL Hell" problem manifests when transitive dependencies
+    # are missing. CPack only includes files explicitly mentioned in install().
+    # 
+    # Our strategy:
+    # 1. Run windeployqt to copy Qt plugins and Qt DLLs
+    # 2. Use fixup_bundle to recursively scan and copy ALL transitive dependencies
+    # 3. Explicitly copy known vcpkg dependencies as a safety net
+    # -----------------------------------------------------------------------------
+    
+    # Define search directories for DLL resolution
+    set(VCPKG_REL_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin")
+    set(VCPKG_DBG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
+    set(QT_BIN_DIR "${Qt6_DIR}/../../../bin")
+    
+    # Store paths for use in install(CODE) blocks - these are evaluated at install time
+    set(STORED_VCPKG_REL_BIN "${VCPKG_REL_BIN_DIR}")
+    set(STORED_VCPKG_DBG_BIN "${VCPKG_DBG_BIN_DIR}")
+    set(STORED_QT_BIN "${QT_BIN_DIR}")
+    
+    # Step 1: Run windeployqt for Qt-specific deployment
+    # windeployqt handles Qt plugins (platforms, imageformats, styles, etc.) and Qt DLLs
     find_program(QT_DEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
     if(QT_DEPLOYQT_EXECUTABLE)
       install(CODE "
-        message(STATUS \"Running windeployqt...\")
-        execute_process(
-          COMMAND \"${QT_DEPLOYQT_EXECUTABLE}\"
-                  --no-translations
-                  --no-compiler-runtime
-                  --dir \"\${CMAKE_INSTALL_PREFIX}/bin\"
-                  \"\${CMAKE_INSTALL_PREFIX}/bin/CriptoGualetQt.exe\"
-        )
+        set(DEPLOYQT_EXE \"${QT_DEPLOYQT_EXECUTABLE}\")
+        set(INSTALL_BIN_DIR \"\${CMAKE_INSTALL_PREFIX}/bin\")
+        set(TARGET_EXE \"\${INSTALL_BIN_DIR}/CriptoGualetQt.exe\")
+        
+        if(EXISTS \"\${TARGET_EXE}\")
+          message(STATUS \"Running windeployqt on \${TARGET_EXE}...\")
+          execute_process(
+            COMMAND \"\${DEPLOYQT_EXE}\"
+                    --no-translations
+                    --no-compiler-runtime
+                    --no-system-d3d-compiler
+                    --no-opengl-sw
+                    --dir \"\${INSTALL_BIN_DIR}\"
+                    \"\${TARGET_EXE}\"
+            RESULT_VARIABLE DEPLOYQT_RESULT
+            OUTPUT_VARIABLE DEPLOYQT_OUTPUT
+            ERROR_VARIABLE DEPLOYQT_ERROR
+          )
+          if(NOT DEPLOYQT_RESULT EQUAL 0)
+            message(WARNING \"windeployqt failed with code \${DEPLOYQT_RESULT}: \${DEPLOYQT_ERROR}\")
+          else()
+            message(STATUS \"windeployqt completed successfully\")
+          endif()
+        else()
+          message(WARNING \"Target executable not found: \${TARGET_EXE}\")
+        endif()
       " COMPONENT Runtime)
+    else()
+      message(WARNING "windeployqt not found - Qt plugins may not be deployed correctly")
     endif()
+
+    # Step 2: Explicitly copy ALL known vcpkg dependencies
+    # This is the PRIMARY mechanism for ensuring DLLs are present.
+    # fixup_bundle can be unreliable on Windows, so we explicitly copy all known DLLs.
+    # 
+    # CRITICAL: The QR generation failure is typically caused by missing:
+    # - qrencode.dll (the QR library itself)
+    # - libpng16.dll (qrencode dependency)
+    # - zlib1.dll (libpng dependency)
+    
+    # Convert paths to native format for Windows compatibility
+    file(TO_NATIVE_PATH "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin" VCPKG_BIN_NATIVE)
+    file(TO_NATIVE_PATH "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin" VCPKG_DBG_BIN_NATIVE)
+    
+    install(CODE "
+      # Use the paths passed from configure time
+      set(VCPKG_BIN \"${VCPKG_REL_BIN_DIR}\")
+      set(VCPKG_DBG_BIN \"${VCPKG_DBG_BIN_DIR}\")
+      set(INSTALL_BIN_DIR \"\${CMAKE_INSTALL_PREFIX}/bin\")
+      
+      message(STATUS \"======================================================\")
+      message(STATUS \"Copying vcpkg dependencies\")
+      message(STATUS \"  Source (Release): \${VCPKG_BIN}\")
+      message(STATUS \"  Source (Debug):   \${VCPKG_DBG_BIN}\")
+      message(STATUS \"  Destination:      \${INSTALL_BIN_DIR}\")
+      message(STATUS \"======================================================\")
+      
+      # Complete list of ALL vcpkg DLLs required by the application
+      # Order matters for debugging - grouped by functionality
+      set(VCPKG_DLLS
+        # ===========================================
+        # QR Code generation - CRITICAL for QR feature
+        # ===========================================
+        \"qrencode.dll\"      # Main QR encoding library
+        \"libpng16.dll\"      # PNG support for qrencode
+        \"zlib1.dll\"         # Compression library (libpng dependency)
+        
+        # ===========================================
+        # Database - SQLCipher encrypted storage
+        # ===========================================
+        \"sqlcipher.dll\"     # Encrypted SQLite
+        \"sqlite3.dll\"       # SQLite core
+        \"tcl90.dll\"         # TCL runtime (sqlcipher may need this)
+        
+        # ===========================================
+        # OpenSSL - Cryptography and TLS
+        # ===========================================
+        \"libcrypto-3-x64.dll\"  # OpenSSL crypto
+        \"libssl-3-x64.dll\"     # OpenSSL SSL/TLS
+        \"legacy.dll\"           # OpenSSL legacy algorithms
+        
+        # ===========================================
+        # HTTP/Network - CPR and libcurl
+        # ===========================================
+        \"cpr.dll\"           # C++ HTTP library
+        \"libcurl.dll\"       # curl library (cpr dependency)
+        
+        # ===========================================
+        # Character encoding - libcurl dependencies
+        # ===========================================
+        \"iconv-2.dll\"       # Character set conversion
+        \"charset-1.dll\"     # Character set support
+      )
+      
+      # Track what we successfully copied
+      set(COPIED_DLLS \"\")
+      set(MISSING_DLLS \"\")
+      
+      foreach(DLL \${VCPKG_DLLS})
+        set(DLL_FOUND FALSE)
+        
+        # Try release directory first
+        set(DLL_SRC \"\${VCPKG_BIN}/\${DLL}\")
+        if(EXISTS \"\${DLL_SRC}\")
+          file(COPY \"\${DLL_SRC}\" DESTINATION \"\${INSTALL_BIN_DIR}\")
+          list(APPEND COPIED_DLLS \"\${DLL}\")
+          set(DLL_FOUND TRUE)
+        else()
+          # Try debug directory as fallback
+          set(DLL_DBG_SRC \"\${VCPKG_DBG_BIN}/\${DLL}\")
+          if(EXISTS \"\${DLL_DBG_SRC}\")
+            file(COPY \"\${DLL_DBG_SRC}\" DESTINATION \"\${INSTALL_BIN_DIR}\")
+            list(APPEND COPIED_DLLS \"\${DLL} (debug)\")
+            set(DLL_FOUND TRUE)
+          endif()
+        endif()
+        
+        if(NOT DLL_FOUND)
+          list(APPEND MISSING_DLLS \"\${DLL}\")
+        endif()
+      endforeach()
+      
+      # Report results
+      message(STATUS \"------------------------------------------------------\")
+      message(STATUS \"DLL Copy Summary:\")
+      list(LENGTH COPIED_DLLS COPIED_COUNT)
+      list(LENGTH MISSING_DLLS MISSING_COUNT)
+      message(STATUS \"  Successfully copied: \${COPIED_COUNT} DLLs\")
+      
+      if(MISSING_COUNT GREATER 0)
+        message(STATUS \"  Missing DLLs (\${MISSING_COUNT}):\")
+        foreach(DLL \${MISSING_DLLS})
+          message(STATUS \"    - \${DLL}\")
+        endforeach()
+        message(STATUS \"  Note: Some missing DLLs may be optional or statically linked\")
+      endif()
+      message(STATUS \"------------------------------------------------------\")
+    " COMPONENT Runtime)
+
+    # Step 3: Use BundleUtilities (fixup_bundle) for comprehensive dependency resolution
+    # fixup_bundle performs a recursive scan of the executable's import table
+    # and copies ALL required DLLs, including transitive dependencies.
+    # 
+    # NOTE: On Windows, fixup_bundle can be unreliable. The explicit DLL copy
+    # in Step 2 is the primary mechanism. This step is a safety net.
+    install(CODE "
+      include(BundleUtilities)
+      
+      set(INSTALL_BIN_DIR \"\${CMAKE_INSTALL_PREFIX}/bin\")
+      set(TARGET_EXE \"\${INSTALL_BIN_DIR}/CriptoGualetQt.exe\")
+      
+      # Comprehensive search directories for prerequisites
+      # Order matters: prefer release over debug
+      set(SEARCH_DIRS 
+        \"${VCPKG_REL_BIN_DIR}\"
+        \"${QT_BIN_DIR}\"
+        \"${VCPKG_DBG_BIN_DIR}\"
+      )
+      
+      # Add Windows System directories for system DLLs
+      if(DEFINED ENV{SystemRoot})
+        list(APPEND SEARCH_DIRS \"\$ENV{SystemRoot}/System32\")
+      endif()
+      
+      message(STATUS \"======================================================\")
+      message(STATUS \"Running fixup_bundle for transitive dependencies\")
+      message(STATUS \"======================================================\")
+      
+      if(EXISTS \"\${TARGET_EXE}\")
+        message(STATUS \"Target: \${TARGET_EXE}\")
+        message(STATUS \"Search paths:\")
+        foreach(DIR \${SEARCH_DIRS})
+          message(STATUS \"  - \${DIR}\")
+        endforeach()
+        
+        # Collect all DLLs already in the install directory
+        file(GLOB EXISTING_DLLS \"\${INSTALL_BIN_DIR}/*.dll\")
+        list(LENGTH EXISTING_DLLS DLL_COUNT)
+        message(STATUS \"Existing DLLs in install dir: \${DLL_COUNT}\")
+        
+        # Run fixup_bundle with error handling
+        # On Windows, this may not find all dependencies, but it's worth trying
+        message(STATUS \"Scanning for additional dependencies...\")
+        
+        fixup_bundle(
+          \"\${TARGET_EXE}\"
+          \"\${EXISTING_DLLS}\"
+          \"\${SEARCH_DIRS}\"
+        )
+        
+        # Count DLLs after fixup
+        file(GLOB FINAL_DLLS \"\${INSTALL_BIN_DIR}/*.dll\")
+        list(LENGTH FINAL_DLLS FINAL_COUNT)
+        math(EXPR NEW_DLLS \"\${FINAL_COUNT} - \${DLL_COUNT}\")
+        
+        message(STATUS \"fixup_bundle added \${NEW_DLLS} additional DLL(s)\")
+        message(STATUS \"Total DLLs in install directory: \${FINAL_COUNT}\")
+      else()
+        message(WARNING \"Cannot run fixup_bundle: executable not found at \${TARGET_EXE}\")
+      endif()
+      message(STATUS \"======================================================\")
+    " COMPONENT Runtime)
+
+    # Step 4: Final verification and DLL inventory
+    # This provides a complete list of all DLLs in the install directory
+    # and verifies that critical dependencies are present.
+    install(CODE "
+      include(BundleUtilities)
+      
+      set(INSTALL_BIN_DIR \"\${CMAKE_INSTALL_PREFIX}/bin\")
+      set(TARGET_EXE \"\${INSTALL_BIN_DIR}/CriptoGualetQt.exe\")
+      
+      message(STATUS \"======================================================\")
+      message(STATUS \"FINAL VERIFICATION - Installed DLLs\")
+      message(STATUS \"======================================================\")
+      
+      # List all installed DLLs
+      file(GLOB ALL_DLLS \"\${INSTALL_BIN_DIR}/*.dll\")
+      list(SORT ALL_DLLS)
+      
+      message(STATUS \"DLLs in \${INSTALL_BIN_DIR}:\")
+      foreach(DLL \${ALL_DLLS})
+        get_filename_component(DLL_NAME \"\${DLL}\" NAME)
+        message(STATUS \"  - \${DLL_NAME}\")
+      endforeach()
+      
+      # Check for critical DLLs that must be present for QR functionality
+      set(CRITICAL_DLLS
+        \"qrencode.dll\"
+        \"libpng16.dll\"
+        \"zlib1.dll\"
+      )
+      
+      message(STATUS \"\")
+      message(STATUS \"Critical QR Dependencies Check:\")
+      set(QR_DEPS_OK TRUE)
+      foreach(DLL \${CRITICAL_DLLS})
+        if(EXISTS \"\${INSTALL_BIN_DIR}/\${DLL}\")
+          message(STATUS \"  [OK] \${DLL}\")
+        else()
+          message(STATUS \"  [MISSING] \${DLL} - QR generation will fail!\")
+          set(QR_DEPS_OK FALSE)
+        endif()
+      endforeach()
+      
+      if(NOT QR_DEPS_OK)
+        message(WARNING \"QR code generation dependencies are incomplete!\")
+        message(STATUS \"Make sure vcpkg has installed libqrencode: vcpkg install libqrencode\")
+      endif()
+      
+      # Check for BIP39 wordlist - CRITICAL for seed phrase generation
+      message(STATUS \"\")
+      message(STATUS \"Critical Asset Check (BIP39 Wordlist):\")
+      set(WORDLIST_PATH \"\${INSTALL_BIN_DIR}/assets/bip39/english.txt\")
+      if(EXISTS \"\${WORDLIST_PATH}\")
+        # Count lines to verify it's complete (should be 2048 words)
+        file(STRINGS \"\${WORDLIST_PATH}\" WORDLIST_LINES)
+        list(LENGTH WORDLIST_LINES WORD_COUNT)
+        if(WORD_COUNT EQUAL 2048)
+          message(STATUS \"  [OK] BIP39 wordlist found with \${WORD_COUNT} words\")
+        else()
+          message(WARNING \"  [INCOMPLETE] BIP39 wordlist has \${WORD_COUNT} words (expected 2048)\")
+        endif()
+      else()
+        message(STATUS \"  [MISSING] BIP39 wordlist at \${WORDLIST_PATH}\")
+        message(WARNING \"  Seed phrase generation will FAIL without the BIP39 wordlist!\")
+        message(STATUS \"  Expected location: \${WORDLIST_PATH}\")
+        
+        # Check if assets directory exists at all
+        if(EXISTS \"\${INSTALL_BIN_DIR}/assets\")
+          message(STATUS \"  Assets directory exists, checking contents...\")
+          file(GLOB_RECURSE ASSET_FILES \"\${INSTALL_BIN_DIR}/assets/*\")
+          foreach(ASSET \${ASSET_FILES})
+            message(STATUS \"    - \${ASSET}\")
+          endforeach()
+        else()
+          message(STATUS \"  Assets directory does NOT exist at \${INSTALL_BIN_DIR}/assets\")
+        endif()
+      endif()
+      
+      # Run verify_app to check for any missing dependencies
+      if(EXISTS \"\${TARGET_EXE}\")
+        message(STATUS \"\")
+        message(STATUS \"Running verify_app() to check for missing dependencies...\")
+        verify_app(\"\${TARGET_EXE}\")
+        message(STATUS \"Verification completed\")
+      endif()
+      
+      message(STATUS \"======================================================\")
+    " COMPONENT Runtime)
+    
+  elseif(APPLE)
+    # -----------------------------------------------------------------------------
+    # macOS Bundle Handling
+    # -----------------------------------------------------------------------------
+    # On macOS, we create an app bundle and use fixup_bundle to handle @rpath
+    # and @executable_path references properly.
+    
+    install(CODE "
+      include(BundleUtilities)
+      
+      set(BUNDLE_PATH \"\${CMAKE_INSTALL_PREFIX}/bin/CriptoGualetQt.app\")
+      
+      if(EXISTS \"\${BUNDLE_PATH}\")
+        set(SEARCH_DIRS 
+          \"${Qt6_DIR}/../../../lib\"
+          \"/usr/local/lib\"
+          \"/opt/homebrew/lib\"
+        )
+        
+        fixup_bundle(\"\${BUNDLE_PATH}\" \"\" \"\${SEARCH_DIRS}\")
+      endif()
+    " COMPONENT Runtime)
+    
+  elseif(UNIX)
+    # -----------------------------------------------------------------------------
+    # Linux Handling
+    # -----------------------------------------------------------------------------
+    # On Linux, RPATH settings (configured in root CMakeLists.txt) handle most cases.
+    # We still use fixup_bundle to verify and copy any missing libraries.
+    
+    install(CODE "
+      include(BundleUtilities)
+      
+      set(TARGET_EXE \"\${CMAKE_INSTALL_PREFIX}/bin/CriptoGualetQt\")
+      
+      if(EXISTS \"\${TARGET_EXE}\")
+        set(SEARCH_DIRS 
+          \"/usr/lib\"
+          \"/usr/lib/x86_64-linux-gnu\"
+          \"/usr/local/lib\"
+        )
+        
+        # On Linux, fixup_bundle primarily verifies RPATH entries
+        fixup_bundle(\"\${TARGET_EXE}\" \"\" \"\${SEARCH_DIRS}\")
+      endif()
+    " COMPONENT Runtime)
   endif()
 elseif(BUILD_GUI_QT AND NOT Qt6_FOUND)
   message(STATUS "Qt6 not found - install Qt6 from https://qt.io to build the modern Qt GUI")

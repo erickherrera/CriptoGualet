@@ -400,7 +400,8 @@ void QtReceiveDialog::generateQRCode() {
     QR::QRData qrData;
     bool success = QR::GenerateQRCode(qrContent.toStdString(), qrData);
 
-    if (!success || qrData.width == 0 || qrData.height == 0) {
+    // If we have no data at all, then it's a real failure
+    if (qrData.width == 0 || qrData.height == 0 || qrData.data.empty()) {
         m_qrStatusLabel->setText("Error: Could not generate QR code");
         m_qrStatusLabel->setStyleSheet(QString("color: %1; font-size: 11px;").arg(m_themeManager->errorColor().name()));
         m_qrStatusLabel->show();
@@ -411,15 +412,17 @@ void QtReceiveDialog::generateQRCode() {
     QImage qrImage(qrData.width, qrData.height, QImage::Format_RGB32);
 
     // Get theme colors for QR code
-    QColor bgColor = m_themeManager->backgroundColor();
-    QColor fgColor = m_themeManager->textColor();
+    // For QR codes, we usually want high contrast
+    QColor bgColor = Qt::white;
+    QColor fgColor = Qt::black;
 
     for (int y = 0; y < qrData.height; ++y) {
         for (int x = 0; x < qrData.width; ++x) {
             int index = y * qrData.width + x;
             if (index < static_cast<int>(qrData.data.size())) {
-                // QR data: 0 = white (background), 1 = black (foreground)
-                QColor pixelColor = (qrData.data[index] & 1) ? fgColor : bgColor;
+                // QR data: 0 = black, 255 = white (as per QRGenerator.cpp)
+                uint8_t pixelValue = qrData.data[index];
+                QColor pixelColor = (pixelValue < 128) ? fgColor : bgColor;
                 qrImage.setPixel(x, y, pixelColor.rgb());
             }
         }
@@ -436,7 +439,7 @@ void QtReceiveDialog::generateQRCode() {
     // Convert to pixmap and add white border
     int borderSize = 20;
     QPixmap finalPixmap(QR_CODE_SIZE + 2 * borderSize, QR_CODE_SIZE + 2 * borderSize);
-    finalPixmap.fill(bgColor);
+    finalPixmap.fill(Qt::white); // Always white background for QR codes for better scanning
 
     QPainter painter(&finalPixmap);
     painter.drawImage(borderSize, borderSize, scaledQrImage);
@@ -444,7 +447,14 @@ void QtReceiveDialog::generateQRCode() {
 
     m_qrPixmap = finalPixmap;
     m_qrCodeLabel->setPixmap(m_qrPixmap);
-    m_qrStatusLabel->hide();
+    
+    if (!success) {
+        m_qrStatusLabel->setText("Using fallback pattern (libqrencode not available)");
+        m_qrStatusLabel->setStyleSheet(QString("color: %1; font-size: 11px;").arg(m_themeManager->warningColor().name()));
+        m_qrStatusLabel->show();
+    } else {
+        m_qrStatusLabel->hide();
+    }
 }
 
 void QtReceiveDialog::updateQRCode() {

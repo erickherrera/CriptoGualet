@@ -299,8 +299,10 @@ void QtSeedDisplayDialog::generateQRCode() {
     QR::QRData qrData;
     bool qrSuccess = QR::GenerateQRCode(seedText.str(), qrData);
 
-    // Check if we have valid QR data
+    // Check if we have valid QR data (width/height > 0 and data not empty)
     if (qrData.width <= 0 || qrData.height <= 0 || qrData.data.empty()) {
+        qDebug() << "QR Data validation failed: width=" << qrData.width 
+                 << "height=" << qrData.height << "data size=" << qrData.data.size();
         displayQRError("QR Code Generation Failed\n\nPlease copy the words\nbelow manually");
         return;
     }
@@ -308,6 +310,7 @@ void QtSeedDisplayDialog::generateQRCode() {
     // Create QR image from raw data
     QImage qrImage = createQRImage(qrData);
     if (qrImage.isNull()) {
+        qDebug() << "QR Image creation failed - QImage is null";
         displayQRError("QR Image Creation Failed\n\nPlease copy the words\nbelow manually");
         return;
     }
@@ -322,6 +325,7 @@ void QtSeedDisplayDialog::generateQRCode() {
 
     // Handle fallback pattern warning
     if (!qrSuccess) {
+        qDebug() << "QR generated using fallback pattern";
         displayQRWarning();
     }
 }
@@ -333,7 +337,8 @@ QImage QtSeedDisplayDialog::createQRImage(const QR::QRData& qrData) {
     for (int y = 0; y < qrData.height; ++y) {
         for (int x = 0; x < qrData.width; ++x) {
             uint8_t pixel = qrData.data[y * qrData.width + x];
-            // Use strict threshold for pure black/white contrast
+            // QR data: 0 = black, 255 = white (as per QRGenerator.cpp)
+            // Use strict threshold: values near 0 are black, near 255 are white
             QColor color = (pixel < 128) ? QColor(0, 0, 0) : QColor(255, 255, 255);
             qrImage.setPixelColor(x, y, color);
         }

@@ -48,7 +48,7 @@ extern "C" {
 static constexpr size_t BIP39_ENTROPY_BITS = 128;  // 12 words
 static constexpr uint32_t BIP39_PBKDF2_ITERS = 2048;
 static const char* DEFAULT_WORDLIST_PATH = "assets/bip39/english.txt";
-static const char* SEED_VAULT_DIR = "seed_vault";
+// SEED_VAULT_DIR is now dynamically determined - see GetSeedVaultDir()
 static const char* DPAPI_ENTROPY_PREFIX = "CriptoGualet seed v1::";
 
 // === Database Boolean Constants ===
@@ -319,6 +319,34 @@ static inline bool EnsureDir(const fs::path& p) {
     return fs::create_directories(p, ec);
 }
 
+// Get the seed vault directory path
+// Uses %LOCALAPPDATA%\CriptoGualet\seed_vault on Windows for proper permissions
+// Falls back to executable-relative path if LOCALAPPDATA is unavailable
+static fs::path GetSeedVaultDir() {
+#ifdef _WIN32
+    // Use LOCALAPPDATA for user-specific storage with proper write permissions
+    const char* localAppData = std::getenv("LOCALAPPDATA");
+    if (localAppData && localAppData[0] != '\0') {
+        fs::path appDir = fs::path(localAppData) / "CriptoGualet";
+        // Ensure the app directory exists
+        std::error_code ec;
+        if (!fs::exists(appDir, ec)) {
+            fs::create_directories(appDir, ec);
+        }
+        return appDir / "seed_vault";
+    }
+    
+    // Fallback: try executable-relative path
+    char exePath[MAX_PATH] = {0};
+    if (GetModuleFileNameA(NULL, exePath, MAX_PATH) > 0) {
+        fs::path exeDir = fs::path(exePath).parent_path();
+        return exeDir / "seed_vault";
+    }
+#endif
+    // Final fallback: current working directory
+    return fs::path("seed_vault");
+}
+
 // === Secure encryption key derivation ===
 // Derives a deterministic encryption key from machine-specific data
 //
@@ -414,23 +442,60 @@ static inline std::string trim(const std::string& s) {
 static bool LoadWordList(std::vector<std::string>& out) {
     out.clear();
 
-    // Try multiple possible locations for the wordlist
-    std::vector<std::string> possiblePaths = {"src/assets/bip39/english.txt",
-                                              "assets/bip39/english.txt",
-                                              "../src/assets/bip39/english.txt",
-                                              "../assets/bip39/english.txt",
-                                              "../../../../../src/assets/bip39/english.txt",
-                                              "../../../../../../src/assets/bip39/english.txt"};
+    // Build list of possible paths - order matters (most likely first)
+    std::vector<std::string> possiblePaths;
 
-    // Also check environment variable
+    // On Windows, ALWAYS try executable-relative paths first
+    // This is the PRIMARY mechanism for installed applications
+#ifdef _WIN32
+    char exePath[MAX_PATH] = {0};
+    DWORD pathLen = GetModuleFileNameA(NULL, exePath, MAX_PATH);
+    if (pathLen > 0 && pathLen < MAX_PATH) {
+        std::filesystem::path binPath(exePath);
+        std::filesystem::path exeDir = binPath.parent_path();
+        
+        // For installed app: C:\Program Files\CriptoGualet\bin\CriptoGualetQt.exe
+        // Assets at: C:\Program Files\CriptoGualet\bin\assets\bip39\english.txt
+        possiblePaths.push_back((exeDir / "assets" / "bip39" / "english.txt").string());
+        
+        // For installed app variant: assets might be one level up
+        // C:\Program Files\CriptoGualet\assets\bip39\english.txt  
+        possiblePaths.push_back((exeDir.parent_path() / "assets" / "bip39" / "english.txt").string());
+        
+        // For development: exe in build/bin, assets in project root
+        possiblePaths.push_back((exeDir.parent_path().parent_path() / "assets" / "bip39" / "english.txt").string());
+        
+        // For development: exe in build/bin/Release or build/bin/Debug
+        possiblePaths.push_back((exeDir.parent_path().parent_path().parent_path() / "assets" / "bip39" / "english.txt").string());
+    }
+#endif
+
+    // Environment variable override (highest priority if set)
 #pragma warning(push)
 #pragma warning(disable : 4996)  // Suppress getenv warning - this is safe usage
     if (const char* env = std::getenv("BIP39_WORDLIST")) {
+        // Insert at beginning for highest priority
         possiblePaths.insert(possiblePaths.begin(), env);
     }
 #pragma warning(pop)
 
+    // Fallback paths for development/testing (relative to CWD)
+    possiblePaths.push_back("assets/bip39/english.txt");
+    possiblePaths.push_back("src/assets/bip39/english.txt");
+    possiblePaths.push_back("../assets/bip39/english.txt");
+    possiblePaths.push_back("../src/assets/bip39/english.txt");
+    possiblePaths.push_back("../../assets/bip39/english.txt");
+
+    // Try each path
     for (const auto& path : possiblePaths) {
+        if (path.empty()) continue;
+        
+        // Check if path exists before trying to open
+        std::error_code ec;
+        if (!std::filesystem::exists(path, ec)) {
+            continue;  // Skip non-existent paths silently
+        }
+        
         std::ifstream f(path, std::ios::binary);
         if (f.is_open()) {
             std::string line;
@@ -440,12 +505,32 @@ static bool LoadWordList(std::vector<std::string>& out) {
                     out.push_back(line);
             }
             f.close();
+            
             if (out.size() == 2048) {
+                // Successfully loaded wordlist
                 return true;
             }
+            // Wrong number of words - try next path
             out.clear();
         }
     }
+
+    // Failed to find wordlist - log diagnostic info in debug builds
+#if ENABLE_AUTH_DEBUG_LOGGING
+    std::cerr << "[Auth] ERROR: Failed to load BIP39 wordlist from any location:\n";
+    for (const auto& path : possiblePaths) {
+        if (!path.empty()) {
+            std::error_code ec;
+            bool exists = std::filesystem::exists(path, ec);
+            std::cerr << "  - " << path << (exists ? " (exists but invalid)" : " (not found)") << "\n";
+        }
+    }
+#ifdef _WIN32
+    char exePathDebug[MAX_PATH] = {0};
+    GetModuleFileNameA(NULL, exePathDebug, MAX_PATH);
+    std::cerr << "  Executable: " << exePathDebug << "\n";
+#endif
+#endif
 
     return false;
 }
@@ -478,11 +563,12 @@ static std::vector<std::string> SplitWordsNormalized(const std::string& text) {
 }
 
 static fs::path VaultPathForUser(const std::string& username) {
-    return fs::path(SEED_VAULT_DIR) / (username + ".bin");
+    return GetSeedVaultDir() / (username + ".bin");
 }
 
 static bool StoreUserSeedDPAPI(const std::string& username, const std::array<uint8_t, 64>& seed) {
-    if (!EnsureDir(SEED_VAULT_DIR))
+    fs::path vaultDir = GetSeedVaultDir();
+    if (!EnsureDir(vaultDir))
         return false;
     const std::string entropy = std::string(DPAPI_ENTROPY_PREFIX) + username;
 

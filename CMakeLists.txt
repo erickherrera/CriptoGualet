@@ -381,9 +381,9 @@ endif()
 if(NOT LIBQRENCODE_FOUND)
     find_package(LibQREncode QUIET)
     if(LibQREncode_FOUND)
-        set(LIBQRENCODE_FOUND TRUE)
-        set(QRENCODE_INCLUDE_DIR ${LIBQRENCODE_INCLUDE_DIRS})
-        set(QRENCODE_LIBRARIES ${LIBQRENCODE_LIBRARIES})
+        set(LIBQRENCODE_FOUND TRUE CACHE BOOL "libqrencode found" FORCE)
+        set(QRENCODE_INCLUDE_DIR ${LIBQRENCODE_INCLUDE_DIRS} CACHE PATH "libqrencode include dir" FORCE)
+        set(QRENCODE_LIBRARIES ${LIBQRENCODE_LIBRARIES} CACHE STRING "libqrencode libraries" FORCE)
     endif()
 endif()
 
@@ -431,7 +431,9 @@ if(NOT LIBQRENCODE_FOUND)
     endif()
 
     if(QRENCODE_INCLUDE_DIR AND QRENCODE_LIBRARIES)
-        set(LIBQRENCODE_FOUND TRUE)
+        set(LIBQRENCODE_FOUND TRUE CACHE BOOL "libqrencode found" FORCE)
+        set(QRENCODE_INCLUDE_DIR ${QRENCODE_INCLUDE_DIR} CACHE PATH "libqrencode include dir" FORCE)
+        set(QRENCODE_LIBRARIES ${QRENCODE_LIBRARIES} CACHE STRING "libqrencode libraries" FORCE)
         message(STATUS "libqrencode found (manual detection)")
         message(STATUS "  Include: ${QRENCODE_INCLUDE_DIR}")
         message(STATUS "  Library: ${QRENCODE_LIBRARIES}")
@@ -460,10 +462,10 @@ endif()
 find_package(cpr CONFIG QUIET)
 find_package(nlohmann_json CONFIG QUIET)
 if(cpr_FOUND AND nlohmann_json_FOUND)
-  set(BLOCKCYPHER_AVAILABLE TRUE)
+  set(BLOCKCYPHER_AVAILABLE TRUE CACHE BOOL "BlockCypher API dependencies found" FORCE)
   message(STATUS "BlockCypher API dependencies found")
 else()
-  set(BLOCKCYPHER_AVAILABLE FALSE)
+  set(BLOCKCYPHER_AVAILABLE FALSE CACHE BOOL "BlockCypher API dependencies found" FORCE)
   message(STATUS "BlockCypher API dependencies not found - run 'vcpkg install' to install cpr and nlohmann-json")
 endif()
 
@@ -494,30 +496,170 @@ endif()
 # Test executables are now defined in Tests/CMakeLists.txt
 
 # -----------------------------------------------------------------------------
+# RPATH Configuration for Relocatable Binaries
+# -----------------------------------------------------------------------------
+# These settings ensure binaries can find their libraries at runtime after installation,
+# regardless of where CPack stages them. This is critical for the packaging phase where
+# CMake relinks binaries to use INSTALL_RPATH instead of BUILD_RPATH.
+
+# Use RPATH for the build tree (allows running from build dir during development)
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+
+# Don't use the install RPATH during build (use build tree paths)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+
+# Set the RPATH for installed binaries to find libraries relative to executable
+# $ORIGIN (Linux) or @executable_path (macOS) resolves to the directory containing the executable
+if(UNIX AND NOT APPLE)
+  set(CMAKE_INSTALL_RPATH "$ORIGIN;$ORIGIN/../lib")
+elseif(APPLE)
+  set(CMAKE_INSTALL_RPATH "@executable_path;@executable_path/../lib;@executable_path/../Frameworks")
+  set(CMAKE_MACOSX_RPATH ON)
+endif()
+
+# Add the automatically determined parts of the RPATH (libraries in build tree)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# -----------------------------------------------------------------------------
 # CPack Packaging Configuration
 # -----------------------------------------------------------------------------
+
+# Common CPack settings (cross-platform)
+set(CPACK_PACKAGE_NAME "CriptoGualet")
+set(CPACK_PACKAGE_VENDOR "CriptoGualet Team")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Secure Non-Custodial Cryptocurrency Wallet")
+set(CPACK_PACKAGE_VERSION_MAJOR "1")
+set(CPACK_PACKAGE_VERSION_MINOR "0")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "CriptoGualet")
+# License file for the installer
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+  set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+endif()
+
+# Component-based installation
+set(CPACK_COMPONENTS_ALL Runtime)
+set(CPACK_COMPONENT_RUNTIME_DISPLAY_NAME "CriptoGualet Application")
+set(CPACK_COMPONENT_RUNTIME_DESCRIPTION "The CriptoGualet cryptocurrency wallet application and all required dependencies")
+set(CPACK_COMPONENT_RUNTIME_REQUIRED TRUE)
+
 if(WIN32)
   set(CPACK_GENERATOR "NSIS;ZIP")
-  set(CPACK_PACKAGE_NAME "CriptoGualet")
-  set(CPACK_PACKAGE_VENDOR "CriptoGualet Team")
-  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Secure Non-Custodial Cryptocurrency Wallet")
-  set(CPACK_PACKAGE_VERSION "1.0.0")
-  set(CPACK_PACKAGE_INSTALL_DIRECTORY "CriptoGualet")
-  set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/logo_criptogualet.ico") # Ensure you have an icon
   
-  # NSIS Specifics
+  # Package icon (must be .ico format, 150x57 pixels for NSIS header)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/logo_criptogualet.ico")
+    set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons\\\\logo_criptogualet.ico")
+    set(CPACK_NSIS_MUI_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/logo_criptogualet.ico")
+    set(CPACK_NSIS_MUI_UNIICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/logo_criptogualet.ico")
+  endif()
+  
+  # NSIS Installer Configuration
   set(CPACK_NSIS_DISPLAY_NAME "CriptoGualet Wallet")
   set(CPACK_NSIS_PACKAGE_NAME "CriptoGualet")
+  set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\CriptoGualetQt.exe")
+  set(CPACK_NSIS_HELP_LINK "https://github.com/erickherrera/CriptoGualet")
+  set(CPACK_NSIS_URL_INFO_ABOUT "https://github.com/erickherrera/CriptoGualet")
+  set(CPACK_NSIS_CONTACT "support@criptogualet.com")
   set(CPACK_NSIS_MODIFY_PATH OFF)
+  set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
   
-  # Create a shortcut in the Start Menu
-  set(CPACK_NSIS_CREATE_ICONS_EXTRA 
-      "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\CriptoGualet.lnk' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe'")
-      
-  # Create a desktop shortcut
-  set(CPACK_NSIS_CREATE_ICONS_EXTRA 
-      "${CPACK_NSIS_CREATE_ICONS_EXTRA}
-       CreateShortCut '$DESKTOP\\\\CriptoGualet.lnk' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe'")
+  # Request admin privileges for installation (required for Program Files)
+  set(CPACK_NSIS_EXECUTABLES_DIRECTORY "bin")
+  
+  # Create Start Menu shortcuts
+  set(CPACK_NSIS_CREATE_ICONS_EXTRA
+    "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\CriptoGualet.lnk' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe' '' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe' 0"
+  )
+  
+  # Delete Start Menu shortcuts on uninstall
+  set(CPACK_NSIS_DELETE_ICONS_EXTRA
+    "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\CriptoGualet.lnk'"
+  )
+  
+  # Optional: Create Desktop shortcut (commented by default - user can enable)
+  # set(CPACK_NSIS_CREATE_ICONS_EXTRA "${CPACK_NSIS_CREATE_ICONS_EXTRA}\n  CreateShortCut '$DESKTOP\\\\CriptoGualet.lnk' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe'")
+  # set(CPACK_NSIS_DELETE_ICONS_EXTRA "${CPACK_NSIS_DELETE_ICONS_EXTRA}\n  Delete '$DESKTOP\\\\CriptoGualet.lnk'")
+  
+  # Add/Remove Programs registry entries
+  set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\CriptoGualet' 'DisplayIcon' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\CriptoGualet' 'Publisher' 'CriptoGualet Team'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\CriptoGualet' 'URLInfoAbout' 'https://github.com/erickherrera/CriptoGualet'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\CriptoGualet' 'DisplayVersion' '${CPACK_PACKAGE_VERSION}'
+  ")
+  
+  set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
+    DeleteRegKey HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\CriptoGualet'
+  ")
+  
+  # -----------------------------------------------------------------------------
+  # Visual C++ Redistributable Handling
+  # -----------------------------------------------------------------------------
+  # The VC++ Runtime is required for any MSVC-compiled application.
+  # We have two options:
+  # 1. Bundle the VC++ Redistributable installer and run it during installation
+  # 2. Use the merge modules to include the runtime directly
+  # 
+  # Option 1 is more reliable as it handles updates and shared components properly.
+  # The installer will check if the runtime is already installed.
+  
+  # Find the VC++ Redistributable installer
+  # Visual Studio 2022 (v143 toolset) uses vc_redist.x64.exe
+  set(VCREDIST_PATHS
+    "$ENV{VCToolsRedistDir}/vc_redist.x64.exe"
+    "$ENV{VCINSTALLDIR}/Redist/MSVC/v143/vc_redist.x64.exe"
+    "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Redist/MSVC/14.38.33135/vc_redist.x64.exe"
+    "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Redist/MSVC/14.38.33135/vc_redist.x64.exe"
+    "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Redist/MSVC/14.38.33135/vc_redist.x64.exe"
+  )
+  
+  # Search for VC++ Redistributable in common paths
+  foreach(VCREDIST_PATH ${VCREDIST_PATHS})
+    if(EXISTS "${VCREDIST_PATH}")
+      set(VCREDIST_EXECUTABLE "${VCREDIST_PATH}")
+      message(STATUS "Found VC++ Redistributable: ${VCREDIST_EXECUTABLE}")
+      break()
+    endif()
+  endforeach()
+  
+  # If found, configure NSIS to install VC++ Runtime
+  if(VCREDIST_EXECUTABLE)
+    # Install the VC++ Redistributable to a temp location in the package
+    install(FILES "${VCREDIST_EXECUTABLE}"
+            DESTINATION "redist"
+            COMPONENT Runtime)
+    
+    # Run the VC++ Redistributable installer silently during installation
+    set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}
+      ; Install Visual C++ Redistributable
+      DetailPrint 'Installing Visual C++ Redistributable...'
+      nsExec::ExecToLog '$INSTDIR\\\\redist\\\\vc_redist.x64.exe /install /quiet /norestart'
+      Pop $0
+      DetailPrint 'VC++ Redistributable installation returned: $0'
+    ")
+  else()
+    message(WARNING "VC++ Redistributable not found. Users may need to install it manually.")
+    message(STATUS "Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe")
+  endif()
 
-  include(CPack)
+elseif(APPLE)
+  set(CPACK_GENERATOR "DragNDrop;ZIP")
+  set(CPACK_DMG_VOLUME_NAME "CriptoGualet")
+  set(CPACK_BUNDLE_NAME "CriptoGualet")
+  
+elseif(UNIX)
+  set(CPACK_GENERATOR "TGZ;DEB;RPM")
+  
+  # Debian package settings
+  set(CPACK_DEBIAN_PACKAGE_MAINTAINER "CriptoGualet Team")
+  set(CPACK_DEBIAN_PACKAGE_SECTION "finance")
+  set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6core6, libqt6gui6, libqt6widgets6, libqt6svg6, libqt6network6, libssl3")
+  
+  # RPM package settings
+  set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+  set(CPACK_RPM_PACKAGE_GROUP "Applications/Finance")
+  set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase, qt6-qtsvg, openssl")
 endif()
+
+include(CPack)

@@ -10,9 +10,15 @@ namespace QR {
 
 bool GenerateQRCode(const std::string& text, QRData& qrData) {
 #ifdef QRENCODE_AVAILABLE
+    static bool logged = false;
+    if (!logged) {
+        std::cout << "[QRGenerator] Using libqrencode for QR generation" << std::endl;
+        logged = true;
+    }
     QRcode* qrcode = QRcode_encodeString(text.c_str(), 0, QR_ECLEVEL_M, QR_MODE_8, 1);
 
     if (!qrcode) {
+        std::cerr << "[QRGenerator] Error: QRcode_encodeString failed" << std::endl;
         return false;
     }
 
@@ -31,6 +37,11 @@ bool GenerateQRCode(const std::string& text, QRData& qrData) {
     QRcode_free(qrcode);
     return true;
 #else
+    static bool logged = false;
+    if (!logged) {
+        std::cout << "[QRGenerator] libqrencode NOT available - using fallback pattern" << std::endl;
+        logged = true;
+    }
     // Fallback: Create a simple "QR code not available" pattern
     qrData.width = 25;
     qrData.height = 25;
