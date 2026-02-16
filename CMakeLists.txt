@@ -572,14 +572,19 @@ if(WIN32)
     "CreateShortCut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\CriptoGualet.lnk' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe' '' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe' 0"
   )
   
-  # Delete Start Menu shortcuts on uninstall
-  set(CPACK_NSIS_DELETE_ICONS_EXTRA
-    "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\CriptoGualet.lnk'"
-  )
+  # Create Desktop shortcut
+  set(CPACK_NSIS_CREATE_ICONS_EXTRA "${CPACK_NSIS_CREATE_ICONS_EXTRA}\n  CreateShortCut '$DESKTOP\\\\CriptoGualet.lnk' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe' '' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe' 0")
   
-  # Optional: Create Desktop shortcut (commented by default - user can enable)
-  # set(CPACK_NSIS_CREATE_ICONS_EXTRA "${CPACK_NSIS_CREATE_ICONS_EXTRA}\n  CreateShortCut '$DESKTOP\\\\CriptoGualet.lnk' '$INSTDIR\\\\bin\\\\CriptoGualetQt.exe'")
-  # set(CPACK_NSIS_DELETE_ICONS_EXTRA "${CPACK_NSIS_DELETE_ICONS_EXTRA}\n  Delete '$DESKTOP\\\\CriptoGualet.lnk'")
+  # Delete shortcuts on uninstall
+  set(CPACK_NSIS_DELETE_ICONS_EXTRA
+    "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\CriptoGualet.lnk'
+     Delete '$DESKTOP\\\\CriptoGualet.lnk'"
+  )
+
+  # Install the icon file explicitly so it can be referenced if needed
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/logo_criptogualet.ico"
+          DESTINATION bin/resources/icons
+          COMPONENT Runtime)
   
   # Add/Remove Programs registry entries
   set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
