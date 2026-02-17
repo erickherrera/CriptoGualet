@@ -154,7 +154,6 @@ void QtTestConsole::appendOutput(const QString &text) {
 }
 
 QString QtTestConsole::findTestExecutable(const QString &name) {
-    // Look in the application directory
     QString appDir = QCoreApplication::applicationDirPath();
     QString exeName = name;
 #ifdef Q_OS_WIN
@@ -163,24 +162,35 @@ QString QtTestConsole::findTestExecutable(const QString &name) {
     }
 #endif
     
-    QFileInfo check(QDir(appDir).filePath(exeName));
-    if (check.exists() && check.isExecutable()) {
-        return check.absoluteFilePath();
-    }
+    QStringList searchPaths;
+    searchPaths << appDir;
+    searchPaths << QDir(appDir).filePath("Release");
+    searchPaths << QDir(appDir).filePath("Debug");
+    searchPaths << QDir(appDir).filePath("bin");
+    searchPaths << QDir(appDir).filePath("bin/Release");
+    searchPaths << QDir(appDir).filePath("bin/Debug");
     
-    // Fallback: try looking in parent directories (for development environments)
-    // This helps when running from IDEs where CWD might vary
-    QDir dir(appDir);
-    for (int i = 0; i < 3; ++i) {
-        dir.cdUp();
-        check.setFile(dir.filePath(exeName));
+    for (const QString &path : searchPaths) {
+        QFileInfo check(QDir(path).filePath(exeName));
         if (check.exists() && check.isExecutable()) {
             return check.absoluteFilePath();
         }
-        // Try bin subdirectory
-        check.setFile(dir.filePath("bin/" + exeName));
-        if (check.exists() && check.isExecutable()) {
-            return check.absoluteFilePath();
+    }
+    
+    QDir dir(appDir);
+    for (int i = 0; i < 3; ++i) {
+        dir.cdUp();
+        QStringList parentSearchPaths;
+        parentSearchPaths << dir.filePath(exeName);
+        parentSearchPaths << dir.filePath("bin/" + exeName);
+        parentSearchPaths << dir.filePath("bin/Release/" + exeName);
+        parentSearchPaths << dir.filePath("bin/Debug/" + exeName);
+        
+        for (const QString &path : parentSearchPaths) {
+            QFileInfo check(path);
+            if (check.exists() && check.isExecutable()) {
+                return check.absoluteFilePath();
+            }
         }
     }
 
