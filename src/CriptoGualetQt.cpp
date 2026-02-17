@@ -414,7 +414,7 @@ void CriptoGualetQt::setupUI() {
                 void run() override {
                     std::vector<std::string> mnemonic;
                     Auth::AuthResponse response =
-                        Auth::RegisterUserWithMnemonic(m_stdUsername, m_stdPassword, mnemonic);
+                        Auth::AuthManager::getInstance().RegisterUser(m_stdUsername, m_stdPassword, mnemonic);
                     QString message = QString::fromStdString(response.message);
 
                     // Report back to UI thread

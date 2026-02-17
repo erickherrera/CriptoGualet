@@ -485,6 +485,9 @@ static bool LoadWordList(std::vector<std::string>& out) {
     possiblePaths.push_back("../assets/bip39/english.txt");
     possiblePaths.push_back("../src/assets/bip39/english.txt");
     possiblePaths.push_back("../../assets/bip39/english.txt");
+    possiblePaths.push_back("../../../assets/bip39/english.txt");
+    possiblePaths.push_back("../../../../assets/bip39/english.txt");
+    possiblePaths.push_back("../../../../../assets/bip39/english.txt");
 
     // Try each path
     for (const auto& path : possiblePaths) {
@@ -1517,9 +1520,10 @@ AuthResponse RegisterUserWithMnemonic(const std::string& username, const std::st
                 "Please backup your seed phrase securely.\n\n"
                 "You can enable two-factor authentication in Settings for enhanced security."};
     } else {
-        return {AuthResult::SUCCESS,
-                "Account created. (Warning: seed phrase generation failed – try "
-                "again or check logs.)"};
+        AUTH_DEBUG_LOG_WRITE(logFile, "Result: FAILED - Seed phrase generation failed\n");
+        return {AuthResult::SYSTEM_ERROR,
+                "Account created, but seed phrase generation failed. "
+                "This is a critical error. Please contact support or try again."};
     }
 }
 

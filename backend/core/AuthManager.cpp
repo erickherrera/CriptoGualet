@@ -20,14 +20,17 @@ AuthManager::~AuthManager() {
 
 AuthResponse AuthManager::RegisterUser(const std::string& username, const std::string& password,
                                        std::vector<std::string>& outMnemonic) {
+    // SECURITY: Ensure database is initialized before registration
+    if (!InitializeAuthDatabase()) {
+        return {AuthResult::SYSTEM_ERROR, "Failed to initialize authentication database."};
+    }
+
     // Call the extended registration that returns mnemonic words
     auto response = Auth::RegisterUserWithMnemonic(username, password, outMnemonic);
 
     if (response.success() && !outMnemonic.empty()) {
-        // Note: The QtSeedDisplayDialog will be handled by the frontend/UI layer
-        // The backend just provides the mnemonic words for secure display
-        // The UI should create and show QtSeedDisplayDialog with these words
-        // and wait for user confirmation before proceeding
+        // Registration successful and mnemonic generated
+        // The UI will handle displaying the QtSeedDisplayDialog
     }
 
     return response;
