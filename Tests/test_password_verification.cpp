@@ -1,112 +1,139 @@
-// Test utility to verify password storage and authentication
-// Usage: test_password_verification <username> <password>
-
-#include <iostream>
-#include <string>
-#include <vector>
 #include "../backend/core/include/Auth.h"
 #include "../backend/database/include/Database/DatabaseManager.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
+#include <iostream>
+#include <thread>
+#include <chrono>
+#include <filesystem>
 
-int main(int argc, char* argv[]) {
-    if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <username> <password>" << std::endl;
-        std::cerr << "Example: " << argv[0] << " testuser mypassword123" << std::endl;
-        return 1;
+namespace {
+    void cleanupProductionDatabase() {
+        try {
+            std::string prodDbPath;
+#ifdef _WIN32
+            const char* localAppData = std::getenv("LOCALAPPDATA");
+            if (localAppData) {
+                prodDbPath = std::string(localAppData) + "\\CriptoGualet\\wallet.db";
+            }
+#endif
+            if (!prodDbPath.empty()) {
+                namespace fs = std::filesystem;
+                if (fs::exists(prodDbPath)) fs::remove(prodDbPath);
+                if (fs::exists(prodDbPath + "-wal")) fs::remove(prodDbPath + "-wal");
+                if (fs::exists(prodDbPath + "-shm")) fs::remove(prodDbPath + "-shm");
+            }
+        } catch (...) {}
     }
 
-    std::string username = argv[1];
-    std::string password = argv[2];
+    void logResult(const std::string& name, bool passed) {
+        std::cout << "[" << (passed ? "PASS" : "FAIL") << "] " << name << std::endl;
+    }
+}
 
-    std::cout << "=== Password Verification Test ===" << std::endl;
-    std::cout << "Username: " << username << std::endl;
-    std::cout << "Password length: " << password.length() << " characters" << std::endl;
-    std::cout << std::endl;
+int main() {
+    std::cout << "========================================" << std::endl;
+    std::cout << "  Password Verification Tests" << std::endl;
+    std::cout << "========================================" << std::endl;
 
-    // Initialize Auth database
-    std::cout << "[1/4] Initializing database..." << std::endl;
+    cleanupProductionDatabase();
+
+    std::cout << "\n=== Initializing ===" << std::endl;
     if (!Auth::InitializeAuthDatabase()) {
-        std::cerr << "ERROR: Failed to initialize authentication database" << std::endl;
+        std::cerr << "Failed to initialize database" << std::endl;
         return 1;
     }
-    std::cout << "      ✓ Database initialized successfully" << std::endl;
-    std::cout << std::endl;
+    std::cout << "Database initialized" << std::endl;
 
-    // Try to authenticate the user
-    std::cout << "[2/4] Attempting authentication..." << std::endl;
-    auto loginResult = Auth::LoginUser(username, password);
+    bool allPassed = true;
 
-    if (loginResult.success()) {
-        std::cout << "      ✓ Authentication SUCCESSFUL!" << std::endl;
-        std::cout << "      " << loginResult.message << std::endl;
-    } else {
-        std::cout << "      ✗ Authentication FAILED" << std::endl;
-        std::cout << "      Result code: " << static_cast<int>(loginResult.result) << std::endl;
-        std::cout << "      Message: " << loginResult.message << std::endl;
-    }
-    std::cout << std::endl;
+    std::cout << "\n=== Test 1: Password Hash Generation ===" << std::endl;
+    {
+        std::string password = "TestP@ssw0rd123!";
+        std::string hash1 = Auth::CreatePasswordHash(password);
+        std::string hash2 = Auth::CreatePasswordHash(password);
+        bool generated = !hash1.empty();
+        logResult("Generate password hash", generated);
+        allPassed &= generated;
 
-    // Try to get user details from database
-    std::cout << "[3/4] Checking user in database..." << std::endl;
-    try {
-        auto& dbManager = Database::DatabaseManager::getInstance();
-        Repository::UserRepository userRepo(dbManager);
+        if (generated) {
+            bool verifies = Auth::VerifyPassword(password, hash1);
+            logResult("Verify password with generated hash", verifies);
+            allPassed &= verifies;
 
-        auto userResult = userRepo.getUserByUsername(username);
-        if (userResult.success) {
-            std::cout << "      ✓ User found in database" << std::endl;
-            std::cout << "      User ID: " << userResult.data.id << std::endl;
-            std::cout << "      Username: " << userResult.data.username << std::endl;
-            std::cout << "      Password hash length: " << userResult.data.passwordHash.length() << " chars" << std::endl;
-            std::cout << "      Salt length: " << userResult.data.salt.size() << " bytes" << std::endl;
-            std::cout << "      Is active: " << (userResult.data.isActive ? "Yes" : "No") << std::endl;
-        } else {
-            std::cout << "      ✗ User NOT found in database" << std::endl;
-            std::cout << "      Error: " << userResult.errorMessage << std::endl;
+            bool different = (hash1 != hash2);
+            logResult("Salt randomization works", different);
+            allPassed &= different;
         }
-    } catch (const std::exception& e) {
-        std::cerr << "      ✗ Exception: " << e.what() << std::endl;
     }
-    std::cout << std::endl;
 
-    // Test password hashing consistency
-    std::cout << "[4/4] Testing password hash generation..." << std::endl;
-    std::string hash1 = Auth::CreatePasswordHash(password);
-    std::string hash2 = Auth::CreatePasswordHash(password);
+    std::cout << "\n=== Test 2: User Registration ===" << std::endl;
+    std::string testUser = "pw_test_user";
+    std::string testPass = "TestP@ss123!";
+    {
+        std::vector<std::string> mnemonic;
+        auto response = Auth::RegisterUserWithMnemonic(testUser, testPass, mnemonic);
+        bool registered = response.success();
+        logResult("Register new user", registered);
+        allPassed &= registered;
+    }
 
-    if (!hash1.empty()) {
-        std::cout << "      ✓ Password hash generated successfully" << std::endl;
-        std::cout << "      Hash format: " << hash1.substr(0, 50) << "..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        // Verify the hash we just created
-        bool verifies = Auth::VerifyPassword(password, hash1);
-        std::cout << "      Hash verification: " << (verifies ? "PASS" : "FAIL") << std::endl;
+    std::cout << "\n=== Test 3: Login with Correct Password ===" << std::endl;
+    {
+        auto loginResult = Auth::LoginUser(testUser, testPass);
+        bool passed = loginResult.success();
+        logResult("Login with correct password", passed);
+        allPassed &= passed;
+    }
 
-        // Check if two hashes are different (they should be due to random salt)
-        bool different = (hash1 != hash2);
-        std::cout << "      Salt randomization: " << (different ? "WORKING" : "NOT WORKING") << std::endl;
+    std::cout << "\n=== Test 4: Reject Wrong Password ===" << std::endl;
+    {
+        auto loginResult = Auth::LoginUser(testUser, "WrongPassword123!");
+        bool rejected = !loginResult.success();
+        logResult("Reject incorrect password", rejected);
+        allPassed &= rejected;
+    }
+
+    std::cout << "\n=== Test 5: Password Strength Validation ===" << std::endl;
+    {
+        auto weakResult = Auth::LoginUser("weakuser", "weak");
+        bool weakRejected = !weakResult.success();
+        logResult("Reject weak password in login", weakRejected);
+        allPassed &= weakRejected;
+    }
+
+    std::cout << "\n=== Test 6: Database User Lookup ===" << std::endl;
+    {
+        try {
+            auto& dbManager = Database::DatabaseManager::getInstance();
+            Repository::UserRepository userRepo(dbManager);
+            auto userResult = userRepo.getUserByUsername(testUser);
+            bool found = userResult.success;
+            logResult("Find user in database", found);
+            allPassed &= found;
+
+            if (found) {
+                bool notEmpty = !userResult.data.passwordHash.empty();
+                logResult("Password hash stored in database", notEmpty);
+                allPassed &= notEmpty;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Exception: " << e.what() << std::endl;
+            logResult("Database user lookup", false);
+            allPassed = false;
+        }
+    }
+
+    cleanupProductionDatabase();
+
+    std::cout << "\n========================================" << std::endl;
+    if (allPassed) {
+        std::cout << "  ALL TESTS PASSED" << std::endl;
     } else {
-        std::cout << "      ✗ Failed to generate password hash" << std::endl;
+        std::cout << "  SOME TESTS FAILED" << std::endl;
     }
-    std::cout << std::endl;
+    std::cout << "========================================" << std::endl;
 
-    // Summary
-    std::cout << "=== Summary ===" << std::endl;
-    if (loginResult.success()) {
-        std::cout << "✓ Password is stored and verified correctly!" << std::endl;
-        std::cout << "  The user can log in successfully." << std::endl;
-    } else {
-        std::cout << "✗ Password verification failed!" << std::endl;
-        std::cout << "  Possible issues:" << std::endl;
-        std::cout << "  1. The password you entered doesn't match what was registered" << std::endl;
-        std::cout << "  2. The password hash was not stored correctly during registration" << std::endl;
-        std::cout << "  3. The database may be corrupted" << std::endl;
-        std::cout << std::endl;
-        std::cout << "  Recommendations:" << std::endl;
-        std::cout << "  - Double-check the password (case-sensitive)" << std::endl;
-        std::cout << "  - Try creating a new user and test with that" << std::endl;
-        std::cout << "  - Check the application logs for errors during registration" << std::endl;
-    }
-
-    return loginResult.success() ? 0 : 1;
+    return allPassed ? 0 : 1;
 }

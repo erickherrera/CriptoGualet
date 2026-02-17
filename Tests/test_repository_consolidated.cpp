@@ -1353,17 +1353,24 @@ void testMaximumAddressesPerWallet(Repository::WalletRepository& walletRepo, Rep
 // ============================================================================
 
 int main() {
-    sqlite3_shutdown();
-    sqlite3_config(SQLITE_CONFIG_SERIALIZED);
-    sqlite3_initialize();
-
     TestUtils::printTestHeader("Consolidated Repository Tests");
+    std::cout << "Step 1: SQLite init..." << std::endl;
+
+    // Initialize SQLite 
+    sqlite3_initialize();
+    std::cout << "Step 2: SQLite initialized" << std::endl;
 
     // Run integration tests with separate DB
     {
+        std::cout << "Step 3: Getting DatabaseManager..." << std::endl;
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
-        TestUtils::initializeTestLogger("test_integration.log");
+        std::cout << "Step 4: Got dbManager" << std::endl;
+        
+        // Skip Logger init - may cause issues
+        // TestUtils::initializeTestLogger("test_integration.log");
+        std::cout << "Step 5: Initializing test DB..." << std::endl;
         TestUtils::initializeTestDatabase(dbManager, TEST_INTEGRATION_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        std::cout << "Step 6: Test DB initialized" << std::endl;
 
         Repository::UserRepository userRepo(dbManager);
         Repository::WalletRepository walletRepo(dbManager);

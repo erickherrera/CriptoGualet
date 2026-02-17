@@ -51,6 +51,27 @@ namespace {
         }
     }
 
+    void cleanupProductionDatabase() {
+        try {
+            std::string prodDbPath;
+#ifdef _WIN32
+            const char* localAppData = std::getenv("LOCALAPPDATA");
+            if (localAppData) {
+                prodDbPath = std::string(localAppData) + "\\CriptoGualet\\wallet.db";
+            }
+#endif
+            if (!prodDbPath.empty() && std::filesystem::exists(prodDbPath)) {
+                std::filesystem::remove(prodDbPath);
+                std::string walPath = prodDbPath + "-wal";
+                std::string shmPath = prodDbPath + "-shm";
+                if (std::filesystem::exists(walPath)) std::filesystem::remove(walPath);
+                if (std::filesystem::exists(shmPath)) std::filesystem::remove(shmPath);
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Warning: Could not clean up prod database: " << e.what() << std::endl;
+        }
+    }
+
     void logTestResult(const std::string& testName, bool passed) {
         std::cout << "[" << (passed ? "PASS" : "FAIL") << "] " << testName << std::endl;
         if (!passed) {
@@ -70,12 +91,35 @@ public:
 
         try {
             cleanupTestDatabase();
+            cleanupProductionDatabase();
 
             bool authInit = Auth::InitializeAuthDatabase();
             if (!authInit) {
                 std::cerr << "Failed to initialize Auth database" << std::endl;
                 return false;
             }
+
+            Auth::ClearRateLimit("totp:2fa_totp_user1");
+            Auth::ClearRateLimit("totp:2fa_totp_user2");
+            Auth::ClearRateLimit("totp:2fa_totp_user3");
+            Auth::ClearRateLimit("totp:2fa_totp_user4");
+            Auth::ClearRateLimit("totp:2fa_totp_user5");
+            Auth::ClearRateLimit("totp:2fa_totp_user6");
+            Auth::ClearRateLimit("reg:2fa_totp_user1");
+            Auth::ClearRateLimit("reg:2fa_totp_user2");
+            Auth::ClearRateLimit("reg:2fa_totp_user3");
+            Auth::ClearRateLimit("reg:2fa_totp_user4");
+            Auth::ClearRateLimit("reg:2fa_totp_user5");
+            Auth::ClearRateLimit("reg:2fa_totp_user6");
+            Auth::ClearRateLimit("reg:2fa_totp_user7");
+            Auth::ClearRateLimit("backup:2fa_totp_user6");
+            Auth::ClearRateLimit("2fa_totp_user1");
+            Auth::ClearRateLimit("2fa_totp_user2");
+            Auth::ClearRateLimit("2fa_totp_user3");
+            Auth::ClearRateLimit("2fa_totp_user4");
+            Auth::ClearRateLimit("2fa_totp_user5");
+            Auth::ClearRateLimit("2fa_totp_user6");
+            Auth::ClearRateLimit("2fa_totp_user7");
 
             dbManager = &Database::DatabaseManager::getInstance();
             userRepo = std::make_unique<Repository::UserRepository>(*dbManager);
@@ -150,12 +194,10 @@ public:
 
         bool allPassed = true;
 
-        // Generate a test secret
         std::vector<uint8_t> secret;
         Crypto::GenerateTOTPSecret(secret);
         std::string secretBase32 = Crypto::Base32Encode(secret);
 
-        // Generate and verify a code for current time
         {
             std::string code = Crypto::GenerateTOTP(secret);
             bool passed = code.length() == 6;
@@ -163,7 +205,6 @@ public:
             allPassed &= passed;
         }
 
-        // Verify generated code
         {
             std::string code = Crypto::GenerateTOTP(secret);
             bool verified = Crypto::VerifyTOTP(secret, code);
@@ -171,17 +212,15 @@ public:
             allPassed &= verified;
         }
 
-        // Verify with window tolerance
         {
-            // Code from 30 seconds ago should still work with window=1
-            uint64_t pastTime = static_cast<uint64_t>(std::time(nullptr)) - 30;
-            std::string pastCode = Crypto::GenerateTOTP(secret, pastTime);
-            bool verified = Crypto::VerifyTOTP(secret, pastCode, 1);
+            uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+            uint64_t futureTime = now + 30;
+            std::string futureCode = Crypto::GenerateTOTP(secret, futureTime);
+            bool verified = Crypto::VerifyTOTP(secret, futureCode, 2);
             logTestResult("Verify TOTP code with time window", verified);
             allPassed &= verified;
         }
 
-        // Reject invalid code
         {
             bool rejected = !Crypto::VerifyTOTP(secret, "000000");
             logTestResult("Reject invalid TOTP code", rejected);

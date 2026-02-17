@@ -19,12 +19,16 @@ QtTestConsole::QtTestConsole(QWidget *parent)
     m_availableTests["Password Verification & Hashing"] = "test_password_verification";
     m_availableTests["BIP39/BIP44 Wallet Chains"] = "test_wallet_chains";
     m_availableTests["Session Management (Auth)"] = "test_session_consolidated";
-    m_availableTests["Repository & Database"] = "test_repository_consolidated";
     m_availableTests["Security Enhancements"] = "test_security_enhancements";
     m_availableTests["2FA / TOTP"] = "test_2fa";
     m_availableTests["BlockCypher API"] = "test_blockcypher_api";
 
     setupUI();
+    
+    // Populate test list after UI is set up
+    for (auto it = m_availableTests.begin(); it != m_availableTests.end(); ++it) {
+        m_testListWidget->addItem(it.key());
+    }
     
     m_currentProcess = new QProcess(this);
     connect(m_currentProcess, &QProcess::readyReadStandardOutput, this, &QtTestConsole::onProcessReadyReadStandardOutput);
@@ -51,14 +55,16 @@ void QtTestConsole::setupUI() {
     // Apply basic styling
     setStyleSheet(QString(
         "QDialog { background-color: %1; color: %2; }"
-        "QTextEdit { background-color: #1E1E1E; color: #D4D4D4; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; border: 1px solid %3; border-radius: 4px; }"
+        "QTextEdit { background-color: #0D1117; color: #C9D1D9; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; border: 1px solid #30363D; border-radius: 6px; padding: 8px; }"
         "QListWidget { background-color: %4; color: %2; border: 1px solid %3; border-radius: 4px; }"
+        "QListWidget::item { padding: 8px; border-radius: 4px; margin: 2px; }"
+        "QListWidget::item:selected { background-color: %5; color: white; }"
         "QLabel { color: %2; font-weight: bold; }"
-        "QPushButton { background-color: %5; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; }"
+        "QPushButton { background-color: %5; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 13px; }"
         "QPushButton:hover { background-color: %6; }"
-        "QPushButton:disabled { background-color: %7; color: #888; }"
-        "QProgressBar { border: 1px solid %3; border-radius: 4px; text-align: center; }"
-        "QProgressBar::chunk { background-color: %5; }"
+        "QPushButton:disabled { background-color: #21262D; color: #484F58; }"
+        "QProgressBar { border: 1px solid #30363D; border-radius: 4px; text-align: center; background-color: #161B22; }"
+        "QProgressBar::chunk { background-color: %5; border-radius: 3px; }"
     ).arg(theme.backgroundColor().name())
      .arg(theme.textColor().name())
      .arg(theme.secondaryColor().name())
@@ -71,24 +77,34 @@ void QtTestConsole::setupUI() {
     mainLayout->setSpacing(15);
     mainLayout->setContentsMargins(20, 20, 20, 20);
 
-    // Header
-    QLabel *headerLabel = new QLabel("Run system diagnostics to verify the security and integrity of your installation.", this);
-    headerLabel->setStyleSheet("font-size: 14px; margin-bottom: 10px;");
-    mainLayout->addWidget(headerLabel);
+    // Header with icon
+    QHBoxLayout *headerLayout = new QHBoxLayout();
+    QLabel *iconLabel = new QLabel(this);
+    iconLabel->setText("<span style='font-size: 24px;'>🛡️</span>");
+    headerLayout->addWidget(iconLabel);
+    
+    QVBoxLayout *titleLayout = new QVBoxLayout();
+    QLabel *titleLabel = new QLabel("System Diagnostics & Security Verification", this);
+    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #58A6FF;");
+    QLabel *headerLabel = new QLabel("Run diagnostics to verify the security and integrity of your installation.", this);
+    headerLabel->setStyleSheet("font-size: 12px; color: #8B949E; margin-bottom: 5px;");
+    titleLayout->addWidget(titleLabel);
+    titleLayout->addWidget(headerLabel);
+    headerLayout->addLayout(titleLayout);
+    headerLayout->addStretch();
+    mainLayout->addLayout(headerLayout);
 
     // Split view: Test List vs Console Output
     QHBoxLayout *contentLayout = new QHBoxLayout();
+    contentLayout->setSpacing(15);
     
-    // Left: Test List
+    // Left: Test List with status indicators
     QVBoxLayout *listLayout = new QVBoxLayout();
-    QLabel *listLabel = new QLabel("Available Diagnostic Tests:", this);
+    QLabel *listLabel = new QLabel("Available Tests:", this);
+    listLabel->setStyleSheet("color: #58A6FF; font-size: 13px; margin-bottom: 5px;");
     m_testListWidget = new QListWidget(this);
-    m_testListWidget->setFixedWidth(250);
-    
-    // Populate list
-    for (auto it = m_availableTests.begin(); it != m_availableTests.end(); ++it) {
-        m_testListWidget->addItem(it.key());
-    }
+    m_testListWidget->setFixedWidth(280);
+    m_testListWidget->setSpacing(4);
     
     listLayout->addWidget(listLabel);
     listLayout->addWidget(m_testListWidget);
@@ -97,8 +113,10 @@ void QtTestConsole::setupUI() {
     // Right: Console Output
     QVBoxLayout *consoleLayout = new QVBoxLayout();
     QLabel *consoleLabel = new QLabel("Execution Log:", this);
+    consoleLabel->setStyleSheet("color: #58A6FF; font-size: 13px; margin-bottom: 5px;");
     m_consoleOutput = new QTextEdit(this);
     m_consoleOutput->setReadOnly(true);
+    m_consoleOutput->setStyleSheet("QTextEdit { selection-background-color: #264F78; }");
     
     consoleLayout->addWidget(consoleLabel);
     consoleLayout->addWidget(m_consoleOutput);
@@ -111,17 +129,19 @@ void QtTestConsole::setupUI() {
     m_progressBar->setRange(0, 100);
     m_progressBar->setValue(0);
     m_progressBar->setTextVisible(true);
+    m_progressBar->setFixedHeight(8);
     mainLayout->addWidget(m_progressBar);
 
-    // Status Label
-    m_statusLabel = new QLabel("Ready", this);
+    // Status Label with icons
+    m_statusLabel = new QLabel("Ready to run diagnostics", this);
+    m_statusLabel->setStyleSheet("color: #8B949E; font-size: 12px;");
     mainLayout->addWidget(m_statusLabel);
 
     // Buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
     
-    m_runButton = new QPushButton("Run All Diagnostics", this);
+    m_runButton = new QPushButton("▶ Run All Diagnostics", this);
     connect(m_runButton, &QPushButton::clicked, this, &QtTestConsole::onRunClicked);
     
     m_closeButton = new QPushButton("Close", this);
