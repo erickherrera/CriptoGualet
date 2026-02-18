@@ -82,3 +82,37 @@ add_custom_target(run_all_session_tests
     COMMENT "Run all session management tests"
     DEPENDS test_session_consolidated
 )
+
+# -----------------------------------------------------------------------------
+# Installation - Bundle test executables for QtTestConsole diagnostics
+# -----------------------------------------------------------------------------
+# These executables are needed by the "System Diagnostics & Security Verification"
+# feature in the Qt GUI (QtTestConsole.cpp)
+
+if(WIN32)
+  set(TEST_EXE_SUFFIX ".exe")
+endif()
+
+# Install test executables to bin directory
+set(TEST_EXECUTABLES
+  test_password_verification
+  test_wallet_chains
+  test_secure_seed
+  test_bip39
+  test_security_enhancements
+  test_2fa
+  test_database
+  test_session_consolidated
+)
+
+if(TARGET BlockCypher)
+  list(APPEND TEST_EXECUTABLES test_blockcypher_api)
+endif()
+
+foreach(TEST_TARGET ${TEST_EXECUTABLES})
+  if(TARGET ${TEST_TARGET})
+    install(TARGETS ${TEST_TARGET}
+            RUNTIME DESTINATION bin
+            COMPONENT Runtime)
+  endif()
+endforeach()
