@@ -7,9 +7,11 @@
 #include <QScrollBar>
 #include <QDateTime>
 #include <QRegularExpression>
+#include <QColor>
+#include <QBrush>
 
 QtTestConsole::QtTestConsole(QWidget *parent)
-    : QDialog(parent), m_currentProcess(nullptr), m_isRunning(false), m_totalTests(0), m_passedTests(0) {
+    : QDialog(parent), m_currentProcess(nullptr), m_isRunning(false), m_runningSingleTest(false), m_totalTests(0), m_passedTests(0) {
     setWindowTitle("System Diagnostics & Security Verification");
     resize(900, 600);
     
@@ -28,6 +30,7 @@ QtTestConsole::QtTestConsole(QWidget *parent)
     // Populate test list after UI is set up
     for (auto it = m_availableTests.begin(); it != m_availableTests.end(); ++it) {
         m_testListWidget->addItem(it.key());
+        m_testResults[it.key()] = "";  // Not run yet
     }
     
     m_currentProcess = new QProcess(this);
@@ -35,6 +38,10 @@ QtTestConsole::QtTestConsole(QWidget *parent)
     connect(m_currentProcess, &QProcess::readyReadStandardError, this, &QtTestConsole::onProcessReadyReadStandardError);
     connect(m_currentProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), 
             this, &QtTestConsole::onProcessFinished);
+    
+    // Connect double-click signal for running individual tests
+    connect(m_testListWidget, &QListWidget::itemDoubleClicked, 
+            this, &QtTestConsole::onTestDoubleClicked);
 }
 
 QtTestConsole::~QtTestConsole() {
@@ -141,12 +148,16 @@ void QtTestConsole::setupUI() {
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
     
+    m_runSelectedButton = new QPushButton("▶ Run Selected", this);
+    connect(m_runSelectedButton, &QPushButton::clicked, this, &QtTestConsole::onRunSelectedClicked);
+    
     m_runButton = new QPushButton("▶ Run All Diagnostics", this);
     connect(m_runButton, &QPushButton::clicked, this, &QtTestConsole::onRunClicked);
     
     m_closeButton = new QPushButton("Close", this);
     connect(m_closeButton, &QPushButton::clicked, this, &QtTestConsole::onCloseClicked);
     
+    buttonLayout->addWidget(m_runSelectedButton);
     buttonLayout->addWidget(m_runButton);
     buttonLayout->addWidget(m_closeButton);
     mainLayout->addLayout(buttonLayout);
@@ -182,6 +193,17 @@ QString QtTestConsole::findTestExecutable(const QString &name) {
     }
 #endif
     
+    appendOutput(QString("<b>Diagnostic:</b> App Dir: %1").arg(appDir));
+    
+    // Direct check in appDir
+    QDir dir(appDir);
+    if (dir.exists(exeName)) {
+        appendOutput(QString("<b>Diagnostic:</b> Found %1 in App Dir").arg(exeName));
+        return dir.absoluteFilePath(exeName);
+    } else {
+        appendOutput(QString("<b>Diagnostic:</b> %1 NOT found in App Dir").arg(exeName));
+    }
+
     QStringList searchPaths;
     searchPaths << appDir;
     searchPaths << QDir(appDir).filePath("Release");
@@ -191,24 +213,25 @@ QString QtTestConsole::findTestExecutable(const QString &name) {
     searchPaths << QDir(appDir).filePath("bin/Debug");
     
     for (const QString &path : searchPaths) {
-        QFileInfo check(QDir(path).filePath(exeName));
-        if (check.exists() && check.isExecutable()) {
+        QString fullPath = QDir(path).filePath(exeName);
+        QFileInfo check(fullPath);
+        if (check.exists()) {
             return check.absoluteFilePath();
         }
     }
     
-    QDir dir(appDir);
+    QDir dirUp(appDir);
     for (int i = 0; i < 3; ++i) {
-        dir.cdUp();
+        dirUp.cdUp();
         QStringList parentSearchPaths;
-        parentSearchPaths << dir.filePath(exeName);
-        parentSearchPaths << dir.filePath("bin/" + exeName);
-        parentSearchPaths << dir.filePath("bin/Release/" + exeName);
-        parentSearchPaths << dir.filePath("bin/Debug/" + exeName);
+        parentSearchPaths << dirUp.filePath(exeName);
+        parentSearchPaths << dirUp.filePath("bin/" + exeName);
+        parentSearchPaths << dirUp.filePath("bin/Release/" + exeName);
+        parentSearchPaths << dirUp.filePath("bin/Debug/" + exeName);
         
         for (const QString &path : parentSearchPaths) {
             QFileInfo check(path);
-            if (check.exists() && check.isExecutable()) {
+            if (check.exists()) {
                 return check.absoluteFilePath();
             }
         }
@@ -218,6 +241,7 @@ QString QtTestConsole::findTestExecutable(const QString &name) {
 }
 
 void QtTestConsole::runTest(const QString &testName, const QString &executableName) {
+    m_currentTestName = testName;
     QString exePath = findTestExecutable(executableName);
     
     appendOutput(QString("<b>Running: %1</b><br>").arg(testName));
@@ -226,14 +250,37 @@ void QtTestConsole::runTest(const QString &testName, const QString &executableNa
         appendOutput(QString("<span style='color:#F44336;'>Error: Could not find executable '%1'.</span><br>").arg(executableName));
         appendOutput("Please ensure the test suite is installed.<br>");
         appendOutput("--------------------------------------------------<br>");
-        processNextTest();
+        m_testResults[m_currentTestName] = "failed";
+        updateTestItemStatus(m_currentTestName, false);
+        
+        if (m_runningSingleTest) {
+            m_isRunning = false;
+            m_runButton->setEnabled(true);
+            m_runSelectedButton->setEnabled(true);
+            m_statusLabel->setText("Test Failed - Executable not found");
+            m_progressBar->setValue(100);
+        } else {
+            processNextTest();
+        }
         return;
     }
 
     m_currentProcess->start(exePath, QStringList());
     if (!m_currentProcess->waitForStarted()) {
         appendOutput(QString("<span style='color:#F44336;'>Error: Failed to start process '%1'.</span><br>").arg(exePath));
-        processNextTest();
+        appendOutput("--------------------------------------------------<br>");
+        m_testResults[m_currentTestName] = "failed";
+        updateTestItemStatus(m_currentTestName, false);
+        
+        if (m_runningSingleTest) {
+            m_isRunning = false;
+            m_runButton->setEnabled(true);
+            m_runSelectedButton->setEnabled(true);
+            m_statusLabel->setText("Test Failed - Could not start process");
+            m_progressBar->setValue(100);
+        } else {
+            processNextTest();
+        }
     }
 }
 
@@ -241,12 +288,20 @@ void QtTestConsole::runAllTests() {
     if (m_isRunning) return;
     
     m_isRunning = true;
+    m_runningSingleTest = false;
     m_runButton->setEnabled(false);
+    m_runSelectedButton->setEnabled(false);
     m_consoleOutput->clear();
     m_progressBar->setValue(0);
     m_testQueue = m_availableTests.keys();
-    m_totalTests = m_testQueue.size();
+    m_totalTests = (int)m_testQueue.size();
     m_passedTests = 0;
+    
+    // Reset test results
+    for (auto it = m_testResults.begin(); it != m_testResults.end(); ++it) {
+        it.value() = "";
+    }
+    resetTestListStyles();
     
     appendOutput(QString("<b>Starting System Diagnostics - %1</b><br>").arg(QDateTime::currentDateTime().toString()));
     appendOutput("==================================================<br>");
@@ -258,13 +313,14 @@ void QtTestConsole::processNextTest() {
     if (m_testQueue.isEmpty()) {
         m_isRunning = false;
         m_runButton->setEnabled(true);
+        m_runSelectedButton->setEnabled(true);
         m_statusLabel->setText(QString("Diagnostics Complete. Passed: %1/%2").arg(m_passedTests).arg(m_totalTests));
         m_progressBar->setValue(100);
         appendOutput("<br><b>All diagnostics completed.</b><br>");
         return;
     }
 
-    int progress = ((m_totalTests - m_testQueue.size()) * 100) / m_totalTests;
+    int progress = ((m_totalTests - (int)m_testQueue.size()) * 100) / m_totalTests;
     m_progressBar->setValue(progress);
 
     QString testName = m_testQueue.takeFirst();
@@ -285,20 +341,103 @@ void QtTestConsole::onProcessReadyReadStandardError() {
 }
 
 void QtTestConsole::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
-    if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+    bool passed = (exitStatus == QProcess::NormalExit && exitCode == 0);
+    
+    if (passed) {
         appendOutput("<span style='color:#4CAF50;'><b>✓ TEST PASSED</b></span><br>");
         m_passedTests++;
+        m_testResults[m_currentTestName] = "passed";
     } else {
         appendOutput(QString("<span style='color:#F44336;'><b>✗ TEST FAILED (Exit Code: %1)</b></span><br>").arg(exitCode));
+        m_testResults[m_currentTestName] = "failed";
     }
     appendOutput("--------------------------------------------------<br>");
     
-    // Schedule next test
-    processNextTest();
+    // Update visual status in the list
+    updateTestItemStatus(m_currentTestName, passed);
+    
+    if (m_runningSingleTest) {
+        // Single test completed
+        m_isRunning = false;
+        m_runButton->setEnabled(true);
+        m_runSelectedButton->setEnabled(true);
+        m_statusLabel->setText(passed ? "Test Passed" : "Test Failed");
+        m_progressBar->setValue(100);
+    } else {
+        // Schedule next test in batch
+        processNextTest();
+    }
 }
 
 void QtTestConsole::onRunClicked() {
     runAllTests();
+}
+
+void QtTestConsole::onRunSelectedClicked() {
+    if (m_isRunning) return;
+    
+    QListWidgetItem *selectedItem = m_testListWidget->currentItem();
+    if (!selectedItem) {
+        m_statusLabel->setText("Please select a test to run");
+        appendOutput("<span style='color:#FF9800;'>Please select a test from the list to run.</span><br>");
+        return;
+    }
+    
+    QString testName = selectedItem->text();
+    // Strip status prefix if present
+    if (testName.startsWith("✓ ") || testName.startsWith("✗ ")) {
+        testName = testName.mid(2);
+    }
+    
+    if (!m_availableTests.contains(testName)) {
+        m_statusLabel->setText("Invalid test selected");
+        return;
+    }
+    
+    // Run single test
+    m_isRunning = true;
+    m_runningSingleTest = true;
+    m_runButton->setEnabled(false);
+    m_runSelectedButton->setEnabled(false);
+    m_consoleOutput->clear();
+    m_progressBar->setValue(0);
+    m_totalTests = 1;
+    m_passedTests = 0;
+    
+    appendOutput(QString("<b>Running: %1</b><br>").arg(testName));
+    appendOutput("==================================================<br>");
+    
+    QString exeName = m_availableTests[testName];
+    runTest(testName, exeName);
+}
+
+void QtTestConsole::onTestDoubleClicked(QListWidgetItem *item) {
+    if (m_isRunning) return;
+    if (!item) return;
+    
+    QString testName = item->text();
+    // Strip status prefix if present
+    if (testName.startsWith("✓ ") || testName.startsWith("✗ ")) {
+        testName = testName.mid(2);
+    }
+    
+    if (!m_availableTests.contains(testName)) return;
+    
+    // Run single test
+    m_isRunning = true;
+    m_runningSingleTest = true;
+    m_runButton->setEnabled(false);
+    m_runSelectedButton->setEnabled(false);
+    m_consoleOutput->clear();
+    m_progressBar->setValue(0);
+    m_totalTests = 1;
+    m_passedTests = 0;
+    
+    appendOutput(QString("<b>Running: %1</b><br>").arg(testName));
+    appendOutput("==================================================<br>");
+    
+    QString exeName = m_availableTests[testName];
+    runTest(testName, exeName);
 }
 
 void QtTestConsole::onCloseClicked() {
@@ -320,5 +459,56 @@ void QtTestConsole::done(int r) {
     }
     
     QDialog::done(r);
+}
+
+void QtTestConsole::updateTestItemStatus(const QString &testName, bool passed) {
+    // Search for item by comparing after stripping any existing prefix
+    QListWidgetItem *targetItem = nullptr;
+    for (int i = 0; i < m_testListWidget->count(); ++i) {
+        QListWidgetItem *item = m_testListWidget->item(i);
+        QString itemText = item->text();
+        // Strip status prefix if present
+        if (itemText.startsWith("✓ ") || itemText.startsWith("✗ ")) {
+            itemText = itemText.mid(2);
+        }
+        if (itemText == testName) {
+            targetItem = item;
+            break;
+        }
+    }
+    
+    if (!targetItem) return;
+    
+    // Add new status prefix
+    QString text;
+    if (passed) {
+        text = "✓ " + testName;
+        targetItem->setBackground(QColor("#1A4D1A"));  // Dark green
+        targetItem->setForeground(QColor("#4CAF50"));  // Bright green
+    } else {
+        text = "✗ " + testName;
+        targetItem->setBackground(QColor("#4D1A1A"));  // Dark red
+        targetItem->setForeground(QColor("#F44336"));  // Bright red
+    }
+    
+    targetItem->setText(text);
+}
+
+void QtTestConsole::resetTestListStyles() {
+    for (int i = 0; i < m_testListWidget->count(); ++i) {
+        QListWidgetItem *item = m_testListWidget->item(i);
+        QString text = item->text();
+        
+        // Remove status prefix
+        if (text.startsWith("✓ ")) {
+            text = text.mid(2);
+        } else if (text.startsWith("✗ ")) {
+            text = text.mid(2);
+        }
+        
+        item->setText(text);
+        item->setBackground(QBrush());  // Reset to default
+        item->setForeground(QBrush());   // Reset to default
+    }
 }
 
