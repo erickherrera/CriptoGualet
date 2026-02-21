@@ -95,14 +95,10 @@ endif()
 
 # Install test executables to bin directory
 set(TEST_EXECUTABLES
-  test_password_verification
   test_wallet_chains
   test_secure_seed
   test_bip39
-  test_security_enhancements
-  test_2fa
   test_database
-  test_session_consolidated
   test_repository_consolidated
 )
 

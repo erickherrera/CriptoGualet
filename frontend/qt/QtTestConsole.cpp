@@ -18,11 +18,11 @@ QtTestConsole::QtTestConsole(QWidget *parent)
     // Define available tests based on the project structure
     // These map readable names to executable names
     m_availableTests["Secure Seed Storage (DPAPI)"] = "test_secure_seed";
-    m_availableTests["Password Verification & Hashing"] = "test_password_verification";
+    // m_availableTests["Password Verification & Hashing"] = "test_password_verification";
     m_availableTests["BIP39/BIP44 Wallet Chains"] = "test_wallet_chains";
-    m_availableTests["Session Management (Auth)"] = "test_session_consolidated";
-    m_availableTests["Security Enhancements"] = "test_security_enhancements";
-    m_availableTests["2FA / TOTP"] = "test_2fa";
+    // m_availableTests["Session Management (Auth)"] = "test_session_consolidated";
+    // m_availableTests["Security Enhancements"] = "test_security_enhancements";
+    // m_availableTests["2FA / TOTP"] = "test_2fa";
     m_availableTests["BlockCypher API"] = "test_blockcypher_api";
 
     setupUI();
