@@ -648,35 +648,6 @@ if(WIN32)
     message(STATUS "Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe")
   endif()
 
-  # -----------------------------------------------------------------------------
-  # Test Executables for System Diagnostics
-  # -----------------------------------------------------------------------------
-  # Explicitly install test executables to bin directory
-  # These are needed by QtTestConsole for the System Diagnostics feature
-  
-  # Find test executables in build directory (Release or Debug subdirectory)
-  file(GLOB_RECURSE TEST_EXE_FILES 
-    "${CMAKE_BINARY_DIR}/bin/Release/test_*.exe"
-  )
-  
-  # If not found in Release, try the build type directory
-  if(NOT TEST_EXE_FILES)
-    file(GLOB_RECURSE TEST_EXE_FILES 
-      "${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE}/test_*.exe"
-    )
-  endif()
-  
-  # Install each test executable
-  foreach(TEST_EXE ${TEST_EXE_FILES})
-    get_filename_component(TEST_EXE_NAME "${TEST_EXE}" NAME)
-    if(EXISTS "${TEST_EXE}")
-      install(PROGRAMS "${TEST_EXE}" 
-              DESTINATION bin 
-              COMPONENT Runtime)
-      message(STATUS "NSIS will install test: ${TEST_EXE_NAME}")
-    endif()
-  endforeach()
-
 elseif(APPLE)
   set(CPACK_GENERATOR "DragNDrop;ZIP")
   set(CPACK_DMG_VOLUME_NAME "CriptoGualet")

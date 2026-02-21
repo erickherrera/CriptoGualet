@@ -103,6 +103,7 @@ set(TEST_EXECUTABLES
   test_2fa
   test_database
   test_session_consolidated
+  test_repository_consolidated
 )
 
 if(TARGET BlockCypher)
