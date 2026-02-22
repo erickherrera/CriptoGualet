@@ -186,7 +186,7 @@ void QtSuccessDialog::applyTheme() {
     // Get theme colors
     QColor bgColor = tm.surfaceColor();
     QColor textColor = tm.textColor();
-    QColor primaryColor = tm.primaryColor();
+    QColor accentColor = tm.accentColor();
     QColor successColor = QColor(76, 175, 80);
     
     // Dialog background with semi-transparent overlay
@@ -252,7 +252,7 @@ void QtSuccessDialog::applyTheme() {
         ).arg(tm.subtitleColor().name()));
     }
     
-    // Button styling
+    // Button styling - using accentColor for visibility in all themes
     if (m_okButton) {
         m_okButton->setStyleSheet(QString(
             "QPushButton#successButton {"
@@ -270,9 +270,9 @@ void QtSuccessDialog::applyTheme() {
             "QPushButton#successButton:pressed {"
             "   background-color: %3;"
             "}"
-        ).arg(primaryColor.name(),
-              primaryColor.darker(110).name(),
-              primaryColor.darker(120).name()));
+        ).arg(accentColor.name(),
+              accentColor.darker(110).name(),
+              accentColor.darker(120).name()));
     }
 }
 
