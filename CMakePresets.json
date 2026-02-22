@@ -93,7 +93,7 @@
         "CMAKE_GENERATOR_PLATFORM": "x64",
         "QT_DIR": {
           "type": "PATH",
-          "value": "C:/Qt/6.9.1/msvc2022_64"
+          "value": "C:/Program Files/Qt/6.9.1/msvc2022_64"
         }
       },
       "description": "ClangCL Debug builds with VS 2026."
