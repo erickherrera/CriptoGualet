@@ -21,14 +21,15 @@
 #include <QMutex>
 #include <QFutureWatcher>
 #include <QtConcurrent>
+#include "QtThemeManager.h"
 
 class QtLoginUI;
 class QtWalletUI;
 class QtSettingsUI;
 class QtTopCryptosPage;
-class QtThemeManager;
 class QtSidebar;
 class QtTestConsole;
+class LoadingOverlay;
 
 namespace Auth {
     struct AuthResponse;
@@ -60,6 +61,7 @@ class CriptoGualetQt : public QMainWindow {
     void createSidebar();
     void updateSidebarVisibility();
     void applyNavbarStyling();
+    void changeTheme(ThemeType theme);
     void applyBitcoinProviderSettings(int userId);
     void applyBitcoinProviderSettingsFromValues(const QString& providerType,
                                                 const QString& rpcUrl,
@@ -89,6 +91,7 @@ class CriptoGualetQt : public QMainWindow {
     QtTopCryptosPage* m_topCryptosPage;
     QtSidebar* m_sidebar;
     QtThemeManager* m_themeManager;
+    LoadingOverlay* m_loadingOverlay;
     std::unique_ptr<WalletAPI::SimpleWallet> m_wallet;
     std::unique_ptr<WalletAPI::EthereumWallet> m_ethereumWallet;  // PHASE 1 FIX
     std::unique_ptr<WalletAPI::LitecoinWallet> m_litecoinWallet;  // PHASE 2 FIX

@@ -12,14 +12,13 @@
 #include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
+#include "QtThemeManager.h"
 
 namespace Repository {
 class SettingsRepository;
 class UserRepository;
 class WalletRepository;
 }
-
-class QtThemeManager;
 
 class QtSettingsUI : public QWidget {
     Q_OBJECT
@@ -39,6 +38,7 @@ class QtSettingsUI : public QWidget {
     void resizeEvent(QResizeEvent* event) override;
 
   signals:
+    void themeChangeRequested(ThemeType theme);
     void bitcoinProviderSettingsChanged(const QString& providerType,
                                         const QString& rpcUrl,
                                         const QString& rpcUsername,

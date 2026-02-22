@@ -14,6 +14,7 @@
 #include "../frontend/qt/include/QtTopCryptosPage.h"
 #include "../frontend/qt/include/QtWalletUI.h"
 #include "../frontend/qt/include/QtTestConsole.h"
+#include "../frontend/qt/include/LoadingOverlay.h"
 
 #include <QTimer>
 #include <QAction>
@@ -59,7 +60,8 @@ CriptoGualetQt::CriptoGualetQt(QWidget* parent)
       m_mainLayout(nullptr),
       m_contentLayout(nullptr),
       m_contentWidget(nullptr),
-      m_sidebar(nullptr) {
+      m_sidebar(nullptr),
+      m_loadingOverlay(nullptr) {
     // Use global thread pool for background operations
     m_threadPool = QThreadPool::globalInstance();
     m_threadPool->setMaxThreadCount(4);  // Limit concurrent threads
@@ -101,6 +103,7 @@ CriptoGualetQt::CriptoGualetQt(QWidget* parent)
     m_litecoinWallet = std::make_unique<WalletAPI::LitecoinWallet>("ltc/main");
 
     setupUI();
+    m_loadingOverlay = new LoadingOverlay(this);
     setupMenuBar();
     setupStatusBar();
 
@@ -283,6 +286,8 @@ void CriptoGualetQt::setupUI() {
                                                        rpcPassword, allowInsecureHttp,
                                                        enableFallback);
             });
+        connect(m_settingsUI, &QtSettingsUI::themeChangeRequested, this,
+                &CriptoGualetQt::changeTheme);
     }
 
     // Pass wallet instances and repositories to wallet UI
@@ -734,19 +739,19 @@ void CriptoGualetQt::setupMenuBar() {
     QAction* cryptoLightAction = themeMenu->addAction("Light - Purple");
 
     connect(darkAction, &QAction::triggered, [this]() {
-        m_themeManager->applyTheme(ThemeType::DARK);
+        changeTheme(ThemeType::DARK);
     });
 
     connect(lightAction, &QAction::triggered, [this]() {
-        m_themeManager->applyTheme(ThemeType::LIGHT);
+        changeTheme(ThemeType::LIGHT);
     });
 
     connect(cryptoDarkAction, &QAction::triggered, [this]() {
-        m_themeManager->applyTheme(ThemeType::CRYPTO_DARK);
+        changeTheme(ThemeType::CRYPTO_DARK);
     });
 
     connect(cryptoLightAction, &QAction::triggered, [this]() {
-        m_themeManager->applyTheme(ThemeType::CRYPTO_LIGHT);
+        changeTheme(ThemeType::CRYPTO_LIGHT);
     });
 
     QMenu* helpMenu = menuBar()->addMenu("&Help");
@@ -1061,6 +1066,27 @@ void CriptoGualetQt::applyBitcoinProviderSettingsFromValues(
     config.enableFallback = enableFallback;
 
     m_wallet->ApplyProviderConfig(config);
+}
+
+void CriptoGualetQt::changeTheme(ThemeType theme) {
+    if (m_loadingOverlay) {
+        m_loadingOverlay->show();
+        m_loadingOverlay->raise();
+    }
+
+    // Use a small delay to allow the loading overlay to render before blocking the UI thread with theme application
+    QTimer::singleShot(100, this, [this, theme]() {
+        if (m_themeManager) {
+            m_themeManager->applyTheme(theme);
+        }
+        
+        // Keep the overlay for a short duration after theme is applied for a smoother feel
+        QTimer::singleShot(500, this, [this]() {
+            if (m_loadingOverlay) {
+                m_loadingOverlay->hide();
+            }
+        });
+    });
 }
 
 int main(int argc, char* argv[]) {

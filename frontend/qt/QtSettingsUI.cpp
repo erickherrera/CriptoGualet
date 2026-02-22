@@ -177,7 +177,7 @@ void QtSettingsUI::setupUI() {
   connect(m_themeSelector, QOverload<int>::of(&QComboBox::currentIndexChanged),
           this, [this](int index) {
             int themeValue = m_themeSelector->itemData(index).toInt();
-            m_themeManager->applyTheme(static_cast<ThemeType>(themeValue));
+            emit themeChangeRequested(static_cast<ThemeType>(themeValue));
           });
 
   themeLayout->addRow(themeLabel, m_themeSelector);
