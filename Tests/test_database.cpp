@@ -1,4 +1,5 @@
 #include "../backend/database/include/Database/DatabaseManager.h"
+#include "TestUtils.h"
 #include <cassert>
 #include <filesystem>
 #include <iostream>
@@ -24,8 +25,8 @@ private:
 public:
   DatabaseTester()
       : db(Database::DatabaseManager::getInstance()),
-        testDbPath("./test_criptogualet.db"),
-        backupPath("./test_criptogualet_backup.db"), testsPassed(true),
+        testDbPath(TestUtils::getWritableTestPath("test_criptogualet.db")),
+        backupPath(TestUtils::getWritableTestPath("test_criptogualet_backup.db")), testsPassed(true),
         testsRun(0) {}
 
   bool runAllTests() {

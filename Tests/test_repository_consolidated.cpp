@@ -1362,14 +1362,15 @@ int main() {
 
     // Run integration tests with separate DB
     {
+        std::string dbPath = TestUtils::getWritableTestPath(TEST_INTEGRATION_DB_PATH);
         std::cout << "Step 3: Getting DatabaseManager..." << std::endl;
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
         std::cout << "Step 4: Got dbManager" << std::endl;
         
         // Skip Logger init - may cause issues
         // TestUtils::initializeTestLogger("test_integration.log");
-        std::cout << "Step 5: Initializing test DB..." << std::endl;
-        TestUtils::initializeTestDatabase(dbManager, TEST_INTEGRATION_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        std::cout << "Step 5: Initializing test DB at " << dbPath << "..." << std::endl;
+        TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
         std::cout << "Step 6: Test DB initialized" << std::endl;
 
         Repository::UserRepository userRepo(dbManager);
@@ -1381,14 +1382,16 @@ int main() {
         testMultiUserScenario(userRepo, walletRepo, txRepo);
         testErrorHandlingAndRollback(userRepo, walletRepo);
 
-        TestUtils::shutdownTestEnvironment(dbManager, TEST_INTEGRATION_DB_PATH);
+        TestUtils::shutdownTestEnvironment(dbManager, dbPath);
     }
 
     // Run transaction repository tests
     {
+        std::string dbPath = TestUtils::getWritableTestPath(TEST_TX_REPO_DB_PATH);
+        std::string logPath = TestUtils::getWritableTestPath("test_tx_repo.log");
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
-        TestUtils::initializeTestLogger("test_tx_repo.log");
-        TestUtils::initializeTestDatabase(dbManager, TEST_TX_REPO_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestLogger(logPath);
+        TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
         Repository::WalletRepository walletRepo(dbManager);
@@ -1411,14 +1414,16 @@ int main() {
         testBoundaryDuplicateTxid(txRepo, walletRepo, userRepo);
         testBoundaryPaginationEdgeCases(txRepo, walletRepo, userRepo);
 
-        TestUtils::shutdownTestEnvironment(dbManager, TEST_TX_REPO_DB_PATH);
+        TestUtils::shutdownTestEnvironment(dbManager, dbPath);
     }
 
     // Run user repository tests
     {
+        std::string dbPath = TestUtils::getWritableTestPath(TEST_USER_REPO_DB_PATH);
+        std::string logPath = TestUtils::getWritableTestPath("test_user_repo.log");
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
-        TestUtils::initializeTestLogger("test_user_repo.log");
-        TestUtils::initializeTestDatabase(dbManager, TEST_USER_REPO_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestLogger(logPath);
+        TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
 
@@ -1444,14 +1449,16 @@ int main() {
         testUnicodeCharactersInUsername(userRepo);
         testExtremelyLongInputs(userRepo);
 
-        TestUtils::shutdownTestEnvironment(dbManager, TEST_USER_REPO_DB_PATH);
+        TestUtils::shutdownTestEnvironment(dbManager, dbPath);
     }
 
     // Run wallet repository tests
     {
+        std::string dbPath = TestUtils::getWritableTestPath(TEST_WALLET_REPO_DB_PATH);
+        std::string logPath = TestUtils::getWritableTestPath("test_wallet_repo.log");
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
-        TestUtils::initializeTestLogger("test_wallet_repo.log");
-        TestUtils::initializeTestDatabase(dbManager, TEST_WALLET_REPO_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestLogger(logPath);
+        TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
         Repository::WalletRepository walletRepo(dbManager);
@@ -1485,7 +1492,7 @@ int main() {
         testInvalidWalletType(walletRepo, userRepo);
         testMaximumAddressesPerWallet(walletRepo, userRepo);
 
-        TestUtils::shutdownTestEnvironment(dbManager, TEST_WALLET_REPO_DB_PATH);
+        TestUtils::shutdownTestEnvironment(dbManager, dbPath);
     }
 
     // Print final summary

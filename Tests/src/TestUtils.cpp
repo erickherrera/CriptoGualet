@@ -208,6 +208,36 @@ namespace TestUtils {
         std::cout << COLOR_BLUE << "----------------------------------------------------" << COLOR_RESET << std::endl;
     }
 
+    std::string getWritableTestPath(const std::string& filename) {
+        try {
+            std::filesystem::path testDir;
+#ifdef _WIN32
+            const char* localAppData = std::getenv("LOCALAPPDATA");
+            if (localAppData) {
+                testDir = std::filesystem::path(localAppData) / "CriptoGualet" / "Tests";
+            } else {
+                testDir = std::filesystem::temp_directory_path() / "CriptoGualetTests";
+            }
+#else
+            testDir = std::filesystem::temp_directory_path() / "CriptoGualetTests";
+#endif
+            std::error_code ec;
+            if (!std::filesystem::exists(testDir, ec)) {
+                std::filesystem::create_directories(testDir, ec);
+            }
+            
+            // If we still can't create/access the directory, fallback to current dir
+            // (though this is what failed in the first place)
+            if (ec) {
+                return filename;
+            }
+
+            return (testDir / filename).string();
+        } catch (...) {
+            return filename; // Ultimate fallback
+        }
+    }
+
     int createTestUser(Repository::UserRepository& userRepo, const std::string& username) {
         auto userResult = userRepo.createUser(username, "SecurePass123!");
         if (!userResult.hasValue()) {

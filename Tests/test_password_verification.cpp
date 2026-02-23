@@ -1,28 +1,29 @@
 #include "../backend/core/include/Auth.h"
 #include "../backend/database/include/Database/DatabaseManager.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
+#include "TestUtils.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
 #include <filesystem>
 
 namespace {
-    void cleanupProductionDatabase() {
+    std::string getTestDbPath() {
+        return TestUtils::getWritableTestPath("test_password_wallet.db");
+    }
+
+    void cleanupTestDatabase() {
         try {
-            std::string prodDbPath;
-#ifdef _WIN32
-            const char* localAppData = std::getenv("LOCALAPPDATA");
-            if (localAppData) {
-                prodDbPath = std::string(localAppData) + "\\CriptoGualet\\wallet.db";
-            }
-#endif
-            if (!prodDbPath.empty()) {
-                namespace fs = std::filesystem;
-                if (fs::exists(prodDbPath)) fs::remove(prodDbPath);
-                if (fs::exists(prodDbPath + "-wal")) fs::remove(prodDbPath + "-wal");
-                if (fs::exists(prodDbPath + "-shm")) fs::remove(prodDbPath + "-shm");
-            }
+            std::string dbPath = getTestDbPath();
+            namespace fs = std::filesystem;
+            if (fs::exists(dbPath)) fs::remove(dbPath);
+            if (fs::exists(dbPath + "-wal")) fs::remove(dbPath + "-wal");
+            if (fs::exists(dbPath + "-shm")) fs::remove(dbPath + "-shm");
         } catch (...) {}
+    }
+
+    void cleanupProductionDatabase() {
+        // Disabled for safety when running from installed app
     }
 
     void logResult(const std::string& name, bool passed) {
@@ -35,9 +36,18 @@ int main() {
     std::cout << "  Password Verification Tests" << std::endl;
     std::cout << "========================================" << std::endl;
 
-    cleanupProductionDatabase();
+    std::string dbPath = getTestDbPath();
+    
+    // Override Auth database path for testing
+#ifdef _WIN32
+    _putenv_s("WALLET_DB_PATH", dbPath.c_str());
+#else
+    setenv("WALLET_DB_PATH", dbPath.c_str(), 1);
+#endif
 
-    std::cout << "\n=== Initializing ===" << std::endl;
+    cleanupTestDatabase();
+
+    std::cout << "\n=== Initializing at " << dbPath << " ===" << std::endl;
     if (!Auth::InitializeAuthDatabase()) {
         std::cerr << "Failed to initialize database" << std::endl;
         return 1;

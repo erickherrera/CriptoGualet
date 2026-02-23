@@ -59,6 +59,7 @@ namespace TestUtils {
     bool createFullSchema(Database::DatabaseManager& dbManager);
     void shutdownTestEnvironment(Database::DatabaseManager& dbManager, const std::string& dbPath);
     void printTestSummary(const std::string& testSuiteName);
+    std::string getWritableTestPath(const std::string& filename);
 
     // Helper functions
     int createTestUser(Repository::UserRepository& userRepo, const std::string& username);

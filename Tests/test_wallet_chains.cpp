@@ -528,9 +528,15 @@ static void testBIP44DerivationPathsForDifferentChains(Repository::WalletReposit
 int main() {
   std::cout << "=== Comprehensive Multi-Chain Wallet Tests ===" << std::endl << std::endl;
 
-  // Print current working directory for debugging
+  // Derive writable paths for test artifacts
+  std::string dbPath = TestUtils::getWritableTestPath(TEST_DB_PATH);
+  std::string logPath = TestUtils::getWritableTestPath("test_wallet_chains.log");
+
+  // Print current working directory and artifact paths for debugging
   std::cout << "Current working directory: "
             << std::filesystem::current_path().string() << std::endl;
+  std::cout << "Test Database: " << dbPath << std::endl;
+  std::cout << "Test Log:      " << logPath << std::endl;
 
   // -------------------------------------------------------------------------
   // Part 1: BIP39/BIP44 Cryptographic Tests
@@ -565,9 +571,9 @@ int main() {
   TestUtils::printTestHeader("Multi-Chain Wallet Support Tests");
 
   Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
-  TestUtils::initializeTestLogger("test_wallet_chains.log");
+  TestUtils::initializeTestLogger(logPath);
 
-  TestUtils::initializeTestDatabase(dbManager, TEST_DB_PATH, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+  TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
   Repository::UserRepository userRepo(dbManager);
   Repository::WalletRepository walletRepo(dbManager);
@@ -583,7 +589,7 @@ int main() {
   testBIP44DerivationPathsForDifferentChains(walletRepo, userRepo);
 
   TestUtils::printTestSummary("Multi-Chain Wallet Tests");
-  TestUtils::shutdownTestEnvironment(dbManager, TEST_DB_PATH);
+  TestUtils::shutdownTestEnvironment(dbManager, dbPath);
 
   std::cout << "\n=== All Tests Complete ===" << std::endl;
 

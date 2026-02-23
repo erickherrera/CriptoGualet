@@ -2,6 +2,7 @@
 #include "../backend/core/include/Crypto.h"
 #include "../backend/database/include/Database/DatabaseManager.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
+#include "TestUtils.h"
 #include <iostream>
 #include <filesystem>
 #include <thread>
@@ -31,15 +32,18 @@ extern "C" {
  */
 
 namespace {
-    const std::string TEST_DB_PATH = "wallet.db";
+    std::string getTestDbPath() {
+        return TestUtils::getWritableTestPath("test_2fa_wallet.db");
+    }
 
     void cleanupTestDatabase() {
         try {
-            if (std::filesystem::exists(TEST_DB_PATH)) {
-                std::filesystem::remove(TEST_DB_PATH);
+            std::string dbPath = getTestDbPath();
+            if (std::filesystem::exists(dbPath)) {
+                std::filesystem::remove(dbPath);
             }
-            std::string walPath = std::string(TEST_DB_PATH) + "-wal";
-            std::string shmPath = std::string(TEST_DB_PATH) + "-shm";
+            std::string walPath = dbPath + "-wal";
+            std::string shmPath = dbPath + "-shm";
             if (std::filesystem::exists(walPath)) {
                 std::filesystem::remove(walPath);
             }
@@ -90,8 +94,17 @@ public:
         std::cout << "\n=== Initializing TOTP 2FA Tests ===" << std::endl;
 
         try {
+            std::string dbPath = getTestDbPath();
+            
+            // Override Auth database path for testing
+#ifdef _WIN32
+            _putenv_s("WALLET_DB_PATH", dbPath.c_str());
+#else
+            setenv("WALLET_DB_PATH", dbPath.c_str(), 1);
+#endif
+
             cleanupTestDatabase();
-            cleanupProductionDatabase();
+            // cleanupProductionDatabase(); // Disabled for safety when running from installed app
 
             bool authInit = Auth::InitializeAuthDatabase();
             if (!authInit) {
