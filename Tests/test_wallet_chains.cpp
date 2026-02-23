@@ -26,30 +26,6 @@ constexpr const char* TEST_DB_PATH = "test_wallet_chains.db";
 // Helper Functions
 // ============================================================================
 
-static std::vector<std::string> LoadWordlist(const std::string &filepath) {
-  std::vector<std::string> wordlist;
-  std::ifstream file(filepath);
-  if (!file.is_open()) {
-    std::cerr << "Failed to open wordlist file: " << filepath << std::endl;
-    return wordlist;
-  }
-
-  std::string word;
-  while (std::getline(file, word)) {
-    if (!word.empty()) {
-      // Remove any trailing whitespace or newlines
-      while (!word.empty() && (word.back() == '\r' || word.back() == '\n' ||
-                               word.back() == ' ')) {
-        word.pop_back();
-      }
-      wordlist.push_back(word);
-    }
-  }
-
-  file.close();
-  return wordlist;
-}
-
 static void PrintHex(const std::string &label, const uint8_t *data, size_t len) {
   std::cout << label << ": ";
   for (size_t i = 0; i < len; i++) {
@@ -60,35 +36,12 @@ static void PrintHex(const std::string &label, const uint8_t *data, size_t len) 
 
 static std::vector<std::string> LoadBIP39Wordlist() {
   std::vector<std::string> wordlist;
-
-  // Try multiple possible locations for the wordlist
-  std::vector<std::string> possiblePaths = {
-      "assets/bip39/english.txt",
-      "src/assets/bip39/english.txt",
-      "../../assets/bip39/english.txt",
-      "../../../assets/bip39/english.txt",
-      "../../../../assets/bip39/english.txt",
-      "../../../../../assets/bip39/english.txt",
-      "../../../../../src/assets/bip39/english.txt",
-  };
-
-  std::cout << "Trying to find wordlist..." << std::endl;
-  for (const auto &path : possiblePaths) {
-    std::cout << "  Trying: " << path << " -> ";
-    if (std::filesystem::exists(path)) {
-      std::cout << "EXISTS" << std::endl;
-      wordlist = LoadWordlist(path);
-      if (wordlist.size() == 2048) {
-        std::cout << "  Loaded BIP39 wordlist from: " << path << std::endl;
-        break;
-      } else {
-        std::cout << "    (but only " << wordlist.size() << " words)" << std::endl;
-      }
-    } else {
-      std::cout << "not found" << std::endl;
-    }
+  std::cout << "Loading BIP39 wordlist using robust detection..." << std::endl;
+  if (Crypto::LoadBIP39Wordlist(wordlist)) {
+    std::cout << "  Successfully loaded " << wordlist.size() << " words." << std::endl;
+  } else {
+    std::cerr << "  FAILED to load BIP39 wordlist from any known location." << std::endl;
   }
-
   return wordlist;
 }
 

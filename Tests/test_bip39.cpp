@@ -136,39 +136,11 @@ namespace Internal {
 
     std::vector<std::string> LoadWordList() {
         std::vector<std::string> words;
-        
-        // Try multiple possible locations for the wordlist
-        std::vector<std::string> possiblePaths = {
-            "src/assets/bip39/english.txt",
-            "assets/bip39/english.txt",
-            "../src/assets/bip39/english.txt",
-            "../assets/bip39/english.txt",
-            "../../../../../src/assets/bip39/english.txt",
-            "../../../../../../src/assets/bip39/english.txt"
-        };
-        
-        for (const auto& path : possiblePaths) {
-            std::ifstream f(path, std::ios::binary);
-            if (f.is_open()) {
-                std::string line;
-                while (std::getline(f, line)) {
-                    // Trim whitespace
-                    size_t start = line.find_first_not_of(" \t\r\n");
-                    if (start != std::string::npos) {
-                        size_t end = line.find_last_not_of(" \t\r\n");
-                        words.push_back(line.substr(start, end - start + 1));
-                    }
-                }
-                f.close();
-                if (words.size() == 2048) {
-                    std::cout << "Loaded wordlist from: " << path << "\n";
-                    return words;
-                }
-                words.clear();
-            }
+        if (Crypto::LoadBIP39Wordlist(words)) {
+            std::cout << "Loaded wordlist using robust detection (2048 words)\n";
+        } else {
+            std::cout << "Warning: Could not load BIP39 wordlist from any location\n";
         }
-        
-        std::cout << "Warning: Could not load BIP39 wordlist from any location\n";
         return words;
     }
 

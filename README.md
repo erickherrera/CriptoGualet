@@ -1,81 +1,116 @@
 # CriptoGualet
-CriptoGualet is a **cross-platform cryptocurrency wallet** designed for secure and easy management of your digital assets. It's built with a modern, intuitive user interface using the **Qt Framework** and is configured for cross-platform compilation using **CMake**.
+
+CriptoGualet is a **non-custodial, cross-platform cryptocurrency wallet** designed for high-security digital asset management. Built with **C++20** and the **Qt6 Framework**, it combines a professional-grade backend with a modern, theme-aware user interface.
 
 ---
 
-## Features
+## 🚀 Key Features
 
-* **Secure Transactions**: Utilizes industry-standard cryptographic libraries for secure and reliable transactions.
-* **Cross-Platform Support**: Built with CMake to ensure compatibility across various operating systems, including Windows, macOS, and Linux.
-* **Modern UI**: A clean, intuitive, and user-friendly interface powered by the Qt Framework.
-* **Multiple Cryptocurrency Support**: Bitcoin, Ethereum, Litecoin, etc.
-
----
-
-## Prerequisites
-
-To build CriptoGualet, you'll need the following:
-
-* **CMake**: A cross-platform build system. You can download it from [cmake.org](https://cmake.org/).
-* **Qt Framework**: The complete Qt development environment. You can get it from [qt.io](https://www.qt.io/).
-* A C++ compiler that supports C++11 or later (e.g., GCC, Clang, MSVC).
+*   **Multi-Chain Support**: Native support for **Bitcoin (BTC)**, **Ethereum (ETH)**, and **Litecoin (LTC)** with BIP-44 derivation.
+*   **Encrypted Storage**: All sensitive data is stored in a locally encrypted **SQLCipher/SQLite3** database using machine-specific hardware identifiers.
+*   **BIP-39/BIP-44 Standards**: Industry-standard mnemonic seed phrases and hierarchical deterministic (HD) wallet generation.
+*   **Modern UI/UX**:
+    *   **Theming**: Multiple built-in themes (Dark Blue, Light Blue, Purple Crypto) with smooth transitions and a loading overlay.
+    *   **Responsive Design**: Optimized for various screen sizes, including ultra-wide monitors.
+*   **System Diagnostics**: Built-in security verification and cryptographic health checks.
+*   **Secure Networking**: Multi-provider support (BlockCypher, Bitcoin RPC) with optional fallback mechanisms.
 
 ---
 
-## Building the Project
+## 🛠 Prerequisites
+
+To build CriptoGualet, ensure you have the following installed:
+
+*   **C++ Compiler**: Clang (v16+) or MSVC (VS 2022 17.10+) supporting **C++20**.
+*   **CMake**: Version 3.21 or later.
+*   **Qt6**: Version 6.5+ (specifically `Qt6::Widgets`, `Qt6::Gui`, `Qt6::Network`, `Qt6::Concurrent`).
+*   **vcpkg**: Microsoft's C++ package manager (used for all backend dependencies).
+*   **NSIS**: (Optional) For building the Windows Installer.
+
+---
+
+## 🏗 Building the Project
+
+The project uses **CMake Presets** for a streamlined configuration process.
 
 ### 1. Clone the Repository
-
 ```bash
 git clone https://github.com/erickherrera/CriptoGualet.git
 cd CriptoGualet
-````
-
-### 2\. Configure with CMake
-
-Create a `build` directory and run CMake to configure the project.
-
-```bash
-mkdir build
-cd build
-cmake ..
 ```
 
-### 3\. Build the Application
+### 2. Install Dependencies
+Ensure `VCPKG_ROOT` is set in your environment, then the build system will automatically handle dependencies defined in `vcpkg.json`.
 
-Use the generated build files to compile the application.
+### 3. Configure and Build
+We recommend using the **ClangCL** presets on Windows for optimal performance and safety:
 
-```bash
-cmake --build .
+**Debug Build (with Address Sanitizer):**
+```powershell
+cmake --preset w-cl-dbg
+cmake --build --preset w-cl-build
 ```
 
-After a successful build, the executable will be located in the `build` directory.
-
------
-
-## Usage
-
-CriptoGualet provides a graphical interface for managing your cryptocurrency wallets. After building the application, you can launch it from the build directory or install it to your system.
-
-```bash
-# Launch from build directory (Linux/macOS)
-./build/CriptoGualet
-
-# Launch from build directory (Windows)
-.\build\CriptoGualet.exe
+**Release Build (Optimized):**
+```powershell
+cmake --preset w-cl-rel
+cmake --build --preset w-cl-build-release
 ```
 
-On first launch, you'll be guided through creating a new wallet or importing an existing one. Make sure to securely back up your recovery phrase.
+---
 
------
+## 📦 Distribution & Packaging
 
-## Contributing
+To generate a professional Windows Installer (`.exe`) or a portable archive (`.zip`), run CPack from the release build directory:
 
-We welcome contributions\! Please feel free to fork the repository, make changes, and submit a pull request.
+```powershell
+cd out/build/w-cl-rel
+cpack -G NSIS -C Release
+```
 
------
+---
 
-## License
+## 🔒 Security Architecture
+
+*   **Memory Safety**: Critical cryptographic secrets (mnemonic, private keys) are securely wiped from memory immediately after use.
+*   **Encrypted DB**: The database key is never stored; it is derived at runtime using a combination of user password and hardware-bound secrets.
+*   **Two-Factor Authentication**: Support for TOTP (Google Authenticator, Authy) for sensitive operations.
+*   **No Centralized Storage**: Your keys never leave your device. CriptoGualet does not have a "cloud" component for your funds.
+
+---
+
+## 🧪 Testing
+
+CriptoGualet includes an extensive test suite for its cryptographic and repository layers:
+
+```powershell
+ctest --preset w-cl-test
+```
+
+---
+
+## 📂 Project Structure
+
+*   **`backend/`**: Core logic including cryptography (`secp256k1`), blockchain APIs, and the database repository layer.
+*   **`frontend/qt/`**: The Qt6 implementation, containing all UI components, custom widgets, and theme management.
+*   **`assets/`**: Static resources like the BIP-39 wordlist required for seed generation.
+*   **`resources/`**: Icons, logos, and Qt resource files (`.qrc`).
+*   **`Tests/`**: Unit and integration tests for cryptographic correctness and repository integrity.
+*   **`ProjectGuides/`**: Detailed documentation on architecture, UI design, and development workflows.
+
+---
+
+## 📖 Development Guides
+
+For more in-depth information, please refer to our internal guides:
+*   [System Architecture](ProjectGuides/SYSTEM_ARCHITECTURE.md)
+*   [Multi-Chain Design](ProjectGuides/MULTI_CHAIN_ARCHITECTURE.md)
+*   [UI & Theming Guide](ProjectGuides/QT_UI_ARCHITECTURE.md)
+*   [Release & Packaging](ProjectGuides/RELEASE_GUIDE.md)
+
+---
+
+## 📄 License
 
 Copyright (c) 2026 CriptoGualet Team
 

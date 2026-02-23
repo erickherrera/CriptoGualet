@@ -40,6 +40,7 @@ bool DPAPI_Protect(const std::vector<uint8_t> &plaintext, const std::string &ent
 bool DPAPI_Unprotect(const std::vector<uint8_t> &ciphertext, const std::string &entropy_str, std::vector<uint8_t> &plaintext);
 
 // === BIP-39 Cryptographic Functions ===
+bool LoadBIP39Wordlist(std::vector<std::string> &wordlist);
 bool GenerateEntropy(size_t bits, std::vector<uint8_t> &out);
 bool MnemonicFromEntropy(const std::vector<uint8_t> &entropy, const std::vector<std::string> &wordlist, std::vector<std::string> &outMnemonic);
 bool ValidateMnemonic(const std::vector<std::string> &mnemonic, const std::vector<std::string> &wordlist);

@@ -12,6 +12,8 @@
 #include <cmath>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -595,6 +597,97 @@ bool DPAPI_Unprotect(const std::vector<uint8_t> &ciphertext,
 }
 
 // === BIP-39 Cryptographic Functions ===
+bool LoadBIP39Wordlist(std::vector<std::string> &wordlist) {
+  wordlist.clear();
+
+  // Build list of possible paths - order matters (most likely first)
+  std::vector<std::string> possiblePaths;
+
+  // On Windows, ALWAYS try executable-relative paths first
+  // This is the PRIMARY mechanism for installed applications
+#ifdef _WIN32
+  char exePath[MAX_PATH] = {0};
+  DWORD pathLen = GetModuleFileNameA(NULL, exePath, MAX_PATH);
+  if (pathLen > 0 && pathLen < MAX_PATH) {
+    std::filesystem::path binPath(exePath);
+    std::filesystem::path exeDir = binPath.parent_path();
+
+    // For installed app: C:\Program Files\CriptoGualet\bin\CriptoGualetQt.exe
+    // Assets at: C:\Program Files\CriptoGualet\bin\assets\bip39\english.txt
+    possiblePaths.push_back((exeDir / "assets" / "bip39" / "english.txt").string());
+
+    // For installed app variant: assets might be one level up
+    // C:\Program Files\CriptoGualet\assets\bip39\english.txt
+    possiblePaths.push_back((exeDir.parent_path() / "assets" / "bip39" / "english.txt").string());
+
+    // For development: exe in build/bin, assets in project root
+    possiblePaths.push_back((exeDir.parent_path().parent_path() / "assets" / "bip39" / "english.txt").string());
+
+    // For development: exe in build/bin/Release or build/bin/Debug
+    possiblePaths.push_back((exeDir.parent_path().parent_path().parent_path() / "assets" / "bip39" / "english.txt").string());
+  }
+#endif
+
+  // Environment variable override (highest priority if set)
+#pragma warning(push)
+#pragma warning(disable : 4996) // Suppress getenv warning
+  if (const char *env = std::getenv("BIP39_WORDLIST")) {
+    // Insert at beginning for highest priority
+    possiblePaths.insert(possiblePaths.begin(), env);
+  }
+#pragma warning(pop)
+
+  // Fallback paths for development/testing (relative to CWD)
+  possiblePaths.push_back("assets/bip39/english.txt");
+  possiblePaths.push_back("src/assets/bip39/english.txt");
+  possiblePaths.push_back("../assets/bip39/english.txt");
+  possiblePaths.push_back("../src/assets/bip39/english.txt");
+  possiblePaths.push_back("../../assets/bip39/english.txt");
+  possiblePaths.push_back("../../../assets/bip39/english.txt");
+  possiblePaths.push_back("../../../../assets/bip39/english.txt");
+  possiblePaths.push_back("../../../../../assets/bip39/english.txt");
+
+  // Try each path
+  for (const auto &path : possiblePaths) {
+    if (path.empty())
+      continue;
+
+    // Check if path exists before trying to open
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+      continue; // Skip non-existent paths silently
+    }
+
+    std::ifstream f(path, std::ios::binary);
+    if (f.is_open()) {
+      std::string line;
+      while (std::getline(f, line)) {
+        // Trim whitespace/newlines
+        while (!line.empty() && (std::isspace(static_cast<unsigned char>(line.back())) || line.back() == '\r' || line.back() == '\n')) {
+          line.pop_back();
+        }
+        size_t start = 0;
+        while (start < line.size() && std::isspace(static_cast<unsigned char>(line[start]))) {
+          start++;
+        }
+        if (start < line.size()) {
+          wordlist.push_back(line.substr(start));
+        }
+      }
+      f.close();
+
+      if (wordlist.size() == 2048) {
+        // Successfully loaded wordlist
+        return true;
+      }
+      // Wrong number of words - try next path
+      wordlist.clear();
+    }
+  }
+
+  return false;
+}
+
 bool GenerateEntropy(size_t bits, std::vector<uint8_t> &out) {
   if (bits % 32 != 0 || bits < 128 || bits > 256)
     return false;
