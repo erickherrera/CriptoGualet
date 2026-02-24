@@ -48,59 +48,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
-    },
-    {
-      "name": "w-msvc-dbg",
-      "displayName": "MSVC Debug",
-      "inherits": "vcpkg-base",
-      "generator": "Visual Studio 18 2026",
-      "architecture": "x64",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "cacheVariables": {
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
-        "CMAKE_GENERATOR_PLATFORM": "x64",
-        "ENABLE_UNITY_BUILD": "ON",
-        "ENABLE_MSVC_MP": "ON"
-      }
-    },
-    {
-      "name": "Release",
-      "displayName": "Release",
-      "inherits": "w-msvc-dbg",
-      "cacheVariables": {}
-    },
-    {
-      "name": "w-cl-dbg",
-      "displayName": "ClangCL Debug",
-      "inherits": "vcpkg-base",
-      "generator": "Visual Studio 18 2026",
-      "toolset": "ClangCL",
-      "architecture": "x64",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "cacheVariables": {
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
-        "CMAKE_GENERATOR_PLATFORM": "x64",
-        "QT_DIR": {
-          "type": "PATH",
-          "value": "C:/Program Files/Qt/6.9.1/msvc2022_64"
-        }
-      }
-    },
-    {
-      "name": "w-cl-rel",
-      "displayName": "ClangCL Release",
-      "inherits": "w-cl-dbg",
-      "cacheVariables": {}
     }
   ],
   "buildPresets": [
@@ -115,41 +62,6 @@
       "displayName": "Linux Release",
       "configurePreset": "linux-rel",
       "configuration": "Release"
-    },
-    {
-      "name": "w-msvc-dbg",
-      "displayName": "MSVC Debug",
-      "configurePreset": "w-msvc-dbg",
-      "configuration": "Debug"
-    },
-    {
-      "name": "Release",
-      "displayName": "Release",
-      "configurePreset": "Release",
-      "configuration": "Release"
-    },
-    {
-      "name": "w-cl-dbg",
-      "displayName": "ClangCL Debug",
-      "configurePreset": "w-cl-dbg",
-      "configuration": "Debug"
-    },
-    {
-      "name": "w-cl-rel",
-      "displayName": "ClangCL Release",
-      "configurePreset": "w-cl-rel",
-      "configuration": "Release"
-    }
-  ],
-  "testPresets": [
-    {
-      "name": "w-cl-test",
-      "displayName": "Windows ClangCL Tests",
-      "configurePreset": "w-cl-dbg",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      }
     }
   ]
 }
