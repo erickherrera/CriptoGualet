@@ -1,8 +1,8 @@
 {
   "configurations": [
     {
-      "name": "MSVC Debug",
-      "displayName": "MSVC Debug",
+      "name": "Windows MSVC Debug",
+      "displayName": "Windows MSVC Debug",
       "generator": "Visual Studio 18 2026",
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\out\\build\\w-msvc-dbg",
@@ -36,8 +36,8 @@
       ]
     },
     {
-      "name": "ClangCL Debug",
-      "displayName": "ClangCL Debug",
+      "name": "Windows ClangCL Debug",
+      "displayName": "Windows ClangCL Debug",
       "generator": "Visual Studio 18 2026",
       "toolset": "ClangCL",
       "configurationType": "Debug",
@@ -82,8 +82,8 @@
       ]
     },
     {
-      "name": "ClangCL Release",
-      "displayName": "ClangCL Release",
+      "name": "Windows ClangCL Release",
+      "displayName": "Windows ClangCL Release",
       "generator": "Visual Studio 18 2026",
       "toolset": "ClangCL",
       "configurationType": "Release",
@@ -128,8 +128,8 @@
       ]
     },
     {
-      "name": "Release",
-      "displayName": "Release",
+      "name": "Windows MSVC Release",
+      "displayName": "Windows MSVC Release",
       "generator": "Visual Studio 18 2026",
       "configurationType": "Release",
       "buildRoot": "${projectDir}\\out\\build\\w-msvc-rel",

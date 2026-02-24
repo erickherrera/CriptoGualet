@@ -3,7 +3,7 @@
   "configurations": [
     {
       "type": "cppdbg",
-      "name": "MSVC Debug",
+      "name": "Windows MSVC Debug",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/CriptoGualetQt.exe",
       "args": [],
@@ -21,7 +21,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "ClangCL Debug",
+      "name": "Windows ClangCL Debug",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/CriptoGualetQt.exe",
       "args": [],
@@ -39,7 +39,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "ClangCL Release",
+      "name": "Windows ClangCL Release",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-cl-rel/bin/Release/CriptoGualetQt.exe",
       "args": [],
@@ -56,7 +56,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Release",
+      "name": "Windows MSVC Release",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-msvc-rel/bin/Release/CriptoGualetQt.exe",
       "args": [],
@@ -99,7 +99,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA (MSVC Debug)",
+      "name": "Test: 2FA (Windows MSVC Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/test_2fa.exe",
       "args": [],
@@ -116,7 +116,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA (ClangCL Debug)",
+      "name": "Test: 2FA (Windows ClangCL Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/test_2fa.exe",
       "args": [],
@@ -133,7 +133,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 (MSVC Debug)",
+      "name": "Test: BIP39 (Windows MSVC Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/test_bip39.exe",
       "args": [],
@@ -150,7 +150,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 (ClangCL Debug)",
+      "name": "Test: BIP39 (Windows ClangCL Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/test_bip39.exe",
       "args": [],
