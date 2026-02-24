@@ -1,9 +1,9 @@
 {
   "configurations": [
     {
-      "name": "x64-Debug",
-      "displayName": "x64 Debug",
-      "generator": "Visual Studio 17 2022",
+      "name": "win-vs2022-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "generator": "Ninja",
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
@@ -14,7 +14,7 @@
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         {
@@ -26,24 +26,14 @@
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
-        },
-        {
-          "name": "CMAKE_CONFIGURATION_TYPES",
-          "value": "Debug;Release",
-          "type": "STRING"
         }
       ],
-      "intelliSenseMode": "windows-msvc-x64",
-      "environments": [
-        {
-          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
-        }
-      ]
+      "intelliSenseMode": "windows-msvc-x64"
     },
     {
-      "name": "x64-Release",
-      "displayName": "x64 Release",
-      "generator": "Visual Studio 17 2022",
+      "name": "win-vs2022-msvc-release",
+      "displayName": "Windows MSVC Release",
+      "generator": "Ninja",
       "configurationType": "Release",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
@@ -54,7 +44,7 @@
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         {
@@ -66,27 +56,67 @@
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
+        }
+      ],
+      "intelliSenseMode": "windows-msvc-x64"
+    },
+    {
+      "name": "win-vs2022-clangcl-debug",
+      "displayName": "Windows Clang-CL Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl",
+      "buildCommandArgs": "-v:minimal",
+      "ctestCommandArgs": "--output-on-failure",
+      "inheritEnvironments": [ "clang_cl_x64" ],
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
         },
         {
-          "name": "CMAKE_CONFIGURATION_TYPES",
-          "value": "Debug;Release",
+          "name": "VCPKG_TARGET_TRIPLET",
+          "value": "x64-windows",
           "type": "STRING"
         }
       ],
-      "intelliSenseMode": "windows-msvc-x64",
-      "environments": [
-        {
-          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
-        }
-      ]
+      "intelliSenseMode": "windows-clang-x64"
     },
     {
-      "name": "Linux-Debug",
-      "displayName": "Linux Debug",
-      "generator": "Unix Makefiles",
+      "name": "win-vs2022-clangcl-release",
+      "displayName": "Windows Clang-CL Release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl",
+      "buildCommandArgs": "-v:minimal",
+      "ctestCommandArgs": "--output-on-failure",
+      "inheritEnvironments": [ "clang_cl_x64" ],
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "VCPKG_TARGET_TRIPLET",
+          "value": "x64-windows",
+          "type": "STRING"
+        }
+      ],
+      "intelliSenseMode": "windows-clang-x64"
+    },
+    {
+      "name": "linux-dbg",
+      "displayName": "WSL Linux Debug",
+      "generator": "Ninja",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\linux-dbg",
-      "installRoot": "${projectDir}\\out\\install\\linux-dbg",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
@@ -113,52 +143,6 @@
           "name": "CMAKE_CXX_COMPILER",
           "value": "g++",
           "type": "STRING"
-        },
-        {
-          "name": "CMAKE_PREFIX_PATH",
-          "value": "/usr/local/qt6;/usr/lib/x86_64-linux-gnu/cmake/Qt6",
-          "type": "PATH"
-        }
-      ]
-    },
-    {
-      "name": "Linux-Release",
-      "displayName": "Linux Release",
-      "generator": "Unix Makefiles",
-      "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\linux-rel",
-      "installRoot": "${projectDir}\\out\\install\\linux-rel",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
-      "inheritEnvironments": [ "linux_x64" ],
-      "remoteMachineName": "${defaultRemoteMachineName}",
-      "remoteCMakeListsRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/src",
-      "remoteBuildRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/build/${name}",
-      "remoteInstallRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/install/${name}",
-      "remoteCopySources": true,
-      "remoteCopySourcesOutputVerbosity": "Normal",
-      "remoteCopySourcesConcurrentCopies": "10",
-      "remoteCopySourcesMethod": "rsync",
-      "remoteCopySourcesExclusionList": [ ".vs", ".git", "out" ],
-      "rsyncCommandArgs": "-t --delete --delete-excluded",
-      "remoteCopyBuildOutput": false,
-      "remoteCopyFreeMarkers": [ "cmake", "ninja" ],
-      "variables": [
-        {
-          "name": "CMAKE_C_COMPILER",
-          "value": "gcc",
-          "type": "STRING"
-        },
-        {
-          "name": "CMAKE_CXX_COMPILER",
-          "value": "g++",
-          "type": "STRING"
-        },
-        {
-          "name": "CMAKE_PREFIX_PATH",
-          "value": "/usr/local/qt6;/usr/lib/x86_64-linux-gnu/cmake/Qt6",
-          "type": "PATH"
         }
       ]
     }
