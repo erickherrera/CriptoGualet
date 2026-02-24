@@ -33,10 +33,11 @@ function(configure_criptogualet_test target_name)
     target_link_libraries(${target_name} PRIVATE ws2_32 wsock32 bcrypt crypt32)
   endif()
 
-  target_compile_options(${target_name} PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:/W4>
-    $<$<COMPILE_LANGUAGE:CXX>:/Wall>
-  )
+  if(MSVC OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32))
+    target_compile_options(${target_name} PRIVATE /W4 /Wall)
+  else()
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra)
+  endif()
 endfunction()
 
 function(add_criptogualet_test target_name source_file)

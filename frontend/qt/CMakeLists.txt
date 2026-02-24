@@ -174,16 +174,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       "$<TARGET_FILE_DIR:CriptoGualetQt>"
       COMMENT "Copying OpenSSL SSL DLL to output directory")
   elseif(UNIX AND NOT APPLE)
-    # Linux: Copy vcpkg libraries to build directory for development
-    # RPATH will be set to find these at runtime
-    if(LIBQRENCODE_FOUND)
-      add_custom_command(TARGET CriptoGualetQt POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-linux/lib/libqrencode.so"
-        "$<TARGET_FILE_DIR:CriptoGualetQt>"
-        COMMENT "Copying libqrencode to output directory")
-    endif()
-
+    # Linux: Libraries are linked statically or found via RPATH
   endif()
 
   # -----------------------------------------------------------------------------

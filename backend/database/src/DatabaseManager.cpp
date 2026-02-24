@@ -1070,7 +1070,11 @@ void DatabaseManager::logDatabaseOperation(const std::string &operation,
 
   std::stringstream logEntry;
   struct tm timeInfo;
+#ifdef _WIN32
   localtime_s(&timeInfo, &time_t);
+#else
+  localtime_r(&time_t, &timeInfo);
+#endif
   logEntry << "[" << std::put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << "] ";
   logEntry << "Operation: " << operation;
 

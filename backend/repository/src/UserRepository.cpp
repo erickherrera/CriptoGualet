@@ -4,6 +4,7 @@
 #include <regex>
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE

@@ -1,8 +1,13 @@
+#ifdef _WIN32
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
+#else
+#include <openssl/rand.h>
+#include <openssl/evp.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -94,12 +99,17 @@ namespace Internal {
     
     // Copy internal helper functions for testing (we can't access them directly)
     inline bool RandBytes(void* buf, size_t len) {
+#ifdef _WIN32
         return BCRYPT_SUCCESS(BCryptGenRandom(nullptr, static_cast<PUCHAR>(buf),
                                               static_cast<ULONG>(len),
                                               BCRYPT_USE_SYSTEM_PREFERRED_RNG));
+#else
+        return RAND_bytes(static_cast<unsigned char*>(buf), static_cast<int>(len)) == 1;
+#endif
     }
 
     inline bool SHA256(const uint8_t* data, size_t len, std::array<uint8_t, 32>& out) {
+#ifdef _WIN32
         out.fill(0);
         BCRYPT_ALG_HANDLE hAlg = nullptr;
         BCRYPT_HASH_HANDLE hHash = nullptr;
@@ -132,6 +142,13 @@ namespace Internal {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return BCRYPT_SUCCESS(st);
+#else
+        unsigned int hashLen = 0;
+        if (EVP_Digest(data, len, out.data(), &hashLen, EVP_sha256(), nullptr) != 1) {
+            return false;
+        }
+        return true;
+#endif
     }
 
     std::vector<std::string> LoadWordList() {

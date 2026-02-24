@@ -13,6 +13,12 @@ target_include_directories(Crypto PUBLIC
 )
 target_link_libraries(Crypto PUBLIC unofficial::secp256k1 unofficial::secp256k1_precomputed)
 
+if(NOT WIN32)
+  find_package(unofficial-sodium CONFIG REQUIRED)
+  find_package(OpenSSL REQUIRED)
+  target_link_libraries(Crypto PRIVATE unofficial-sodium::sodium OpenSSL::Crypto)
+endif()
+
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
   target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)

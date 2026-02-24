@@ -4,6 +4,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -32,12 +33,20 @@ extern "C" {
 }
 
 // Windows headers need to be after project headers to avoid macro conflicts
+#ifdef _WIN32
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>  // Must be included first for type definitions (LONG, ULONG, etc.)
 #include <bcrypt.h>
 #include <lmcons.h>  // For UNLEN constant (username max length)
 #include <wincrypt.h>
+#else
+#include <unistd.h>
+#ifndef UNLEN
+#define UNLEN 256
+#endif
+typedef uint32_t DWORD;
+#endif
 
 // No Qt headers needed in Auth library
 
@@ -132,7 +141,14 @@ static bool InitializeDatabase() {
             dbPath = "wallet.db"; // Fallback
         }
 #else
-        dbPath = "wallet.db";
+        const char* home = std::getenv("HOME");
+        if (home) {
+            std::filesystem::path configDir = std::filesystem::path(home) / ".config" / "CriptoGualet";
+            std::filesystem::create_directories(configDir);
+            dbPath = (configDir / "wallet.db").string();
+        } else {
+            dbPath = "wallet.db";
+        }
 #endif
 
 #pragma warning(push)
@@ -373,6 +389,7 @@ bool Auth::DeriveSecureEncryptionKey(std::string& outKey) {
     // Gather machine-specific entropy sources
     std::vector<uint8_t> entropy;
 
+#ifdef _WIN32
     // 1. Get Windows computer name
     char computerName[MAX_COMPUTERNAME_LENGTH + 1];
     DWORD size = sizeof(computerName);
@@ -393,6 +410,31 @@ bool Auth::DeriveSecureEncryptionKey(std::string& outKey) {
         uint8_t* serialBytes = reinterpret_cast<uint8_t*>(&volumeSerial);
         entropy.insert(entropy.end(), serialBytes, serialBytes + sizeof(volumeSerial));
     }
+#else
+    // 1. Get Linux hostname
+    char hostname[256];
+    if (gethostname(hostname, sizeof(hostname)) == 0) {
+        entropy.insert(entropy.end(), hostname, hostname + strlen(hostname));
+    }
+
+    // 2. Get Linux username
+    char username[256];
+    if (getlogin_r(username, sizeof(username)) == 0) {
+        entropy.insert(entropy.end(), username, username + strlen(username));
+    }
+
+    // 3. Get machine-id (standard on most modern Linux distros)
+    std::ifstream machineIdFile("/etc/machine-id");
+    if (!machineIdFile) {
+        machineIdFile.open("/var/lib/dbus/machine-id");
+    }
+    if (machineIdFile) {
+        std::string line;
+        if (std::getline(machineIdFile, line)) {
+            entropy.insert(entropy.end(), line.begin(), line.end());
+        }
+    }
+#endif
 
     // 4. Add application-specific constant salt
     const char* appSalt = "CriptoGualet-v1.0-DatabaseEncryption";
@@ -808,7 +850,11 @@ static void PersistRateLimit(const std::string& identifier, const RateLimitEntry
         char lastBuf[64] = {0};
         auto lastTt = std::chrono::system_clock::to_time_t(lastAttemptTime);
         struct tm lastTm;
+#ifdef _WIN32
         gmtime_s(&lastTm, &lastTt);
+#else
+        gmtime_r(&lastTt, &lastTm);
+#endif
         std::strftime(lastBuf, sizeof(lastBuf), "%Y-%m-%dT%H:%M:%SZ", &lastTm);
 
         std::string lockoutStr;
@@ -816,7 +862,11 @@ static void PersistRateLimit(const std::string& identifier, const RateLimitEntry
             char lockBuf[64] = {0};
             auto lockTt = std::chrono::system_clock::to_time_t(lockoutTime);
             struct tm lockTm;
+#ifdef _WIN32
             gmtime_s(&lockTm, &lockTt);
+#else
+            gmtime_r(&lockTt, &lockTm);
+#endif
             std::strftime(lockBuf, sizeof(lockBuf), "%Y-%m-%dT%H:%M:%SZ", &lockTm);
             lockoutStr = lockBuf;
         }
@@ -871,7 +921,11 @@ static bool LoadRateLimitFromDB(const std::string& identifier, RateLimitEntry& e
             std::istringstream iss(lockoutUntilStr);
             iss >> std::get_time(&lockTm, "%Y-%m-%dT%H:%M:%SZ");
             if (!iss.fail()) {
+#ifdef _WIN32
                 auto lockTimePoint = std::chrono::system_clock::from_time_t(_mkgmtime(&lockTm));
+#else
+                auto lockTimePoint = std::chrono::system_clock::from_time_t(timegm(&lockTm));
+#endif
                 auto remainingDuration = lockTimePoint - std::chrono::system_clock::now();
                 if (remainingDuration.count() > 0) {
                     entry.lockoutUntil =

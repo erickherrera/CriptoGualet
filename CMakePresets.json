@@ -79,7 +79,7 @@
       "hidden": true,
       "inherits": "base",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "/home/magnanimous042395/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_TOOLCHAIN_FILE": "/home/magnanimous23/vcpkg/scripts/buildsystems/vcpkg.cmake"
       }
     },
     {
@@ -98,7 +98,7 @@
         "CMAKE_CXX_COMPILER": "/usr/bin/g++",
         "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja",
         "VCPKG_TARGET_TRIPLET": "x64-linux",
-        "CMAKE_PREFIX_PATH": "/usr/local/qt6;/usr/lib/x86_64-linux-gnu/cmake/Qt6"
+        "CMAKE_PREFIX_PATH": "/usr/lib/x86_64-linux-gnu/cmake/Qt6"
       }
     },
     {

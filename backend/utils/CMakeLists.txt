@@ -28,6 +28,12 @@ target_include_directories(SharedSymbols PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
+if(NOT WIN32)
+  find_package(unofficial-sodium CONFIG REQUIRED)
+  find_package(OpenSSL REQUIRED)
+  target_link_libraries(SharedSymbols PRIVATE unofficial-sodium::sodium OpenSSL::Crypto)
+endif()
+
 # ---- RLP Encoder library ----
 add_library(RLPEncoder STATIC
   "RLPEncoder.cpp"

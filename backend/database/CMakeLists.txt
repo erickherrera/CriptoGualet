@@ -11,10 +11,27 @@ target_include_directories(Database PUBLIC
 # Link Windows bcrypt library for cryptographic functions
 if(WIN32)
   target_link_libraries(Database PRIVATE bcrypt)
+else()
+  find_package(unofficial-sodium CONFIG REQUIRED)
+  target_link_libraries(Database PRIVATE unofficial-sodium::sodium)
 endif()
 
 # Try to find SQLCipher using CMake package first
 find_package(sqlcipher QUIET)
+if(NOT sqlcipher_FOUND AND NOT WIN32)
+  find_package(PkgConfig QUIET)
+  if(PKG_CONFIG_FOUND)
+    pkg_check_modules(SQLCIPHER QUIET sqlcipher)
+    if(SQLCIPHER_FOUND)
+      set(sqlcipher_FOUND TRUE)
+      add_library(sqlcipher::sqlcipher INTERFACE IMPORTED)
+      target_link_libraries(sqlcipher::sqlcipher INTERFACE ${SQLCIPHER_LIBRARIES})
+      target_include_directories(sqlcipher::sqlcipher INTERFACE ${SQLCIPHER_INCLUDE_DIRS})
+      target_link_options(sqlcipher::sqlcipher INTERFACE ${SQLCIPHER_LDFLAGS})
+    endif()
+  endif()
+endif()
+
 if(sqlcipher_FOUND)
   target_link_libraries(Database PRIVATE sqlcipher::sqlcipher)
   target_compile_definitions(Database PRIVATE SQLCIPHER_AVAILABLE)

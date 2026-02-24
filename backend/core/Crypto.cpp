@@ -1,9 +1,20 @@
 // Windows headers need to be first with proper defines
+#ifdef _WIN32
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
+#endif
+
+#ifndef _WIN32
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/rand.h>
+#include <openssl/sha.h>
+#include <sodium.h>
+#include <unistd.h>
+#endif
 
 // Standard library headers
 #include <algorithm>
@@ -42,15 +53,20 @@ static secp256k1_context* GetSecp256k1Context() {
 
 // === Random Number Generation ===
 bool RandBytes(void *buf, size_t len) {
+#ifdef _WIN32
   return BCRYPT_SUCCESS(BCryptGenRandom(nullptr, static_cast<PUCHAR>(buf),
                                         static_cast<ULONG>(len),
                                         BCRYPT_USE_SYSTEM_PREFERRED_RNG));
+#else
+  return RAND_bytes(static_cast<unsigned char *>(buf), static_cast<int>(len)) == 1;
+#endif
 }
 
 // === Base64 Encoding/Decoding ===
 std::string B64Encode(const std::vector<uint8_t> &data) {
   if (data.empty())
     return {};
+#ifdef _WIN32
   DWORD outLen = 0;
   if (!CryptBinaryToStringA(data.data(), static_cast<DWORD>(data.size()),
                             CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, nullptr,
@@ -64,11 +80,23 @@ std::string B64Encode(const std::vector<uint8_t> &data) {
   if (!out.empty() && out.back() == '\0')
     out.pop_back();
   return out;
+#else
+  int outLen = 4 * ((data.size() + 2) / 3);
+  std::string out(outLen, '\0');
+  int ret = EVP_EncodeBlock(reinterpret_cast<unsigned char *>(&out[0]),
+                            data.data(), data.size());
+  if (ret < 0) return {};
+  // EVP_EncodeBlock returns length including null terminator if it added one, 
+  // but we managed string size ourselves.
+  out.resize(ret);
+  return out;
+#endif
 }
 
 std::vector<uint8_t> B64Decode(const std::string &s) {
   if (s.empty())
     return {};
+#ifdef _WIN32
   DWORD outLen = 0;
   if (!CryptStringToBinaryA(s.c_str(), static_cast<DWORD>(s.size()),
                             CRYPT_STRING_BASE64, nullptr, &outLen, nullptr,
@@ -80,11 +108,27 @@ std::vector<uint8_t> B64Decode(const std::string &s) {
                             nullptr))
     return {};
   return out;
+#else
+  int outLen = 3 * (s.size() / 4);
+  std::vector<uint8_t> out(outLen);
+  int ret = EVP_DecodeBlock(out.data(), 
+                            reinterpret_cast<const unsigned char *>(s.c_str()), 
+                            s.size());
+  if (ret < 0) return {};
+  
+  // Padding adjustment
+  int padding = 0;
+  if (s.size() > 0 && s[s.size()-1] == '=') padding++;
+  if (s.size() > 1 && s[s.size()-2] == '=') padding++;
+  out.resize(ret - padding);
+  return out;
+#endif
 }
 
 // === Hash Functions ===
 bool SHA256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out) {
   out.fill(uint8_t(0));
+#ifdef _WIN32
   BCRYPT_ALG_HANDLE hAlg = nullptr;
   BCRYPT_HASH_HANDLE hHash = nullptr;
   DWORD hashLen = 0, objLen = 0;
@@ -118,6 +162,13 @@ bool SHA256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out) {
   BCryptDestroyHash(hHash);
   BCryptCloseAlgorithmProvider(hAlg, 0);
   return BCRYPT_SUCCESS(st);
+#else
+  unsigned int hashLen = 0;
+  if (EVP_Digest(data, len, out.data(), &hashLen, EVP_sha256(), nullptr) != 1) {
+    return false;
+  }
+  return true;
+#endif
 }
 
 // === RIPEMD-160 Implementation ===
@@ -362,6 +413,7 @@ bool Keccak256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out) {
 bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data,
                 size_t data_len, std::vector<uint8_t> &out) {
   out.assign(32, 0);
+#ifdef _WIN32
   BCRYPT_ALG_HANDLE hAlg = nullptr;
   BCRYPT_HASH_HANDLE hHash = nullptr;
   NTSTATUS st = BCryptOpenAlgorithmProvider(
@@ -387,11 +439,19 @@ bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data,
   BCryptDestroyHash(hHash);
   BCryptCloseAlgorithmProvider(hAlg, 0);
   return BCRYPT_SUCCESS(st);
+#else
+  unsigned int outLen = 0;
+  if (!HMAC(EVP_sha256(), key.data(), key.size(), data, data_len, out.data(), &outLen)) {
+    return false;
+  }
+  return true;
+#endif
 }
 
 // Helper for manual HMAC
 static bool SHA512_Raw(const uint8_t *data, size_t len, std::vector<uint8_t> &out) {
   out.resize(64);
+#ifdef _WIN32
   BCRYPT_ALG_HANDLE hAlg = nullptr;
   BCRYPT_HASH_HANDLE hHash = nullptr;
   
@@ -413,10 +473,19 @@ static bool SHA512_Raw(const uint8_t *data, size_t len, std::vector<uint8_t> &ou
   BCryptDestroyHash(hHash);
   BCryptCloseAlgorithmProvider(hAlg, 0);
   return BCRYPT_SUCCESS(st);
+#else
+  unsigned int outLen = 0;
+  if (EVP_Digest(data, len, out.data(), &outLen, EVP_sha512(), nullptr) != 1) {
+    return false;
+  }
+  return true;
+#endif
 }
 
 bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data,
                 size_t data_len, std::vector<uint8_t> &out) {
+  out.assign(64, 0);
+#ifdef _WIN32
   const size_t blockSize = 128; // SHA-512 block size
   std::vector<uint8_t> processedKey(blockSize, 0);
 
@@ -474,6 +543,13 @@ bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data,
   SecureWipeVector(ipad);
   SecureWipeVector(opad);
   return true;
+#else
+  unsigned int outLen = 0;
+  if (!HMAC(EVP_sha512(), key.data(), key.size(), data, data_len, out.data(), &outLen)) {
+    return false;
+  }
+  return true;
+#endif
 }
 
 // === Key Derivation Functions ===
@@ -558,9 +634,11 @@ bool PBKDF2_HMAC_SHA512(const std::string &password, const uint8_t *salt,
 }
 
 // === Windows DPAPI Functions ===
+// === Windows DPAPI Functions ===
 bool DPAPI_Protect(const std::vector<uint8_t> &plaintext,
                   const std::string &entropy_str,
                   std::vector<uint8_t> &ciphertext) {
+#ifdef _WIN32
   DATA_BLOB in{}, out{}, entropy{};
   in.pbData =
       const_cast<BYTE *>(reinterpret_cast<const BYTE *>(plaintext.data()));
@@ -575,11 +653,16 @@ bool DPAPI_Protect(const std::vector<uint8_t> &plaintext,
   ciphertext.assign(out.pbData, out.pbData + out.cbData);
   LocalFree(out.pbData);
   return true;
+#else
+  (void)plaintext; (void)entropy_str; (void)ciphertext;
+  return false;
+#endif
 }
 
 bool DPAPI_Unprotect(const std::vector<uint8_t> &ciphertext,
                     const std::string &entropy_str,
                     std::vector<uint8_t> &plaintext) {
+#ifdef _WIN32
   DATA_BLOB in{}, out{}, entropy{};
   in.pbData =
       const_cast<BYTE *>(reinterpret_cast<const BYTE *>(ciphertext.data()));
@@ -594,6 +677,10 @@ bool DPAPI_Unprotect(const std::vector<uint8_t> &ciphertext,
   plaintext.assign(out.pbData, out.pbData + out.cbData);
   LocalFree(out.pbData);
   return true;
+#else
+  (void)ciphertext; (void)entropy_str; (void)plaintext;
+  return false;
+#endif
 }
 
 // === BIP-39 Cryptographic Functions ===
@@ -603,8 +690,7 @@ bool LoadBIP39Wordlist(std::vector<std::string> &wordlist) {
   // Build list of possible paths - order matters (most likely first)
   std::vector<std::string> possiblePaths;
 
-  // On Windows, ALWAYS try executable-relative paths first
-  // This is the PRIMARY mechanism for installed applications
+  // On Windows and Linux, try executable-relative paths first
 #ifdef _WIN32
   char exePath[MAX_PATH] = {0};
   DWORD pathLen = GetModuleFileNameA(NULL, exePath, MAX_PATH);
@@ -625,6 +711,19 @@ bool LoadBIP39Wordlist(std::vector<std::string> &wordlist) {
 
     // For development: exe in build/bin/Release or build/bin/Debug
     possiblePaths.push_back((exeDir.parent_path().parent_path().parent_path() / "assets" / "bip39" / "english.txt").string());
+  }
+#else
+  char exePath[1024];
+  ssize_t len = readlink("/proc/self/exe", exePath, sizeof(exePath) - 1);
+  if (len != -1) {
+    exePath[len] = '\0';
+    std::filesystem::path exeDir = std::filesystem::path(exePath).parent_path();
+    
+    // Installed path: /usr/bin/CriptoGualetQt -> /usr/bin/assets/bip39/english.txt
+    possiblePaths.push_back((exeDir / "assets" / "bip39" / "english.txt").string());
+    
+    // Development path: out/build/linux-dbg/bin/CriptoGualetQt -> assets/bip39/english.txt (project root)
+    possiblePaths.push_back((exeDir.parent_path().parent_path() / "assets" / "bip39" / "english.txt").string());
   }
 #endif
 
@@ -825,17 +924,23 @@ void SecureClear(void *ptr, size_t size) {
   if (!ptr || size == 0)
     return;
 
-  // Use volatile to prevent compiler optimization from removing the zeroing
-  volatile uint8_t* vptr = static_cast<volatile uint8_t*>(ptr);
-  for (size_t i = 0; i < size; ++i) {
-    vptr[i] = 0;
-  }
-
-  // Add memory barrier to ensure completion
 #ifdef _WIN32
-  MemoryBarrier();
+  SecureZeroMemory(ptr, size);
 #else
-  __sync_synchronize();
+  static bool sodium_initialized = false;
+  if (!sodium_initialized) {
+    if (sodium_init() < 0) {
+      // Fallback if sodium fails to initialize
+      volatile uint8_t *vptr = static_cast<volatile uint8_t *>(ptr);
+      for (size_t i = 0; i < size; ++i) {
+        vptr[i] = 0;
+      }
+      __sync_synchronize();
+      return;
+    }
+    sodium_initialized = true;
+  }
+  sodium_memzero(ptr, size);
 #endif
 }
 
@@ -879,13 +984,14 @@ bool AES_GCM_Encrypt(const std::vector<uint8_t> &key, const std::vector<uint8_t>
   if (key.size() != 32) // AES-256 key required
     return false;
 
-  BCRYPT_ALG_HANDLE hAlg = nullptr;
-  BCRYPT_KEY_HANDLE hKey = nullptr;
-
   // Generate random IV
   iv.resize(12); // 96-bit IV for GCM
   if (!RandBytes(iv.data(), iv.size()))
     return false;
+
+#ifdef _WIN32
+  BCRYPT_ALG_HANDLE hAlg = nullptr;
+  BCRYPT_KEY_HANDLE hKey = nullptr;
 
   NTSTATUS st = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_AES_ALGORITHM, nullptr, 0);
   if (!BCRYPT_SUCCESS(st))
@@ -934,8 +1040,52 @@ bool AES_GCM_Encrypt(const std::vector<uint8_t> &key, const std::vector<uint8_t>
     SecureWipeVector(tag);
     return false;
   }
+#else
+  EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+  if (!ctx) return false;
 
-  ciphertext.resize(result_len);
+  if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size(), nullptr) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  if (EVP_EncryptInit_ex(ctx, nullptr, nullptr, key.data(), iv.data()) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  int len;
+  if (!aad.empty()) {
+    if (EVP_EncryptUpdate(ctx, nullptr, &len, aad.data(), aad.size()) != 1) {
+      EVP_CIPHER_CTX_free(ctx);
+      return false;
+    }
+  }
+
+  ciphertext.resize(plaintext.size());
+  if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(), plaintext.size()) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  if (EVP_EncryptFinal_ex(ctx, nullptr, &len) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  tag.resize(16);
+  if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag.data()) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  EVP_CIPHER_CTX_free(ctx);
+#endif
   return true;
 }
 
@@ -945,6 +1095,7 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t> &key, const std::vector<uint8_t>
   if (key.size() != 32 || iv.size() != 12 || tag.size() != 16)
     return false;
 
+#ifdef _WIN32
   BCRYPT_ALG_HANDLE hAlg = nullptr;
   BCRYPT_KEY_HANDLE hKey = nullptr;
 
@@ -992,6 +1143,54 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t> &key, const std::vector<uint8_t>
 
   plaintext.resize(result_len);
   return true;
+#else
+  EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+  if (!ctx) return false;
+
+  if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size(), nullptr) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  if (EVP_DecryptInit_ex(ctx, nullptr, nullptr, key.data(), iv.data()) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  int len;
+  if (!aad.empty()) {
+    if (EVP_DecryptUpdate(ctx, nullptr, &len, aad.data(), aad.size()) != 1) {
+      EVP_CIPHER_CTX_free(ctx);
+      return false;
+    }
+  }
+
+  plaintext.resize(ciphertext.size());
+  if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(), ciphertext.size()) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, const_cast<uint8_t *>(tag.data())) != 1) {
+    EVP_CIPHER_CTX_free(ctx);
+    return false;
+  }
+
+  int ret = EVP_DecryptFinal_ex(ctx, plaintext.data() + len, &len);
+  EVP_CIPHER_CTX_free(ctx);
+
+  if (ret <= 0) {
+    SecureWipeVector(plaintext);
+    return false;
+  }
+
+  return true;
+#endif
 }
 
 // === Database Encryption Functions ===
@@ -2773,6 +2972,7 @@ std::optional<ChainType> DetectAddressChain(const std::string &address) {
 
 bool HMAC_SHA1(const std::vector<uint8_t> &key, const uint8_t *data, size_t data_len, 
                std::vector<uint8_t> &out) {
+#ifdef _WIN32
   BCRYPT_ALG_HANDLE hAlg = nullptr;
   NTSTATUS status = BCryptOpenAlgorithmProvider(
       &hAlg, BCRYPT_SHA1_ALGORITHM, nullptr, BCRYPT_ALG_HANDLE_HMAC_FLAG);
@@ -2799,6 +2999,14 @@ bool HMAC_SHA1(const std::vector<uint8_t> &key, const uint8_t *data, size_t data
   BCryptDestroyHash(hHash);
   BCryptCloseAlgorithmProvider(hAlg, 0);
   return BCRYPT_SUCCESS(status);
+#else
+  out.resize(20);
+  unsigned int outLen = 0;
+  if (!HMAC(EVP_sha1(), key.data(), key.size(), data, data_len, out.data(), &outLen)) {
+    return false;
+  }
+  return true;
+#endif
 }
 
 bool GenerateTOTPSecret(std::vector<uint8_t> &secret, size_t length) {
