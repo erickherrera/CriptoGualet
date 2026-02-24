@@ -37,7 +37,34 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "VCPKG_TARGET_TRIPLET": "x64-linux"
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "CMAKE_PREFIX_PATH": "/usr/local/qt6;$HOME/Qt6/6.9.1/gcc_64;/usr/lib/x86_64-linux-gnu/cmake/Qt6"
+      }
+    },
+    {
+      "name": "linux-gcc-debug",
+      "displayName": "Linux GCC Debug",
+      "inherits": "vcpkg-base",
+      "generator": "Unix Makefiles",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "CMAKE_PREFIX_PATH": "/usr/local/qt6;$HOME/Qt6/6.9.1/gcc_64;/usr/lib/x86_64-linux-gnu/cmake/Qt6"
+      }
+    },
+    {
+      "name": "linux-gcc-release",
+      "displayName": "Linux GCC Release",
+      "inherits": "linux-gcc-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
@@ -113,9 +140,21 @@
       "configurePreset": "linux-clang-debug"
     },
     {
+      "name": "linux-gcc-build",
+      "displayName": "Linux GCC Debug",
+      "configurePreset": "linux-gcc-debug"
+    },
+    {
+      "name": "linux-gcc-build-release",
+      "displayName": "Linux GCC Release",
+      "configurePreset": "linux-gcc-release",
+      "configuration": "Release"
+    },
+    {
       "name": "linux-clang-build-release",
       "displayName": "Linux Clang Release",
-      "configurePreset": "linux-clang-release"
+      "configurePreset": "linux-clang-release",
+      "configuration": "Release"
     },
     {
       "name": "w-msvc-build",

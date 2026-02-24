@@ -173,6 +173,17 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/libssl-3-x64.dll"
       "$<TARGET_FILE_DIR:CriptoGualetQt>"
       COMMENT "Copying OpenSSL SSL DLL to output directory")
+  elseif(UNIX AND NOT APPLE)
+    # Linux: Copy vcpkg libraries to build directory for development
+    # RPATH will be set to find these at runtime
+    if(LIBQRENCODE_FOUND)
+      add_custom_command(TARGET CriptoGualetQt POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-linux/lib/libqrencode.so"
+        "$<TARGET_FILE_DIR:CriptoGualetQt>"
+        COMMENT "Copying libqrencode to output directory")
+    endif()
+
   endif()
 
   # -----------------------------------------------------------------------------
@@ -584,22 +595,73 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     # Linux Handling
     # -----------------------------------------------------------------------------
     # On Linux, RPATH settings (configured in root CMakeLists.txt) handle most cases.
-    # We still use fixup_bundle to verify and copy any missing libraries.
+    # We use fixup_bundle to verify and copy any missing vcpkg libraries.
     
     install(CODE "
       include(BundleUtilities)
       
       set(TARGET_EXE \"\${CMAKE_INSTALL_PREFIX}/bin/CriptoGualetQt\")
       
+      # Search paths for Linux dependencies
+      set(SEARCH_DIRS 
+        \"/usr/lib\"
+        \"/usr/lib/x86_64-linux-gnu\"
+        \"/usr/local/lib\"
+      )
+      
+      # Add vcpkg-installed libraries if present
+      if(EXISTS \"${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-linux\")
+        list(APPEND SEARCH_DIRS \"${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-linux/lib\")
+      endif()
+      
       if(EXISTS \"\${TARGET_EXE}\")
-        set(SEARCH_DIRS 
-          \"/usr/lib\"
-          \"/usr/lib/x86_64-linux-gnu\"
-          \"/usr/local/lib\"
-        )
-        
-        # On Linux, fixup_bundle primarily verifies RPATH entries
+        message(STATUS \"Running fixup_bundle on Linux to verify dependencies...\")
         fixup_bundle(\"\${TARGET_EXE}\" \"\" \"\${SEARCH_DIRS}\")
+        
+        # Verify RPATH is correctly set
+        execute_process(
+          COMMAND chrpath -l \"\${TARGET_EXE}\"
+          OUTPUT_VARIABLE RPATH_OUTPUT
+          ERROR_VARIABLE RPATH_ERROR
+          RESULT_VARIABLE RPATH_RESULT
+        )
+        if(RPATH_RESULT EQUAL 0)
+          message(STATUS \"RPATH info: \${RPATH_OUTPUT}\")
+        endif()
+      endif()
+    " COMPONENT Runtime)
+    
+    # Install Qt6 plugins for Linux (if not using system Qt)
+    install(CODE "
+      set(INSTALL_BIN_DIR \"\${CMAKE_INSTALL_PREFIX}/bin\")
+      set(QT_PLUGINS_DIR \"\")
+      
+      # Try to find Qt6 plugins in common locations
+      if(EXISTS \"${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-linux/tools/Qt6/plugins\")
+        set(QT_PLUGINS_DIR \"${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-linux/tools/Qt6/plugins\")
+      elseif(EXISTS \"/usr/lib/x86_64-linux-gnu/qt6/plugins\")
+        set(QT_PLUGINS_DIR \"/usr/lib/x86_64-linux-gnu/qt6/plugins\")
+      endif()
+      
+      if(QT_PLUGINS_DIR)
+        message(STATUS \"Installing Qt6 plugins from: \${QT_PLUGINS_DIR}\")
+        
+        # Create plugins directory
+        file(MAKE_DIRECTORY \"\${INSTALL_BIN_DIR}/plugins\")
+        
+        # Install common Qt6 plugins
+        set(QT_PLUGIN_TYPES "platforms;imageformats;styles")
+        
+        foreach(PLUGIN_TYPE \${QT_PLUGIN_TYPES})
+          if(EXISTS \"\${QT_PLUGINS_DIR}/\${PLUGIN_TYPE}\")
+            file(GLOB PLUGINS \"\${QT_PLUGINS_DIR}/\${PLUGIN_TYPE}/*.so\")
+            foreach(PLUGIN \${PLUGINS})
+              get_filename_component(PLUGIN_NAME \${PLUGIN} NAME)
+              file(COPY \${PLUGIN} DESTINATION \"\${INSTALL_BIN_DIR}/plugins/\${PLUGIN_TYPE}\")
+              message(STATUS \"  Installed Qt6 \${PLUGIN_TYPE}: \${PLUGIN_NAME}\")
+            endforeach()
+          endif()
+        endforeach()
       endif()
     " COMPONENT Runtime)
   endif()

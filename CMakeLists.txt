@@ -344,6 +344,28 @@ if(BUILD_GUI_QT)
           "${QT_VERSION}/clang_64")
       endif()
     endforeach()
+  elseif(UNIX AND NOT APPLE)
+    # Linux Qt6 detection
+    list(APPEND CMAKE_PREFIX_PATH
+      "/usr/local/qt6"
+      "/usr/local/Qt6"
+      "/opt/qt6"
+      "/opt/Qt6"
+      "$ENV{HOME}/Qt6"
+      "$ENV{HOME}/Qt/6.x.x/gcc_64"
+      "$ENV{HOME}/Qt/6.9.1/gcc_64"
+      "$ENV{HOME}/Qt/6.8.0/gcc_64"
+      "/usr/lib/x86_64-linux-gnu/qt6"
+      "/usr/lib/x86_64-linux-gnu/cmake/Qt6"
+    )
+    # Also check vcpkg-installed Qt6
+    if(DEFINED VCPKG_ROOT)
+      list(APPEND CMAKE_PREFIX_PATH "${VCPKG_ROOT}/installed/x64-linux/tools/Qt6")
+    endif()
+    if(DEFINED QT_DIR AND EXISTS "${QT_DIR}")
+      list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}")
+      message(STATUS "Using QT_DIR: ${QT_DIR}")
+    endif()
   endif()
 
   find_package(Qt6 QUIET COMPONENTS Core Widgets Gui Svg Network Concurrent)
@@ -364,6 +386,8 @@ if(BUILD_GUI_QT)
     message(WARNING "Qt6 not found - Qt GUI will not be built")
     if(WIN32)
       message(STATUS "Install Qt6 MSVC 2022 64-bit for best ClangCL compatibility")
+    elseif(UNIX AND NOT APPLE)
+      message(STATUS "Install Qt6 for Linux: apt install qt6-base-dev (or use vcpkg)")
     endif()
     set(BUILD_GUI_QT OFF)
   endif()

@@ -163,12 +163,53 @@
       ]
     },
     {
-      "name": "Linux Debug",
-      "displayName": "Linux Debug",
+      "name": "Linux GCC Debug",
+      "displayName": "Linux GCC Debug",
       "generator": "Unix Makefiles",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\linux-dbg",
-      "installRoot": "${projectDir}\\out\\install\\linux-dbg",
+      "buildRoot": "${projectDir}\\out\\build\\linux-gcc-dbg",
+      "installRoot": "${projectDir}\\out\\install\\linux-gcc-dbg",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "linux_x64" ],
+      "remoteMachineName": "${defaultRemoteMachineName}",
+      "remoteCMakeListsRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/src",
+      "remoteBuildRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/build/${name}",
+      "remoteInstallRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/install/${name}",
+      "remoteCopySources": true,
+      "remoteCopySourcesOutputVerbosity": "Normal",
+      "remoteCopySourcesConcurrentCopies": "10",
+      "remoteCopySourcesMethod": "rsync",
+      "remoteCopySourcesExclusionList": [ ".vs", ".git", "out" ],
+      "rsyncCommandArgs": "-t --delete --delete-excluded",
+      "remoteCopyBuildOutput": false,
+      "remoteCopyFreeMarkers": [ "cmake", "ninja" ],
+      "variables": [
+        {
+          "name": "CMAKE_C_COMPILER",
+          "value": "gcc",
+          "type": "STRING"
+        },
+        {
+          "name": "CMAKE_CXX_COMPILER",
+          "value": "g++",
+          "type": "STRING"
+        },
+        {
+          "name": "CMAKE_PREFIX_PATH",
+          "value": "/usr/local/qt6;/usr/lib/x86_64-linux-gnu/cmake/Qt6",
+          "type": "PATH"
+        }
+      ]
+    },
+    {
+      "name": "Linux Clang Debug",
+      "displayName": "Linux Clang Debug",
+      "generator": "Unix Makefiles",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\linux-clang-dbg",
+      "installRoot": "${projectDir}\\out\\install\\linux-clang-dbg",
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
@@ -195,6 +236,11 @@
           "name": "CMAKE_CXX_COMPILER",
           "value": "clang++",
           "type": "STRING"
+        },
+        {
+          "name": "CMAKE_PREFIX_PATH",
+          "value": "/usr/local/qt6;/usr/lib/x86_64-linux-gnu/cmake/Qt6",
+          "type": "PATH"
         }
       ]
     },
@@ -231,6 +277,11 @@
           "name": "CMAKE_CXX_COMPILER",
           "value": "clang++",
           "type": "STRING"
+        },
+        {
+          "name": "CMAKE_PREFIX_PATH",
+          "value": "/usr/local/qt6;/usr/lib/x86_64-linux-gnu/cmake/Qt6",
+          "type": "PATH"
         }
       ]
     }

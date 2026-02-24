@@ -56,12 +56,25 @@
     },
     {
       "type": "cppdbg",
-      "name": "CriptoGualet Qt Application (Linux Debug)",
+      "name": "CriptoGualet Qt Application (Linux Clang Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/linux-clang-debug/bin/CriptoGualetQt",
+      "program": "${workspaceRoot}/out/build/linux-clang-dbg/bin/CriptoGualetQt",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/linux-clang-debug/bin",
+      "cwd": "${workspaceRoot}/out/build/linux-clang-dbg/bin",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "projectTarget": "CriptoGualetQt"
+    },
+    {
+      "type": "cppdbg",
+      "name": "CriptoGualet Qt Application (Linux GCC Debug)",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/linux-gcc-dbg/bin/CriptoGualetQt",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/linux-gcc-dbg/bin",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",
@@ -134,6 +147,58 @@
       ],
       "externalConsole": false,
       "MIMode": "vsdbg"
+    },
+    {
+      "type": "cppdbg",
+      "name": "Test: 2FA Tests (Linux Clang Debug)",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/linux-clang-dbg/bin/test_2fa",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/linux-clang-dbg/bin",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "projectTarget": "test_2fa"
+    },
+    {
+      "type": "cppdbg",
+      "name": "Test: BIP39 Tests (Linux Clang Debug)",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/linux-clang-dbg/bin/test_bip39",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/linux-clang-dbg/bin",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "projectTarget": "test_bip39"
+    },
+    {
+      "type": "cppdbg",
+      "name": "Test: 2FA Tests (Linux GCC Debug)",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/linux-gcc-dbg/bin/test_2fa",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/linux-gcc-dbg/bin",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "projectTarget": "test_2fa"
+    },
+    {
+      "type": "cppdbg",
+      "name": "Test: BIP39 Tests (Linux GCC Debug)",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/linux-gcc-dbg/bin/test_bip39",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/linux-gcc-dbg/bin",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "projectTarget": "test_bip39"
     }
   ]
 }
