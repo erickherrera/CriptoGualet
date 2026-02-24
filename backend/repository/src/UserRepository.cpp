@@ -1,10 +1,10 @@
 #include "../include/Repository/UserRepository.h"
-#include <sstream>
-#include <iomanip>
-#include <regex>
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <iomanip>
+#include <regex>
+#include <sstream>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE
@@ -75,7 +75,8 @@ Result<User> UserRepository::createUser(const std::string& username, const std::
         // Bind parameters
         sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, hashResult->hash.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_blob(stmt, 3, hashResult->salt.data(), static_cast<int>(hashResult->salt.size()), SQLITE_STATIC);
+        sqlite3_bind_blob(stmt, 3, hashResult->salt.data(),
+                          static_cast<int>(hashResult->salt.size()), SQLITE_STATIC);
 
         rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
@@ -97,7 +98,8 @@ Result<User> UserRepository::createUser(const std::string& username, const std::
         // Retrieve and return created user
         auto userResult = getUserById(userId);
         if (userResult) {
-            REPO_LOG_INFO(COMPONENT_NAME, "User created successfully", "Username: " + username + ", ID: " + std::to_string(userId));
+            REPO_LOG_INFO(COMPONENT_NAME, "User created successfully",
+                          "Username: " + username + ", ID: " + std::to_string(userId));
         }
 
         return userResult;
@@ -109,7 +111,8 @@ Result<User> UserRepository::createUser(const std::string& username, const std::
     }
 }
 
-Result<User> UserRepository::authenticateUser(const std::string& username, const std::string& password) {
+Result<User> UserRepository::authenticateUser(const std::string& username,
+                                              const std::string& password) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "authenticateUser");
 
     if (username.empty() || password.empty()) {
@@ -119,7 +122,8 @@ Result<User> UserRepository::authenticateUser(const std::string& username, const
     // Get user by username
     auto userResult = getUserByUsername(username);
     if (!userResult) {
-        REPO_LOG_WARNING(COMPONENT_NAME, "Authentication failed: user not found", "Username: " + username);
+        REPO_LOG_WARNING(COMPONENT_NAME, "Authentication failed: user not found",
+                         "Username: " + username);
         return Result<User>("Invalid username or password", 401);
     }
 
@@ -127,21 +131,24 @@ Result<User> UserRepository::authenticateUser(const std::string& username, const
 
     // Check if user is active
     if (!user.isActive) {
-        REPO_LOG_WARNING(COMPONENT_NAME, "Authentication failed: user inactive", "Username: " + username);
+        REPO_LOG_WARNING(COMPONENT_NAME, "Authentication failed: user inactive",
+                         "Username: " + username);
         return Result<User>("Account is disabled", 403);
     }
 
     // Verify password
     auto verificationResult = verifyPassword(password, user.passwordHash, user.salt);
     if (!verificationResult || !(*verificationResult)) {
-        REPO_LOG_WARNING(COMPONENT_NAME, "Authentication failed: invalid password", "Username: " + username);
+        REPO_LOG_WARNING(COMPONENT_NAME, "Authentication failed: invalid password",
+                         "Username: " + username);
         return Result<User>("Invalid username or password", 401);
     }
 
     // Update last login
     updateLastLogin(user.id);
 
-    REPO_LOG_INFO(COMPONENT_NAME, "User authenticated successfully", "Username: " + username + ", ID: " + std::to_string(user.id));
+    REPO_LOG_INFO(COMPONENT_NAME, "User authenticated successfully",
+                  "Username: " + username + ", ID: " + std::to_string(user.id));
     return Result<User>(user);
 }
 
@@ -239,7 +246,8 @@ Result<bool> UserRepository::updateLastLogin(int userId) {
     }
 }
 
-Result<bool> UserRepository::changePassword(int userId, const std::string& currentPassword, const std::string& newPassword) {
+Result<bool> UserRepository::changePassword(int userId, const std::string& currentPassword,
+                                            const std::string& newPassword) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "changePassword");
 
     // Get current user
@@ -253,7 +261,8 @@ Result<bool> UserRepository::changePassword(int userId, const std::string& curre
     // Verify current password
     auto verificationResult = verifyPassword(currentPassword, user.passwordHash, user.salt);
     if (!verificationResult || !(*verificationResult)) {
-        REPO_LOG_WARNING(COMPONENT_NAME, "Password change failed: invalid current password", "UserID: " + std::to_string(userId));
+        REPO_LOG_WARNING(COMPONENT_NAME, "Password change failed: invalid current password",
+                         "UserID: " + std::to_string(userId));
         return Result<bool>("Current password is incorrect", 401);
     }
 
@@ -288,14 +297,16 @@ Result<bool> UserRepository::changePassword(int userId, const std::string& curre
     }
 
     sqlite3_bind_text(stmt, 1, hashResult->hash.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_blob(stmt, 2, hashResult->salt.data(), static_cast<int>(hashResult->salt.size()), SQLITE_STATIC);
+    sqlite3_bind_blob(stmt, 2, hashResult->salt.data(), static_cast<int>(hashResult->salt.size()),
+                      SQLITE_STATIC);
     sqlite3_bind_int(stmt, 3, userId);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
     if (rc == SQLITE_DONE) {
-        REPO_LOG_INFO(COMPONENT_NAME, "Password changed successfully", "UserID: " + std::to_string(userId));
+        REPO_LOG_INFO(COMPONENT_NAME, "Password changed successfully",
+                      "UserID: " + std::to_string(userId));
         return Result<bool>(true);
     } else {
         return Result<bool>("Database error during password update", 500);
@@ -326,14 +337,15 @@ Result<bool> UserRepository::isUsernameAvailable(const std::string& username) {
     }
 }
 
-Result<PasswordHashResult> UserRepository::hashPassword(const std::string& password, std::vector<uint8_t> salt) {
+Result<PasswordHashResult> UserRepository::hashPassword(const std::string& password,
+                                                        std::vector<uint8_t> salt) {
     if (salt.empty()) {
         salt = generateSalt();
     }
 
     std::vector<uint8_t> derivedKey;
-    bool success = Crypto::PBKDF2_HMAC_SHA512(password, salt.data(), salt.size(),
-                                             PBKDF2_ITERATIONS, derivedKey, 64);
+    bool success = Crypto::PBKDF2_HMAC_SHA512(password, salt.data(), salt.size(), PBKDF2_ITERATIONS,
+                                              derivedKey, 64);
     if (!success) {
         return Result<PasswordHashResult>("Failed to derive password hash", 500);
     }
@@ -349,7 +361,9 @@ Result<PasswordHashResult> UserRepository::hashPassword(const std::string& passw
     return Result<PasswordHashResult>(result);
 }
 
-Result<bool> UserRepository::verifyPassword(const std::string& password, const std::string& storedHash, const std::vector<uint8_t>& salt) {
+Result<bool> UserRepository::verifyPassword(const std::string& password,
+                                            const std::string& storedHash,
+                                            const std::vector<uint8_t>& salt) {
     auto hashResult = hashPassword(password, salt);
     if (!hashResult) {
         return Result<bool>(hashResult.error(), hashResult.errorCode);
@@ -357,8 +371,7 @@ Result<bool> UserRepository::verifyPassword(const std::string& password, const s
 
     bool isValid = Crypto::ConstantTimeEquals(
         std::vector<uint8_t>(hashResult->hash.begin(), hashResult->hash.end()),
-        std::vector<uint8_t>(storedHash.begin(), storedHash.end())
-    );
+        std::vector<uint8_t>(storedHash.begin(), storedHash.end()));
 
     return Result<bool>(isValid);
 }
@@ -374,7 +387,7 @@ User UserRepository::mapRowToUser(sqlite3_stmt* stmt) {
     int saltSize = sqlite3_column_bytes(stmt, 3);
     if (saltData && saltSize > 0) {
         user.salt.assign(static_cast<const uint8_t*>(saltData),
-                        static_cast<const uint8_t*>(saltData) + saltSize);
+                         static_cast<const uint8_t*>(saltData) + saltSize);
     }
 
     // Parse timestamps (SQLite stores as strings)
@@ -397,23 +410,26 @@ User UserRepository::mapRowToUser(sqlite3_stmt* stmt) {
 
 Result<bool> UserRepository::validateUsername(const std::string& username) {
     if (username.length() < MIN_USERNAME_LENGTH) {
-        return Result<bool>("Username must be at least " + std::to_string(MIN_USERNAME_LENGTH) + " characters", 400);
+        return Result<bool>(
+            "Username must be at least " + std::to_string(MIN_USERNAME_LENGTH) + " characters",
+            400);
     }
 
     if (username.length() > MAX_USERNAME_LENGTH) {
-        return Result<bool>("Username must be no more than " + std::to_string(MAX_USERNAME_LENGTH) + " characters", 400);
+        return Result<bool>(
+            "Username must be no more than " + std::to_string(MAX_USERNAME_LENGTH) + " characters",
+            400);
     }
 
     // Check for valid characters (alphanumeric, underscore, hyphen)
     std::regex usernameRegex("^[a-zA-Z0-9_-]+$");
     if (!std::regex_match(username, usernameRegex)) {
-        return Result<bool>("Username can only contain letters, numbers, underscores, and hyphens", 400);
+        return Result<bool>("Username can only contain letters, numbers, underscores, and hyphens",
+                            400);
     }
 
     return Result<bool>(true);
 }
-
-
 
 std::vector<uint8_t> UserRepository::generateSalt() {
     std::vector<uint8_t> salt(SALT_SIZE);
@@ -424,13 +440,9 @@ std::vector<uint8_t> UserRepository::generateSalt() {
 Result<PasswordValidation> UserRepository::validatePassword(const std::string& password) {
     PasswordValidation validation;
 
-    validation.requirements = {
-        "At least " + std::to_string(MIN_PASSWORD_LENGTH) + " characters",
-        "At least one uppercase letter",
-        "At least one lowercase letter",
-        "At least one digit",
-        "At least one special character (!@#$%^&*)"
-    };
+    validation.requirements = {"At least " + std::to_string(MIN_PASSWORD_LENGTH) + " characters",
+                               "At least one uppercase letter", "At least one lowercase letter",
+                               "At least one digit", "At least one special character (!@#$%^&*)"};
 
     int score = 0;
 
@@ -438,25 +450,32 @@ Result<PasswordValidation> UserRepository::validatePassword(const std::string& p
     if (password.length() >= MIN_PASSWORD_LENGTH) {
         score += 20;
     } else {
-        validation.violations.push_back("Password must be at least " + std::to_string(MIN_PASSWORD_LENGTH) + " characters");
+        validation.violations.push_back("Password must be at least " +
+                                        std::to_string(MIN_PASSWORD_LENGTH) + " characters");
     }
 
     // Check for uppercase
-    if (std::any_of(password.begin(), password.end(), [](char c) { return std::isupper(c); })) {
+    if (std::any_of(password.begin(), password.end(), [](char c) {
+            return std::isupper(c);
+        })) {
         score += 20;
     } else {
         validation.violations.push_back("Password must contain at least one uppercase letter");
     }
 
     // Check for lowercase
-    if (std::any_of(password.begin(), password.end(), [](char c) { return std::islower(c); })) {
+    if (std::any_of(password.begin(), password.end(), [](char c) {
+            return std::islower(c);
+        })) {
         score += 20;
     } else {
         validation.violations.push_back("Password must contain at least one lowercase letter");
     }
 
     // Check for digit
-    if (std::any_of(password.begin(), password.end(), [](char c) { return std::isdigit(c); })) {
+    if (std::any_of(password.begin(), password.end(), [](char c) {
+            return std::isdigit(c);
+        })) {
         score += 20;
     } else {
         validation.violations.push_back("Password must contain at least one digit");
@@ -465,8 +484,8 @@ Result<PasswordValidation> UserRepository::validatePassword(const std::string& p
     // Check for special character
     const std::string specialChars = "!@#$%^&*()_+-=[]{}|;:,.<>?";
     if (std::any_of(password.begin(), password.end(), [&](char c) {
-        return specialChars.find(c) != std::string::npos;
-    })) {
+            return specialChars.find(c) != std::string::npos;
+        })) {
         score += 20;
     } else {
         validation.violations.push_back("Password must contain at least one special character");
@@ -478,4 +497,74 @@ Result<PasswordValidation> UserRepository::validatePassword(const std::string& p
     return Result<PasswordValidation>(validation);
 }
 
-} // namespace Repository
+Result<bool> UserRepository::updateEncryptedSeed(int userId, const std::string& encryptedSeedHex) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "updateEncryptedSeed");
+
+    const std::string sql = "UPDATE users SET encrypted_seed = ? WHERE id = ?";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return Result<bool>("Failed to prepare encrypted seed update statement", 500);
+    }
+
+    sqlite3_bind_text(stmt, 1, encryptedSeedHex.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, userId);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc == SQLITE_DONE) {
+        REPO_LOG_INFO(COMPONENT_NAME, "Encrypted seed updated successfully",
+                      "UserID: " + std::to_string(userId));
+        return Result<bool>(true);
+    } else {
+        return Result<bool>("Database error during encrypted seed update", 500);
+    }
+}
+
+Result<std::string> UserRepository::getEncryptedSeed(int userId) {
+    REPO_SCOPED_LOG(COMPONENT_NAME, "getEncryptedSeed");
+
+    const std::string sql = "SELECT encrypted_seed FROM users WHERE id = ?";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        Result<std::string> r;
+        r.success = false;
+        r.errorMessage = "Failed to prepare encrypted seed query statement";
+        r.errorCode = 500;
+        return r;
+    }
+
+    sqlite3_bind_int(stmt, 1, userId);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        const char* seed = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        std::string result = seed ? seed : "";
+        sqlite3_finalize(stmt);
+        Result<std::string> r;
+        r.success = true;
+        r.data = result;
+        r.errorCode = 0;
+        return r;
+    } else if (rc == SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        Result<std::string> r;
+        r.success = true;
+        r.data = "";
+        r.errorCode = 0;
+        return r;
+    } else {
+        sqlite3_finalize(stmt);
+        Result<std::string> r;
+        r.success = false;
+        r.errorMessage = "Database error during encrypted seed query";
+        r.errorCode = 500;
+        return r;
+    }
+}
+
+}  // namespace Repository

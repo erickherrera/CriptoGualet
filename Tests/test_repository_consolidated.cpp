@@ -1,17 +1,18 @@
 // test_repository_consolidated.cpp - Consolidated repository tests
-#include "TestUtils.h"
+#include "../backend/core/include/Auth.h"
+#include "../backend/database/include/Database/DatabaseManager.h"
+#include "../backend/repository/include/Repository/Logger.h"
+#include "../backend/repository/include/Repository/TransactionRepository.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
 #include "../backend/repository/include/Repository/WalletRepository.h"
-#include "../backend/repository/include/Repository/TransactionRepository.h"
-#include "../backend/repository/include/Repository/Logger.h"
-#include "../backend/database/include/Database/DatabaseManager.h"
-#include <iostream>
-#include <string>
-#include <vector>
+#include "TestUtils.h"
 #include <chrono>
-#include <set>
+#include <iostream>
 #include <map>
 #include <optional>
+#include <set>
+#include <string>
+#include <vector>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE
@@ -29,44 +30,44 @@ const std::string TEST_WALLET_REPO_DB_PATH = "test_wallet_repo.db";
 
 // Test macros
 #ifndef TEST_START
-#define TEST_START(name) \
-    do { \
+#define TEST_START(name)                                                          \
+    do {                                                                          \
         std::cout << COLOR_BLUE << "[TEST] " << name << COLOR_RESET << std::endl; \
-        TestGlobals::g_testsRun++; \
-    } while(0)
+        TestGlobals::g_testsRun++;                                                \
+    } while (0)
 #endif
 
 #ifndef TEST_ASSERT
-#define TEST_ASSERT(condition, message) \
-    do { \
-        if (!(condition)) { \
+#define TEST_ASSERT(condition, message)                                                      \
+    do {                                                                                     \
+        if (!(condition)) {                                                                  \
             std::cout << COLOR_RED << "  ✗ FAILED: " << message << COLOR_RESET << std::endl; \
-            TestGlobals::g_testsFailed++; \
-            return; \
-        } \
-    } while(0)
+            TestGlobals::g_testsFailed++;                                                    \
+            return;                                                                          \
+        }                                                                                    \
+    } while (0)
 #endif
 
 #ifndef TEST_PASS
-#define TEST_PASS() \
-    do { \
+#define TEST_PASS()                                                           \
+    do {                                                                      \
         std::cout << COLOR_GREEN << "  ✓ PASSED" << COLOR_RESET << std::endl; \
-        TestGlobals::g_testsPassed++; \
-    } while(0)
+        TestGlobals::g_testsPassed++;                                         \
+    } while (0)
 #endif
 
-#define TEST_STEP(message) \
-    do { \
+#define TEST_STEP(message)                                    \
+    do {                                                      \
         std::cout << "    " << message << "..." << std::endl; \
-    } while(0)
+    } while (0)
 
 // ============================================================================
 // Integration Test Cases from test_repository_integration.cpp
 // ============================================================================
 
 void testCompleteUserWalletWorkflow(Repository::UserRepository& userRepo,
-                                      Repository::WalletRepository& walletRepo,
-                                      Repository::TransactionRepository& txRepo) {
+                                    Repository::WalletRepository& walletRepo,
+                                    Repository::TransactionRepository& txRepo) {
     TEST_START("Complete User → Wallet → Addresses → Transactions Workflow");
 
     // Step 1: Create User
@@ -83,10 +84,9 @@ void testCompleteUserWalletWorkflow(Repository::UserRepository& userRepo,
 
     // Step 3: Store Encrypted Seed
     TEST_STEP("Storing encrypted BIP39 seed");
-    std::vector<std::string> mnemonic = {
-        "abandon", "ability", "able", "about", "above", "absent",
-        "absorb", "abstract", "absurd", "abuse", "access", "accident"
-    };
+    std::vector<std::string> mnemonic = {"abandon", "ability", "able",   "about",
+                                         "above",   "absent",  "absorb", "abstract",
+                                         "absurd",  "abuse",   "access", "accident"};
     auto seedResult = walletRepo.storeEncryptedSeed(userId, "SecurePass123!", mnemonic);
     TEST_ASSERT(seedResult.hasValue(), "Seed storage should succeed");
 
@@ -128,7 +128,7 @@ void testCompleteUserWalletWorkflow(Repository::UserRepository& userRepo,
     Repository::Transaction txIn;
     txIn.walletId = btcWalletId;
     txIn.txid = "abc123def456...incoming";
-    txIn.amountSatoshis = 100000000; // 1 BTC
+    txIn.amountSatoshis = 100000000;  // 1 BTC
     txIn.feeSatoshis = 0;
     txIn.direction = "incoming";
     txIn.toAddress = addr1->address;
@@ -145,8 +145,8 @@ void testCompleteUserWalletWorkflow(Repository::UserRepository& userRepo,
     Repository::Transaction txOut;
     txOut.walletId = btcWalletId;
     txOut.txid = "def789ghi012...outgoing";
-    txOut.amountSatoshis = 30000000; // 0.3 BTC
-    txOut.feeSatoshis = 10000; // 0.0001 BTC fee
+    txOut.amountSatoshis = 30000000;  // 0.3 BTC
+    txOut.feeSatoshis = 10000;        // 0.0001 BTC fee
     txOut.direction = "outgoing";
     txOut.fromAddress = addr1->address;
     txOut.toAddress = "bc1qexternal...";
@@ -172,8 +172,10 @@ void testCompleteUserWalletWorkflow(Repository::UserRepository& userRepo,
     TEST_STEP("Calculating wallet balance");
     auto balanceResult = txRepo.calculateWalletBalance(btcWalletId);
     TEST_ASSERT(balanceResult.hasValue(), "Calculate balance should succeed");
-    std::cout << "    Confirmed Balance: " << balanceResult->confirmedBalance << " satoshis" << std::endl;
-    std::cout << "    Unconfirmed Balance: " << balanceResult->unconfirmedBalance << " satoshis" << std::endl;
+    std::cout << "    Confirmed Balance: " << balanceResult->confirmedBalance << " satoshis"
+              << std::endl;
+    std::cout << "    Unconfirmed Balance: " << balanceResult->unconfirmedBalance << " satoshis"
+              << std::endl;
     std::cout << "    Total Balance: " << balanceResult->totalBalance << " satoshis" << std::endl;
 
     // Step 13: Get Transaction Stats
@@ -188,9 +190,7 @@ void testCompleteUserWalletWorkflow(Repository::UserRepository& userRepo,
 
     // Step 14: Update Transaction Confirmations
     TEST_STEP("Updating transaction confirmations");
-    auto updateResult = txRepo.updateTransactionConfirmation(
-        txIn.txid, 700000, "blockhash123", 6
-    );
+    auto updateResult = txRepo.updateTransactionConfirmation(txIn.txid, 700000, "blockhash123", 6);
     TEST_ASSERT(updateResult.hasValue(), "Confirmation update should succeed");
 
     // Step 15: Retrieve and Verify Seed
@@ -209,8 +209,8 @@ void testCompleteUserWalletWorkflow(Repository::UserRepository& userRepo,
 }
 
 void testMultiUserScenario(Repository::UserRepository& userRepo,
-                            Repository::WalletRepository& walletRepo,
-                            Repository::TransactionRepository& txRepo) {
+                           Repository::WalletRepository& walletRepo,
+                           Repository::TransactionRepository& txRepo) {
     TEST_START("Multi-User Scenario with Wallet Isolation");
 
     // Create User 1
@@ -257,7 +257,8 @@ void testMultiUserScenario(Repository::UserRepository& userRepo,
     TEST_ASSERT(bobTxs->items.size() == 1, "Bob should have 1 transaction");
     TEST_ASSERT(carolTxs->items.size() == 1, "Carol should have 1 transaction");
     TEST_ASSERT(bobTxs->items[0].txid == "bob_tx_001", "Bob's transaction should be isolated");
-    TEST_ASSERT(carolTxs->items[0].txid == "carol_tx_001", "Carol's transaction should be isolated");
+    TEST_ASSERT(carolTxs->items[0].txid == "carol_tx_001",
+                "Carol's transaction should be isolated");
 
     std::cout << "    Bob's transactions: " << bobTxs->items.size() << std::endl;
     std::cout << "    Carol's transactions: " << carolTxs->items.size() << std::endl;
@@ -266,7 +267,7 @@ void testMultiUserScenario(Repository::UserRepository& userRepo,
 }
 
 void testErrorHandlingAndRollback(Repository::UserRepository& userRepo,
-                                    Repository::WalletRepository& walletRepo) {
+                                  Repository::WalletRepository& walletRepo) {
     TEST_START("Error Handling and Transaction Rollback");
 
     // Test duplicate username
@@ -285,7 +286,7 @@ void testErrorHandlingAndRollback(Repository::UserRepository& userRepo,
     // Test invalid wallet name
     TEST_STEP("Testing invalid wallet creation");
     auto user = userRepo.createUser("testuser", "Pass123!");
-    auto invalidWallet = walletRepo.createWallet(user->id, "", "bitcoin"); // Empty name
+    auto invalidWallet = walletRepo.createWallet(user->id, "", "bitcoin");  // Empty name
     TEST_ASSERT(!invalidWallet.hasValue(), "Empty wallet name should fail");
 
     TEST_PASS();
@@ -297,7 +298,7 @@ void testErrorHandlingAndRollback(Repository::UserRepository& userRepo,
 
 // Helper: Create test wallet with user
 int createTestWallet(Repository::UserRepository& userRepo, Repository::WalletRepository& walletRepo,
-                      const std::string& username) {
+                     const std::string& username) {
     return TestUtils::createTestUserWithWallet(userRepo, walletRepo, username);
 }
 
@@ -312,7 +313,7 @@ void testAddTransaction(Repository::TransactionRepository& txRepo,
     Repository::Transaction tx;
     tx.walletId = walletId;
     tx.txid = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-    tx.amountSatoshis = 100000000; // 1 BTC
+    tx.amountSatoshis = 100000000;  // 1 BTC
     tx.feeSatoshis = 10000;
     tx.direction = "incoming";
     tx.toAddress = "bc1qtest123";
@@ -328,8 +329,8 @@ void testAddTransaction(Repository::TransactionRepository& txRepo,
 }
 
 void testGetTransactionByTxid(Repository::TransactionRepository& txRepo,
-                                Repository::WalletRepository& walletRepo,
-                                Repository::UserRepository& userRepo) {
+                              Repository::WalletRepository& walletRepo,
+                              Repository::UserRepository& userRepo) {
     TEST_START("Get Transaction By TXID");
 
     int walletId = createTestWallet(userRepo, walletRepo, "txuser2");
@@ -353,8 +354,8 @@ void testGetTransactionByTxid(Repository::TransactionRepository& txRepo,
 }
 
 void testGetTransactionById(Repository::TransactionRepository& txRepo,
-                             Repository::WalletRepository& walletRepo,
-                             Repository::UserRepository& userRepo) {
+                            Repository::WalletRepository& walletRepo,
+                            Repository::UserRepository& userRepo) {
     TEST_START("Get Transaction By ID");
 
     int walletId = createTestWallet(userRepo, walletRepo, "txuser3");
@@ -377,8 +378,8 @@ void testGetTransactionById(Repository::TransactionRepository& txRepo,
 }
 
 void testGetTransactionsByWallet(Repository::TransactionRepository& txRepo,
-                                   Repository::WalletRepository& walletRepo,
-                                   Repository::UserRepository& userRepo) {
+                                 Repository::WalletRepository& walletRepo,
+                                 Repository::UserRepository& userRepo) {
     TEST_START("Get Transactions By Wallet");
 
     int walletId = createTestWallet(userRepo, walletRepo, "txuser4");
@@ -406,8 +407,8 @@ void testGetTransactionsByWallet(Repository::TransactionRepository& txRepo,
 }
 
 void testGetTransactionStats(Repository::TransactionRepository& txRepo,
-                               Repository::WalletRepository& walletRepo,
-                               Repository::UserRepository& userRepo) {
+                             Repository::WalletRepository& walletRepo,
+                             Repository::UserRepository& userRepo) {
     TEST_START("Get Transaction Stats");
 
     int walletId = createTestWallet(userRepo, walletRepo, "txuser5");
@@ -441,8 +442,8 @@ void testGetTransactionStats(Repository::TransactionRepository& txRepo,
 }
 
 void testCalculateWalletBalance(Repository::TransactionRepository& txRepo,
-                                  Repository::WalletRepository& walletRepo,
-                                  Repository::UserRepository& userRepo) {
+                                Repository::WalletRepository& walletRepo,
+                                Repository::UserRepository& userRepo) {
     TEST_START("Calculate Wallet Balance");
 
     int walletId = createTestWallet(userRepo, walletRepo, "txuser6");
@@ -451,7 +452,7 @@ void testCalculateWalletBalance(Repository::TransactionRepository& txRepo,
     Repository::Transaction txIn;
     txIn.walletId = walletId;
     txIn.txid = "balance_in";
-    txIn.amountSatoshis = 200000000; // 2 BTC
+    txIn.amountSatoshis = 200000000;  // 2 BTC
     txIn.feeSatoshis = 0;
     txIn.direction = "incoming";
     txIn.isConfirmed = true;
@@ -461,7 +462,7 @@ void testCalculateWalletBalance(Repository::TransactionRepository& txRepo,
     Repository::Transaction txOut;
     txOut.walletId = walletId;
     txOut.txid = "balance_out";
-    txOut.amountSatoshis = 50000000; // 0.5 BTC
+    txOut.amountSatoshis = 50000000;  // 0.5 BTC
     txOut.feeSatoshis = 10000;
     txOut.direction = "outgoing";
     txOut.isConfirmed = true;
@@ -470,14 +471,15 @@ void testCalculateWalletBalance(Repository::TransactionRepository& txRepo,
     auto balanceResult = txRepo.calculateWalletBalance(walletId);
     TEST_ASSERT(balanceResult.hasValue(), "Calculate balance should succeed");
     // Confirmed: 2 BTC - (0.5 BTC + fee) = 1.4999 BTC
-    TEST_ASSERT(balanceResult->confirmedBalance == 149990000, "Confirmed balance should be correct");
+    TEST_ASSERT(balanceResult->confirmedBalance == 149990000,
+                "Confirmed balance should be correct");
 
     TEST_PASS();
 }
 
 void testUpdateTransactionConfirmation(Repository::TransactionRepository& txRepo,
-                                         Repository::WalletRepository& walletRepo,
-                                         Repository::UserRepository& userRepo) {
+                                       Repository::WalletRepository& walletRepo,
+                                       Repository::UserRepository& userRepo) {
     TEST_START("Update Transaction Confirmation");
 
     int walletId = createTestWallet(userRepo, walletRepo, "txuser7");
@@ -493,7 +495,8 @@ void testUpdateTransactionConfirmation(Repository::TransactionRepository& txRepo
 
     txRepo.addTransaction(tx);
 
-    auto updateResult = txRepo.updateTransactionConfirmation("confirm_test", 123456, "blockhash123", 6);
+    auto updateResult =
+        txRepo.updateTransactionConfirmation("confirm_test", 123456, "blockhash123", 6);
     TEST_ASSERT(updateResult.hasValue(), "Update confirmation should succeed");
 
     auto getResult = txRepo.getTransactionByTxid("confirm_test");
@@ -505,8 +508,8 @@ void testUpdateTransactionConfirmation(Repository::TransactionRepository& txRepo
 
 // Boundary & edge case tests
 void testBoundaryMaximumAmount(Repository::TransactionRepository& txRepo,
-                                 Repository::WalletRepository& walletRepo,
-                                 Repository::UserRepository& userRepo) {
+                               Repository::WalletRepository& walletRepo,
+                               Repository::UserRepository& userRepo) {
     TEST_START("Boundary Test - Maximum Transaction Amount");
 
     int walletId = createTestWallet(userRepo, walletRepo, "boundary_user1");
@@ -515,7 +518,7 @@ void testBoundaryMaximumAmount(Repository::TransactionRepository& txRepo,
     Repository::Transaction tx;
     tx.walletId = walletId;
     tx.txid = "max_amount_test_txid";
-    tx.amountSatoshis = 2100000000000000LL; // 21 million BTC (max supply in satoshis)
+    tx.amountSatoshis = 2100000000000000LL;  // 21 million BTC (max supply in satoshis)
     tx.feeSatoshis = 1000;
     tx.direction = "incoming";
 
@@ -531,8 +534,8 @@ void testBoundaryMaximumAmount(Repository::TransactionRepository& txRepo,
 }
 
 void testBoundaryNegativeAmount(Repository::TransactionRepository& txRepo,
-                                  Repository::WalletRepository& walletRepo,
-                                  Repository::UserRepository& userRepo) {
+                                Repository::WalletRepository& walletRepo,
+                                Repository::UserRepository& userRepo) {
     TEST_START("Boundary Test - Negative Transaction Amount");
 
     int walletId = createTestWallet(userRepo, walletRepo, "boundary_user2");
@@ -541,7 +544,7 @@ void testBoundaryNegativeAmount(Repository::TransactionRepository& txRepo,
     Repository::Transaction tx;
     tx.walletId = walletId;
     tx.txid = "negative_amount_test";
-    tx.amountSatoshis = -100000; // Negative amount
+    tx.amountSatoshis = -100000;  // Negative amount
     tx.feeSatoshis = 1000;
     tx.direction = "incoming";
 
@@ -553,13 +556,13 @@ void testBoundaryNegativeAmount(Repository::TransactionRepository& txRepo,
         TEST_PASS();
     } else {
         std::cout << "    Warning: Negative amount was accepted (potential issue)" << std::endl;
-        TEST_PASS(); // Don't fail the test, but warn about it
+        TEST_PASS();  // Don't fail the test, but warn about it
     }
 }
 
 void testBoundaryZeroAmount(Repository::TransactionRepository& txRepo,
-                              Repository::WalletRepository& walletRepo,
-                              Repository::UserRepository& userRepo) {
+                            Repository::WalletRepository& walletRepo,
+                            Repository::UserRepository& userRepo) {
     TEST_START("Boundary Test - Zero Amount Transaction");
 
     int walletId = createTestWallet(userRepo, walletRepo, "boundary_user3");
@@ -567,7 +570,7 @@ void testBoundaryZeroAmount(Repository::TransactionRepository& txRepo,
     Repository::Transaction tx;
     tx.walletId = walletId;
     tx.txid = "zero_amount_test";
-    tx.amountSatoshis = 0; // Zero amount (OP_RETURN or null data transaction)
+    tx.amountSatoshis = 0;  // Zero amount (OP_RETURN or null data transaction)
     tx.feeSatoshis = 1000;
     tx.direction = "outgoing";
     tx.memo = "OP_RETURN null data transaction";
@@ -579,14 +582,14 @@ void testBoundaryZeroAmount(Repository::TransactionRepository& txRepo,
 }
 
 void testBoundaryLargeTransactionCount(Repository::TransactionRepository& txRepo,
-                                         Repository::WalletRepository& walletRepo,
-                                         Repository::UserRepository& userRepo) {
+                                       Repository::WalletRepository& walletRepo,
+                                       Repository::UserRepository& userRepo) {
     TEST_START("Boundary Test - Large Transaction Count Per Wallet");
 
     int walletId = createTestWallet(userRepo, walletRepo, "boundary_user4");
     TEST_ASSERT(walletId > 0, "Wallet creation should succeed");
 
-    const int TX_COUNT = 500; // Test with 500 transactions
+    const int TX_COUNT = 500;  // Test with 500 transactions
     std::cout << "    Adding " << TX_COUNT << " transactions..." << std::endl;
 
     for (int i = 0; i < TX_COUNT; i++) {
@@ -606,23 +609,24 @@ void testBoundaryLargeTransactionCount(Repository::TransactionRepository& txRepo
 
     // Verify all transactions were stored
     Repository::PaginationParams params;
-    params.limit = TX_COUNT + 10; // Request more than we inserted
+    params.limit = TX_COUNT + 10;  // Request more than we inserted
     params.offset = 0;
 
     auto txList = txRepo.getTransactionsByWallet(walletId, params);
     TEST_ASSERT(txList.hasValue(), "Should retrieve transaction list");
     TEST_ASSERT(txList->items.size() == TX_COUNT,
                 "Should retrieve all " + std::to_string(TX_COUNT) + " transactions (got " +
-                std::to_string(txList->items.size()) + ")");
+                    std::to_string(txList->items.size()) + ")");
 
-    std::cout << "    Successfully stored and retrieved " << TX_COUNT << " transactions" << std::endl;
+    std::cout << "    Successfully stored and retrieved " << TX_COUNT << " transactions"
+              << std::endl;
 
     TEST_PASS();
 }
 
 void testBoundaryDuplicateTxid(Repository::TransactionRepository& txRepo,
-                                 Repository::WalletRepository& walletRepo,
-                                 Repository::UserRepository& userRepo) {
+                               Repository::WalletRepository& walletRepo,
+                               Repository::UserRepository& userRepo) {
     TEST_START("Boundary Test - Duplicate TXID Prevention");
 
     int walletId = createTestWallet(userRepo, walletRepo, "boundary_user5");
@@ -640,8 +644,8 @@ void testBoundaryDuplicateTxid(Repository::TransactionRepository& txRepo,
     // Try to add duplicate
     Repository::Transaction tx2;
     tx2.walletId = walletId;
-    tx2.txid = "duplicate_txid_test"; // Same TXID
-    tx2.amountSatoshis = 200000; // Different amount
+    tx2.txid = "duplicate_txid_test";  // Same TXID
+    tx2.amountSatoshis = 200000;       // Different amount
     tx2.feeSatoshis = 2000;
     tx2.direction = "outgoing";
 
@@ -656,8 +660,8 @@ void testBoundaryDuplicateTxid(Repository::TransactionRepository& txRepo,
 }
 
 void testBoundaryPaginationEdgeCases(Repository::TransactionRepository& txRepo,
-                                       Repository::WalletRepository& walletRepo,
-                                       Repository::UserRepository& userRepo) {
+                                     Repository::WalletRepository& walletRepo,
+                                     Repository::UserRepository& userRepo) {
     TEST_START("Boundary Test - Pagination Edge Cases");
 
     int walletId = createTestWallet(userRepo, walletRepo, "boundary_user6");
@@ -676,7 +680,7 @@ void testBoundaryPaginationEdgeCases(Repository::TransactionRepository& txRepo,
     // Test 1: Offset beyond available records
     Repository::PaginationParams params1;
     params1.limit = 10;
-    params1.offset = 100; // Way beyond our 10 transactions
+    params1.offset = 100;  // Way beyond our 10 transactions
 
     auto result1 = txRepo.getTransactionsByWallet(walletId, params1);
     TEST_ASSERT(result1.hasValue(), "Should handle offset beyond records");
@@ -810,7 +814,7 @@ void testChangePasswordWrongCurrent(Repository::UserRepository& userRepo) {
     auto user = userRepo.createUser("changewrong", "OldPass123!");
     auto result = userRepo.changePassword(user->id, "WrongOld123!", "NewPass123!");
     TEST_ASSERT(!result.hasValue() || !(*result),
-                 "Password change should fail with wrong current password");
+                "Password change should fail with wrong current password");
     TEST_PASS();
 }
 
@@ -908,7 +912,8 @@ static int createTestUser(Repository::UserRepository& userRepo, const std::strin
     return result.hasValue() ? result->id : -1;
 }
 
-void testCreateWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testCreateWallet(Repository::WalletRepository& walletRepo,
+                      Repository::UserRepository& userRepo) {
     TEST_START("Create Wallet - Basic");
 
     int userId = createTestUser(userRepo, "walletuser1");
@@ -924,7 +929,8 @@ void testCreateWallet(Repository::WalletRepository& walletRepo, Repository::User
     TEST_PASS();
 }
 
-void testCreateMultipleWallets(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testCreateMultipleWallets(Repository::WalletRepository& walletRepo,
+                               Repository::UserRepository& userRepo) {
     TEST_START("Create Multiple Wallets");
 
     int userId = createTestUser(userRepo, "walletuser2");
@@ -939,7 +945,8 @@ void testCreateMultipleWallets(Repository::WalletRepository& walletRepo, Reposit
     TEST_PASS();
 }
 
-void testGetWalletsByUserId(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testGetWalletsByUserId(Repository::WalletRepository& walletRepo,
+                            Repository::UserRepository& userRepo) {
     TEST_START("Get Wallets By User ID");
 
     int userId = createTestUser(userRepo, "walletuser3");
@@ -956,7 +963,8 @@ void testGetWalletsByUserId(Repository::WalletRepository& walletRepo, Repository
     TEST_PASS();
 }
 
-void testGetWalletById(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testGetWalletById(Repository::WalletRepository& walletRepo,
+                       Repository::UserRepository& userRepo) {
     TEST_START("Get Wallet By ID");
 
     int userId = createTestUser(userRepo, "walletuser4");
@@ -971,7 +979,8 @@ void testGetWalletById(Repository::WalletRepository& walletRepo, Repository::Use
     TEST_PASS();
 }
 
-void testGetWalletByName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testGetWalletByName(Repository::WalletRepository& walletRepo,
+                         Repository::UserRepository& userRepo) {
     TEST_START("Get Wallet By Name");
 
     int userId = createTestUser(userRepo, "walletuser5");
@@ -984,7 +993,8 @@ void testGetWalletByName(Repository::WalletRepository& walletRepo, Repository::U
     TEST_PASS();
 }
 
-void testGenerateAddress(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testGenerateAddress(Repository::WalletRepository& walletRepo,
+                         Repository::UserRepository& userRepo) {
     TEST_START("Generate Address");
 
     int userId = createTestUser(userRepo, "walletuser6");
@@ -1005,7 +1015,8 @@ void testGenerateAddress(Repository::WalletRepository& walletRepo, Repository::U
     TEST_PASS();
 }
 
-void testGenerateChangeAddress(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testGenerateChangeAddress(Repository::WalletRepository& walletRepo,
+                               Repository::UserRepository& userRepo) {
     TEST_START("Generate Change Address");
 
     int userId = createTestUser(userRepo, "walletuser7");
@@ -1019,7 +1030,8 @@ void testGenerateChangeAddress(Repository::WalletRepository& walletRepo, Reposit
     TEST_PASS();
 }
 
-void testGetAddressesByWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testGetAddressesByWallet(Repository::WalletRepository& walletRepo,
+                              Repository::UserRepository& userRepo) {
     TEST_START("Get Addresses By Wallet");
 
     int userId = createTestUser(userRepo, "walletuser8");
@@ -1044,7 +1056,8 @@ void testGetAddressesByWallet(Repository::WalletRepository& walletRepo, Reposito
     TEST_PASS();
 }
 
-void testUpdateAddressLabel(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testUpdateAddressLabel(Repository::WalletRepository& walletRepo,
+                            Repository::UserRepository& userRepo) {
     TEST_START("Update Address Label");
 
     int userId = createTestUser(userRepo, "walletuser9");
@@ -1059,7 +1072,8 @@ void testUpdateAddressLabel(Repository::WalletRepository& walletRepo, Repository
     TEST_PASS();
 }
 
-void testUpdateAddressBalance(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testUpdateAddressBalance(Repository::WalletRepository& walletRepo,
+                              Repository::UserRepository& userRepo) {
     TEST_START("Update Address Balance");
 
     int userId = createTestUser(userRepo, "walletuser10");
@@ -1067,7 +1081,7 @@ void testUpdateAddressBalance(Repository::WalletRepository& walletRepo, Reposito
     auto addressResult = walletRepo.generateAddress(walletResult->id, false);
     TEST_ASSERT(addressResult.hasValue(), "Address generation should succeed");
 
-    int64_t newBalance = 100000000; // 1 BTC in satoshis
+    int64_t newBalance = 100000000;  // 1 BTC in satoshis
     auto updateResult = walletRepo.updateAddressBalance(addressResult->id, newBalance);
     TEST_ASSERT(updateResult.hasValue(), "Balance update should succeed");
     TEST_ASSERT(*updateResult == true, "Update should return true");
@@ -1075,16 +1089,16 @@ void testUpdateAddressBalance(Repository::WalletRepository& walletRepo, Reposito
     TEST_PASS();
 }
 
-void testStoreEncryptedSeed(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testStoreEncryptedSeed(Repository::WalletRepository& walletRepo,
+                            Repository::UserRepository& userRepo) {
     TEST_START("Store Encrypted Seed");
 
     int userId = createTestUser(userRepo, "seeduser1");
     TEST_ASSERT(userId > 0, "User creation should succeed");
 
-    std::vector<std::string> mnemonic = {
-        "abandon", "ability", "able", "about", "above", "absent",
-        "absorb", "abstract", "absurd", "abuse", "access", "accident"
-    };
+    std::vector<std::string> mnemonic = {"abandon", "ability", "able",   "about",
+                                         "above",   "absent",  "absorb", "abstract",
+                                         "absurd",  "abuse",   "access", "accident"};
 
     auto result = walletRepo.storeEncryptedSeed(userId, "SecurePass123!", mnemonic);
     TEST_ASSERT(result.hasValue(), "Seed storage should succeed");
@@ -1093,15 +1107,15 @@ void testStoreEncryptedSeed(Repository::WalletRepository& walletRepo, Repository
     TEST_PASS();
 }
 
-void testRetrieveDecryptedSeed(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testRetrieveDecryptedSeed(Repository::WalletRepository& walletRepo,
+                               Repository::UserRepository& userRepo) {
     TEST_START("Retrieve Decrypted Seed");
 
     int userId = createTestUser(userRepo, "seeduser2");
 
-    std::vector<std::string> originalMnemonic = {
-        "abandon", "ability", "able", "about", "above", "absent",
-        "absorb", "abstract", "absurd", "abuse", "access", "accident"
-    };
+    std::vector<std::string> originalMnemonic = {"abandon", "ability", "able",   "about",
+                                                 "above",   "absent",  "absorb", "abstract",
+                                                 "absurd",  "abuse",   "access", "accident"};
 
     const std::string password = "SecurePass123!";
     walletRepo.storeEncryptedSeed(userId, password, originalMnemonic);
@@ -1114,15 +1128,15 @@ void testRetrieveDecryptedSeed(Repository::WalletRepository& walletRepo, Reposit
     TEST_PASS();
 }
 
-void testRetrieveDecryptedSeedWrongPassword(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testRetrieveDecryptedSeedWrongPassword(Repository::WalletRepository& walletRepo,
+                                            Repository::UserRepository& userRepo) {
     TEST_START("Retrieve Decrypted Seed - Wrong Password");
 
     int userId = createTestUser(userRepo, "seeduser3");
 
-    std::vector<std::string> mnemonic = {
-        "abandon", "ability", "able", "about", "above", "absent",
-        "absorb", "abstract", "absurd", "abuse", "access", "accident"
-    };
+    std::vector<std::string> mnemonic = {"abandon", "ability", "able",   "about",
+                                         "above",   "absent",  "absorb", "abstract",
+                                         "absurd",  "abuse",   "access", "accident"};
 
     walletRepo.storeEncryptedSeed(userId, "CorrectPass123!", mnemonic);
 
@@ -1133,7 +1147,8 @@ void testRetrieveDecryptedSeedWrongPassword(Repository::WalletRepository& wallet
     TEST_PASS();
 }
 
-void testConfirmSeedBackup(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testConfirmSeedBackup(Repository::WalletRepository& walletRepo,
+                           Repository::UserRepository& userRepo) {
     TEST_START("Confirm Seed Backup");
 
     int userId = createTestUser(userRepo, "seeduser4");
@@ -1148,7 +1163,8 @@ void testConfirmSeedBackup(Repository::WalletRepository& walletRepo, Repository:
     TEST_PASS();
 }
 
-void testHasSeedStored(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testHasSeedStored(Repository::WalletRepository& walletRepo,
+                       Repository::UserRepository& userRepo) {
     TEST_START("Has Seed Stored");
 
     int userId1 = createTestUser(userRepo, "seeduser5");
@@ -1166,7 +1182,8 @@ void testHasSeedStored(Repository::WalletRepository& walletRepo, Repository::Use
     TEST_PASS();
 }
 
-void testGetSpendableBalance(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testGetSpendableBalance(Repository::WalletRepository& walletRepo,
+                             Repository::UserRepository& userRepo) {
     TEST_START("Get Spendable Balance");
 
     int userId = createTestUser(userRepo, "balanceuser1");
@@ -1176,7 +1193,8 @@ void testGetSpendableBalance(Repository::WalletRepository& walletRepo, Repositor
     auto balanceResult = walletRepo.getSpendableBalance(walletResult->id, 1);
     if (!balanceResult.hasValue()) {
         std::cerr << COLOR_RED << "Error: " << balanceResult.error() << COLOR_RESET << std::endl;
-        std::cerr << COLOR_RED << "Error code: " << balanceResult.errorCode << COLOR_RESET << std::endl;
+        std::cerr << COLOR_RED << "Error code: " << balanceResult.errorCode << COLOR_RESET
+                  << std::endl;
     }
     TEST_ASSERT(balanceResult.hasValue(), "Get spendable balance should succeed");
     // Initially should be 0
@@ -1186,18 +1204,16 @@ void testGetSpendableBalance(Repository::WalletRepository& walletRepo, Repositor
 }
 
 // SQL Injection Protection Tests
-void testSQLInjectionInWalletName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testSQLInjectionInWalletName(Repository::WalletRepository& walletRepo,
+                                  Repository::UserRepository& userRepo) {
     TEST_START("SQL Injection Protection - Wallet Name");
 
     int userId = createTestUser(userRepo, "sql_wallet_user");
     TEST_ASSERT(userId > 0, "User creation should succeed");
 
-    std::vector<std::string> maliciousNames = {
-        "Wallet' OR '1'='1",
-        "'; DROP TABLE wallets;--",
-        "Wallet' UNION SELECT * FROM users--",
-        "Test\\'; DELETE FROM wallets;--"
-    };
+    std::vector<std::string> maliciousNames = {"Wallet' OR '1'='1", "'; DROP TABLE wallets;--",
+                                               "Wallet' UNION SELECT * FROM users--",
+                                               "Test\\'; DELETE FROM wallets;--"};
 
     for (const auto& name : maliciousNames) {
         auto result = walletRepo.createWallet(userId, name, "bitcoin");
@@ -1217,7 +1233,8 @@ void testSQLInjectionInWalletName(Repository::WalletRepository& walletRepo, Repo
     TEST_PASS();
 }
 
-void testSQLInjectionInGetWalletByName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testSQLInjectionInGetWalletByName(Repository::WalletRepository& walletRepo,
+                                       Repository::UserRepository& userRepo) {
     TEST_START("SQL Injection Protection - Get Wallet By Name");
 
     int userId = createTestUser(userRepo, "sql_getwallet_user");
@@ -1226,11 +1243,8 @@ void testSQLInjectionInGetWalletByName(Repository::WalletRepository& walletRepo,
     walletRepo.createWallet(userId, "My Wallet", "bitcoin");
 
     // Try SQL injection in query
-    std::vector<std::string> maliciousQueries = {
-        "' OR '1'='1",
-        "My Wallet' OR '1'='1--",
-        "'; DROP TABLE wallets;--"
-    };
+    std::vector<std::string> maliciousQueries = {"' OR '1'='1", "My Wallet' OR '1'='1--",
+                                                 "'; DROP TABLE wallets;--"};
 
     for (const auto& query : maliciousQueries) {
         auto result = walletRepo.getWalletByName(userId, query);
@@ -1241,7 +1255,8 @@ void testSQLInjectionInGetWalletByName(Repository::WalletRepository& walletRepo,
     TEST_PASS();
 }
 
-void testWalletAddressLabelInjection(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testWalletAddressLabelInjection(Repository::WalletRepository& walletRepo,
+                                     Repository::UserRepository& userRepo) {
     TEST_START("SQL Injection Protection - Address Label");
 
     int userId = createTestUser(userRepo, "label_user");
@@ -1251,11 +1266,8 @@ void testWalletAddressLabelInjection(Repository::WalletRepository& walletRepo, R
     auto addressResult = walletRepo.generateAddress(walletResult->id, false);
     TEST_ASSERT(addressResult.hasValue(), "Address generation should succeed");
 
-    std::vector<std::string> maliciousLabels = {
-        "Label' OR '1'='1",
-        "'; DELETE FROM addresses;--",
-        "Label' UNION SELECT * FROM addresses--"
-    };
+    std::vector<std::string> maliciousLabels = {"Label' OR '1'='1", "'; DELETE FROM addresses;--",
+                                                "Label' UNION SELECT * FROM addresses--"};
 
     for (const auto& label : maliciousLabels) {
         auto updateResult = walletRepo.updateAddressLabel(addressResult->id, label);
@@ -1269,7 +1281,8 @@ void testWalletAddressLabelInjection(Repository::WalletRepository& walletRepo, R
 }
 
 // Edge Case Tests
-void testEmptyWalletName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testEmptyWalletName(Repository::WalletRepository& walletRepo,
+                         Repository::UserRepository& userRepo) {
     TEST_START("Edge Case - Empty Wallet Name");
 
     int userId = createTestUser(userRepo, "empty_wallet_user");
@@ -1282,7 +1295,8 @@ void testEmptyWalletName(Repository::WalletRepository& walletRepo, Repository::U
     TEST_PASS();
 }
 
-void testVeryLongWalletName(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testVeryLongWalletName(Repository::WalletRepository& walletRepo,
+                            Repository::UserRepository& userRepo) {
     TEST_START("Edge Case - Very Long Wallet Name");
 
     int userId = createTestUser(userRepo, "long_wallet_user");
@@ -1299,17 +1313,14 @@ void testVeryLongWalletName(Repository::WalletRepository& walletRepo, Repository
     TEST_PASS();
 }
 
-void testInvalidWalletType(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testInvalidWalletType(Repository::WalletRepository& walletRepo,
+                           Repository::UserRepository& userRepo) {
     TEST_START("Edge Case - Invalid Wallet Type");
 
     int userId = createTestUser(userRepo, "invalid_type_user");
 
-    std::vector<std::string> invalidTypes = {
-        "",
-        "invalidcoin",
-        "bitcoin; DROP TABLE wallets;--",
-        std::string(500, 'T')
-    };
+    std::vector<std::string> invalidTypes = {"", "invalidcoin", "bitcoin; DROP TABLE wallets;--",
+                                             std::string(500, 'T')};
 
     for (const auto& type : invalidTypes) {
         auto result = walletRepo.createWallet(userId, "Test Wallet", type);
@@ -1324,14 +1335,15 @@ void testInvalidWalletType(Repository::WalletRepository& walletRepo, Repository:
     TEST_PASS();
 }
 
-void testMaximumAddressesPerWallet(Repository::WalletRepository& walletRepo, Repository::UserRepository& userRepo) {
+void testMaximumAddressesPerWallet(Repository::WalletRepository& walletRepo,
+                                   Repository::UserRepository& userRepo) {
     TEST_START("Edge Case - Maximum Addresses Per Wallet");
 
     int userId = createTestUser(userRepo, "max_addr_user");
     auto walletResult = walletRepo.createWallet(userId, "Address Test", "bitcoin");
     TEST_ASSERT(walletResult.hasValue(), "Wallet creation should succeed");
 
-    const int MAX_ADDRESSES = 100; // Test with 100 addresses
+    const int MAX_ADDRESSES = 100;  // Test with 100 addresses
     std::cout << "    Generating " << MAX_ADDRESSES << " addresses..." << std::endl;
 
     int successCount = 0;
@@ -1356,9 +1368,13 @@ int main() {
     TestUtils::printTestHeader("Consolidated Repository Tests");
     std::cout << "Step 1: SQLite init..." << std::endl;
 
-    // Initialize SQLite 
+    // Initialize SQLite
     sqlite3_initialize();
     std::cout << "Step 2: SQLite initialized" << std::endl;
+
+    // Reset Auth state to avoid conflicts with DatabaseManager singleton
+    // This ensures a clean slate for repository tests
+    Auth::ShutdownAuthDatabase();
 
     // Run integration tests with separate DB
     {
@@ -1366,18 +1382,20 @@ int main() {
         std::cout << "Step 3: Getting DatabaseManager..." << std::endl;
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
         std::cout << "Step 4: Got dbManager" << std::endl;
-        
+
         // Skip Logger init - may cause issues
         // TestUtils::initializeTestLogger("test_integration.log");
         std::cout << "Step 5: Initializing test DB at " << dbPath << "..." << std::endl;
-        TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestDatabase(dbManager, dbPath,
+                                          TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
         std::cout << "Step 6: Test DB initialized" << std::endl;
 
         Repository::UserRepository userRepo(dbManager);
         Repository::WalletRepository walletRepo(dbManager);
         Repository::TransactionRepository txRepo(dbManager);
 
-        std::cout << "\n" << COLOR_CYAN << "Running Integration Tests..." << COLOR_RESET << std::endl;
+        std::cout << "\n"
+                  << COLOR_CYAN << "Running Integration Tests..." << COLOR_RESET << std::endl;
         testCompleteUserWalletWorkflow(userRepo, walletRepo, txRepo);
         testMultiUserScenario(userRepo, walletRepo, txRepo);
         testErrorHandlingAndRollback(userRepo, walletRepo);
@@ -1391,13 +1409,16 @@ int main() {
         std::string logPath = TestUtils::getWritableTestPath("test_tx_repo.log");
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
         TestUtils::initializeTestLogger(logPath);
-        TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestDatabase(dbManager, dbPath,
+                                          TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
         Repository::WalletRepository walletRepo(dbManager);
         Repository::TransactionRepository txRepo(dbManager);
 
-        std::cout << "\n" << COLOR_CYAN << "Running Transaction Repository Tests..." << COLOR_RESET << std::endl;
+        std::cout << "\n"
+                  << COLOR_CYAN << "Running Transaction Repository Tests..." << COLOR_RESET
+                  << std::endl;
         testAddTransaction(txRepo, walletRepo, userRepo);
         testGetTransactionByTxid(txRepo, walletRepo, userRepo);
         testGetTransactionById(txRepo, walletRepo, userRepo);
@@ -1406,7 +1427,9 @@ int main() {
         testCalculateWalletBalance(txRepo, walletRepo, userRepo);
         testUpdateTransactionConfirmation(txRepo, walletRepo, userRepo);
 
-        std::cout << "\n" << COLOR_CYAN << "Running Transaction Repository Boundary Tests..." << COLOR_RESET << std::endl;
+        std::cout << "\n"
+                  << COLOR_CYAN << "Running Transaction Repository Boundary Tests..." << COLOR_RESET
+                  << std::endl;
         testBoundaryMaximumAmount(txRepo, walletRepo, userRepo);
         testBoundaryNegativeAmount(txRepo, walletRepo, userRepo);
         testBoundaryZeroAmount(txRepo, walletRepo, userRepo);
@@ -1423,11 +1446,13 @@ int main() {
         std::string logPath = TestUtils::getWritableTestPath("test_user_repo.log");
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
         TestUtils::initializeTestLogger(logPath);
-        TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestDatabase(dbManager, dbPath,
+                                          TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
 
-        std::cout << "\n" << COLOR_CYAN << "Running User Repository Tests..." << COLOR_RESET << std::endl;
+        std::cout << "\n"
+                  << COLOR_CYAN << "Running User Repository Tests..." << COLOR_RESET << std::endl;
         testCreateUser(userRepo);
         testCreateUserDuplicateUsername(userRepo);
         testCreateUserInvalidUsername(userRepo);
@@ -1458,12 +1483,14 @@ int main() {
         std::string logPath = TestUtils::getWritableTestPath("test_wallet_repo.log");
         Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
         TestUtils::initializeTestLogger(logPath);
-        TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        TestUtils::initializeTestDatabase(dbManager, dbPath,
+                                          TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
         Repository::UserRepository userRepo(dbManager);
         Repository::WalletRepository walletRepo(dbManager);
 
-        std::cout << "\n" << COLOR_CYAN << "Running Wallet Repository Tests..." << COLOR_RESET << std::endl;
+        std::cout << "\n"
+                  << COLOR_CYAN << "Running Wallet Repository Tests..." << COLOR_RESET << std::endl;
         testCreateWallet(walletRepo, userRepo);
         testCreateMultipleWallets(walletRepo, userRepo);
         testGetWalletsByUserId(walletRepo, userRepo);
@@ -1481,12 +1508,16 @@ int main() {
         testHasSeedStored(walletRepo, userRepo);
         testGetSpendableBalance(walletRepo, userRepo);
 
-        std::cout << "\n" << COLOR_CYAN << "Running Wallet Repository SQL Injection Tests..." << COLOR_RESET << std::endl;
+        std::cout << "\n"
+                  << COLOR_CYAN << "Running Wallet Repository SQL Injection Tests..." << COLOR_RESET
+                  << std::endl;
         testSQLInjectionInWalletName(walletRepo, userRepo);
         testSQLInjectionInGetWalletByName(walletRepo, userRepo);
         testWalletAddressLabelInjection(walletRepo, userRepo);
 
-        std::cout << "\n" << COLOR_CYAN << "Running Wallet Repository Edge Case Tests..." << COLOR_RESET << std::endl;
+        std::cout << "\n"
+                  << COLOR_CYAN << "Running Wallet Repository Edge Case Tests..." << COLOR_RESET
+                  << std::endl;
         testEmptyWalletName(walletRepo, userRepo);
         testVeryLongWalletName(walletRepo, userRepo);
         testInvalidWalletType(walletRepo, userRepo);

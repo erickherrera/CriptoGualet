@@ -6,6 +6,7 @@
  * across multiple blockchains including Bitcoin, Ethereum, Litecoin, and others.
  */
 
+#include "../backend/core/include/Auth.h"
 #include "../backend/core/include/Crypto.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
 #include "../backend/repository/include/Repository/WalletRepository.h"
@@ -26,23 +27,23 @@ constexpr const char* TEST_DB_PATH = "test_wallet_chains.db";
 // Helper Functions
 // ============================================================================
 
-static void PrintHex(const std::string &label, const uint8_t *data, size_t len) {
-  std::cout << label << ": ";
-  for (size_t i = 0; i < len; i++) {
-    std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)data[i];
-  }
-  std::cout << std::dec << std::endl;
+static void PrintHex(const std::string& label, const uint8_t* data, size_t len) {
+    std::cout << label << ": ";
+    for (size_t i = 0; i < len; i++) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)data[i];
+    }
+    std::cout << std::dec << std::endl;
 }
 
 static std::vector<std::string> LoadBIP39Wordlist() {
-  std::vector<std::string> wordlist;
-  std::cout << "Loading BIP39 wordlist using robust detection..." << std::endl;
-  if (Crypto::LoadBIP39Wordlist(wordlist)) {
-    std::cout << "  Successfully loaded " << wordlist.size() << " words." << std::endl;
-  } else {
-    std::cerr << "  FAILED to load BIP39 wordlist from any known location." << std::endl;
-  }
-  return wordlist;
+    std::vector<std::string> wordlist;
+    std::cout << "Loading BIP39 wordlist using robust detection..." << std::endl;
+    if (Crypto::LoadBIP39Wordlist(wordlist)) {
+        std::cout << "  Successfully loaded " << wordlist.size() << " words." << std::endl;
+    } else {
+        std::cerr << "  FAILED to load BIP39 wordlist from any known location." << std::endl;
+    }
+    return wordlist;
 }
 
 // ============================================================================
@@ -50,270 +51,268 @@ static std::vector<std::string> LoadBIP39Wordlist() {
 // ============================================================================
 
 static void testGenerateMnemonic(const std::vector<std::string>& wordlist) {
-  TEST_START("Generate New Mnemonic");
+    TEST_START("Generate New Mnemonic");
 
-  std::vector<uint8_t> entropy;
-  TEST_ASSERT(Crypto::GenerateEntropy(128, entropy), "Entropy generation should succeed");
-  PrintHex("Entropy (128 bits)", entropy.data(), entropy.size());
+    std::vector<uint8_t> entropy;
+    TEST_ASSERT(Crypto::GenerateEntropy(128, entropy), "Entropy generation should succeed");
+    PrintHex("Entropy (128 bits)", entropy.data(), entropy.size());
 
-  std::vector<std::string> mnemonic;
-  TEST_ASSERT(Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic),
-              "Mnemonic generation should succeed");
+    std::vector<std::string> mnemonic;
+    TEST_ASSERT(Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic),
+                "Mnemonic generation should succeed");
 
-  std::cout << "    Mnemonic (" << mnemonic.size() << " words): ";
-  for (size_t i = 0; i < mnemonic.size(); i++) {
-    std::cout << mnemonic[i];
-    if (i < mnemonic.size() - 1)
-      std::cout << " ";
-  }
-  std::cout << std::endl;
+    std::cout << "    Mnemonic (" << mnemonic.size() << " words): ";
+    for (size_t i = 0; i < mnemonic.size(); i++) {
+        std::cout << mnemonic[i];
+        if (i < mnemonic.size() - 1)
+            std::cout << " ";
+    }
+    std::cout << std::endl;
 
-  TEST_PASS();
+    TEST_PASS();
 }
 
 static void testValidateMnemonic(const std::vector<std::string>& wordlist) {
-  TEST_START("Validate Mnemonic");
+    TEST_START("Validate Mnemonic");
 
-  // Generate a mnemonic first
-  std::vector<uint8_t> entropy;
-  Crypto::GenerateEntropy(128, entropy);
+    // Generate a mnemonic first
+    std::vector<uint8_t> entropy;
+    Crypto::GenerateEntropy(128, entropy);
 
-  std::vector<std::string> mnemonic;
-  Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
+    std::vector<std::string> mnemonic;
+    Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
 
-  TEST_ASSERT(Crypto::ValidateMnemonic(mnemonic, wordlist), "Mnemonic should be valid");
+    TEST_ASSERT(Crypto::ValidateMnemonic(mnemonic, wordlist), "Mnemonic should be valid");
 
-  TEST_PASS();
+    TEST_PASS();
 }
 
 static void testGenerateBIP39Seed(const std::vector<std::string>& wordlist) {
-  TEST_START("Generate BIP39 Seed");
+    TEST_START("Generate BIP39 Seed");
 
-  std::vector<uint8_t> entropy;
-  Crypto::GenerateEntropy(128, entropy);
+    std::vector<uint8_t> entropy;
+    Crypto::GenerateEntropy(128, entropy);
 
-  std::vector<std::string> mnemonic;
-  Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
+    std::vector<std::string> mnemonic;
+    Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
 
-  std::array<uint8_t, 64> seed;
-  TEST_ASSERT(Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed),
-              "Seed generation should succeed");
+    std::array<uint8_t, 64> seed;
+    TEST_ASSERT(Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed),
+                "Seed generation should succeed");
 
-  PrintHex("    BIP39 Seed (512 bits)", seed.data(), seed.size());
+    PrintHex("    BIP39 Seed (512 bits)", seed.data(), seed.size());
 
-  TEST_PASS();
+    TEST_PASS();
 }
 
 static void testGenerateBIP32MasterKey(const std::vector<std::string>& wordlist) {
-  TEST_START("Generate BIP32 Master Key");
+    TEST_START("Generate BIP32 Master Key");
 
-  std::vector<uint8_t> entropy;
-  Crypto::GenerateEntropy(128, entropy);
+    std::vector<uint8_t> entropy;
+    Crypto::GenerateEntropy(128, entropy);
 
-  std::vector<std::string> mnemonic;
-  Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
+    std::vector<std::string> mnemonic;
+    Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
 
-  std::array<uint8_t, 64> seed;
-  Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
+    std::array<uint8_t, 64> seed;
+    Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
 
-  Crypto::BIP32ExtendedKey masterKey;
-  TEST_ASSERT(Crypto::BIP32_MasterKeyFromSeed(seed, masterKey),
-              "Master key generation should succeed");
+    Crypto::BIP32ExtendedKey masterKey;
+    TEST_ASSERT(Crypto::BIP32_MasterKeyFromSeed(seed, masterKey),
+                "Master key generation should succeed");
 
-  PrintHex("    Master Private Key", masterKey.key.data(), masterKey.key.size());
-  PrintHex("    Master Chain Code", masterKey.chainCode.data(), masterKey.chainCode.size());
+    PrintHex("    Master Private Key", masterKey.key.data(), masterKey.key.size());
+    PrintHex("    Master Chain Code", masterKey.chainCode.data(), masterKey.chainCode.size());
 
-  TEST_PASS();
+    TEST_PASS();
 }
 
 static void testDeriveEthereumAddresses(const std::vector<std::string>& wordlist) {
-  TEST_START("Derive Ethereum Addresses (BIP44)");
+    TEST_START("Derive Ethereum Addresses (BIP44)");
 
-  std::vector<uint8_t> entropy;
-  Crypto::GenerateEntropy(128, entropy);
+    std::vector<uint8_t> entropy;
+    Crypto::GenerateEntropy(128, entropy);
 
-  std::vector<std::string> mnemonic;
-  Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
+    std::vector<std::string> mnemonic;
+    Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
 
-  std::array<uint8_t, 64> seed;
-  Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
+    std::array<uint8_t, 64> seed;
+    Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
 
-  Crypto::BIP32ExtendedKey masterKey;
-  Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
+    Crypto::BIP32ExtendedKey masterKey;
+    Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
 
-  std::vector<std::string> eth_addresses;
-  TEST_ASSERT(Crypto::BIP44_GenerateEthereumAddresses(masterKey, 0, false, 0, 5, eth_addresses),
-              "Ethereum address generation should succeed");
+    std::vector<std::string> eth_addresses;
+    TEST_ASSERT(Crypto::BIP44_GenerateEthereumAddresses(masterKey, 0, false, 0, 5, eth_addresses),
+                "Ethereum address generation should succeed");
 
-  std::cout << "    Generated 5 Ethereum addresses (m/44'/60'/0'/0/x):" << std::endl;
-  for (size_t i = 0; i < eth_addresses.size(); i++) {
-    std::cout << "      Address " << i << ": " << eth_addresses[i] << std::endl;
-  }
+    std::cout << "    Generated 5 Ethereum addresses (m/44'/60'/0'/0/x):" << std::endl;
+    for (size_t i = 0; i < eth_addresses.size(); i++) {
+        std::cout << "      Address " << i << ": " << eth_addresses[i] << std::endl;
+    }
 
-  TEST_PASS();
+    TEST_PASS();
 }
 
 static void testDeriveBitcoinAddresses(const std::vector<std::string>& wordlist) {
-  TEST_START("Derive Bitcoin Addresses (BIP44)");
+    TEST_START("Derive Bitcoin Addresses (BIP44)");
 
-  std::vector<uint8_t> entropy;
-  Crypto::GenerateEntropy(128, entropy);
+    std::vector<uint8_t> entropy;
+    Crypto::GenerateEntropy(128, entropy);
 
-  std::vector<std::string> mnemonic;
-  Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
+    std::vector<std::string> mnemonic;
+    Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
 
-  std::array<uint8_t, 64> seed;
-  Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
+    std::array<uint8_t, 64> seed;
+    Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
 
-  Crypto::BIP32ExtendedKey masterKey;
-  Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
+    Crypto::BIP32ExtendedKey masterKey;
+    Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
 
-  std::vector<std::string> btc_addresses;
-  TEST_ASSERT(Crypto::BIP44_GenerateAddresses(masterKey, 0, false, 0, 5, btc_addresses, false),
-              "Bitcoin address generation should succeed");
+    std::vector<std::string> btc_addresses;
+    TEST_ASSERT(Crypto::BIP44_GenerateAddresses(masterKey, 0, false, 0, 5, btc_addresses, false),
+                "Bitcoin address generation should succeed");
 
-  std::cout << "    Generated 5 Bitcoin addresses (m/44'/0'/0'/0/x):" << std::endl;
-  for (size_t i = 0; i < btc_addresses.size(); i++) {
-    std::cout << "      Address " << i << ": " << btc_addresses[i] << std::endl;
-  }
+    std::cout << "    Generated 5 Bitcoin addresses (m/44'/0'/0'/0/x):" << std::endl;
+    for (size_t i = 0; i < btc_addresses.size(); i++) {
+        std::cout << "      Address " << i << ": " << btc_addresses[i] << std::endl;
+    }
 
-  TEST_PASS();
+    TEST_PASS();
 }
 
 static void testMultiChainAddressDerivation(const std::vector<std::string>& wordlist) {
-  TEST_START("Multi-Chain Address Derivation");
+    TEST_START("Multi-Chain Address Derivation");
 
-  std::vector<uint8_t> entropy;
-  Crypto::GenerateEntropy(128, entropy);
+    std::vector<uint8_t> entropy;
+    Crypto::GenerateEntropy(128, entropy);
 
-  std::vector<std::string> mnemonic;
-  Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
+    std::vector<std::string> mnemonic;
+    Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
 
-  std::array<uint8_t, 64> seed;
-  Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
+    std::array<uint8_t, 64> seed;
+    Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
 
-  Crypto::BIP32ExtendedKey masterKey;
-  Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
+    Crypto::BIP32ExtendedKey masterKey;
+    Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
 
-  std::vector<Crypto::ChainType> chains = {
-      Crypto::ChainType::BITCOIN,   Crypto::ChainType::LITECOIN,
-      Crypto::ChainType::ETHEREUM,  Crypto::ChainType::BNB_CHAIN,
-      Crypto::ChainType::POLYGON,   Crypto::ChainType::AVALANCHE,
-      Crypto::ChainType::ARBITRUM};
+    std::vector<Crypto::ChainType> chains = {
+        Crypto::ChainType::BITCOIN,   Crypto::ChainType::LITECOIN, Crypto::ChainType::ETHEREUM,
+        Crypto::ChainType::BNB_CHAIN, Crypto::ChainType::POLYGON,  Crypto::ChainType::AVALANCHE,
+        Crypto::ChainType::ARBITRUM};
 
-  for (auto chain : chains) {
-    std::string address;
-    if (Crypto::DeriveChainAddress(masterKey, chain, 0, false, 0, address)) {
-      std::cout << "    " << std::setw(20) << std::left
-                << Crypto::GetChainName(chain) << ": " << address << std::endl;
-    } else {
-      std::cerr << "    ERROR: Failed to derive address for "
-                << Crypto::GetChainName(chain) << std::endl;
+    for (auto chain : chains) {
+        std::string address;
+        if (Crypto::DeriveChainAddress(masterKey, chain, 0, false, 0, address)) {
+            std::cout << "    " << std::setw(20) << std::left << Crypto::GetChainName(chain) << ": "
+                      << address << std::endl;
+        } else {
+            std::cerr << "    ERROR: Failed to derive address for " << Crypto::GetChainName(chain)
+                      << std::endl;
+        }
     }
-  }
 
-  TEST_PASS();
+    TEST_PASS();
 }
 
 static void testDeriveLitecoinAddresses(const std::vector<std::string>& wordlist) {
-  TEST_START("Derive Litecoin Addresses (BIP44)");
+    TEST_START("Derive Litecoin Addresses (BIP44)");
 
-  std::vector<uint8_t> entropy;
-  Crypto::GenerateEntropy(128, entropy);
+    std::vector<uint8_t> entropy;
+    Crypto::GenerateEntropy(128, entropy);
 
-  std::vector<std::string> mnemonic;
-  Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
+    std::vector<std::string> mnemonic;
+    Crypto::MnemonicFromEntropy(entropy, wordlist, mnemonic);
 
-  std::array<uint8_t, 64> seed;
-  Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
+    std::array<uint8_t, 64> seed;
+    Crypto::BIP39_SeedFromMnemonic(mnemonic, "", seed);
 
-  Crypto::BIP32ExtendedKey masterKey;
-  Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
+    Crypto::BIP32ExtendedKey masterKey;
+    Crypto::BIP32_MasterKeyFromSeed(seed, masterKey);
 
-  // Litecoin uses BIP44 coin type 2: m/44'/2'/0'/0/x
-  std::vector<std::string> ltc_addresses;
-  for (uint32_t i = 0; i < 5; i++) {
-    std::string address;
-    if (Crypto::DeriveChainAddress(masterKey, Crypto::ChainType::LITECOIN, 0, false, i, address)) {
-      ltc_addresses.push_back(address);
+    // Litecoin uses BIP44 coin type 2: m/44'/2'/0'/0/x
+    std::vector<std::string> ltc_addresses;
+    for (uint32_t i = 0; i < 5; i++) {
+        std::string address;
+        if (Crypto::DeriveChainAddress(masterKey, Crypto::ChainType::LITECOIN, 0, false, i,
+                                       address)) {
+            ltc_addresses.push_back(address);
+        }
     }
-  }
 
-  TEST_ASSERT(ltc_addresses.size() == 5, "Should generate 5 Litecoin addresses");
+    TEST_ASSERT(ltc_addresses.size() == 5, "Should generate 5 Litecoin addresses");
 
-  std::cout << "    Generated 5 Litecoin addresses (m/44'/2'/0'/0/x):" << std::endl;
-  for (size_t i = 0; i < ltc_addresses.size(); i++) {
-    std::cout << "      Address " << i << ": " << ltc_addresses[i] << std::endl;
-    TEST_ASSERT(ltc_addresses[i][0] == 'L', "Litecoin address should start with L");
-  }
+    std::cout << "    Generated 5 Litecoin addresses (m/44'/2'/0'/0/x):" << std::endl;
+    for (size_t i = 0; i < ltc_addresses.size(); i++) {
+        std::cout << "      Address " << i << ": " << ltc_addresses[i] << std::endl;
+        TEST_ASSERT(ltc_addresses[i][0] == 'L', "Litecoin address should start with L");
+    }
 
-  TEST_PASS();
+    TEST_PASS();
 }
 
 static void testKeccak256TestVector() {
-  TEST_START("Keccak256 Test Vector");
+    TEST_START("Keccak256 Test Vector");
 
-  const char *test_input = "hello";
-  std::array<uint8_t, 32> keccak_hash;
-  TEST_ASSERT(Crypto::Keccak256(reinterpret_cast<const uint8_t *>(test_input),
-                                strlen(test_input), keccak_hash),
-              "Keccak256 should succeed");
+    const char* test_input = "hello";
+    std::array<uint8_t, 32> keccak_hash;
+    TEST_ASSERT(Crypto::Keccak256(reinterpret_cast<const uint8_t*>(test_input), strlen(test_input),
+                                  keccak_hash),
+                "Keccak256 should succeed");
 
-  // Expected: 0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8
-  std::cout << "    Keccak256(\"hello\"): ";
-  for (size_t i = 0; i < keccak_hash.size(); i++) {
-    std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)keccak_hash[i];
-  }
-  std::cout << std::dec << std::endl;
-  std::cout << "    Expected:             "
-               "1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8"
-            << std::endl;
-
-  const uint8_t expected[32] = {0x1c, 0x8a, 0xff, 0x95, 0x06, 0x85, 0xc2, 0xed,
-                                0x4b, 0xc3, 0x17, 0x4f, 0x34, 0x72, 0x28, 0x7b,
-                                0x56, 0xd9, 0x51, 0x7b, 0x9c, 0x94, 0x81, 0x27,
-                                0x31, 0x9a, 0x09, 0xa7, 0xa3, 0x6d, 0xea, 0xc8};
-
-  bool keccak_match = true;
-  for (size_t i = 0; i < 32; i++) {
-    if (keccak_hash[i] != expected[i]) {
-      keccak_match = false;
-      break;
+    // Expected: 0x1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8
+    std::cout << "    Keccak256(\"hello\"): ";
+    for (size_t i = 0; i < keccak_hash.size(); i++) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)keccak_hash[i];
     }
-  }
+    std::cout << std::dec << std::endl;
+    std::cout << "    Expected:             "
+                 "1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8"
+              << std::endl;
 
-  TEST_ASSERT(keccak_match, "Keccak256 test vector should match");
+    const uint8_t expected[32] = {0x1c, 0x8a, 0xff, 0x95, 0x06, 0x85, 0xc2, 0xed, 0x4b, 0xc3, 0x17,
+                                  0x4f, 0x34, 0x72, 0x28, 0x7b, 0x56, 0xd9, 0x51, 0x7b, 0x9c, 0x94,
+                                  0x81, 0x27, 0x31, 0x9a, 0x09, 0xa7, 0xa3, 0x6d, 0xea, 0xc8};
 
-  TEST_PASS();
+    bool keccak_match = true;
+    for (size_t i = 0; i < 32; i++) {
+        if (keccak_hash[i] != expected[i]) {
+            keccak_match = false;
+            break;
+        }
+    }
+
+    TEST_ASSERT(keccak_match, "Keccak256 test vector should match");
+
+    TEST_PASS();
 }
 
 static void testLitecoinAddressValidation() {
-  TEST_START("Litecoin Address Validation");
+    TEST_START("Litecoin Address Validation");
 
-  // Reset fill character to space (it might have been set to '0' by previous tests)
-  std::cout << std::setfill(' ');
+    // Reset fill character to space (it might have been set to '0' by previous tests)
+    std::cout << std::setfill(' ');
 
-  // Standard Litecoin addresses
-  std::vector<std::pair<std::string, bool>> test_addresses = {
-      {"LajyQBeZaBA1ekzMwGhU4UsFyu2adqEL29", true}, // L... (P2PKH)
-      {"M8T1vHq7Fh4S5w6E8g9aUb1c2d3e4f5g6h", true}, // M... (P2SH) - Valid Base58 (No 0, O, I, l)
-      {"3CDJNfdWX8m2k28DQ38w4R8j5s6t7u8v9w", true}, // 3... (Legacy P2SH)
-      {"ltc1qgqqgqqgqqgqqgqqgqqgqqgqqgqqgqqgqqgqqgq", true}, // ltc1... (Bech32)
-      {"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", false}, // Bitcoin mainnet
-      {"0x71C7656EC7ab88b098defB751B7401B5f6d8976F", false}, // Ethereum
-      {"invalid_address", false}
-  };
+    // Standard Litecoin addresses
+    std::vector<std::pair<std::string, bool>> test_addresses = {
+        {"LajyQBeZaBA1ekzMwGhU4UsFyu2adqEL29", true},  // L... (P2PKH)
+        {"M8T1vHq7Fh4S5w6E8g9aUb1c2d3e4f5g6h", true},  // M... (P2SH) - Valid Base58 (No 0, O, I, l)
+        {"3CDJNfdWX8m2k28DQ38w4R8j5s6t7u8v9w", true},  // 3... (Legacy P2SH)
+        {"ltc1qgqqgqqgqqgqqgqqgqqgqqgqqgqqgqqgqqgqqgq", true},  // ltc1... (Bech32)
+        {"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", false},          // Bitcoin mainnet
+        {"0x71C7656EC7ab88b098defB751B7401B5f6d8976F", false},  // Ethereum
+        {"invalid_address", false}};
 
-  for (const auto& test : test_addresses) {
-      bool is_valid = Crypto::IsValidAddressFormat(test.first, Crypto::ChainType::LITECOIN);
-      std::cout << "    " << std::setw(42) << std::left << test.first 
-                << ": " << (is_valid ? "VALID" : "INVALID")
-                << " (Expected: " << (test.second ? "VALID" : "INVALID") << ")" << std::endl;
-      
-      TEST_ASSERT(is_valid == test.second, "Address validation failed");
-  }
+    for (const auto& test : test_addresses) {
+        bool is_valid = Crypto::IsValidAddressFormat(test.first, Crypto::ChainType::LITECOIN);
+        std::cout << "    " << std::setw(42) << std::left << test.first << ": "
+                  << (is_valid ? "VALID" : "INVALID")
+                  << " (Expected: " << (test.second ? "VALID" : "INVALID") << ")" << std::endl;
 
-  TEST_PASS();
+        TEST_ASSERT(is_valid == test.second, "Address validation failed");
+    }
+
+    TEST_PASS();
 }
 
 // ============================================================================
@@ -431,7 +430,7 @@ static void testEthereumAddressGeneration(Repository::WalletRepository& walletRe
     bool validFormat = (addr.length() == 42 && addr.substr(0, 2) == "0x");
     std::cout << "    Generated Ethereum address: " << addr << std::endl;
     std::cout << "    Address format validation: " << (validFormat ? "PASS" : "FAIL") << std::endl;
-    
+
     TEST_ASSERT(validFormat, "Ethereum address must start with 0x and be 42 characters long");
     TEST_PASS();
 }
@@ -526,72 +525,75 @@ static void testBIP44DerivationPathsForDifferentChains(Repository::WalletReposit
 // ============================================================================
 
 int main() {
-  std::cout << "=== Comprehensive Multi-Chain Wallet Tests ===" << std::endl << std::endl;
+    std::cout << "=== Comprehensive Multi-Chain Wallet Tests ===" << std::endl << std::endl;
 
-  // Derive writable paths for test artifacts
-  std::string dbPath = TestUtils::getWritableTestPath(TEST_DB_PATH);
-  std::string logPath = TestUtils::getWritableTestPath("test_wallet_chains.log");
+    // Reset Auth state to avoid conflicts with DatabaseManager singleton
+    Auth::ShutdownAuthDatabase();
 
-  // Print current working directory and artifact paths for debugging
-  std::cout << "Current working directory: "
-            << std::filesystem::current_path().string() << std::endl;
-  std::cout << "Test Database: " << dbPath << std::endl;
-  std::cout << "Test Log:      " << logPath << std::endl;
+    // Derive writable paths for test artifacts
+    std::string dbPath = TestUtils::getWritableTestPath(TEST_DB_PATH);
+    std::string logPath = TestUtils::getWritableTestPath("test_wallet_chains.log");
 
-  // -------------------------------------------------------------------------
-  // Part 1: BIP39/BIP44 Cryptographic Tests
-  // -------------------------------------------------------------------------
-  std::cout << "\n--- Part 1: BIP39/BIP44 Cryptographic Tests ---" << std::endl;
-
-  std::vector<std::string> wordlist = LoadBIP39Wordlist();
-
-  if (wordlist.size() == 2048) {
-    std::cout << "  Loaded BIP39 wordlist (" << wordlist.size() << " words)" << std::endl;
-
-    testGenerateMnemonic(wordlist);
-    testValidateMnemonic(wordlist);
-    testGenerateBIP39Seed(wordlist);
-    testGenerateBIP32MasterKey(wordlist);
-    testDeriveEthereumAddresses(wordlist);
-    testDeriveBitcoinAddresses(wordlist);
-    testDeriveLitecoinAddresses(wordlist);
-    testMultiChainAddressDerivation(wordlist);
-    testLitecoinAddressValidation();
-    testKeccak256TestVector();
-  } else {
-    std::cerr << "WARNING: Could not load BIP39 wordlist, skipping cryptographic tests"
+    // Print current working directory and artifact paths for debugging
+    std::cout << "Current working directory: " << std::filesystem::current_path().string()
               << std::endl;
-  }
+    std::cout << "Test Database: " << dbPath << std::endl;
+    std::cout << "Test Log:      " << logPath << std::endl;
 
-  // -------------------------------------------------------------------------
-  // Part 2: Repository-Based Multi-Chain Wallet Tests
-  // -------------------------------------------------------------------------
-  std::cout << "\n--- Part 2: Repository-Based Multi-Chain Wallet Tests ---" << std::endl;
+    // -------------------------------------------------------------------------
+    // Part 1: BIP39/BIP44 Cryptographic Tests
+    // -------------------------------------------------------------------------
+    std::cout << "\n--- Part 1: BIP39/BIP44 Cryptographic Tests ---" << std::endl;
 
-  TestUtils::printTestHeader("Multi-Chain Wallet Support Tests");
+    std::vector<std::string> wordlist = LoadBIP39Wordlist();
 
-  Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
-  TestUtils::initializeTestLogger(logPath);
+    if (wordlist.size() == 2048) {
+        std::cout << "  Loaded BIP39 wordlist (" << wordlist.size() << " words)" << std::endl;
 
-  TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+        testGenerateMnemonic(wordlist);
+        testValidateMnemonic(wordlist);
+        testGenerateBIP39Seed(wordlist);
+        testGenerateBIP32MasterKey(wordlist);
+        testDeriveEthereumAddresses(wordlist);
+        testDeriveBitcoinAddresses(wordlist);
+        testDeriveLitecoinAddresses(wordlist);
+        testMultiChainAddressDerivation(wordlist);
+        testLitecoinAddressValidation();
+        testKeccak256TestVector();
+    } else {
+        std::cerr << "WARNING: Could not load BIP39 wordlist, skipping cryptographic tests"
+                  << std::endl;
+    }
 
-  Repository::UserRepository userRepo(dbManager);
-  Repository::WalletRepository walletRepo(dbManager);
+    // -------------------------------------------------------------------------
+    // Part 2: Repository-Based Multi-Chain Wallet Tests
+    // -------------------------------------------------------------------------
+    std::cout << "\n--- Part 2: Repository-Based Multi-Chain Wallet Tests ---" << std::endl;
 
-  testCreateEthereumWallet(walletRepo, userRepo);
-  testCreateLitecoinWallet(walletRepo, userRepo);
-  testMultipleWalletTypesPerUser(walletRepo, userRepo);
-  testBitcoinAddressGeneration(walletRepo, userRepo);
-  testEthereumAddressGeneration(walletRepo, userRepo);
-  testLitecoinAddressGeneration(walletRepo, userRepo);
-  testWalletChainIsolation(walletRepo, userRepo);
-  testUnsupportedChainRejection(walletRepo, userRepo);
-  testBIP44DerivationPathsForDifferentChains(walletRepo, userRepo);
+    TestUtils::printTestHeader("Multi-Chain Wallet Support Tests");
 
-  TestUtils::printTestSummary("Multi-Chain Wallet Tests");
-  TestUtils::shutdownTestEnvironment(dbManager, dbPath);
+    Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
+    TestUtils::initializeTestLogger(logPath);
 
-  std::cout << "\n=== All Tests Complete ===" << std::endl;
+    TestUtils::initializeTestDatabase(dbManager, dbPath, TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
-  return (TestGlobals::g_testsFailed == 0) ? 0 : 1;
+    Repository::UserRepository userRepo(dbManager);
+    Repository::WalletRepository walletRepo(dbManager);
+
+    testCreateEthereumWallet(walletRepo, userRepo);
+    testCreateLitecoinWallet(walletRepo, userRepo);
+    testMultipleWalletTypesPerUser(walletRepo, userRepo);
+    testBitcoinAddressGeneration(walletRepo, userRepo);
+    testEthereumAddressGeneration(walletRepo, userRepo);
+    testLitecoinAddressGeneration(walletRepo, userRepo);
+    testWalletChainIsolation(walletRepo, userRepo);
+    testUnsupportedChainRejection(walletRepo, userRepo);
+    testBIP44DerivationPathsForDifferentChains(walletRepo, userRepo);
+
+    TestUtils::printTestSummary("Multi-Chain Wallet Tests");
+    TestUtils::shutdownTestEnvironment(dbManager, dbPath);
+
+    std::cout << "\n=== All Tests Complete ===" << std::endl;
+
+    return (TestGlobals::g_testsFailed == 0) ? 0 : 1;
 }

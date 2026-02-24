@@ -2,34 +2,38 @@
 #include "../backend/database/include/Database/DatabaseManager.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
 #include "TestUtils.h"
-#include <iostream>
-#include <thread>
 #include <chrono>
 #include <filesystem>
+#include <iostream>
+#include <thread>
 
 namespace {
-    std::string getTestDbPath() {
-        return TestUtils::getWritableTestPath("test_password_wallet.db");
-    }
+std::string getTestDbPath() {
+    return TestUtils::getWritableTestPath("test_password_wallet.db");
+}
 
-    void cleanupTestDatabase() {
-        try {
-            std::string dbPath = getTestDbPath();
-            namespace fs = std::filesystem;
-            if (fs::exists(dbPath)) fs::remove(dbPath);
-            if (fs::exists(dbPath + "-wal")) fs::remove(dbPath + "-wal");
-            if (fs::exists(dbPath + "-shm")) fs::remove(dbPath + "-shm");
-        } catch (...) {}
-    }
-
-    void cleanupProductionDatabase() {
-        // Disabled for safety when running from installed app
-    }
-
-    void logResult(const std::string& name, bool passed) {
-        std::cout << "[" << (passed ? "PASS" : "FAIL") << "] " << name << std::endl;
+void cleanupTestDatabase() {
+    try {
+        std::string dbPath = getTestDbPath();
+        namespace fs = std::filesystem;
+        if (fs::exists(dbPath))
+            fs::remove(dbPath);
+        if (fs::exists(dbPath + "-wal"))
+            fs::remove(dbPath + "-wal");
+        if (fs::exists(dbPath + "-shm"))
+            fs::remove(dbPath + "-shm");
+    } catch (...) {
     }
 }
+
+void cleanupProductionDatabase() {
+    // Disabled for safety when running from installed app
+}
+
+void logResult(const std::string& name, bool passed) {
+    std::cout << "[" << (passed ? "PASS" : "FAIL") << "] " << name << std::endl;
+}
+}  // namespace
 
 int main() {
     std::cout << "========================================" << std::endl;
@@ -37,15 +41,22 @@ int main() {
     std::cout << "========================================" << std::endl;
 
     std::string dbPath = getTestDbPath();
-    
-    // Override Auth database path for testing
+
+    // Override Auth database path and key for testing
+    // Use a consistent test key so tests work across platforms
+    const char* testKey = "TestKey12345678901234567890123456789012";  // 34 chars
 #ifdef _WIN32
     _putenv_s("WALLET_DB_PATH", dbPath.c_str());
+    _putenv_s("WALLET_DB_KEY", testKey);
 #else
     setenv("WALLET_DB_PATH", dbPath.c_str(), 1);
+    setenv("WALLET_DB_KEY", testKey, 1);
 #endif
 
     cleanupTestDatabase();
+
+    // Reset Auth state to allow fresh initialization with new database path
+    Auth::ShutdownAuthDatabase();
 
     std::cout << "\n=== Initializing at " << dbPath << " ===" << std::endl;
     if (!Auth::InitializeAuthDatabase()) {
@@ -83,6 +94,9 @@ int main() {
         std::vector<std::string> mnemonic;
         auto response = Auth::RegisterUserWithMnemonic(testUser, testPass, mnemonic);
         bool registered = response.success();
+        if (!registered) {
+            std::cerr << "Registration failed: " << response.message << std::endl;
+        }
         logResult("Register new user", registered);
         allPassed &= registered;
     }

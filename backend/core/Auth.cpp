@@ -124,26 +124,27 @@ static bool InitializeDatabase() {
 
         // Get database path from environment or use a secure location in Local AppData
         std::string dbPath;
-        
+
 #ifdef _WIN32
         const char* localAppData = std::getenv("LOCALAPPDATA");
         if (localAppData) {
             std::string appDir = std::string(localAppData) + "\\CriptoGualet";
-            
+
             // Ensure directory exists
             DWORD dwAttrib = GetFileAttributesA(appDir.c_str());
             if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY)) {
                 CreateDirectoryA(appDir.c_str(), NULL);
             }
-            
+
             dbPath = appDir + "\\wallet.db";
         } else {
-            dbPath = "wallet.db"; // Fallback
+            dbPath = "wallet.db";  // Fallback
         }
 #else
         const char* home = std::getenv("HOME");
         if (home) {
-            std::filesystem::path configDir = std::filesystem::path(home) / ".config" / "CriptoGualet";
+            std::filesystem::path configDir =
+                std::filesystem::path(home) / ".config" / "CriptoGualet";
             std::filesystem::create_directories(configDir);
             dbPath = (configDir / "wallet.db").string();
         } else {
@@ -161,8 +162,14 @@ static bool InitializeDatabase() {
         // Derive secure encryption key from machine-specific data
         // This binds the database to the specific machine/user context
         std::string encryptionKey;
-        if (!Auth::DeriveSecureEncryptionKey(encryptionKey)) {
-            return false;
+
+        // Allow test override of encryption key via environment variable
+        if (const char* envKey = std::getenv("WALLET_DB_KEY")) {
+            encryptionKey = envKey;
+        } else {
+            if (!Auth::DeriveSecureEncryptionKey(encryptionKey)) {
+                return false;
+            }
         }
 
         // Initialize database with derived encryption key
@@ -189,7 +196,8 @@ static bool InitializeDatabase() {
         totp_enabled INTEGER NOT NULL DEFAULT 0,
         totp_secret TEXT,
         totp_secret_pending TEXT,
-        backup_codes TEXT
+        backup_codes TEXT,
+        encrypted_seed TEXT
       );
 
       CREATE TABLE IF NOT EXISTS wallets (
@@ -216,6 +224,12 @@ static bool InitializeDatabase() {
         balance_satoshis INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (wallet_id) REFERENCES wallets(id),
         UNIQUE (wallet_id, address_index, is_change)
+      );
+
+      CREATE TABLE IF NOT EXISTS user_seeds (
+        username TEXT PRIMARY KEY,
+        encrypted_seed TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE IF NOT EXISTS erc20_tokens (
@@ -351,7 +365,7 @@ static fs::path GetSeedVaultDir() {
         }
         return appDir / "seed_vault";
     }
-    
+
     // Fallback: try executable-relative path
     char exePath[MAX_PATH] = {0};
     if (GetModuleFileNameA(NULL, exePath, MAX_PATH) > 0) {
@@ -417,10 +431,16 @@ bool Auth::DeriveSecureEncryptionKey(std::string& outKey) {
         entropy.insert(entropy.end(), hostname, hostname + strlen(hostname));
     }
 
-    // 2. Get Linux username
+    // 2. Get Linux username (with fallback to environment variable)
     char username[256];
     if (getlogin_r(username, sizeof(username)) == 0) {
         entropy.insert(entropy.end(), username, username + strlen(username));
+    } else {
+        // Fallback to USER environment variable
+        const char* envUser = std::getenv("USER");
+        if (envUser) {
+            entropy.insert(entropy.end(), envUser, envUser + strlen(envUser));
+        }
     }
 
     // 3. Get machine-id (standard on most modern Linux distros)
@@ -431,7 +451,9 @@ bool Auth::DeriveSecureEncryptionKey(std::string& outKey) {
     if (machineIdFile) {
         std::string line;
         if (std::getline(machineIdFile, line)) {
-            entropy.insert(entropy.end(), line.begin(), line.end());
+            if (!line.empty()) {
+                entropy.insert(entropy.end(), line.begin(), line.end());
+            }
         }
     }
 #endif
@@ -516,7 +538,33 @@ static fs::path VaultPathForUser(const std::string& username) {
     return GetSeedVaultDir() / (username + ".bin");
 }
 
+// Helper: Convert bytes to hex string
+static std::string BytesToHex(const std::vector<uint8_t>& bytes) {
+    const char hexChars[] = "0123456789abcdef";
+    std::string result;
+    result.reserve(bytes.size() * 2);
+    for (uint8_t b : bytes) {
+        result += hexChars[(b >> 4) & 0x0F];
+        result += hexChars[b & 0x0F];
+    }
+    return result;
+}
+
+// Helper: Convert hex string to bytes
+static std::vector<uint8_t> HexToBytes(const std::string& hex) {
+    std::vector<uint8_t> result;
+    result.reserve(hex.size() / 2);
+    for (size_t i = 0; i + 1 < hex.size(); i += 2) {
+        int high = hex[i] >= 'a' ? (hex[i] - 'a' + 10) : (hex[i] - '0');
+        int low = hex[i + 1] >= 'a' ? (hex[i + 1] - 'a' + 10) : (hex[i + 1] - '0');
+        result.push_back(static_cast<uint8_t>((high << 4) | low));
+    }
+    return result;
+}
+
 static bool StoreUserSeedDPAPI(const std::string& username, const std::array<uint8_t, 64>& seed) {
+#ifdef _WIN32
+    // Windows: Use DPAPI to protect seed (existing behavior)
     fs::path vaultDir = GetSeedVaultDir();
     if (!EnsureDir(vaultDir))
         return false;
@@ -535,9 +583,38 @@ static bool StoreUserSeedDPAPI(const std::string& username, const std::array<uin
     file.close();
     std::fill(plaintext.begin(), plaintext.end(), uint8_t(0));
     return true;
+#else
+    // Linux: Store encrypted seed in SQLCipher database using separate table
+    // Since the database is already encrypted, we store the seed as-is
+    auto& dbManager = Database::DatabaseManager::getInstance();
+    sqlite3* db = dbManager.getHandle();
+    if (!db) {
+        return false;
+    }
+
+    // Convert seed to hex for storage
+    std::vector<uint8_t> seedVec(seed.begin(), seed.end());
+    std::string seedHex = BytesToHex(seedVec);
+
+    // Insert or replace into user_seeds table
+    const char* sql = "INSERT OR REPLACE INTO user_seeds (username, encrypted_seed) VALUES (?, ?)";
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        return false;
+    }
+    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, seedHex.c_str(), -1, SQLITE_STATIC);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    return (rc == SQLITE_DONE);
+#endif
 }
 
 static bool RetrieveUserSeedDPAPI(const std::string& username, std::array<uint8_t, 64>& outSeed) {
+#ifdef _WIN32
+    // Windows: Use DPAPI to retrieve seed (existing behavior)
     const fs::path p = VaultPathForUser(username);
     std::ifstream f(p, std::ios::binary);
     if (!f.is_open())
@@ -557,6 +634,49 @@ static bool RetrieveUserSeedDPAPI(const std::string& username, std::array<uint8_
     std::memcpy(outSeed.data(), plaintext.data(), 64);
     std::fill(plaintext.begin(), plaintext.end(), uint8_t(0));
     return true;
+#else
+    // Linux: Retrieve encrypted seed from SQLCipher database using separate table
+    auto& dbManager = Database::DatabaseManager::getInstance();
+    sqlite3* db = dbManager.getHandle();
+    if (!db) {
+        return false;
+    }
+
+    const char* sql = "SELECT encrypted_seed FROM user_seeds WHERE username = ?";
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "[DEBUG] RetrieveUserSeedDPAPI: prepare failed, rc=%d\n", rc);
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+    rc = sqlite3_step(stmt);
+
+    if (rc == SQLITE_ROW) {
+        const char* seedHex = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        sqlite3_finalize(stmt);
+
+        if (!seedHex || strlen(seedHex) == 0) {
+            return false;
+        }
+
+        std::vector<uint8_t> seedVec = HexToBytes(seedHex);
+        if (seedVec.size() != 64) {
+            return false;
+        }
+        std::memcpy(outSeed.data(), seedVec.data(), 64);
+
+        // Delete the seed from temporary storage only during explicit RevealSeed call
+        // (not during registration when seed is retrieved for wallet derivation)
+        // The deletion happens in RevealSeed after successful retrieval
+
+        return true;
+    }
+
+    sqlite3_finalize(stmt);
+    return false;
+#endif
 }
 
 // REMOVED: WriteOneTimeMnemonicFile - No longer creating insecure plain text
@@ -620,6 +740,22 @@ AuthResponse RevealSeed(const std::string& username, const std::string& password
     for (uint8_t b : seed)
         oss << std::hex << std::setw(2) << std::setfill('0') << (int)b;
     outSeedHex = oss.str();
+
+#ifndef _WIN32
+    // Linux: Delete seed from temporary storage after successful retrieval
+    // This ensures seed can only be revealed once (or until re-registration)
+    auto& dbManager = Database::DatabaseManager::getInstance();
+    sqlite3* db = dbManager.getHandle();
+    if (db) {
+        const char* deleteSql = "DELETE FROM user_seeds WHERE username = ?";
+        sqlite3_stmt* delStmt = nullptr;
+        if (sqlite3_prepare_v2(db, deleteSql, -1, &delStmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_text(delStmt, 1, username.c_str(), -1, SQLITE_STATIC);
+            sqlite3_step(delStmt);
+            sqlite3_finalize(delStmt);
+        }
+    }
+#endif
 
     // Mnemonic is no longer stored in files for security
     // It's only available during initial generation/display
@@ -1582,6 +1718,20 @@ AuthResponse LoginUser(const std::string& username, const std::string& password)
 // Initialize database and repository layer (public API)
 bool InitializeAuthDatabase() {
     return InitializeDatabase();
+}
+
+// Shutdown and reset database connection (for testing)
+bool ShutdownAuthDatabase() {
+    try {
+        auto& dbManager = Database::DatabaseManager::getInstance();
+        dbManager.close();
+        g_databaseInitialized = false;
+        g_userRepo.reset();
+        g_walletRepo.reset();
+        return true;
+    } catch (...) {
+        return false;
+    }
 }
 
 // ===== TOTP Two-Factor Authentication Implementation =====

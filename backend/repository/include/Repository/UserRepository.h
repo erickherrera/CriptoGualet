@@ -1,13 +1,13 @@
 #pragma once
 
-#include "RepositoryTypes.h"
-#include "Logger.h"
-#include "../../database/include/Database/DatabaseManager.h"
 #include "../../core/include/Crypto.h"
+#include "../../database/include/Database/DatabaseManager.h"
+#include "Logger.h"
+#include "RepositoryTypes.h"
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
 
 // Forward declaration
 struct sqlite3_stmt;
@@ -24,7 +24,7 @@ namespace Repository {
  * - Password security validation
  */
 class UserRepository {
-public:
+  public:
     /**
      * @brief Constructor
      * @param dbManager Reference to the database manager
@@ -75,7 +75,8 @@ public:
      * @param newPassword New password to set
      * @return Result indicating success or failure
      */
-    Result<bool> changePassword(int userId, const std::string& currentPassword, const std::string& newPassword);
+    Result<bool> changePassword(int userId, const std::string& currentPassword,
+                                const std::string& newPassword);
 
     /**
      * @brief Update user activity status
@@ -101,15 +102,35 @@ public:
 
     /**
      * @brief Delete user account (soft delete - marks as inactive)
-     * @param userId User ID to delete
+     * @param userId
+     * User ID to delete
      * @return Result indicating success or failure
      */
     Result<bool> deleteUser(int userId);
 
     /**
+     * @brief Update encrypted seed for a user (Linux: stores in SQLCipher DB)
+     * @param
+     * userId User ID to update
+     * @param encryptedSeedHex Hex-encoded encrypted seed
+     *
+     * @return Result indicating success or failure
+     */
+    Result<bool> updateEncryptedSeed(int userId, const std::string& encryptedSeedHex);
+
+    /**
+     * @brief Get encrypted seed for a user (Linux: retrieves from SQLCipher DB)
+     *
+     * @param userId User ID to query
+     * @return Result containing hex-encoded encrypted seed
+     * (empty if not set)
+     */
+    Result<std::string> getEncryptedSeed(int userId);
+
+    /**
      * @brief Get user statistics
      * @return Result containing user count statistics
-     */
+ */
     Result<UserStats> getUserStats();
 
     /**
@@ -119,14 +140,15 @@ public:
      */
     static Result<PasswordValidation> validatePassword(const std::string& password);
 
-private:
+  private:
     /**
      * @brief Hash password with salt using secure algorithms
      * @param password Plain text password
      * @param salt Salt bytes (will be generated if empty)
      * @return Result containing password hash and salt
      */
-    Result<PasswordHashResult> hashPassword(const std::string& password, std::vector<uint8_t> salt = {});
+    Result<PasswordHashResult> hashPassword(const std::string& password,
+                                            std::vector<uint8_t> salt = {});
 
     /**
      * @brief Verify password against stored hash and salt
@@ -135,7 +157,8 @@ private:
      * @param salt Salt used for hashing
      * @return Result indicating if password is correct
      */
-    Result<bool> verifyPassword(const std::string& password, const std::string& storedHash, const std::vector<uint8_t>& salt);
+    Result<bool> verifyPassword(const std::string& password, const std::string& storedHash,
+                                const std::vector<uint8_t>& salt);
 
     /**
      * @brief Convert database row to User object
@@ -151,22 +174,20 @@ private:
      */
     Result<bool> validateUsername(const std::string& username);
 
-
-
     /**
      * @brief Generate secure random salt
      * @return Vector containing random salt bytes
      */
     std::vector<uint8_t> generateSalt();
 
-private:
+  private:
     Database::DatabaseManager& m_dbManager;
     static constexpr const char* COMPONENT_NAME = "UserRepository";
     static constexpr int MIN_USERNAME_LENGTH = 3;
     static constexpr int MAX_USERNAME_LENGTH = 50;
     static constexpr int MIN_PASSWORD_LENGTH = 8;
     static constexpr int SALT_SIZE = 32;
-    static constexpr int PBKDF2_ITERATIONS = 600000; // Strong iteration count
+    static constexpr int PBKDF2_ITERATIONS = 600000;  // Strong iteration count
 };
 
-} // namespace Repository
+}  // namespace Repository
