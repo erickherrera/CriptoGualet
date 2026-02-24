@@ -3,7 +3,7 @@
   "configurations": [
     {
       "type": "cppdbg",
-      "name": "CriptoGualet Qt Application (MSVC Debug)",
+      "name": "MSVC Debug",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/CriptoGualetQt.exe",
       "args": [],
@@ -21,7 +21,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "CriptoGualet Qt Application (ClangCL Debug)",
+      "name": "ClangCL Debug",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/CriptoGualetQt.exe",
       "args": [],
@@ -39,7 +39,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "CriptoGualet Qt Application (Release)",
+      "name": "Release",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-msvc-rel/bin/Release/CriptoGualetQt.exe",
       "args": [],
@@ -56,12 +56,12 @@
     },
     {
       "type": "cppdbg",
-      "name": "CriptoGualet Qt Application (Linux Debug)",
+      "name": "Linux Debug",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/linux-clang-dbg/bin/CriptoGualetQt",
+      "program": "${workspaceRoot}/out/build/linux-dbg/bin/CriptoGualetQt",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/linux-clang-dbg/bin",
+      "cwd": "${workspaceRoot}/out/build/linux-dbg/bin",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",
@@ -69,7 +69,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "CriptoGualet Qt Application (Linux Release)",
+      "name": "Linux Release",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/linux-rel/bin/CriptoGualetQt",
       "args": [],
@@ -82,7 +82,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA Tests (MSVC Debug)",
+      "name": "Test: 2FA (MSVC Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/test_2fa.exe",
       "args": [],
@@ -99,7 +99,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA Tests (ClangCL Debug)",
+      "name": "Test: 2FA (ClangCL Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/test_2fa.exe",
       "args": [],
@@ -116,7 +116,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 Tests (MSVC Debug)",
+      "name": "Test: BIP39 (MSVC Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/test_bip39.exe",
       "args": [],
@@ -133,7 +133,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 Tests (ClangCL Debug)",
+      "name": "Test: BIP39 (ClangCL Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/test_bip39.exe",
       "args": [],
@@ -150,12 +150,12 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA Tests (Linux Debug)",
+      "name": "Test: 2FA (Linux Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/linux-clang-dbg/bin/test_2fa",
+      "program": "${workspaceRoot}/out/build/linux-dbg/bin/test_2fa",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/linux-clang-dbg/bin",
+      "cwd": "${workspaceRoot}/out/build/linux-dbg/bin",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",
@@ -163,12 +163,12 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 Tests (Linux Debug)",
+      "name": "Test: BIP39 (Linux Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/linux-clang-dbg/bin/test_bip39",
+      "program": "${workspaceRoot}/out/build/linux-dbg/bin/test_bip39",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/linux-clang-dbg/bin",
+      "cwd": "${workspaceRoot}/out/build/linux-dbg/bin",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",
@@ -176,7 +176,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA Tests (Linux Release)",
+      "name": "Test: 2FA (Linux Release)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/linux-rel/bin/test_2fa",
       "args": [],
@@ -189,7 +189,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 Tests (Linux Release)",
+      "name": "Test: BIP39 (Linux Release)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/linux-rel/bin/test_bip39",
       "args": [],

@@ -2,7 +2,7 @@
   "configurations": [
     {
       "name": "MSVC Debug",
-      "displayName": "MSVC Debug (Faster Builds)",
+      "displayName": "MSVC Debug",
       "generator": "Visual Studio 18 2026",
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\out\\build\\w-msvc-dbg",
@@ -36,43 +36,8 @@
       ]
     },
     {
-      "name": "MSVC Release",
-      "displayName": "MSVC Release",
-      "generator": "Visual Studio 18 2026",
-      "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\w-msvc-rel",
-      "installRoot": "${projectDir}\\out\\install\\w-msvc-rel",
-      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
-      "buildCommandArgs": "-v:minimal",
-      "ctestCommandArgs": "--output-on-failure",
-      "inheritEnvironments": [ "msvc_x64_x64" ],
-      "variables": [
-        {
-          "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
-          "type": "FILEPATH"
-        },
-        {
-          "name": "VCPKG_TARGET_TRIPLET",
-          "value": "x64-windows",
-          "type": "STRING"
-        },
-        {
-          "name": "CMAKE_CXX_STANDARD",
-          "value": "20",
-          "type": "STRING"
-        }
-      ],
-      "intelliSenseMode": "windows-msvc-x64",
-      "environments": [
-        {
-          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
-        }
-      ]
-    },
-    {
       "name": "ClangCL Debug",
-      "displayName": "ClangCL Debug (Standard)",
+      "displayName": "ClangCL Debug",
       "generator": "Visual Studio 18 2026",
       "toolset": "ClangCL",
       "configurationType": "Debug",
@@ -117,17 +82,16 @@
       ]
     },
     {
-      "name": "ClangCL Release",
-      "displayName": "ClangCL Release (Standard)",
+      "name": "Release",
+      "displayName": "Release",
       "generator": "Visual Studio 18 2026",
-      "toolset": "ClangCL",
       "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\w-cl-rel",
-      "installRoot": "${projectDir}\\out\\install\\w-cl-rel",
-      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_LTO=ON",
+      "buildRoot": "${projectDir}\\out\\build\\w-msvc-rel",
+      "installRoot": "${projectDir}\\out\\install\\w-msvc-rel",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
       "buildCommandArgs": "-v:minimal",
       "ctestCommandArgs": "--output-on-failure",
-      "inheritEnvironments": [ "clang_cl_x64_x64" ],
+      "inheritEnvironments": [ "msvc_x64_x64" ],
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
@@ -143,19 +107,9 @@
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
-        },
-        {
-          "name": "ENABLE_ASAN",
-          "value": "False",
-          "type": "BOOL"
-        },
-        {
-          "name": "ENABLE_LTO",
-          "value": "True",
-          "type": "BOOL"
         }
       ],
-      "intelliSenseMode": "windows-clang-x64",
+      "intelliSenseMode": "windows-msvc-x64",
       "environments": [
         {
           "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
@@ -163,12 +117,12 @@
       ]
     },
     {
-      "name": "Linux GCC Debug",
-      "displayName": "Linux GCC Debug",
+      "name": "Linux Debug",
+      "displayName": "Linux Debug",
       "generator": "Unix Makefiles",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\linux-gcc-dbg",
-      "installRoot": "${projectDir}\\out\\install\\linux-gcc-dbg",
+      "buildRoot": "${projectDir}\\out\\build\\linux-dbg",
+      "installRoot": "${projectDir}\\out\\install\\linux-dbg",
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
@@ -204,47 +158,6 @@
       ]
     },
     {
-      "name": "Linux Clang Debug",
-      "displayName": "Linux Clang Debug",
-      "generator": "Unix Makefiles",
-      "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\linux-clang-dbg",
-      "installRoot": "${projectDir}\\out\\install\\linux-clang-dbg",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
-      "inheritEnvironments": [ "linux_x64" ],
-      "remoteMachineName": "${defaultRemoteMachineName}",
-      "remoteCMakeListsRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/src",
-      "remoteBuildRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/build/${name}",
-      "remoteInstallRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/install/${name}",
-      "remoteCopySources": true,
-      "remoteCopySourcesOutputVerbosity": "Normal",
-      "remoteCopySourcesConcurrentCopies": "10",
-      "remoteCopySourcesMethod": "rsync",
-      "remoteCopySourcesExclusionList": [ ".vs", ".git", "out" ],
-      "rsyncCommandArgs": "-t --delete --delete-excluded",
-      "remoteCopyBuildOutput": false,
-      "remoteCopyFreeMarkers": [ "cmake", "ninja" ],
-      "variables": [
-        {
-          "name": "CMAKE_C_COMPILER",
-          "value": "clang",
-          "type": "STRING"
-        },
-        {
-          "name": "CMAKE_CXX_COMPILER",
-          "value": "clang++",
-          "type": "STRING"
-        },
-        {
-          "name": "CMAKE_PREFIX_PATH",
-          "value": "/usr/local/qt6;/usr/lib/x86_64-linux-gnu/cmake/Qt6",
-          "type": "PATH"
-        }
-      ]
-    },
-    {
       "name": "Linux Release",
       "displayName": "Linux Release",
       "generator": "Unix Makefiles",
@@ -270,12 +183,12 @@
       "variables": [
         {
           "name": "CMAKE_C_COMPILER",
-          "value": "clang",
+          "value": "gcc",
           "type": "STRING"
         },
         {
           "name": "CMAKE_CXX_COMPILER",
-          "value": "clang++",
+          "value": "g++",
           "type": "STRING"
         },
         {
@@ -285,6 +198,5 @@
         }
       ]
     }
-
   ]
 }
