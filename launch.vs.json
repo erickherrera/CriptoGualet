@@ -39,6 +39,23 @@
     },
     {
       "type": "cppdbg",
+      "name": "ClangCL Release",
+      "request": "launch",
+      "program": "${workspaceRoot}/out/build/w-cl-rel/bin/Release/CriptoGualetQt.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/out/build/w-cl-rel/bin/Release",
+      "environment": [
+        {
+          "name": "PATH",
+          "value": "${workspaceRoot}\\out\\build\\w-cl-rel\\bin\\Release;${workspaceRoot}\\out\\build\\w-cl-rel\\vcpkg_installed\\x64-windows\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
+        }
+      ],
+      "externalConsole": false,
+      "MIMode": "vsdbg"
+    },
+    {
+      "type": "cppdbg",
       "name": "Release",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/w-msvc-rel/bin/Release/CriptoGualetQt.exe",

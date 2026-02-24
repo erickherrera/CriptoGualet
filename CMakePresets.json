@@ -95,6 +95,12 @@
           "value": "C:/Program Files/Qt/6.9.1/msvc2022_64"
         }
       }
+    },
+    {
+      "name": "w-cl-rel",
+      "displayName": "ClangCL Release",
+      "inherits": "w-cl-dbg",
+      "cacheVariables": {}
     }
   ],
   "buildPresets": [
@@ -127,6 +133,12 @@
       "displayName": "ClangCL Debug",
       "configurePreset": "w-cl-dbg",
       "configuration": "Debug"
+    },
+    {
+      "name": "w-cl-rel",
+      "displayName": "ClangCL Release",
+      "configurePreset": "w-cl-rel",
+      "configuration": "Release"
     }
   ],
   "testPresets": [

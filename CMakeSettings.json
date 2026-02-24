@@ -82,6 +82,52 @@
       ]
     },
     {
+      "name": "ClangCL Release",
+      "displayName": "ClangCL Release",
+      "generator": "Visual Studio 18 2026",
+      "toolset": "ClangCL",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\w-cl-rel",
+      "installRoot": "${projectDir}\\out\\install\\w-cl-rel",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_LTO=ON",
+      "buildCommandArgs": "-v:minimal",
+      "ctestCommandArgs": "--output-on-failure",
+      "inheritEnvironments": [ "clang_cl_x64_x64" ],
+      "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "VCPKG_TARGET_TRIPLET",
+          "value": "x64-windows",
+          "type": "STRING"
+        },
+        {
+          "name": "CMAKE_CXX_STANDARD",
+          "value": "20",
+          "type": "STRING"
+        },
+        {
+          "name": "ENABLE_ASAN",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "ENABLE_LTO",
+          "value": "True",
+          "type": "BOOL"
+        }
+      ],
+      "intelliSenseMode": "windows-clang-x64",
+      "environments": [
+        {
+          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
+        }
+      ]
+    },
+    {
       "name": "Release",
       "displayName": "Release",
       "generator": "Visual Studio 18 2026",
