@@ -7,8 +7,7 @@
     "cpr",
     "curl",
     "nlohmann-json",
-    "sqlcipher",
-    "sqlite3",
-    "secp256k1"
+    "secp256k1",
+    "sqlite3"
   ]
 }
