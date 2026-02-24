@@ -3,16 +3,16 @@
   "configurations": [
     {
       "type": "cppdbg",
-      "name": "Windows MSVC Debug",
+      "name": "x64-Debug",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/CriptoGualetQt.exe",
+      "program": "${workspaceRoot}/out/build/x64-Debug/bin/Debug/CriptoGualetQt.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/x64-Debug/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\x64-Debug\\bin\\Debug;${workspaceRoot}\\out\\build\\x64-Debug\\vcpkg_installed\\x64-windows\\debug\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -21,34 +21,16 @@
     },
     {
       "type": "cppdbg",
-      "name": "Windows ClangCL Debug",
+      "name": "x64-Release",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/CriptoGualetQt.exe",
+      "program": "${workspaceRoot}/out/build/x64-Release/bin/Release/CriptoGualetQt.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/x64-Release/bin/Release",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\w-cl-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-cl-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
-        }
-      ],
-      "externalConsole": false,
-      "MIMode": "vsdbg",
-      "preLaunchTask": "CMake: build"
-    },
-    {
-      "type": "cppdbg",
-      "name": "Windows ClangCL Release",
-      "request": "launch",
-      "program": "${workspaceRoot}/out/build/w-cl-rel/bin/Release/CriptoGualetQt.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/w-cl-rel/bin/Release",
-      "environment": [
-        {
-          "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\w-cl-rel\\bin\\Release;${workspaceRoot}\\out\\build\\w-cl-rel\\vcpkg_installed\\x64-windows\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\x64-Release\\bin\\Release;${workspaceRoot}\\out\\build\\x64-Release\\vcpkg_installed\\x64-windows\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -56,24 +38,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Windows MSVC Release",
-      "request": "launch",
-      "program": "${workspaceRoot}/out/build/w-msvc-rel/bin/Release/CriptoGualetQt.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/w-msvc-rel/bin/Release",
-      "environment": [
-        {
-          "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\w-msvc-rel\\bin\\Release;${workspaceRoot}\\out\\build\\w-msvc-rel\\vcpkg_installed\\x64-windows\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
-        }
-      ],
-      "externalConsole": false,
-      "MIMode": "vsdbg"
-    },
-    {
-      "type": "cppdbg",
-      "name": "Linux Debug",
+      "name": "Linux-Debug",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/linux-dbg/bin/CriptoGualetQt",
       "args": [],
@@ -86,7 +51,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Linux Release",
+      "name": "Linux-Release",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/linux-rel/bin/CriptoGualetQt",
       "args": [],
@@ -99,16 +64,16 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA (Windows MSVC Debug)",
+      "name": "Test: 2FA (x64-Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/test_2fa.exe",
+      "program": "${workspaceRoot}/out/build/x64-Debug/bin/Debug/test_2fa.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/x64-Debug/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\x64-Debug\\bin\\Debug;${workspaceRoot}\\out\\build\\x64-Debug\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -116,16 +81,16 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA (Windows ClangCL Debug)",
+      "name": "Test: BIP39 (x64-Debug)",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/test_2fa.exe",
+      "program": "${workspaceRoot}/out/build/x64-Debug/bin/Debug/test_bip39.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug",
+      "cwd": "${workspaceRoot}/out/build/x64-Debug/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\w-cl-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-cl-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\x64-Debug\\bin\\Debug;${workspaceRoot}\\out\\build\\x64-Debug\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -133,41 +98,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 (Windows MSVC Debug)",
-      "request": "launch",
-      "program": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug/test_bip39.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/w-msvc-dbg/bin/Debug",
-      "environment": [
-        {
-          "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
-        }
-      ],
-      "externalConsole": false,
-      "MIMode": "vsdbg"
-    },
-    {
-      "type": "cppdbg",
-      "name": "Test: BIP39 (Windows ClangCL Debug)",
-      "request": "launch",
-      "program": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug/test_bip39.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/w-cl-dbg/bin/Debug",
-      "environment": [
-        {
-          "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\w-cl-dbg\\bin\\Debug;${workspaceRoot}\\out\\build\\w-cl-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;%PATH%"
-        }
-      ],
-      "externalConsole": false,
-      "MIMode": "vsdbg"
-    },
-    {
-      "type": "cppdbg",
-      "name": "Test: 2FA (Linux Debug)",
+      "name": "Test: 2FA (Linux-Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/linux-dbg/bin/test_2fa",
       "args": [],
@@ -180,7 +111,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 (Linux Debug)",
+      "name": "Test: BIP39 (Linux-Debug)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/linux-dbg/bin/test_bip39",
       "args": [],
@@ -193,7 +124,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: 2FA (Linux Release)",
+      "name": "Test: 2FA (Linux-Release)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/linux-rel/bin/test_2fa",
       "args": [],
@@ -206,7 +137,7 @@
     },
     {
       "type": "cppdbg",
-      "name": "Test: BIP39 (Linux Release)",
+      "name": "Test: BIP39 (Linux-Release)",
       "request": "launch",
       "program": "${workspaceRoot}/out/build/linux-rel/bin/test_bip39",
       "args": [],

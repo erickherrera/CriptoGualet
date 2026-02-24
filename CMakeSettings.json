@@ -1,12 +1,12 @@
 {
   "configurations": [
     {
-      "name": "Windows MSVC Debug",
-      "displayName": "Windows MSVC Debug",
-      "generator": "Visual Studio 18 2026",
+      "name": "x64-Debug",
+      "displayName": "x64 Debug",
+      "generator": "Visual Studio 17 2022",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\w-msvc-dbg",
-      "installRoot": "${projectDir}\\out\\install\\w-msvc-dbg",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
       "buildCommandArgs": "-v:minimal",
       "ctestCommandArgs": "--output-on-failure",
@@ -26,6 +26,11 @@
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
+        },
+        {
+          "name": "CMAKE_CONFIGURATION_TYPES",
+          "value": "Debug;Release",
+          "type": "STRING"
         }
       ],
       "intelliSenseMode": "windows-msvc-x64",
@@ -36,104 +41,12 @@
       ]
     },
     {
-      "name": "Windows ClangCL Debug",
-      "displayName": "Windows ClangCL Debug",
-      "generator": "Visual Studio 18 2026",
-      "toolset": "ClangCL",
-      "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\w-cl-dbg",
-      "installRoot": "${projectDir}\\out\\install\\w-cl-dbg",
-      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_ASAN=ON",
-      "buildCommandArgs": "-v:minimal",
-      "ctestCommandArgs": "--output-on-failure",
-      "inheritEnvironments": [ "clang_cl_x64_x64" ],
-      "variables": [
-        {
-          "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
-          "type": "FILEPATH"
-        },
-        {
-          "name": "VCPKG_TARGET_TRIPLET",
-          "value": "x64-windows",
-          "type": "STRING"
-        },
-        {
-          "name": "CMAKE_CXX_STANDARD",
-          "value": "20",
-          "type": "STRING"
-        },
-        {
-          "name": "ENABLE_ASAN",
-          "value": "True",
-          "type": "BOOL"
-        },
-        {
-          "name": "ENABLE_LTO",
-          "value": "False",
-          "type": "BOOL"
-        }
-      ],
-      "intelliSenseMode": "windows-clang-x64",
-      "environments": [
-        {
-          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
-        }
-      ]
-    },
-    {
-      "name": "Windows ClangCL Release",
-      "displayName": "Windows ClangCL Release",
-      "generator": "Visual Studio 18 2026",
-      "toolset": "ClangCL",
+      "name": "x64-Release",
+      "displayName": "x64 Release",
+      "generator": "Visual Studio 17 2022",
       "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\w-cl-rel",
-      "installRoot": "${projectDir}\\out\\install\\w-cl-rel",
-      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_LTO=ON",
-      "buildCommandArgs": "-v:minimal",
-      "ctestCommandArgs": "--output-on-failure",
-      "inheritEnvironments": [ "clang_cl_x64_x64" ],
-      "variables": [
-        {
-          "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
-          "type": "FILEPATH"
-        },
-        {
-          "name": "VCPKG_TARGET_TRIPLET",
-          "value": "x64-windows",
-          "type": "STRING"
-        },
-        {
-          "name": "CMAKE_CXX_STANDARD",
-          "value": "20",
-          "type": "STRING"
-        },
-        {
-          "name": "ENABLE_ASAN",
-          "value": "False",
-          "type": "BOOL"
-        },
-        {
-          "name": "ENABLE_LTO",
-          "value": "True",
-          "type": "BOOL"
-        }
-      ],
-      "intelliSenseMode": "windows-clang-x64",
-      "environments": [
-        {
-          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
-        }
-      ]
-    },
-    {
-      "name": "Windows MSVC Release",
-      "displayName": "Windows MSVC Release",
-      "generator": "Visual Studio 18 2026",
-      "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\w-msvc-rel",
-      "installRoot": "${projectDir}\\out\\install\\w-msvc-rel",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
       "buildCommandArgs": "-v:minimal",
       "ctestCommandArgs": "--output-on-failure",
@@ -153,6 +66,11 @@
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
+        },
+        {
+          "name": "CMAKE_CONFIGURATION_TYPES",
+          "value": "Debug;Release",
+          "type": "STRING"
         }
       ],
       "intelliSenseMode": "windows-msvc-x64",
@@ -163,7 +81,7 @@
       ]
     },
     {
-      "name": "Linux Debug",
+      "name": "Linux-Debug",
       "displayName": "Linux Debug",
       "generator": "Unix Makefiles",
       "configurationType": "Debug",
@@ -204,7 +122,7 @@
       ]
     },
     {
-      "name": "Linux Release",
+      "name": "Linux-Release",
       "displayName": "Linux Release",
       "generator": "Unix Makefiles",
       "configurationType": "Release",
