@@ -2476,9 +2476,11 @@ bool CreateUnsignedTransaction(const std::vector<UTXO> &inputs,
   recipient_output.address = recipient_address;
 
   // Create P2PKH script for recipient
-  // For now, use a placeholder script hex
-  // TODO: Implement proper CreateP2PKHScript with Base58 decoding
-  recipient_output.script_pubkey = "76a914";  // OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG
+  std::vector<uint8_t> recipient_script;
+  if (!CreateP2PKHScript(recipient_address, recipient_script)) {
+    return false;
+  }
+  recipient_output.script_pubkey = BytesToHex(recipient_script);
   tx.outputs.push_back(recipient_output);
 
   // Add change output if needed
@@ -2486,7 +2488,12 @@ bool CreateUnsignedTransaction(const std::vector<UTXO> &inputs,
     TransactionOutput change_output;
     change_output.amount = change_amount;
     change_output.address = change_address;
-    change_output.script_pubkey = "76a914";  // Placeholder
+    
+    std::vector<uint8_t> change_script;
+    if (!CreateP2PKHScript(change_address, change_script)) {
+      return false;
+    }
+    change_output.script_pubkey = BytesToHex(change_script);
     tx.outputs.push_back(change_output);
   }
 

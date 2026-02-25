@@ -21,15 +21,13 @@ endif()
 
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
-  target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
-  target_link_options(Crypto PRIVATE -fPIE -pie)
+  target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIC -Wno-unused-parameter)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
   target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
 elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   target_compile_options(Crypto PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
 else()
-  target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
-  target_link_options(Crypto PRIVATE -fPIE -pie)
+  target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIC)
 endif()
 
 # ---- Auth library (portable, builds everywhere) ----
@@ -51,15 +49,13 @@ target_link_libraries(Auth PRIVATE Crypto Repository Database SharedSymbols)
 
 # Use cross-platform compiler-specific flags with security features
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
-  target_compile_options(Auth PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE -Wno-unused-parameter)
-  target_link_options(Auth PRIVATE -fPIE -pie)
+  target_compile_options(Auth PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIC -Wno-unused-parameter)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
   target_compile_options(Auth PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
 elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   target_compile_options(Auth PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
 else()
-  target_compile_options(Auth PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIE)
-  target_link_options(Auth PRIVATE -fPIE -pie)
+  target_compile_options(Auth PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIC)
 endif()
 
 # ---- Wallet API library (high-level wrapper) ----

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <string>
 #include <iostream>
 
@@ -64,6 +65,7 @@ namespace TestUtils {
     // Helper functions
     int createTestUser(Repository::UserRepository& userRepo, const std::string& username);
     int createTestUserWithWallet(Repository::UserRepository& userRepo, Repository::WalletRepository& walletRepo, const std::string& username);
+    void waitForUser();
 }
 
 class MockTime {

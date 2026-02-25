@@ -79,7 +79,7 @@
       "hidden": true,
       "inherits": "base",
       "environment": {
-        "VCPKG_ROOT": "/home/magnanimous042395/vcpkg"
+        "VCPKG_ROOT": "$env{HOME}/vcpkg"
       },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
@@ -145,27 +145,57 @@
   "testPresets": [
     {
       "name": "win-vs2022-msvc-debug",
-      "configurePreset": "win-vs2022-msvc-debug"
+      "configurePreset": "win-vs2022-msvc-debug",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
     },
     {
       "name": "win-vs2022-msvc-release",
-      "configurePreset": "win-vs2022-msvc-release"
+      "configurePreset": "win-vs2022-msvc-release",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
     },
     {
       "name": "win-vs2022-clangcl-debug",
-      "configurePreset": "win-vs2022-clangcl-debug"
+      "configurePreset": "win-vs2022-clangcl-debug",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
     },
     {
       "name": "win-vs2022-clangcl-release",
-      "configurePreset": "win-vs2022-clangcl-release"
+      "configurePreset": "win-vs2022-clangcl-release",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
     },
     {
       "name": "linux-dbg",
-      "configurePreset": "linux-dbg"
+      "configurePreset": "linux-dbg",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
     },
     {
       "name": "linux-rel",
-      "configurePreset": "linux-rel"
+      "configurePreset": "linux-rel",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
     }
   ]
 }

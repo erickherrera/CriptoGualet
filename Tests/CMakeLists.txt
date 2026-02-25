@@ -59,6 +59,7 @@ find_package(SQLite3)
 
 # Consolidated repository tests
 add_criptogualet_test(test_repository_consolidated "test_repository_consolidated.cpp")
+add_criptogualet_test(test_signing_robustness "test_signing_robustness.cpp")
 
 # Additional test executables (launch manually / set as startup)
 add_criptogualet_tool(test_password_verification "test_password_verification.cpp")

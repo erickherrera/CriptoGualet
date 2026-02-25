@@ -5,6 +5,12 @@
 #include "Repository/WalletRepository.h"
 #include <filesystem>
 #include <iostream>
+#include <cstdio>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE
@@ -274,6 +280,28 @@ int createTestUserWithWallet(Repository::UserRepository& userRepo,
         return -1;
     }
     return walletResult->id;
+}
+
+void waitForUser() {
+    // Check if we are running in an interactive terminal
+    bool isInteractive = false;
+#ifdef _WIN32
+    isInteractive = _isatty(_fileno(stdin));
+#else
+    isInteractive = isatty(fileno(stdin));
+#endif
+
+    // Also check for CI environment variable
+    if (std::getenv("CI") || std::getenv("GITHUB_ACTIONS")) {
+        isInteractive = false;
+    }
+
+    if (isInteractive) {
+        std::cout << "\nPress Enter to exit..." << std::endl;
+        std::cin.get();
+    } else {
+        std::cout << "\nNon-interactive environment detected, skipping wait." << std::endl;
+    }
 }
 }  // namespace TestUtils
 

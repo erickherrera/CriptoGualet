@@ -25,6 +25,45 @@ std::vector<uint8_t> Encoder::EncodeUInt(uint64_t value) {
     return encodeRaw(bytes);
 }
 
+std::vector<uint8_t> Encoder::EncodeDecimal(const std::string& decimal) {
+    if (decimal.empty() || decimal == "0") {
+        return {0x80};
+    }
+
+    // Convert decimal string to bytes (big-endian)
+    std::vector<uint8_t> bytes;
+    bytes.push_back(0); // Start with zero
+
+    for (char c : decimal) {
+        if (!std::isdigit(c)) continue;
+
+        uint32_t carry = c - '0';
+        for (int i = static_cast<int>(bytes.size()) - 1; i >= 0; i--) {
+            uint32_t current = bytes[i] * 10 + carry;
+            bytes[i] = static_cast<uint8_t>(current & 0xFF);
+            carry = current >> 8;
+        }
+
+        while (carry > 0) {
+            bytes.insert(bytes.begin(), static_cast<uint8_t>(carry & 0xFF));
+            carry >>= 8;
+        }
+    }
+
+    // Remove leading zeros
+    size_t first_nonzero = 0;
+    while (first_nonzero < bytes.size() && bytes[first_nonzero] == 0) {
+        first_nonzero++;
+    }
+
+    if (first_nonzero == bytes.size()) {
+        return {0x80};
+    }
+
+    std::vector<uint8_t> result(bytes.begin() + first_nonzero, bytes.end());
+    return encodeRaw(result);
+}
+
 std::vector<uint8_t> Encoder::EncodeHex(const std::string& hex) {
     auto bytes = HexToBytes(hex);
     return encodeRaw(bytes);

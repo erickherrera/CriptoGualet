@@ -594,6 +594,7 @@ int main() {
     TestUtils::shutdownTestEnvironment(dbManager, dbPath);
 
     std::cout << "\n=== All Tests Complete ===" << std::endl;
+    TestUtils::waitForUser();
 
     return (TestGlobals::g_testsFailed == 0) ? 0 : 1;
 }

@@ -117,9 +117,9 @@
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
       "buildCommandArgs": "",
-      "ctestCommandArgs": "",
+      "ctestCommandArgs": "--output-on-failure",
       "inheritEnvironments": [ "linux_x64" ],
       "remoteMachineName": "${defaultRemoteMachineName}",
       "remoteCMakeListsRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/src",
@@ -133,7 +133,18 @@
       "rsyncCommandArgs": "-t --delete --delete-excluded",
       "remoteCopyBuildOutput": false,
       "remoteCopyFreeMarkers": [ "cmake", "ninja" ],
+      "cmakeExecutable": "/usr/bin/cmake",
       "variables": [
+        {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "/home/magnanimous23/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "VCPKG_TARGET_TRIPLET",
+          "value": "x64-linux",
+          "type": "STRING"
+        },
         {
           "name": "CMAKE_C_COMPILER",
           "value": "gcc",
@@ -144,7 +155,8 @@
           "value": "g++",
           "type": "STRING"
         }
-      ]
+      ],
+      "intelliSenseMode": "linux-gcc-x64"
     }
   ]
 }

@@ -471,10 +471,10 @@ std::optional<std::string> EthereumClient::CreateSignedTransaction(
     // [nonce, gasPrice, gasLimit, to, value, data, chainId, 0, 0]
     std::vector<std::vector<uint8_t>> tx_fields;
     tx_fields.push_back(RLP::Encoder::EncodeUInt(nonce));
-    tx_fields.push_back(RLP::Encoder::EncodeHex(gas_price_wei));
+    tx_fields.push_back(RLP::Encoder::EncodeDecimal(gas_price_wei));
     tx_fields.push_back(RLP::Encoder::EncodeUInt(gas_limit));
     tx_fields.push_back(RLP::Encoder::EncodeHex(to_address));
-    tx_fields.push_back(RLP::Encoder::EncodeHex(value_wei));
+    tx_fields.push_back(RLP::Encoder::EncodeDecimal(value_wei));
     tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // Empty data for simple transfer
     tx_fields.push_back(RLP::Encoder::EncodeUInt(chain_id));  // Chain ID for EIP-155
     tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // r = 0 for unsigned
@@ -507,10 +507,10 @@ std::optional<std::string> EthereumClient::CreateSignedTransaction(
     // Rebuild transaction with signature
     std::vector<std::vector<uint8_t>> signed_tx_fields;
     signed_tx_fields.push_back(RLP::Encoder::EncodeUInt(nonce));
-    signed_tx_fields.push_back(RLP::Encoder::EncodeHex(gas_price_wei));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeDecimal(gas_price_wei));
     signed_tx_fields.push_back(RLP::Encoder::EncodeUInt(gas_limit));
     signed_tx_fields.push_back(RLP::Encoder::EncodeHex(to_address));
-    signed_tx_fields.push_back(RLP::Encoder::EncodeHex(value_wei));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeDecimal(value_wei));
     signed_tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // Empty data
     signed_tx_fields.push_back(RLP::Encoder::EncodeUInt(v));
     signed_tx_fields.push_back(RLP::Encoder::EncodeBytes(signature.r));
