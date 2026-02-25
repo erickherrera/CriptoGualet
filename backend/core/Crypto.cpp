@@ -925,7 +925,7 @@ void SecureClear(void *ptr, size_t size) {
     return;
 
 #ifdef _WIN32
-  SecureZeroMemory(ptr, size);
+  RtlSecureZeroMemory(ptr, size);
 #else
   static bool sodium_initialized = false;
   if (!sodium_initialized) {
