@@ -412,7 +412,7 @@ bool Keccak256(const uint8_t *data, size_t len, std::array<uint8_t, 32> &out) {
 
 bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data,
                 size_t data_len, std::vector<uint8_t> &out) {
-  out.assign(32, 0);
+  std::vector<uint8_t> hmac_result(32, 0);
 #ifdef _WIN32
   BCRYPT_ALG_HANDLE hAlg = nullptr;
   BCRYPT_HASH_HANDLE hHash = nullptr;
@@ -435,17 +435,18 @@ bool HMAC_SHA256(const std::vector<uint8_t> &key, const uint8_t *data,
     return false;
   }
 
-  st = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
+  st = BCryptFinishHash(hHash, hmac_result.data(), (ULONG)hmac_result.size(), 0);
   BCryptDestroyHash(hHash);
   BCryptCloseAlgorithmProvider(hAlg, 0);
-  return BCRYPT_SUCCESS(st);
+  if (!BCRYPT_SUCCESS(st)) return false;
 #else
   unsigned int outLen = 0;
-  if (!HMAC(EVP_sha256(), key.data(), key.size(), data, data_len, out.data(), &outLen)) {
+  if (!HMAC(EVP_sha256(), key.data(), static_cast<int>(key.size()), data, data_len, hmac_result.data(), &outLen)) {
     return false;
   }
-  return true;
 #endif
+  out = std::move(hmac_result);
+  return true;
 }
 
 // Helper for manual HMAC
@@ -484,7 +485,7 @@ static bool SHA512_Raw(const uint8_t *data, size_t len, std::vector<uint8_t> &ou
 
 bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data,
                 size_t data_len, std::vector<uint8_t> &out) {
-  out.assign(64, 0);
+  std::vector<uint8_t> hmac_result(64, 0);
 #ifdef _WIN32
   const size_t blockSize = 128; // SHA-512 block size
   std::vector<uint8_t> processedKey(blockSize, 0);
@@ -532,8 +533,7 @@ bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data,
       BCryptHashData(hHash, opad.data(), (ULONG)opad.size(), 0);
       BCryptHashData(hHash, innerHash.data(), (ULONG)innerHash.size(), 0);
       
-      out.resize(64);
-      BCryptFinishHash(hHash, out.data(), 64, 0);
+      BCryptFinishHash(hHash, hmac_result.data(), 64, 0);
       BCryptDestroyHash(hHash);
       BCryptCloseAlgorithmProvider(hAlg, 0);
   }
@@ -542,14 +542,14 @@ bool HMAC_SHA512(const std::vector<uint8_t> &key, const uint8_t *data,
   SecureWipeVector(processedKey);
   SecureWipeVector(ipad);
   SecureWipeVector(opad);
-  return true;
 #else
   unsigned int outLen = 0;
-  if (!HMAC(EVP_sha512(), key.data(), key.size(), data, data_len, out.data(), &outLen)) {
+  if (!HMAC(EVP_sha512(), key.data(), static_cast<int>(key.size()), data, data_len, hmac_result.data(), &outLen)) {
     return false;
   }
-  return true;
 #endif
+  out = std::move(hmac_result);
+  return true;
 }
 
 // === Key Derivation Functions ===

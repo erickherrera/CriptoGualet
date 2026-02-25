@@ -78,8 +78,14 @@
       "name": "vcpkg-linux-base",
       "hidden": true,
       "inherits": "base",
+      "environment": {
+        "VCPKG_ROOT": "/home/magnanimous042395/vcpkg"
+      },
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "/home/magnanimous23/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "CMAKE_TOOLCHAIN_FILE": {
+          "type": "FILEPATH",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        }
       }
     },
     {

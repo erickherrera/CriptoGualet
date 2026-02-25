@@ -1366,11 +1366,6 @@ void testMaximumAddressesPerWallet(Repository::WalletRepository& walletRepo,
 
 int main() {
     TestUtils::printTestHeader("Consolidated Repository Tests");
-    std::cout << "Step 1: SQLite init..." << std::endl;
-
-    // Initialize SQLite
-    sqlite3_initialize();
-    std::cout << "Step 2: SQLite initialized" << std::endl;
 
     // Reset Auth state to avoid conflicts with DatabaseManager singleton
     // This ensures a clean slate for repository tests

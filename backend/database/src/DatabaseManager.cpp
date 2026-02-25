@@ -147,11 +147,6 @@ DatabaseResult DatabaseManager::initialize(const std::string &dbPath,
   m_connectionAttempts = 0;
   m_lastConnectionTime = std::chrono::steady_clock::now();
 
-  // Ensure SQLite runs in serialized mode for thread safety
-  sqlite3_shutdown();
-  sqlite3_config(SQLITE_CONFIG_SERIALIZED);
-  sqlite3_initialize();
-
   // Open the database with full mutex to avoid cross-thread issues
   int result = sqlite3_open_v2(
       dbPath.c_str(), &m_db,
@@ -160,8 +155,10 @@ DatabaseResult DatabaseManager::initialize(const std::string &dbPath,
   if (result != SQLITE_OK) {
     std::string error =
         "Failed to open database: " + std::string(sqlite3_errmsg(m_db));
-    sqlite3_close(m_db);
-    m_db = nullptr;
+    if (m_db) {
+        sqlite3_close(m_db);
+        m_db = nullptr;
+    }
     return DatabaseResult(false, error, result);
   }
 
