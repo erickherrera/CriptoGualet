@@ -61,7 +61,7 @@ void cleanupProductionDatabase() {
 #ifdef _WIN32
         const char* localAppData = std::getenv("LOCALAPPDATA");
         if (localAppData) {
-            prodDbPath = std::string(localAppData) + "\\CriptoGualet\\wallet.db";
+            prodDbPath = std::string(localAppData) + "\\CriptoGualet\\criptogualet.db";
         }
 #endif
         if (!prodDbPath.empty() && std::filesystem::exists(prodDbPath)) {

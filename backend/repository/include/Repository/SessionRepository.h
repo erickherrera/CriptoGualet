@@ -5,6 +5,10 @@
 #include <optional>
 #include <chrono>
 
+namespace Database {
+    class DatabaseManager;
+}
+
 struct SessionRecord {
     std::string sessionId;
     int userId;
@@ -20,11 +24,15 @@ struct SessionRecord {
 
 class SessionRepository {
 public:
-    SessionRepository();
+    explicit SessionRepository(Database::DatabaseManager& dbManager);
     bool storeSession(const SessionRecord& session);
     std::optional<SessionRecord> getSession(const std::string& sessionId) const;
     bool updateSessionActivity(const std::string& sessionId);
     bool invalidateSession(const std::string& sessionId);
     std::vector<SessionRecord> getActiveSessions(int userId) const;
     void cleanupExpiredSessions();
+
+private:
+    Database::DatabaseManager& m_dbManager;
+    bool ensureTableExists();
 };

@@ -1,5 +1,10 @@
 #include "Repository/TokenRepository.h"
+
+#ifdef SQLCIPHER_AVAILABLE
+#include <sqlcipher/sqlite3.h>
+#else
 #include <sqlite3.h>
+#endif
 
 namespace Repository {
 
@@ -12,7 +17,7 @@ Result<Token> TokenRepository::createToken(int wallet_id, const std::string& con
     auto result = m_dbManager.executeQuery(sql, {std::to_string(wallet_id), contract_address, symbol, name, std::to_string(decimals)});
 
     if (!result.success) {
-        return Result<Token>("Failed to create token in database.");
+        return Result<Token>("Failed to create token in database.", 500);
     }
 
     // Get the last inserted token
@@ -99,9 +104,10 @@ Result<bool> TokenRepository::deleteToken(int wallet_id, const std::string& cont
     auto result = m_dbManager.executeQuery(sql, {std::to_string(wallet_id), contract_address});
 
     if (!result.success) {
-        return Result<bool>("Failed to delete token from database.");
+        return Result<bool>("Failed to delete token from database.", 500);
     }
     return Result<bool>(true);
 }
+
 
 } // namespace Repository

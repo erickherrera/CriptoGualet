@@ -10,7 +10,8 @@ AuthManager& AuthManager::getInstance() {
     return instance;
 }
 
-AuthManager::AuthManager() {
+AuthManager::AuthManager() 
+    : sessionManager_(Database::DatabaseManager::getInstance()) {
     //
 }
 

@@ -146,12 +146,38 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
         COMMENT "Copying zlib DLL to output directory")
     endif()
 
-    # Copy SQLite3 DLL (vcpkg uses sqlite3.dll for both)
+    # Copy SQLCipher DLL (renamed to sqlite3.dll for compatibility if needed, or kept as sqlcipher.dll)
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/sqlite3.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/sqlite3.dll>"
+      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/sqlcipher.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/sqlcipher.dll>"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/sqlcipher.dll"
+      COMMENT "Copying SQLCipher DLL to output directory")
+
+    # Also copy as sqlite3.dll for components that might explicitly look for it
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/sqlcipher.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/sqlcipher.dll>"
       "$<TARGET_FILE_DIR:CriptoGualetQt>/sqlite3.dll"
-      COMMENT "Copying SQLite3 DLL to output directory")
+      COMMENT "Copying SQLCipher as sqlite3.dll for compatibility")
+
+    # Copy OpenSSL DLLs (required by SQLCipher)
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${VCPKG_INSTALLED_DIR}/x64-windows/bin/libcrypto-3-x64.dll"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/libcrypto-3-x64.dll"
+      COMMENT "Copying libcrypto DLL to output directory")
+
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${VCPKG_INSTALLED_DIR}/x64-windows/bin/libssl-3-x64.dll"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/libssl-3-x64.dll"
+      COMMENT "Copying libssl DLL to output directory")
+
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${VCPKG_INSTALLED_DIR}/x64-windows/bin/legacy.dll"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/legacy.dll"
+      COMMENT "Copying OpenSSL legacy DLL to output directory")
 
     # Copy cpr and libcurl DLLs
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
@@ -177,13 +203,13 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/iconv-2.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/iconv-2.dll>"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/iconv-2.dll"
       COMMENT "Copying iconv DLL to output directory")
 
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/charset-1.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/charset-1.dll>"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/charset-1.dll"
       COMMENT "Copying charset DLL to output directory")
   elseif(UNIX AND NOT APPLE)
     # Linux: Libraries are linked statically or found via RPATH

@@ -136,9 +136,9 @@ static bool InitializeDatabase() {
                 CreateDirectoryA(appDir.c_str(), NULL);
             }
 
-            dbPath = appDir + "\\wallet.db";
+            dbPath = appDir + "\\criptogualet.db";
         } else {
-            dbPath = "wallet.db";  // Fallback
+            dbPath = "criptogualet.db";  // Fallback
         }
 #else
         const char* home = std::getenv("HOME");
@@ -146,9 +146,9 @@ static bool InitializeDatabase() {
             std::filesystem::path configDir =
                 std::filesystem::path(home) / ".config" / "CriptoGualet";
             std::filesystem::create_directories(configDir);
-            dbPath = (configDir / "wallet.db").string();
+            dbPath = (configDir / "criptogualet.db").string();
         } else {
-            dbPath = "wallet.db";
+            dbPath = "criptogualet.db";
         }
 #endif
 

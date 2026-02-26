@@ -74,12 +74,6 @@ CriptoGualetQt::CriptoGualetQt(QWidget* parent)
         m_themeManager = nullptr;
     }
 
-    // Clean up sessions
-    Auth::AuthManager::getInstance().cleanupSessions();
-    setWindowTitle("CriptoGualet - Securely own your cryptos");
-    setWindowIcon(QIcon(":/icons/icons/logo_criptogualet.ico"));
-    setMinimumSize(800, 600);
-
     // Set window to windowed fullscreen (maximized)
     setWindowState(Qt::WindowMaximized);
 
@@ -92,6 +86,9 @@ CriptoGualetQt::CriptoGualetQt(QWidget* parent)
         qCritical() << "Critical: Failed to initialize repositories. Application may not function "
                        "correctly.";
     }
+
+    // Clean up sessions (moved after DB initialization)
+    Auth::AuthManager::getInstance().cleanupSessions();
 
     // Initialize Bitcoin wallet
     m_wallet = std::make_unique<WalletAPI::SimpleWallet>("btc/test3");
@@ -155,12 +152,28 @@ bool CriptoGualetQt::initializeRepositories() {
 
         auto dbResult = dbManager.initialize(dbPath, encryptionKey);
 
+        if (!dbResult) {
+            qCritical() << "Database initialization failed:" << dbResult.message.c_str()
+                        << "Error code:" << dbResult.errorCode;
+            
+            // Recovery: If initialization failed, it might be due to a mismatch in SQLCipher settings 
+            // between versions or a corrupted file. Offer to reset in debug mode or if it's a new install.
+            auto button = QMessageBox::question(this, "Database Error", 
+                QString("Failed to initialize the secure database: %1\n\nWould you like to reset the database? (All local data will be lost, but you can recover your wallet with your seed phrase)").arg(QString::fromStdString(dbResult.message)),
+                QMessageBox::Yes | QMessageBox::No);
+            
+            if (button == QMessageBox::Yes) {
+                dbManager.close();
+                QFile::remove(QString::fromStdString(dbPath));
+                // Try again once
+                dbResult = dbManager.initialize(dbPath, encryptionKey);
+            }
+        }
+
         // Securely wipe the key from memory after use
         std::fill(encryptionKey.begin(), encryptionKey.end(), '\0');
 
         if (!dbResult) {
-            qCritical() << "Database initialization failed:" << dbResult.message.c_str()
-                        << "Error code:" << dbResult.errorCode;
             QString errorMsg = QString("Failed to initialize database: %1")
                                    .arg(QString::fromStdString(dbResult.message));
             QTimer::singleShot(0, this, [this, errorMsg]() {

@@ -54,9 +54,6 @@ endfunction()
 # Session Test Executables
 add_criptogualet_test(test_session_consolidated "test_session_consolidated.cpp")
 
-# Find SQLite3 for repository tests
-find_package(SQLite3)
-
 # Consolidated repository tests
 add_criptogualet_test(test_repository_consolidated "test_repository_consolidated.cpp")
 add_criptogualet_test(test_signing_robustness "test_signing_robustness.cpp")

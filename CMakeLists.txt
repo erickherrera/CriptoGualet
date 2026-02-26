@@ -129,6 +129,31 @@ endif()
 # Declare the project EARLY so VS presets/toolsets apply cleanly
 project(CriptoGualet LANGUAGES CXX)
 
+# Reset persistent database on reconfigure (useful for debugging from scratch)
+if(WIN32)
+    set(ENV_LOCALAPPDATA "$ENV{LOCALAPPDATA}")
+    if(ENV_LOCALAPPDATA)
+        file(TO_CMAKE_PATH "${ENV_LOCALAPPDATA}/CriptoGualet/criptogualet.db" DEBUG_DB_PATH_CMAKE)
+        if(EXISTS "${DEBUG_DB_PATH_CMAKE}")
+            message(STATUS "RESETTING WINDOWS DATABASE: ${DEBUG_DB_PATH_CMAKE}")
+            file(REMOVE "${DEBUG_DB_PATH_CMAKE}")
+            file(REMOVE "${DEBUG_DB_PATH_CMAKE}-wal")
+            file(REMOVE "${DEBUG_DB_PATH_CMAKE}-shm")
+        endif()
+    endif()
+elseif(UNIX AND NOT APPLE)
+    set(ENV_HOME "$ENV{HOME}")
+    if(ENV_HOME)
+        set(DEBUG_DB_PATH_LINUX "${ENV_HOME}/.config/CriptoGualet/criptogualet.db")
+        if(EXISTS "${DEBUG_DB_PATH_LINUX}")
+            message(STATUS "RESETTING LINUX DATABASE: ${DEBUG_DB_PATH_LINUX}")
+            file(REMOVE "${DEBUG_DB_PATH_LINUX}")
+            file(REMOVE "${DEBUG_DB_PATH_LINUX}-wal")
+            file(REMOVE "${DEBUG_DB_PATH_LINUX}-shm")
+        endif()
+    endif()
+endif()
+
 # Set MSVC runtime library based on build type
 # With CMP0091 policy set, CMake handles runtime library selection properly
 # For multi-config generators (Visual Studio), we use a generator expression 
