@@ -124,55 +124,67 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
         COMMENT "Deploying Qt libraries")
     endif()
 
-    # Copy qrencode DLL if available (use debug versions for debug builds)
+    # Copy qrencode DLL if available (use debug versions for debug builds but keep runtime name consistent)
     if(LIBQRENCODE_FOUND)
       add_custom_command(TARGET CriptoGualetQt POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/debug/bin/qrencoded.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/qrencode.dll>"
-        "$<TARGET_FILE_DIR:CriptoGualetQt>"
+        "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/qrencoded.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/qrencode.dll>"
+        "$<TARGET_FILE_DIR:CriptoGualetQt>/qrencode.dll"
         COMMENT "Copying qrencode DLL to output directory")
 
-      # Also copy dependencies that qrencode.dll needs (debug versions for debug builds)
+      # Also copy dependencies that qrencode.dll needs
       add_custom_command(TARGET CriptoGualetQt POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/debug/bin/libpng16d.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/libpng16.dll>"
-        "$<TARGET_FILE_DIR:CriptoGualetQt>"
+        "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/libpng16d.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/libpng16.dll>"
+        "$<TARGET_FILE_DIR:CriptoGualetQt>/libpng16.dll"
         COMMENT "Copying libpng16 DLL to output directory")
 
       add_custom_command(TARGET CriptoGualetQt POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/debug/bin/zlibd1.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/zlib1.dll>"
-        "$<TARGET_FILE_DIR:CriptoGualetQt>"
+        "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/zlibd1.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/zlib1.dll>"
+        "$<TARGET_FILE_DIR:CriptoGualetQt>/zlib1.dll"
         COMMENT "Copying zlib DLL to output directory")
     endif()
 
-    # Copy SQLCipher DLL for database functionality (use debug version for debug builds)
+    # Copy SQLite3 DLL (vcpkg uses sqlite3.dll for both)
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/debug/bin/sqlcipher.dll>$<$<NOT:$<CONFIG:Debug>>:${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/sqlcipher.dll>"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>"
-      COMMENT "Copying SQLCipher DLL to output directory")
-
-    # Copy SQLite3 DLL (required by SQLCipher)
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/sqlite3.dll"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>"
+      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/sqlite3.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/sqlite3.dll>"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/sqlite3.dll"
       COMMENT "Copying SQLite3 DLL to output directory")
 
-    # Copy OpenSSL Crypto DLL (required for cryptographic operations)
+    # Copy cpr and libcurl DLLs
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/libcrypto-3-x64.dll"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>"
-      COMMENT "Copying OpenSSL Crypto DLL to output directory")
+      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/cpr.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/cpr.dll>"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/cpr.dll"
+      COMMENT "Copying cpr DLL to output directory")
 
-    # Copy OpenSSL SSL DLL (required for network operations)
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/../../vcpkg_installed/x64-windows/bin/libssl-3-x64.dll"
+      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/libcurl-d.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/libcurl.dll>"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/libcurl.dll"
+      COMMENT "Copying libcurl DLL to output directory")
+
+    # Copy libsodium DLL
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/libsodium.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/libsodium.dll>"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>/libsodium.dll"
+      COMMENT "Copying libsodium DLL to output directory")
+
+    # Copy character encoding DLLs
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/iconv-2.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/iconv-2.dll>"
       "$<TARGET_FILE_DIR:CriptoGualetQt>"
-      COMMENT "Copying OpenSSL SSL DLL to output directory")
+      COMMENT "Copying iconv DLL to output directory")
+
+    add_custom_command(TARGET CriptoGualetQt POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/charset-1.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/charset-1.dll>"
+      "$<TARGET_FILE_DIR:CriptoGualetQt>"
+      COMMENT "Copying charset DLL to output directory")
   elseif(UNIX AND NOT APPLE)
     # Linux: Libraries are linked statically or found via RPATH
   endif()
@@ -253,8 +265,8 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     # -----------------------------------------------------------------------------
     
     # Define search directories for DLL resolution
-    set(VCPKG_REL_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin")
-    set(VCPKG_DBG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
+    set(VCPKG_REL_BIN_DIR "${VCPKG_INSTALLED_DIR}/x64-windows/bin")
+    set(VCPKG_DBG_BIN_DIR "${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin")
     set(QT_BIN_DIR "${Qt6_DIR}/../../../bin")
     
     # Store paths for use in install(CODE) blocks - these are evaluated at install time
@@ -308,8 +320,8 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     # - zlib1.dll (libpng dependency)
     
     # Convert paths to native format for Windows compatibility
-    file(TO_NATIVE_PATH "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/bin" VCPKG_BIN_NATIVE)
-    file(TO_NATIVE_PATH "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin" VCPKG_DBG_BIN_NATIVE)
+    file(TO_NATIVE_PATH "${VCPKG_REL_BIN_DIR}" VCPKG_BIN_NATIVE)
+    file(TO_NATIVE_PATH "${VCPKG_DBG_BIN_DIR}" VCPKG_DBG_BIN_NATIVE)
     
     install(CODE "
       # Use the paths passed from configure time
@@ -601,8 +613,8 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       )
       
       # Add vcpkg-installed libraries if present
-      if(EXISTS \"${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-linux\")
-        list(APPEND SEARCH_DIRS \"${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-linux/lib\")
+      if(EXISTS "${VCPKG_INSTALLED_DIR}/x64-linux")
+        list(APPEND SEARCH_DIRS "${VCPKG_INSTALLED_DIR}/x64-linux/lib")
       endif()
       
       if(EXISTS \"\${TARGET_EXE}\")
@@ -628,8 +640,8 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       set(QT_PLUGINS_DIR \"\")
       
       # Try to find Qt6 plugins in common locations
-      if(EXISTS \"${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-linux/tools/Qt6/plugins\")
-        set(QT_PLUGINS_DIR \"${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-linux/tools/Qt6/plugins\")
+      if(EXISTS \"${VCPKG_INSTALLED_DIR}/x64-linux/tools/Qt6/plugins\")
+        set(QT_PLUGINS_DIR \"${VCPKG_INSTALLED_DIR}/x64-linux/tools/Qt6/plugins\")
       elseif(EXISTS \"/usr/lib/x86_64-linux-gnu/qt6/plugins\")
         set(QT_PLUGINS_DIR \"/usr/lib/x86_64-linux-gnu/qt6/plugins\")
       endif()

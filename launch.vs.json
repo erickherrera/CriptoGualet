@@ -8,14 +8,14 @@
       "projectTarget": "CriptoGualetQt",
       "configuration": "Debug",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-msvc-debug/bin/CriptoGualetQt.exe",
+      "program": "${workspaceRoot}/out/build/win-vs2022-msvc-debug/bin/Debug/CriptoGualetQt.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-msvc-debug/bin",
+      "cwd": "${workspaceRoot}/out/build/win-vs2022-msvc-debug/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-msvc-debug\\bin;${workspaceRoot}\\vcpkg_installed\\x64-windows\\debug\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-msvc-debug\\bin\\Debug;${workspaceRoot}\\out\\v\\x64-windows\\debug\\bin;%QT_ROOT_DIR%\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -28,14 +28,14 @@
       "projectTarget": "CriptoGualetQt",
       "configuration": "Release",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-msvc-release/bin/CriptoGualetQt.exe",
+      "program": "${workspaceRoot}/out/build/win-vs2022-msvc-release/bin/Release/CriptoGualetQt.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-msvc-release/bin",
+      "cwd": "${workspaceRoot}/out/build/win-vs2022-msvc-release/bin/Release",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-msvc-release\\bin;${workspaceRoot}\\vcpkg_installed\\x64-windows\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-msvc-release\\bin\\Release;${workspaceRoot}\\out\\v\\x64-windows\\bin;%QT_ROOT_DIR%\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -48,14 +48,14 @@
       "projectTarget": "CriptoGualetQt",
       "configuration": "Debug",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin/CriptoGualetQt.exe",
+      "program": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin/Debug/CriptoGualetQt.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin",
+      "cwd": "${workspaceRoot}/out/build/win-vs2022-clangcl-debug/bin/Debug",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-clangcl-debug\\bin;${workspaceRoot}\\vcpkg_installed\\x64-windows\\debug\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-clangcl-debug\\bin\\Debug;${workspaceRoot}\\out\\v\\x64-windows\\debug\\bin;%QT_ROOT_DIR%\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -68,14 +68,14 @@
       "projectTarget": "CriptoGualetQt",
       "configuration": "Release",
       "request": "launch",
-      "program": "${workspaceRoot}/out/build/win-vs2022-clangcl-release/bin/CriptoGualetQt.exe",
+      "program": "${workspaceRoot}/out/build/win-vs2022-clangcl-release/bin/Release/CriptoGualetQt.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${workspaceRoot}/out/build/win-vs2022-clangcl-release/bin",
+      "cwd": "${workspaceRoot}/out/build/win-vs2022-clangcl-release/bin/Release",
       "environment": [
         {
           "name": "PATH",
-          "value": "${workspaceRoot}\\out\\build\\win-vs2022-clangcl-release\\bin;${workspaceRoot}\\vcpkg_installed\\x64-windows\\bin;C:\\Qt\\6.9.1\\msvc2022_64\\bin;%PATH%"
+          "value": "${workspaceRoot}\\out\\build\\win-vs2022-clangcl-release\\bin\\Release;${workspaceRoot}\\out\\v\\x64-windows\\bin;%QT_ROOT_DIR%\\bin;%PATH%"
         }
       ],
       "externalConsole": false,
@@ -88,10 +88,10 @@
       "projectTarget": "CriptoGualetQt",
       "configuration": "Debug",
       "request": "launch",
-      "program": "/mnt/c/Users/erick/source/repos/erickherrera/CriptoGualet/out/build/linux-dbg/bin/CriptoGualetQt",
+      "program": "${workspaceRoot}/out/build/linux-dbg/bin/CriptoGualetQt",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "/mnt/c/Users/erick/source/repos/erickherrera/CriptoGualet/out/build/linux-dbg/bin",
+      "cwd": "${workspaceRoot}/out/build/linux-dbg/bin",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb"

@@ -57,10 +57,10 @@ vcpkg compilation takes 30+ minutes and can be complex. Here's a faster approach
 
 3. **Build Your Qt Application**:
    ```bash
-   cd "C:\Users\erick\source\repos\CriptoGualet\CriptoGualet"
+   cd [PROJECT_ROOT]
    
    # Configure with Qt path
-   cmake -S . -B build_qt -DCMAKE_PREFIX_PATH="C:\Qt\6.8.0\msvc2022_64" -DBUILD_GUI_QT=ON
+   cmake -S . -B build_qt -DCMAKE_PREFIX_PATH="%QT_ROOT_DIR%" -DBUILD_GUI_QT=ON
    
    # Build Qt version
    cmake --build build_qt --config Release
@@ -74,7 +74,7 @@ vcpkg compilation takes 30+ minutes and can be complex. Here's a faster approach
 Your current application already has a modern, themed Win32 GUI:
 
 ```bash
-cd "C:\Users\erick\source\repos\CriptoGualet\CriptoGualet"
+cd [PROJECT_ROOT]
 cmake --build build --config Release
 .\build\src\Release\CriptoGualet.exe
 ```

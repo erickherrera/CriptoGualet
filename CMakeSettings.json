@@ -23,6 +23,11 @@
           "type": "STRING"
         },
         {
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\out\\v",
+          "type": "PATH"
+        },
+        {
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
@@ -53,6 +58,11 @@
           "type": "STRING"
         },
         {
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\out\\v",
+          "type": "PATH"
+        },
+        {
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
@@ -81,6 +91,11 @@
           "name": "VCPKG_TARGET_TRIPLET",
           "value": "x64-windows",
           "type": "STRING"
+        },
+        {
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\out\\v",
+          "type": "PATH"
         }
       ],
       "intelliSenseMode": "windows-clang-x64"
@@ -106,6 +121,11 @@
           "name": "VCPKG_TARGET_TRIPLET",
           "value": "x64-windows",
           "type": "STRING"
+        },
+        {
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\out\\v",
+          "type": "PATH"
         }
       ],
       "intelliSenseMode": "windows-clang-x64"
@@ -122,6 +142,11 @@
       "ctestCommandArgs": "--output-on-failure",
       "inheritEnvironments": [ "linux_x64" ],
       "remoteMachineName": "${defaultRemoteMachineName}",
+      "environments": [
+        {
+          "VCPKG_ROOT": "$HOME/vcpkg"
+        }
+      ],
       "remoteCMakeListsRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/src",
       "remoteBuildRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/build/${name}",
       "remoteInstallRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/install/${name}",
@@ -137,7 +162,7 @@
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "/home/magnanimous23/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         {

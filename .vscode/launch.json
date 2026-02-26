@@ -9,7 +9,7 @@
             "args": [],
             "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
             "env": {
-                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}"
             },
             "preLaunchTask": "CMake: build"
         },
@@ -21,7 +21,7 @@
             "args": [],
             "cwd": "${workspaceFolder}/out/build/w-cl-dbg-asan/bin/Debug",
             "env": {
-                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}",
+                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}",
                 "ASAN_OPTIONS": "detect_leaks=1:detect_stack_use_after_return=1"
             },
             "preLaunchTask": "CMake: build (ClangCL ASan)"
@@ -34,7 +34,7 @@
             "args": [],
             "cwd": "${workspaceFolder}/out/build/w-cl-rel-lto/bin/Release",
             "env": {
-                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}"
             },
             "preLaunchTask": "CMake: build (ClangCL LTO)"
         },
@@ -46,7 +46,7 @@
             "args": [],
             "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
             "env": {
-                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}"
             },
             "preLaunchTask": "CMake: build (Ninja)"
         },
@@ -58,7 +58,7 @@
             "args": [],
             "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
             "env": {
-                "PATH": "C:\\Program Files\\Qt\\6.9.1\\msvc2022_64\\bin;${env:PATH}"
+                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}"
             }
         },
         {

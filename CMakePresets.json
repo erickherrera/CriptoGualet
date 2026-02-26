@@ -4,8 +4,8 @@
     {
       "name": "base",
       "hidden": true,
-      "binaryDir": "C:/Users/erick/cg-b/${presetName}",
-      "installDir": "C:/Users/erick/cg-i/${presetName}",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "installDir": "${sourceDir}/out/install/${presetName}",
       "cacheVariables": {
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
@@ -20,7 +20,8 @@
         "CMAKE_TOOLCHAIN_FILE": {
           "type": "FILEPATH",
           "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-        }
+        },
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/out/v"
       }
     },
     {
@@ -35,13 +36,36 @@
       },
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "CMAKE_PREFIX_PATH": "C:/Qt/6.9.1/msvc2022_64"
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT_DIR}"
+      }
+    },
+    {
+      "name": "win-ninja-base",
+      "hidden": true,
+      "inherits": "vcpkg-base",
+      "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT_DIR}"
       }
     },
     {
       "name": "win-vs2022-msvc-debug",
       "displayName": "Windows x64 MSVC Debug",
       "inherits": "win-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "win-ninja-msvc-debug",
+      "displayName": "Windows x64 Ninja MSVC Debug",
+      "inherits": "win-ninja-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
@@ -58,6 +82,16 @@
       "name": "win-vs2022-clangcl-debug",
       "displayName": "Windows x64 Clang-CL Debug",
       "inherits": "win-base",
+      "architecture": "x64",
+      "toolset": "ClangCL",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "win-ninja-clangcl-debug",
+      "displayName": "Windows x64 Ninja Clang-CL Debug",
+      "inherits": "win-ninja-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "clang-cl",
@@ -68,10 +102,10 @@
       "name": "win-vs2022-clangcl-release",
       "displayName": "Windows x64 Clang-CL Release",
       "inherits": "win-base",
+      "architecture": "x64",
+      "toolset": "ClangCL",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_C_COMPILER": "clang-cl",
-        "CMAKE_CXX_COMPILER": "clang-cl"
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
@@ -100,11 +134,11 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_COMPILER": "/usr/bin/gcc",
-        "CMAKE_CXX_COMPILER": "/usr/bin/g++",
-        "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_MAKE_PROGRAM": "ninja",
         "VCPKG_TARGET_TRIPLET": "x64-linux",
-        "CMAKE_PREFIX_PATH": "/usr/lib/x86_64-linux-gnu/cmake/Qt6"
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT_DIR}"
       }
     },
     {

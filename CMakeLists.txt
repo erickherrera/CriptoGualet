@@ -191,9 +191,15 @@ endif()
 
 # Enable vcpkg integration (matches your presets if VCPKG_ROOT is set)
 # Presets may already set CMAKE_TOOLCHAIN_FILE, so only set if not already defined
-if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING "Path to vcpkg toolchain file")
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  if(DEFINED ENV{VCPKG_ROOT})
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Path to vcpkg toolchain file")
+  elseif(UNIX AND EXISTS "$ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Path to vcpkg toolchain file")
+    message(STATUS "VCPKG_ROOT not found, using fallback: $ENV{HOME}/vcpkg")
+  endif()
 endif()
 
 # Set C++ standard (matches CMakePresets.json)
@@ -420,22 +426,22 @@ if(NOT LIBQRENCODE_FOUND)
     # Check vcpkg installed directory first
     find_path(QRENCODE_INCLUDE_DIR NAMES qrencode.h
         PATHS
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/include
+            ${VCPKG_INSTALLED_DIR}/x64-windows/include
+            ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include
         NO_DEFAULT_PATH
     )
 
     find_library(QRENCODE_LIBRARY_RELEASE NAMES qrencode
         PATHS
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/lib
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib
+            ${VCPKG_INSTALLED_DIR}/x64-windows/lib
+            ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
         NO_DEFAULT_PATH
     )
 
     find_library(QRENCODE_LIBRARY_DEBUG NAMES qrencoded
         PATHS
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/lib
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/debug/lib
+            ${VCPKG_INSTALLED_DIR}/x64-windows/debug/lib
+            ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
         NO_DEFAULT_PATH
     )
 
@@ -479,11 +485,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Check for BlockCypher dependencies
 # Add vcpkg installed directory to prefix path if it exists
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed")
+if(EXISTS "${VCPKG_INSTALLED_DIR}")
   if(WIN32)
-    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows")
+    list(APPEND CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_DIR}/x64-windows")
   else()
-    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-linux")
+    list(APPEND CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_DIR}/x64-linux")
   endif()
 endif()
 

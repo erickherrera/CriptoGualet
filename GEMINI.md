@@ -83,7 +83,7 @@ The project is organized into three main parts: `backend`, `frontend`, and `Test
 - Contains all unit and integration tests. Test executables are defined in `Tests/CMakeLists.txt` and are runnable via CTest.
 
 ## 6. Development Notes
-- **CMake Debug Path**: For debugging CMake issues, the source directory is `C:\Users\erick\source\repos\erickherrera\CriptoGualet`.
+- **CMake Debug Path**: For debugging CMake issues, the source directory is the root of the repository.
 - **Static Libraries**: All backend components are built as static libraries for security and encapsulation.
 - **Automatic DLL Deployment**: On Windows, a post-build command (`windeployqt`) copies necessary Qt and `vcpkg` DLLs to the output directory.
 - **Startup Project**: The `CriptoGualetQt` target is the designated startup project in Visual Studio.
