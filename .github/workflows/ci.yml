@@ -22,8 +22,15 @@ jobs:
       
     - name: Install clang-format
       run: |
-        choco install llvm --version=17.0.6 --no-progress
-        echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
+        # Check if clang-format is already available
+        if (Get-Command clang-format -ErrorAction SilentlyContinue) {
+          Write-Host "✅ clang-format already available"
+          clang-format --version
+        } else {
+          Write-Host "Installing LLVM..."
+          choco install llvm --no-progress
+          echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
+        }
         
     - name: Check code formatting
       run: |
@@ -66,8 +73,15 @@ jobs:
         
     - name: Install clang-tidy
       run: |
-        choco install llvm --version=17.0.6 --no-progress
-        echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
+        # Check if clang-tidy is already available
+        if (Get-Command clang-tidy -ErrorAction SilentlyContinue) {
+          Write-Host "✅ clang-tidy already available"
+          clang-tidy --version
+        } else {
+          Write-Host "Installing LLVM..."
+          choco install llvm --no-progress
+          echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
+        }
         
     - name: Configure CMake
       run: |
