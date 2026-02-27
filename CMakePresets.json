@@ -119,7 +119,8 @@
         "CMAKE_TOOLCHAIN_FILE": {
           "type": "FILEPATH",
           "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-        }
+        },
+        "VCPKG_FEATURE_FLAGS": "allow_unsupported"
       }
     },
     {
