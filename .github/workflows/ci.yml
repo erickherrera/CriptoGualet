@@ -131,7 +131,7 @@ jobs:
   build-and-test:
     name: Build & Test (Windows)
     runs-on: windows-latest
-    needs: [format-check, static-analysis]
+    needs: format-check
     
     strategy:
       fail-fast: false
