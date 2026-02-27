@@ -38,6 +38,8 @@ struct Migration {
     std::string description;
     std::string sql;
 
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): version, desc, and query have distinct
+    // purposes
     Migration(int v, const std::string& desc, const std::string& query)
         : version(v), description(desc), sql(query) {
     }
