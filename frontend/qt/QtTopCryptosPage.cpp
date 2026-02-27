@@ -165,21 +165,28 @@ QString QtCryptoCard::formatMarketCap(double marketCap) {
 
 void QtCryptoCard::loadIcon(const QString& symbol) {
     if (m_iconLoaded) {
-        return;  // Already loaded
+        return;
     }
 
-    // Use the image URL from the API data, or fallback to static mapping
     QString iconUrl;
+    bool useApiUrl = false;
+    
     if (!m_currentImageUrl.isEmpty()) {
-        iconUrl = m_currentImageUrl;
-        qDebug() << "Using API image URL for" << symbol << ":" << iconUrl;
-    } else {
+        QUrl url(m_currentImageUrl);
+        if (url.isValid() && !url.host().isEmpty()) {
+            iconUrl = m_currentImageUrl;
+            useApiUrl = true;
+            qDebug() << "Using API image URL for" << symbol << ":" << iconUrl;
+        }
+    }
+    
+    if (!useApiUrl) {
         iconUrl = getCryptoIconUrl(symbol);
         qDebug() << "Using fallback static mapping for" << symbol << ":" << iconUrl;
     }
 
-    // Trigger icon download with proper headers
-    QNetworkRequest request(iconUrl);
+    QNetworkRequest request;
+    request.setUrl(QUrl(iconUrl));
     request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
@@ -686,9 +693,16 @@ void QtTopCryptosPage::fetchTopCryptos() {
         m_loadingBar->setVisible(true);
     }
 
-    auto future = QtConcurrent::run([]() {
-        PriceService::PriceFetcher fetcher(15);
-        return fetcher.GetTopCryptosByMarketCap(100);
+    auto future = QtConcurrent::run([this]() -> std::vector<PriceService::CryptoPriceData> {
+        try {
+            return m_priceFetcher->GetTopCryptosByMarketCap(100);
+        } catch (const std::exception& e) {
+            qDebug() << "Exception in fetchTopCryptos:" << e.what();
+            return {};
+        } catch (...) {
+            qDebug() << "Unknown exception in fetchTopCryptos";
+            return {};
+        }
     });
 
     m_topCryptosWatcher->setFuture(future);
@@ -943,26 +957,18 @@ void QtTopCryptosPage::loadVisibleIcons() {
     if (!m_scrollArea)
         return;
 
-    // Get the visible rectangle of the scroll area
-    QRect visibleRect = m_scrollArea->viewport()->rect();
-    int scrollOffset = m_scrollArea->verticalScrollBar()->value();
+    qDebug() << "loadVisibleIcons called - filteredData size:" << m_filteredData.size() << "cards size:" << m_cryptoCards.size();
 
-    // Load icons for visible cards plus a buffer
     for (int i = 0; i < static_cast<int>(m_filteredData.size()) && i < m_cryptoCards.size(); ++i) {
         QtCryptoCard* card = m_cryptoCards[i];
-        if (!card->isVisible())
+        if (!card->isVisible()) {
             continue;
+        }
 
-        // Check if card is in or near the viewport
-        QRect cardGeometry = card->geometry();
-        cardGeometry.moveTop(cardGeometry.top() - scrollOffset);
-
-        // Load if in viewport or within 500px buffer
-        if (cardGeometry.bottom() >= -500 && cardGeometry.top() <= visibleRect.height() + 500) {
-            if (!card->isIconLoaded()) {
-                QString symbol = QString::fromStdString(m_filteredData[i].symbol);
-                card->loadIcon(symbol);
-            }
+        if (!card->isIconLoaded()) {
+            QString symbol = QString::fromStdString(m_filteredData[i].symbol);
+            qDebug() << "Loading icon for" << symbol << "at index" << i;
+            card->loadIcon(symbol);
         }
     }
 }

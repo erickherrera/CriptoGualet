@@ -3,11 +3,11 @@
 #include "../backend/database/include/Database/DatabaseManager.h"
 #include "../backend/repository/include/Repository/UserRepository.h"
 #include "TestUtils.h"
-#include <iostream>
-#include <filesystem>
-#include <thread>
-#include <chrono>
 #include <cassert>
+#include <chrono>
+#include <filesystem>
+#include <iostream>
+#include <thread>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE
@@ -32,79 +32,88 @@ extern "C" {
  */
 
 namespace {
-    std::string getTestDbPath() {
-        return TestUtils::getWritableTestPath("test_2fa_wallet.db");
-    }
+std::string getTestDbPath() {
+    return TestUtils::getWritableTestPath("test_2fa_wallet.db");
+}
 
-    void cleanupTestDatabase() {
-        try {
-            std::string dbPath = getTestDbPath();
-            if (std::filesystem::exists(dbPath)) {
-                std::filesystem::remove(dbPath);
-            }
-            std::string walPath = dbPath + "-wal";
-            std::string shmPath = dbPath + "-shm";
-            if (std::filesystem::exists(walPath)) {
-                std::filesystem::remove(walPath);
-            }
-            if (std::filesystem::exists(shmPath)) {
-                std::filesystem::remove(shmPath);
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "Warning: Could not clean up database files: " << e.what() << std::endl;
+void cleanupTestDatabase() {
+    try {
+        std::string dbPath = getTestDbPath();
+        if (std::filesystem::exists(dbPath)) {
+            std::filesystem::remove(dbPath);
         }
-    }
-
-    void cleanupProductionDatabase() {
-        try {
-            std::string prodDbPath;
-#ifdef _WIN32
-            const char* localAppData = std::getenv("LOCALAPPDATA");
-            if (localAppData) {
-                prodDbPath = std::string(localAppData) + "\\CriptoGualet\\wallet.db";
-            }
-#endif
-            if (!prodDbPath.empty() && std::filesystem::exists(prodDbPath)) {
-                std::filesystem::remove(prodDbPath);
-                std::string walPath = prodDbPath + "-wal";
-                std::string shmPath = prodDbPath + "-shm";
-                if (std::filesystem::exists(walPath)) std::filesystem::remove(walPath);
-                if (std::filesystem::exists(shmPath)) std::filesystem::remove(shmPath);
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "Warning: Could not clean up prod database: " << e.what() << std::endl;
+        std::string walPath = dbPath + "-wal";
+        std::string shmPath = dbPath + "-shm";
+        if (std::filesystem::exists(walPath)) {
+            std::filesystem::remove(walPath);
         }
-    }
-
-    void logTestResult(const std::string& testName, bool passed) {
-        std::cout << "[" << (passed ? "PASS" : "FAIL") << "] " << testName << std::endl;
-        if (!passed) {
-            std::cerr << "FAILED: " << testName << std::endl;
+        if (std::filesystem::exists(shmPath)) {
+            std::filesystem::remove(shmPath);
         }
+    } catch (const std::exception& e) {
+        std::cerr << "Warning: Could not clean up database files: " << e.what() << std::endl;
     }
 }
 
+void cleanupProductionDatabase() {
+    try {
+        std::string prodDbPath;
+#ifdef _WIN32
+        const char* localAppData = std::getenv("LOCALAPPDATA");
+        if (localAppData) {
+            prodDbPath = std::string(localAppData) + "\\CriptoGualet\\criptogualet.db";
+        }
+#endif
+        if (!prodDbPath.empty() && std::filesystem::exists(prodDbPath)) {
+            std::filesystem::remove(prodDbPath);
+            std::string walPath = prodDbPath + "-wal";
+            std::string shmPath = prodDbPath + "-shm";
+            if (std::filesystem::exists(walPath))
+                std::filesystem::remove(walPath);
+            if (std::filesystem::exists(shmPath))
+                std::filesystem::remove(shmPath);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Warning: Could not clean up prod database: " << e.what() << std::endl;
+    }
+}
+
+void logTestResult(const std::string& testName, bool passed) {
+    std::cout << "[" << (passed ? "PASS" : "FAIL") << "] " << testName << std::endl;
+    if (!passed) {
+        std::cerr << "FAILED: " << testName << std::endl;
+    }
+}
+}  // namespace
+
 class TwoFactorAuthTests {
-private:
+  private:
     Database::DatabaseManager* dbManager;
     std::unique_ptr<Repository::UserRepository> userRepo;
 
-public:
+  public:
     bool initialize() {
         std::cout << "\n=== Initializing TOTP 2FA Tests ===" << std::endl;
 
         try {
             std::string dbPath = getTestDbPath();
-            
-            // Override Auth database path for testing
+
+            // Override Auth database path and key for testing
+            // Use a consistent test key so tests work across platforms
+            const char* testKey = "TestKey12345678901234567890123456789012";  // 34 chars
 #ifdef _WIN32
             _putenv_s("WALLET_DB_PATH", dbPath.c_str());
+            _putenv_s("WALLET_DB_KEY", testKey);
 #else
             setenv("WALLET_DB_PATH", dbPath.c_str(), 1);
+            setenv("WALLET_DB_KEY", testKey, 1);
 #endif
 
             cleanupTestDatabase();
             // cleanupProductionDatabase(); // Disabled for safety when running from installed app
+
+            // Reset Auth state to allow fresh initialization with new database path
+            Auth::ShutdownAuthDatabase();
 
             bool authInit = Auth::InitializeAuthDatabase();
             if (!authInit) {
@@ -182,9 +191,7 @@ public:
         // Test Base32 decoding
         {
             std::vector<uint8_t> decoded = Crypto::Base32Decode("JBSWY3DP");
-            bool passed = decoded.size() == 5 && 
-                         decoded[0] == 0x48 && 
-                         decoded[1] == 0x65;
+            bool passed = decoded.size() == 5 && decoded[0] == 0x48 && decoded[1] == 0x65;
             logTestResult("Base32 decoding", passed);
             allPassed &= passed;
         }
@@ -193,8 +200,8 @@ public:
         {
             std::string uri = Crypto::GenerateTOTPUri("JBSWY3DP", "testuser", "CriptoGualet");
             bool passed = uri.find("otpauth://totp/") != std::string::npos &&
-                         uri.find("secret=JBSWY3DP") != std::string::npos &&
-                         uri.find("issuer=CriptoGualet") != std::string::npos;
+                          uri.find("secret=JBSWY3DP") != std::string::npos &&
+                          uri.find("issuer=CriptoGualet") != std::string::npos;
             logTestResult("TOTP URI generation", passed);
             allPassed &= passed;
         }
@@ -253,27 +260,25 @@ public:
         std::string testPassword = "TestP@ssw0rd1!";
         std::vector<std::string> mnemonic;
 
-        Auth::AuthResponse registerResponse = Auth::RegisterUserWithMnemonic(
-            testUsername, testPassword, mnemonic
-        );
+        Auth::AuthResponse registerResponse =
+            Auth::RegisterUserWithMnemonic(testUsername, testPassword, mnemonic);
 
         {
             bool passed = (registerResponse.result == Auth::AuthResult::SUCCESS);
             logTestResult("Register user for 2FA test", passed);
             allPassed &= passed;
-            if (!passed) return false;
+            if (!passed)
+                return false;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         // Test initiating 2FA setup
         {
-            Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
-                testUsername, testPassword
-            );
-            bool passed = setupData.success && 
-                         !setupData.secretBase32.empty() &&
-                         !setupData.otpauthUri.empty();
+            Auth::TwoFactorSetupData setupData =
+                Auth::InitiateTwoFactorSetup(testUsername, testPassword);
+            bool passed = setupData.success && !setupData.secretBase32.empty() &&
+                          !setupData.otpauthUri.empty();
             if (!passed) {
                 std::cerr << "Setup failed: " << setupData.errorMessage << std::endl;
             }
@@ -283,9 +288,8 @@ public:
 
         // Test with wrong password
         {
-            Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
-                testUsername, "WrongPassword!"
-            );
+            Auth::TwoFactorSetupData setupData =
+                Auth::InitiateTwoFactorSetup(testUsername, "WrongPassword!");
             bool passed = !setupData.success;
             logTestResult("Reject setup with wrong password", passed);
             allPassed &= passed;
@@ -293,9 +297,8 @@ public:
 
         // Test with non-existent user
         {
-            Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
-                "nonexistent_user", testPassword
-            );
+            Auth::TwoFactorSetupData setupData =
+                Auth::InitiateTwoFactorSetup("nonexistent_user", testPassword);
             bool passed = !setupData.success;
             logTestResult("Reject setup for non-existent user", passed);
             allPassed &= passed;
@@ -318,9 +321,8 @@ public:
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         // Initiate setup to get secret
-        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
-            testUsername, testPassword
-        );
+        Auth::TwoFactorSetupData setupData =
+            Auth::InitiateTwoFactorSetup(testUsername, testPassword);
 
         if (!setupData.success) {
             std::cerr << "Could not initiate setup for confirm test" << std::endl;
@@ -335,9 +337,8 @@ public:
 
         // Test confirming with valid code
         {
-            Auth::AuthResponse confirmResponse = Auth::ConfirmTwoFactorSetup(
-                testUsername, validCode
-            );
+            Auth::AuthResponse confirmResponse =
+                Auth::ConfirmTwoFactorSetup(testUsername, validCode);
             bool passed = confirmResponse.success();
             if (!passed) {
                 std::cerr << "Confirm failed: " << confirmResponse.message << std::endl;
@@ -360,9 +361,8 @@ public:
             Auth::RegisterUserWithMnemonic(testUsername3, testPassword, mnemonic3);
             Auth::InitiateTwoFactorSetup(testUsername3, testPassword);
 
-            Auth::AuthResponse confirmResponse = Auth::ConfirmTwoFactorSetup(
-                testUsername3, "000000"
-            );
+            Auth::AuthResponse confirmResponse =
+                Auth::ConfirmTwoFactorSetup(testUsername3, "000000");
             bool passed = !confirmResponse.success();
             logTestResult("Reject invalid confirmation code", passed);
             allPassed &= passed;
@@ -385,9 +385,8 @@ public:
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         // Enable 2FA
-        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
-            testUsername, testPassword
-        );
+        Auth::TwoFactorSetupData setupData =
+            Auth::InitiateTwoFactorSetup(testUsername, testPassword);
         std::vector<uint8_t> secret = Crypto::Base32Decode(setupData.secretBase32);
         std::string validCode = Crypto::GenerateTOTP(secret);
         Auth::ConfirmTwoFactorSetup(testUsername, validCode);
@@ -395,8 +394,8 @@ public:
         // Test login - should require TOTP
         {
             Auth::AuthResponse loginResponse = Auth::LoginUser(testUsername, testPassword);
-            bool passed = !loginResponse.success() && 
-                         loginResponse.message.find("TOTP_REQUIRED") != std::string::npos;
+            bool passed = !loginResponse.success() &&
+                          loginResponse.message.find("TOTP_REQUIRED") != std::string::npos;
             logTestResult("Login requires TOTP when 2FA enabled", passed);
             allPassed &= passed;
         }
@@ -404,9 +403,8 @@ public:
         // Test TOTP verification
         {
             std::string currentCode = Crypto::GenerateTOTP(secret);
-            Auth::AuthResponse verifyResponse = Auth::VerifyTwoFactorCode(
-                testUsername, currentCode
-            );
+            Auth::AuthResponse verifyResponse =
+                Auth::VerifyTwoFactorCode(testUsername, currentCode);
             bool passed = verifyResponse.success();
             logTestResult("Verify TOTP code for login", passed);
             allPassed &= passed;
@@ -414,9 +412,7 @@ public:
 
         // Test with invalid TOTP
         {
-            Auth::AuthResponse verifyResponse = Auth::VerifyTwoFactorCode(
-                testUsername, "000000"
-            );
+            Auth::AuthResponse verifyResponse = Auth::VerifyTwoFactorCode(testUsername, "000000");
             bool passed = !verifyResponse.success();
             logTestResult("Reject invalid TOTP for login", passed);
             allPassed &= passed;
@@ -438,9 +434,8 @@ public:
         Auth::RegisterUserWithMnemonic(testUsername, testPassword, mnemonic);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
-            testUsername, testPassword
-        );
+        Auth::TwoFactorSetupData setupData =
+            Auth::InitiateTwoFactorSetup(testUsername, testPassword);
         std::vector<uint8_t> secret = Crypto::Base32Decode(setupData.secretBase32);
         std::string validCode = Crypto::GenerateTOTP(secret);
         Auth::ConfirmTwoFactorSetup(testUsername, validCode);
@@ -456,9 +451,8 @@ public:
         // Test disabling with wrong password
         {
             std::string currentCode = Crypto::GenerateTOTP(secret);
-            Auth::AuthResponse response = Auth::DisableTwoFactor(
-                testUsername, "WrongPassword!", currentCode
-            );
+            Auth::AuthResponse response =
+                Auth::DisableTwoFactor(testUsername, "WrongPassword!", currentCode);
             bool passed = !response.success();
             logTestResult("Reject disable with wrong password", passed);
             allPassed &= passed;
@@ -466,9 +460,8 @@ public:
 
         // Test disabling with wrong TOTP
         {
-            Auth::AuthResponse response = Auth::DisableTwoFactor(
-                testUsername, testPassword, "000000"
-            );
+            Auth::AuthResponse response =
+                Auth::DisableTwoFactor(testUsername, testPassword, "000000");
             bool passed = !response.success();
             logTestResult("Reject disable with wrong TOTP", passed);
             allPassed &= passed;
@@ -477,9 +470,8 @@ public:
         // Test disabling with correct credentials
         {
             std::string currentCode = Crypto::GenerateTOTP(secret);
-            Auth::AuthResponse response = Auth::DisableTwoFactor(
-                testUsername, testPassword, currentCode
-            );
+            Auth::AuthResponse response =
+                Auth::DisableTwoFactor(testUsername, testPassword, currentCode);
             bool passed = response.success();
             if (!passed) {
                 std::cerr << "Disable failed: " << response.message << std::endl;
@@ -511,17 +503,14 @@ public:
         Auth::RegisterUserWithMnemonic(testUsername, testPassword, mnemonic);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        Auth::TwoFactorSetupData setupData = Auth::InitiateTwoFactorSetup(
-            testUsername, testPassword
-        );
+        Auth::TwoFactorSetupData setupData =
+            Auth::InitiateTwoFactorSetup(testUsername, testPassword);
         std::vector<uint8_t> secret = Crypto::Base32Decode(setupData.secretBase32);
         std::string validCode = Crypto::GenerateTOTP(secret);
         Auth::ConfirmTwoFactorSetup(testUsername, validCode);
 
         // Get backup codes
-        Auth::BackupCodesResult backupResult = Auth::GetBackupCodes(
-            testUsername, testPassword
-        );
+        Auth::BackupCodesResult backupResult = Auth::GetBackupCodes(testUsername, testPassword);
 
         {
             bool passed = backupResult.success && backupResult.codes.size() == 8;

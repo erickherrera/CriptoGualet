@@ -224,9 +224,16 @@ SendTransactionResult SimpleWallet::SendFunds(
             hash_bytes[j] = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
         }
 
-        // Get the private key for this input (use first address key for now)
-        // In a more sophisticated implementation, you'd map inputs to specific addresses
-        const auto& priv_key = private_keys.begin()->second;
+        // Map the input to the correct source address. BlockCypher returns tosign hashes in input order.
+        // For simple transactions, inputs correspond to from_addresses in the same order.
+        std::string input_address = from_addresses[i % from_addresses.size()];
+        
+        auto key_it = private_keys.find(input_address);
+        if (key_it == private_keys.end()) {
+            result.error_message = "Missing private key for address: " + input_address;
+            return result;
+        }
+        const auto& priv_key = key_it->second;
 
         // Sign the hash
         Crypto::ECDSASignature signature;
@@ -749,8 +756,15 @@ LitecoinSendResult LitecoinWallet::SendFunds(
             hash_bytes[j] = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
         }
 
-        // Get the private key for this input
-        const auto& priv_key = private_keys.begin()->second;
+        // Map the input to the correct source address. BlockCypher returns tosign hashes in input order.
+        std::string input_address = from_addresses[i % from_addresses.size()];
+        
+        auto key_it = private_keys.find(input_address);
+        if (key_it == private_keys.end()) {
+            result.error_message = "Missing private key for address: " + input_address;
+            return result;
+        }
+        const auto& priv_key = key_it->second;
 
         // Sign the hash
         Crypto::ECDSASignature signature;

@@ -61,7 +61,7 @@
   "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
   
   // vcpkg configuration for CMake Tools
-  "cmake.vcpkgPath": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\vcpkg",
+  "cmake.vcpkgPath": "${env:VCPKG_ROOT}",
 
   // Test explorer settings
   "testExplorer.useNativeTesting": true,

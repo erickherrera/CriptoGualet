@@ -1,12 +1,12 @@
 {
   "configurations": [
     {
-      "name": "MSVC Debug",
-      "displayName": "MSVC Debug (Faster Builds)",
-      "generator": "Visual Studio 18 2026",
+      "name": "win-vs2022-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "generator": "Ninja",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\w-msvc-dbg",
-      "installRoot": "${projectDir}\\out\\install\\w-msvc-dbg",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
       "buildCommandArgs": "-v:minimal",
       "ctestCommandArgs": "--output-on-failure",
@@ -14,7 +14,7 @@
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         {
@@ -23,25 +23,25 @@
           "type": "STRING"
         },
         {
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\out\\v",
+          "type": "PATH"
+        },
+        {
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
         }
       ],
-      "intelliSenseMode": "windows-msvc-x64",
-      "environments": [
-        {
-          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
-        }
-      ]
+      "intelliSenseMode": "windows-msvc-x64"
     },
     {
-      "name": "MSVC Release",
-      "displayName": "MSVC Release",
-      "generator": "Visual Studio 18 2026",
+      "name": "win-vs2022-msvc-release",
+      "displayName": "Windows MSVC Release",
+      "generator": "Ninja",
       "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\w-msvc-rel",
-      "installRoot": "${projectDir}\\out\\install\\w-msvc-rel",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
       "buildCommandArgs": "-v:minimal",
       "ctestCommandArgs": "--output-on-failure",
@@ -49,7 +49,7 @@
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         {
@@ -58,34 +58,33 @@
           "type": "STRING"
         },
         {
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\out\\v",
+          "type": "PATH"
+        },
+        {
           "name": "CMAKE_CXX_STANDARD",
           "value": "20",
           "type": "STRING"
         }
       ],
-      "intelliSenseMode": "windows-msvc-x64",
-      "environments": [
-        {
-          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
-        }
-      ]
+      "intelliSenseMode": "windows-msvc-x64"
     },
     {
-      "name": "ClangCL Debug",
-      "displayName": "ClangCL Debug (Standard)",
-      "generator": "Visual Studio 18 2026",
-      "toolset": "ClangCL",
+      "name": "win-vs2022-clangcl-debug",
+      "displayName": "Windows Clang-CL Debug",
+      "generator": "Ninja",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\w-cl-dbg",
-      "installRoot": "${projectDir}\\out\\install\\w-cl-dbg",
-      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_ASAN=ON",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl",
       "buildCommandArgs": "-v:minimal",
       "ctestCommandArgs": "--output-on-failure",
-      "inheritEnvironments": [ "clang_cl_x64_x64" ],
+      "inheritEnvironments": [ "clang_cl_x64" ],
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         {
@@ -94,44 +93,28 @@
           "type": "STRING"
         },
         {
-          "name": "CMAKE_CXX_STANDARD",
-          "value": "20",
-          "type": "STRING"
-        },
-        {
-          "name": "ENABLE_ASAN",
-          "value": "True",
-          "type": "BOOL"
-        },
-        {
-          "name": "ENABLE_LTO",
-          "value": "False",
-          "type": "BOOL"
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\out\\v",
+          "type": "PATH"
         }
       ],
-      "intelliSenseMode": "windows-clang-x64",
-      "environments": [
-        {
-          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
-        }
-      ]
+      "intelliSenseMode": "windows-clang-x64"
     },
     {
-      "name": "ClangCL Release",
-      "displayName": "ClangCL Release (Standard)",
-      "generator": "Visual Studio 18 2026",
-      "toolset": "ClangCL",
+      "name": "win-vs2022-clangcl-release",
+      "displayName": "Windows Clang-CL Release",
+      "generator": "Ninja",
       "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\w-cl-rel",
-      "installRoot": "${projectDir}\\out\\install\\w-cl-rel",
-      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_LTO=ON",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl",
       "buildCommandArgs": "-v:minimal",
       "ctestCommandArgs": "--output-on-failure",
-      "inheritEnvironments": [ "clang_cl_x64_x64" ],
+      "inheritEnvironments": [ "clang_cl_x64" ],
       "variables": [
         {
           "name": "CMAKE_TOOLCHAIN_FILE",
-          "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         {
@@ -140,40 +123,30 @@
           "type": "STRING"
         },
         {
-          "name": "CMAKE_CXX_STANDARD",
-          "value": "20",
-          "type": "STRING"
-        },
-        {
-          "name": "ENABLE_ASAN",
-          "value": "False",
-          "type": "BOOL"
-        },
-        {
-          "name": "ENABLE_LTO",
-          "value": "True",
-          "type": "BOOL"
+          "name": "VCPKG_INSTALLED_DIR",
+          "value": "${projectDir}\\out\\v",
+          "type": "PATH"
         }
       ],
-      "intelliSenseMode": "windows-clang-x64",
-      "environments": [
-        {
-          "VCPKG_ROOT": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg"
-        }
-      ]
+      "intelliSenseMode": "windows-clang-x64"
     },
     {
-      "name": "Linux Debug",
-      "displayName": "Linux Debug",
-      "generator": "Unix Makefiles",
+      "name": "linux-dbg",
+      "displayName": "WSL Linux Debug",
+      "generator": "Ninja",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\linux-dbg",
-      "installRoot": "${projectDir}\\out\\install\\linux-dbg",
-      "cmakeCommandArgs": "",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
       "buildCommandArgs": "",
-      "ctestCommandArgs": "",
+      "ctestCommandArgs": "--output-on-failure",
       "inheritEnvironments": [ "linux_x64" ],
       "remoteMachineName": "${defaultRemoteMachineName}",
+      "environments": [
+        {
+          "VCPKG_ROOT": "$HOME/vcpkg"
+        }
+      ],
       "remoteCMakeListsRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/src",
       "remoteBuildRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/build/${name}",
       "remoteInstallRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/install/${name}",
@@ -185,55 +158,30 @@
       "rsyncCommandArgs": "-t --delete --delete-excluded",
       "remoteCopyBuildOutput": false,
       "remoteCopyFreeMarkers": [ "cmake", "ninja" ],
+      "cmakeExecutable": "/usr/bin/cmake",
       "variables": [
         {
+          "name": "CMAKE_TOOLCHAIN_FILE",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        {
+          "name": "VCPKG_TARGET_TRIPLET",
+          "value": "x64-linux",
+          "type": "STRING"
+        },
+        {
           "name": "CMAKE_C_COMPILER",
-          "value": "clang",
+          "value": "gcc",
           "type": "STRING"
         },
         {
           "name": "CMAKE_CXX_COMPILER",
-          "value": "clang++",
+          "value": "g++",
           "type": "STRING"
         }
-      ]
-    },
-    {
-      "name": "Linux Release",
-      "displayName": "Linux Release",
-      "generator": "Unix Makefiles",
-      "configurationType": "Release",
-      "buildRoot": "${projectDir}\\out\\build\\linux-rel",
-      "installRoot": "${projectDir}\\out\\install\\linux-rel",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
-      "inheritEnvironments": [ "linux_x64" ],
-      "remoteMachineName": "${defaultRemoteMachineName}",
-      "remoteCMakeListsRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/src",
-      "remoteBuildRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/build/${name}",
-      "remoteInstallRoot": "$HOME/.vs/${projectDirName}/${workspaceHash}/out/install/${name}",
-      "remoteCopySources": true,
-      "remoteCopySourcesOutputVerbosity": "Normal",
-      "remoteCopySourcesConcurrentCopies": "10",
-      "remoteCopySourcesMethod": "rsync",
-      "remoteCopySourcesExclusionList": [ ".vs", ".git", "out" ],
-      "rsyncCommandArgs": "-t --delete --delete-excluded",
-      "remoteCopyBuildOutput": false,
-      "remoteCopyFreeMarkers": [ "cmake", "ninja" ],
-      "variables": [
-        {
-          "name": "CMAKE_C_COMPILER",
-          "value": "clang",
-          "type": "STRING"
-        },
-        {
-          "name": "CMAKE_CXX_COMPILER",
-          "value": "clang++",
-          "type": "STRING"
-        }
-      ]
+      ],
+      "intelliSenseMode": "linux-gcc-x64"
     }
-
   ]
 }

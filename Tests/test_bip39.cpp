@@ -1,8 +1,13 @@
+#ifdef _WIN32
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
+#else
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -37,16 +42,16 @@ extern std::map<std::string, User> g_users;
 namespace TestBIP39 {
 
 class TestRunner {
-private:
+  private:
     int totalTests = 0;
     int passedTests = 0;
     std::vector<std::string> failedTests;
 
-public:
+  public:
     void runTest(const std::string& testName, std::function<bool()> testFunc) {
         totalTests++;
         std::cout << "Running: " << testName << " ... ";
-        
+
         try {
             if (testFunc()) {
                 passedTests++;
@@ -71,19 +76,19 @@ public:
         std::cout << "Total tests: " << totalTests << "\n";
         std::cout << "Passed: " << passedTests << "\n";
         std::cout << "Failed: " << failedTests.size() << "\n";
-        
+
         if (!failedTests.empty()) {
             std::cout << "\nFailed tests:\n";
             for (const auto& test : failedTests) {
                 std::cout << "  - " << test << "\n";
             }
         }
-        
-        std::cout << "\nSuccess rate: " << std::fixed << std::setprecision(1) 
+
+        std::cout << "\nSuccess rate: " << std::fixed << std::setprecision(1)
                   << (100.0 * passedTests / totalTests) << "%\n";
         std::cout << std::string(50, '=') << "\n";
     }
-    
+
     bool allTestsPassed() const {
         return failedTests.empty();
     }
@@ -91,176 +96,198 @@ public:
 
 // Helper functions for testing internal BIP39 logic
 namespace Internal {
-    
-    // Copy internal helper functions for testing (we can't access them directly)
-    inline bool RandBytes(void* buf, size_t len) {
-        return BCRYPT_SUCCESS(BCryptGenRandom(nullptr, static_cast<PUCHAR>(buf),
-                                              static_cast<ULONG>(len),
-                                              BCRYPT_USE_SYSTEM_PREFERRED_RNG));
+
+// Copy internal helper functions for testing (we can't access them directly)
+inline bool RandBytes(void* buf, size_t len) {
+#ifdef _WIN32
+    return BCRYPT_SUCCESS(BCryptGenRandom(nullptr, static_cast<PUCHAR>(buf),
+                                          static_cast<ULONG>(len),
+                                          BCRYPT_USE_SYSTEM_PREFERRED_RNG));
+#else
+    return RAND_bytes(static_cast<unsigned char*>(buf), static_cast<int>(len)) == 1;
+#endif
+}
+
+inline bool SHA256(const uint8_t* data, size_t len, std::array<uint8_t, 32>& out) {
+#ifdef _WIN32
+    out.fill(0);
+    BCRYPT_ALG_HANDLE hAlg = nullptr;
+    BCRYPT_HASH_HANDLE hHash = nullptr;
+    DWORD hashLen = 0, objLen = 0;
+    NTSTATUS st = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
+    if (!BCRYPT_SUCCESS(st))
+        return false;
+
+    st =
+        BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH, (PUCHAR)&objLen, sizeof(objLen), &hashLen, 0);
+    if (!BCRYPT_SUCCESS(st)) {
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return false;
     }
 
-    inline bool SHA256(const uint8_t* data, size_t len, std::array<uint8_t, 32>& out) {
-        out.fill(0);
-        BCRYPT_ALG_HANDLE hAlg = nullptr;
-        BCRYPT_HASH_HANDLE hHash = nullptr;
-        DWORD hashLen = 0, objLen = 0;
-        NTSTATUS st = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
-        if (!BCRYPT_SUCCESS(st)) return false;
+    std::vector<uint8_t> obj(objLen);
+    st = BCryptCreateHash(hAlg, &hHash, obj.data(), objLen, nullptr, 0, 0);
+    if (!BCRYPT_SUCCESS(st)) {
+        BCryptCloseAlgorithmProvider(hAlg, 0);
+        return false;
+    }
 
-        st = BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH, (PUCHAR)&objLen,
-                               sizeof(objLen), &hashLen, 0);
-        if (!BCRYPT_SUCCESS(st)) {
-            BCryptCloseAlgorithmProvider(hAlg, 0);
-            return false;
-        }
-
-        std::vector<uint8_t> obj(objLen);
-        st = BCryptCreateHash(hAlg, &hHash, obj.data(), objLen, nullptr, 0, 0);
-        if (!BCRYPT_SUCCESS(st)) {
-            BCryptCloseAlgorithmProvider(hAlg, 0);
-            return false;
-        }
-
-        st = BCryptHashData(hHash, (PUCHAR)data, (ULONG)len, 0);
-        if (!BCRYPT_SUCCESS(st)) {
-            BCryptDestroyHash(hHash);
-            BCryptCloseAlgorithmProvider(hAlg, 0);
-            return false;
-        }
-
-        st = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
+    st = BCryptHashData(hHash, (PUCHAR)data, (ULONG)len, 0);
+    if (!BCRYPT_SUCCESS(st)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
-        return BCRYPT_SUCCESS(st);
+        return false;
     }
 
-    std::vector<std::string> LoadWordList() {
-        std::vector<std::string> words;
-        if (Crypto::LoadBIP39Wordlist(words)) {
-            std::cout << "Loaded wordlist using robust detection (2048 words)\n";
-        } else {
-            std::cout << "Warning: Could not load BIP39 wordlist from any location\n";
-        }
-        return words;
+    st = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
+    BCryptDestroyHash(hHash);
+    BCryptCloseAlgorithmProvider(hAlg, 0);
+    return BCRYPT_SUCCESS(st);
+#else
+    unsigned int hashLen = 0;
+    if (EVP_Digest(data, len, out.data(), &hashLen, EVP_sha256(), nullptr) != 1) {
+        return false;
     }
-
-    std::vector<std::string> SplitWords(const std::string& text) {
-        std::vector<std::string> out;
-        std::string cur;
-        for (char ch : text) {
-            if (std::isspace((unsigned char)ch)) {
-                if (!cur.empty()) {
-                    std::transform(cur.begin(), cur.end(), cur.begin(), ::tolower);
-                    out.push_back(cur);
-                    cur.clear();
-                }
-            } else {
-                cur.push_back((char)std::tolower((unsigned char)ch));
-            }
-        }
-        if (!cur.empty()) {
-            std::transform(cur.begin(), cur.end(), cur.begin(), ::tolower);
-            out.push_back(cur);
-        }
-        return out;
-    }
-
-    // Simplified entropy generation for testing
-    std::vector<uint8_t> GenerateEntropy(size_t bits) {
-        if (bits % 32 != 0 || bits < 128 || bits > 256) {
-            return {};
-        }
-        std::vector<uint8_t> entropy(bits / 8);
-        if (!RandBytes(entropy.data(), entropy.size())) {
-            return {};
-        }
-        return entropy;
-    }
-
-    // Generate mnemonic from entropy (simplified version)
-    std::vector<std::string> MnemonicFromEntropy(const std::vector<uint8_t>& entropy, 
-                                                  const std::vector<std::string>& wordlist) {
-        if (wordlist.size() != 2048) return {};
-        
-        const size_t ENT = entropy.size() * 8;
-        const size_t CS = ENT / 32;
-        const size_t MS = ENT + CS;
-        const size_t words = MS / 11;
-
-        std::array<uint8_t, 32> hash{};
-        if (!SHA256(entropy.data(), entropy.size(), hash)) {
-            return {};
-        }
-
-        std::vector<int> bits;
-        bits.reserve(MS);
-        
-        // Add entropy bits
-        for (uint8_t b : entropy) {
-            for (int i = 7; i >= 0; --i) {
-                bits.push_back((b >> i) & 1);
-            }
-        }
-        
-        // Add checksum bits
-        for (size_t i = 0; i < CS; ++i) {
-            size_t byteIdx = i / 8;
-            int bitInByte = 7 - (i % 8);
-            int bit = (hash[byteIdx] >> bitInByte) & 1;
-            bits.push_back(bit);
-        }
-
-        std::vector<std::string> mnemonic;
-        mnemonic.reserve(words);
-        for (size_t i = 0; i < words; ++i) {
-            uint32_t idx = 0;
-            for (size_t j = 0; j < 11; ++j) {
-                idx = (idx << 1) | bits[i * 11 + j];
-            }
-            mnemonic.push_back(wordlist[idx]);
-        }
-        return mnemonic;
-    }
+    return true;
+#endif
 }
+
+std::vector<std::string> LoadWordList() {
+    std::vector<std::string> words;
+    if (Crypto::LoadBIP39Wordlist(words)) {
+        std::cout << "Loaded wordlist using robust detection (2048 words)\n";
+    } else {
+        std::cout << "Warning: Could not load BIP39 wordlist from any location\n";
+    }
+    return words;
+}
+
+std::vector<std::string> SplitWords(const std::string& text) {
+    std::vector<std::string> out;
+    std::string cur;
+    for (char ch : text) {
+        if (std::isspace((unsigned char)ch)) {
+            if (!cur.empty()) {
+                std::transform(cur.begin(), cur.end(), cur.begin(), ::tolower);
+                out.push_back(cur);
+                cur.clear();
+            }
+        } else {
+            cur.push_back((char)std::tolower((unsigned char)ch));
+        }
+    }
+    if (!cur.empty()) {
+        std::transform(cur.begin(), cur.end(), cur.begin(), ::tolower);
+        out.push_back(cur);
+    }
+    return out;
+}
+
+// Simplified entropy generation for testing
+std::vector<uint8_t> GenerateEntropy(size_t bits) {
+    if (bits % 32 != 0 || bits < 128 || bits > 256) {
+        return {};
+    }
+    std::vector<uint8_t> entropy(bits / 8);
+    if (!RandBytes(entropy.data(), entropy.size())) {
+        return {};
+    }
+    return entropy;
+}
+
+// Generate mnemonic from entropy (simplified version)
+std::vector<std::string> MnemonicFromEntropy(const std::vector<uint8_t>& entropy,
+                                             const std::vector<std::string>& wordlist) {
+    if (wordlist.size() != 2048)
+        return {};
+
+    const size_t ENT = entropy.size() * 8;
+    const size_t CS = ENT / 32;
+    const size_t MS = ENT + CS;
+    const size_t words = MS / 11;
+
+    std::array<uint8_t, 32> hash{};
+    if (!SHA256(entropy.data(), entropy.size(), hash)) {
+        return {};
+    }
+
+    std::vector<int> bits;
+    bits.reserve(MS);
+
+    // Add entropy bits
+    for (uint8_t b : entropy) {
+        for (int i = 7; i >= 0; --i) {
+            bits.push_back((b >> i) & 1);
+        }
+    }
+
+    // Add checksum bits
+    for (size_t i = 0; i < CS; ++i) {
+        size_t byteIdx = i / 8;
+        int bitInByte = 7 - (i % 8);
+        int bit = (hash[byteIdx] >> bitInByte) & 1;
+        bits.push_back(bit);
+    }
+
+    std::vector<std::string> mnemonic;
+    mnemonic.reserve(words);
+    for (size_t i = 0; i < words; ++i) {
+        uint32_t idx = 0;
+        for (size_t j = 0; j < 11; ++j) {
+            idx = (idx << 1) | bits[i * 11 + j];
+        }
+        mnemonic.push_back(wordlist[idx]);
+    }
+    return mnemonic;
+}
+}  // namespace Internal
 
 // Test functions
 bool test_EntropyGeneration() {
     auto entropy128 = Internal::GenerateEntropy(128);
     auto entropy256 = Internal::GenerateEntropy(256);
-    
-    return !entropy128.empty() && entropy128.size() == 16 &&
-           !entropy256.empty() && entropy256.size() == 32;
+
+    return !entropy128.empty() && entropy128.size() == 16 && !entropy256.empty() &&
+           entropy256.size() == 32;
 }
 
 bool test_WordListLoading() {
     auto words = Internal::LoadWordList();
-    
+
     // Should have exactly 2048 words
-    if (words.size() != 2048) return false;
-    
+    if (words.size() != 2048)
+        return false;
+
     // Check that first few words match expected BIP39 standard
-    if (words.empty()) return false;
-    if (words[0] != "abandon") return false;
-    if (words.size() > 1 && words[1] != "ability") return false;
-    
+    if (words.empty())
+        return false;
+    if (words[0] != "abandon")
+        return false;
+    if (words.size() > 1 && words[1] != "ability")
+        return false;
+
     // Check for duplicates (should be none in a proper wordlist)
     std::set<std::string> uniqueWords(words.begin(), words.end());
-    if (uniqueWords.size() != 2048) return false;
-    
+    if (uniqueWords.size() != 2048)
+        return false;
+
     return true;
 }
 
 bool test_MnemonicGeneration() {
     auto wordlist = Internal::LoadWordList();
-    if (wordlist.size() != 2048) return false;
-    
+    if (wordlist.size() != 2048)
+        return false;
+
     // Test 12-word mnemonic (128-bit entropy)
     auto entropy = Internal::GenerateEntropy(128);
-    if (entropy.empty()) return false;
-    
+    if (entropy.empty())
+        return false;
+
     auto mnemonic = Internal::MnemonicFromEntropy(entropy, wordlist);
-    if (mnemonic.size() != 12) return false;
-    
+    if (mnemonic.size() != 12)
+        return false;
+
     // Verify all words are from the wordlist
     std::set<std::string> wordSet(wordlist.begin(), wordlist.end());
     for (const auto& word : mnemonic) {
@@ -268,124 +295,133 @@ bool test_MnemonicGeneration() {
             return false;
         }
     }
-    
+
     return true;
 }
 
 bool test_MnemonicConsistency() {
     auto wordlist = Internal::LoadWordList();
-    if (wordlist.size() != 2048) return false;
-    
+    if (wordlist.size() != 2048)
+        return false;
+
     // Generate same mnemonic from same entropy multiple times
-    std::vector<uint8_t> fixedEntropy = {
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
-    };
-    
+    std::vector<uint8_t> fixedEntropy = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                                         0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
+
     auto mnemonic1 = Internal::MnemonicFromEntropy(fixedEntropy, wordlist);
     auto mnemonic2 = Internal::MnemonicFromEntropy(fixedEntropy, wordlist);
-    
+
     return mnemonic1 == mnemonic2 && mnemonic1.size() == 12;
 }
 
 bool test_UserRegistration() {
     std::string testUser = "testuser_" + std::to_string(std::time(nullptr));
     std::string testPassword = "ValidPass123!";
-    
+
     // Clear any existing user
     g_users.erase(testUser);
-    
+
     auto response = Auth::RegisterUser(testUser, testPassword);
-    
+
     if (!response.success()) {
         std::cout << "Registration failed: " << response.message << "\n";
         return false;
     }
-    
+
     // User should now exist
     auto it = g_users.find(testUser);
     if (it == g_users.end()) {
         return false;
     }
-    
+
     // Clean up
     g_users.erase(testUser);
-    
+
     return true;
 }
 
 bool test_SeedReveal() {
     std::string testUser = "seedtest_" + std::to_string(std::time(nullptr));
     std::string testPassword = "ValidPass123!";
-    
+
     // Create user first
     g_users.erase(testUser);
     auto response = Auth::RegisterUser(testUser, testPassword);
-    if (!response.success()) return false;
-    
+    if (!response.success())
+        return false;
+
     // Try to reveal seed
     std::string seedHex;
     std::optional<std::string> mnemonic;
     auto revealResponse = Auth::RevealSeed(testUser, testPassword, seedHex, mnemonic);
-    
+
     if (!revealResponse.success()) {
         std::cout << "Seed reveal failed: " << revealResponse.message << "\n";
         g_users.erase(testUser);
         return false;
     }
-    
+
     // Should have seed hex (128 hex chars = 64 bytes)
     bool hasValidSeed = !seedHex.empty() && seedHex.length() == 128;
-    
+
     // Clean up
     g_users.erase(testUser);
-    
+
     return hasValidSeed;
 }
 
 bool test_SeedRestore() {
     std::string testUser = "restoretest_" + std::to_string(std::time(nullptr));
     std::string testPassword = "ValidPass123!";
-    
+
     // Create user first
     g_users.erase(testUser);
     auto response = Auth::RegisterUser(testUser, testPassword);
-    if (!response.success()) return false;
-    
-    // Known valid BIP39 mnemonic (abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about)
-    std::string testMnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+    if (!response.success())
+        return false;
+
+    // Known valid BIP39 mnemonic (abandon abandon abandon abandon abandon abandon abandon abandon
+    // abandon abandon abandon about)
+    std::string testMnemonic =
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon "
+        "about";
     std::string passphrase = "";  // Empty passphrase
-    
+
     auto restoreResponse = Auth::RestoreFromSeed(testUser, testMnemonic, passphrase, testPassword);
-    
+
     bool success = restoreResponse.success();
     if (!success) {
         std::cout << "Restore failed: " << restoreResponse.message << "\n";
     }
-    
+
     // Clean up
     g_users.erase(testUser);
-    
+
     return success;
 }
 
 bool test_InvalidMnemonics() {
     std::string testUser = "invalidtest_" + std::to_string(std::time(nullptr));
     std::string testPassword = "ValidPass123!";
-    
+
     // Create user first
     g_users.erase(testUser);
     auto response = Auth::RegisterUser(testUser, testPassword);
-    if (!response.success()) return false;
-    
+    if (!response.success())
+        return false;
+
     std::vector<std::string> invalidMnemonics = {
-        "",  // Empty
+        "",                       // Empty
         "invalid word sequence",  // Invalid words
-        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon",  // Wrong checksum
-        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon",  // Wrong length
-        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon"  // Too many words
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon "
+        "abandon abandon",  // Wrong checksum
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon "
+        "abandon",  // Wrong length
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon "
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon "
+        "abandon abandon abandon abandon abandon"  // Too many words
     };
-    
+
     bool allFailed = true;
     for (const auto& invalidMnemonic : invalidMnemonics) {
         auto restoreResponse = Auth::RestoreFromSeed(testUser, invalidMnemonic, "", testPassword);
@@ -395,65 +431,65 @@ bool test_InvalidMnemonics() {
             break;
         }
     }
-    
+
     // Clean up
     g_users.erase(testUser);
-    
+
     return allFailed;
 }
 
 bool test_PasswordValidation() {
     std::vector<std::pair<std::string, bool>> testCases = {
-        {"", false},                                // Empty
-        {"short", false},                            // Too short
-        {"nouppercase1!", false},                    // No uppercase
-        {"NOLOWERCASE1!", false},                    // No lowercase
-        {"NoDigit!", false},                         // No digit
-        {"NoSpecial1", false},                       // No special char
-        {"ValidPassword123!", true},                // Valid
-        {"Another_Valid-Pass123", true},             // Valid with different special chars
-        {std::string(129, 'a'), false},              // Too long
-        {"BadLength1!", false},                      // 11 chars, too short
-        {"GoodLength12!", true}                     // 12 chars, valid
+        {"", false},                      // Empty
+        {"short", false},                 // Too short
+        {"nouppercase1!", false},         // No uppercase
+        {"NOLOWERCASE1!", false},         // No lowercase
+        {"NoDigit!", false},              // No digit
+        {"NoSpecial1", false},            // No special char
+        {"ValidPassword123!", true},      // Valid
+        {"Another_Valid-Pass123", true},  // Valid with different special chars
+        {std::string(129, 'a'), false},   // Too long
+        {"BadLength1!", false},           // 11 chars, too short
+        {"GoodLength12!", true}           // 12 chars, valid
     };
-    
+
     for (const auto& testCase : testCases) {
         bool result = Auth::IsValidPassword(testCase.first);
         if (result != testCase.second) {
-            std::cout << "Password validation failed for: '" << testCase.first 
-                      << "' (expected " << testCase.second << ", got " << result << ")\n";
+            std::cout << "Password validation failed for: '" << testCase.first << "' (expected "
+                      << testCase.second << ", got " << result << ")\n";
             return false;
         }
     }
-    
+
     return true;
 }
 
 bool test_UsernameValidation() {
     std::vector<std::pair<std::string, bool>> testCases = {
-        {"", false},                    // Empty
-        {"ab", false},                  // Too short
-        {"validuser", true},            // Valid
-        {"user123", true},              // Valid with numbers
-        {"user_name", true},            // Valid with underscore
-        {"user-name", true},            // Valid with dash
-        {"user@name", false},           // Invalid character
-        {"user name", false},           // Space not allowed
-        {std::string(100, 'a'), false}, // Too long
-        {"123user", true},              // Starting with number is ok
-        {"_user", true},                // Starting with underscore is ok
-        {"-user", true}                 // Starting with dash is ok
+        {"", false},                     // Empty
+        {"ab", false},                   // Too short
+        {"validuser", true},             // Valid
+        {"user123", true},               // Valid with numbers
+        {"user_name", true},             // Valid with underscore
+        {"user-name", true},             // Valid with dash
+        {"user@name", false},            // Invalid character
+        {"user name", false},            // Space not allowed
+        {std::string(100, 'a'), false},  // Too long
+        {"123user", true},               // Starting with number is ok
+        {"_user", true},                 // Starting with underscore is ok
+        {"-user", true}                  // Starting with dash is ok
     };
-    
+
     for (const auto& testCase : testCases) {
         bool result = Auth::IsValidUsername(testCase.first);
         if (result != testCase.second) {
-            std::cout << "Username validation failed for: '" << testCase.first 
-                      << "' (expected " << testCase.second << ", got " << result << ")\n";
+            std::cout << "Username validation failed for: '" << testCase.first << "' (expected "
+                      << testCase.second << ", got " << result << ")\n";
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -461,12 +497,12 @@ bool test_MultipleUserRegistrations() {
     std::vector<std::string> testUsers;
     std::string baseUser = "multitest_" + std::to_string(std::time(nullptr));
     std::string password = "ValidPass123!";
-    
+
     // Create multiple users
     for (int i = 0; i < 5; i++) {
         std::string username = baseUser + "_" + std::to_string(i);
         testUsers.push_back(username);
-        
+
         g_users.erase(username);
         auto response = Auth::RegisterUser(username, password);
         if (!response.success()) {
@@ -477,14 +513,14 @@ bool test_MultipleUserRegistrations() {
             return false;
         }
     }
-    
+
     // Verify all users exist and have different seeds
     std::set<std::string> uniqueSeeds;
     for (const auto& username : testUsers) {
         std::string seedHex;
         std::optional<std::string> mnemonic;
         auto revealResponse = Auth::RevealSeed(username, password, seedHex, mnemonic);
-        
+
         if (!revealResponse.success() || seedHex.empty()) {
             // Clean up
             for (const auto& user : testUsers) {
@@ -492,18 +528,18 @@ bool test_MultipleUserRegistrations() {
             }
             return false;
         }
-        
+
         uniqueSeeds.insert(seedHex);
     }
-    
+
     // All seeds should be unique
     bool allUnique = (uniqueSeeds.size() == testUsers.size());
-    
+
     // Clean up
     for (const auto& user : testUsers) {
         g_users.erase(user);
     }
-    
+
     return allUnique;
 }
 
@@ -515,7 +551,8 @@ bool test_RateLimiting() {
     // Create user
     g_users.erase(testUser);
     auto response = Auth::RegisterUser(testUser, correctPassword);
-    if (!response.success()) return false;
+    if (!response.success())
+        return false;
 
     // Clear any existing rate limits
     Auth::ClearRateLimit(testUser);
@@ -575,7 +612,8 @@ bool test_BIP32_MasterKeyGeneration() {
     }
 
     if (masterKey.depth != 0) {
-        std::cout << "Master key depth should be 0, got " << static_cast<int>(masterKey.depth) << "\n";
+        std::cout << "Master key depth should be 0, got " << static_cast<int>(masterKey.depth)
+                  << "\n";
         return false;
     }
 
@@ -607,7 +645,8 @@ bool test_BIP32_ChildKeyDerivation() {
     }
 
     if (hardenedChild.depth != 1) {
-        std::cout << "Child depth should be 1, got " << static_cast<int>(hardenedChild.depth) << "\n";
+        std::cout << "Child depth should be 1, got " << static_cast<int>(hardenedChild.depth)
+                  << "\n";
         return false;
     }
 
@@ -763,7 +802,7 @@ bool test_BIP32_Secp256k1Integration() {
     // Test that secp256k1 elliptic curve operations work correctly
     std::array<uint8_t, 64> testSeed = {};
     for (size_t i = 0; i < 64; i++) {
-        testSeed[i] = static_cast<uint8_t>(i + 100); // Different seed for variety
+        testSeed[i] = static_cast<uint8_t>(i + 100);  // Different seed for variety
     }
 
     Crypto::BIP32ExtendedKey masterKey;
@@ -804,20 +843,16 @@ bool test_BIP32_Secp256k1Integration() {
 
 bool test_BIP32_KnownTestVector() {
     // Test with known BIP39 test vector:
-    // Mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-    // This is a well-known BIP39 test case
+    // Mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon
+    // abandon about" This is a well-known BIP39 test case
 
     // Known BIP39 seed for this mnemonic (with empty passphrase)
     std::array<uint8_t, 64> knownSeed = {
-        0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08,
-        0x4a, 0xbc, 0xa9, 0x1e, 0x89, 0x43, 0xd7, 0x43,
-        0x04, 0x5e, 0x78, 0xcd, 0x56, 0xa0, 0x41, 0x75,
-        0x9f, 0xfb, 0x8b, 0x7a, 0x33, 0xcd, 0xae, 0xcd,
-        0xd5, 0xae, 0x3f, 0x5e, 0x1e, 0xd9, 0x6e, 0x82,
-        0xf9, 0xf0, 0xc4, 0xa7, 0x50, 0x63, 0xe1, 0x38,
-        0x97, 0xe4, 0x2c, 0x62, 0x9b, 0x9b, 0x5d, 0x3a,
-        0x0e, 0x59, 0xc4, 0x82, 0xf3, 0x5d, 0x6e, 0xcd
-    };
+        0x5e, 0xb0, 0x0b, 0xbd, 0xdc, 0xf0, 0x69, 0x08, 0x4a, 0xbc, 0xa9, 0x1e, 0x89,
+        0x43, 0xd7, 0x43, 0x04, 0x5e, 0x78, 0xcd, 0x56, 0xa0, 0x41, 0x75, 0x9f, 0xfb,
+        0x8b, 0x7a, 0x33, 0xcd, 0xae, 0xcd, 0xd5, 0xae, 0x3f, 0x5e, 0x1e, 0xd9, 0x6e,
+        0x82, 0xf9, 0xf0, 0xc4, 0xa7, 0x50, 0x63, 0xe1, 0x38, 0x97, 0xe4, 0x2c, 0x62,
+        0x9b, 0x9b, 0x5d, 0x3a, 0x0e, 0x59, 0xc4, 0x82, 0xf3, 0x5d, 0x6e, 0xcd};
 
     Crypto::BIP32ExtendedKey masterKey;
     if (!Crypto::BIP32_MasterKeyFromSeed(knownSeed, masterKey)) {
@@ -901,13 +936,14 @@ bool test_TransactionSigning() {
 
     if (signSuccess) {
         std::cout << "Transaction signed successfully" << std::endl;
-        std::cout << "DER signature size: " << signature.der_encoded.size() << " bytes" << std::endl;
+        std::cout << "DER signature size: " << signature.der_encoded.size() << " bytes"
+                  << std::endl;
         std::cout << "R component size: " << signature.r.size() << " bytes" << std::endl;
         std::cout << "S component size: " << signature.s.size() << " bytes" << std::endl;
     }
 
-    return signSuccess && !signature.der_encoded.empty() &&
-           signature.r.size() == 32 && signature.s.size() == 32;
+    return signSuccess && !signature.der_encoded.empty() && signature.r.size() == 32 &&
+           signature.s.size() == 32;
 }
 
 bool test_SignatureVerification() {
@@ -923,7 +959,8 @@ bool test_SignatureVerification() {
     }
 
     // Derive public key
-    secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    secp256k1_context* ctx =
+        secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
     secp256k1_pubkey pubkey;
     if (!secp256k1_ec_pubkey_create(ctx, &pubkey, masterKey.key.data())) {
         secp256k1_context_destroy(ctx);
@@ -932,7 +969,8 @@ bool test_SignatureVerification() {
 
     uint8_t pubkey_serialized[33];
     size_t pubkey_len = sizeof(pubkey_serialized);
-    secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkey_len, &pubkey, SECP256K1_EC_COMPRESSED);
+    secp256k1_ec_pubkey_serialize(ctx, pubkey_serialized, &pubkey_len, &pubkey,
+                                  SECP256K1_EC_COMPRESSED);
     std::vector<uint8_t> public_key(pubkey_serialized, pubkey_serialized + pubkey_len);
     secp256k1_context_destroy(ctx);
 
@@ -976,7 +1014,7 @@ bool test_CoinSelection() {
     Crypto::UTXO utxo3;
     utxo3.txid = "ghi789";
     utxo3.vout = 0;
-    utxo3.amount = 50000;   // 0.0005 BTC
+    utxo3.amount = 50000;  // 0.0005 BTC
     utxo3.address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
     available_utxos.push_back(utxo3);
 
@@ -1018,35 +1056,50 @@ bool test_TransactionSizeEstimation() {
     return estimated_size > 100 && estimated_size < 1000 && fee > 0;
 }
 
-} // namespace TestBIP39
+}  // namespace TestBIP39
 
 int main() {
     using namespace TestBIP39;
-    
+
     std::cout << "BIP39 Functionality Test Suite\n";
     std::cout << std::string(50, '=') << "\n\n";
+
+    // Set up test database path and key for testing
+    // Use a consistent test key so tests work across platforms
+    std::string testDbPath = "/tmp/CriptoGualetTests/test_bip39_wallet.db";
+    const char* testKey = "TestKey12345678901234567890123456789012";  // 34 chars
+#ifdef _WIN32
+    _putenv_s("WALLET_DB_PATH", testDbPath.c_str());
+    _putenv_s("WALLET_DB_KEY", testKey);
+#else
+    setenv("WALLET_DB_PATH", testDbPath.c_str(), 1);
+    setenv("WALLET_DB_KEY", testKey, 1);
+#endif
+
+    // Reset Auth state to allow fresh initialization
+    Auth::ShutdownAuthDatabase();
 
     // REMOVED: Auth::LoadUserDatabase() - insecure plaintext database function
     // Tests work with in-memory g_users map; production uses Repository layer
 
     TestRunner runner;
-    
+
     // Core BIP39 tests
     runner.runTest("Entropy Generation", test_EntropyGeneration);
     runner.runTest("Word List Loading", test_WordListLoading);
     runner.runTest("Mnemonic Generation", test_MnemonicGeneration);
     runner.runTest("Mnemonic Consistency", test_MnemonicConsistency);
-    
+
     // Authentication integration tests
     runner.runTest("User Registration", test_UserRegistration);
     runner.runTest("Seed Reveal", test_SeedReveal);
     runner.runTest("Seed Restore", test_SeedRestore);
     runner.runTest("Invalid Mnemonics Rejection", test_InvalidMnemonics);
-    
+
     // Validation tests
     runner.runTest("Password Validation", test_PasswordValidation);
     runner.runTest("Username Validation", test_UsernameValidation);
-    
+
     // Edge case and security tests
     runner.runTest("Multiple User Registrations", test_MultipleUserRegistrations);
     runner.runTest("Rate Limiting", test_RateLimiting);

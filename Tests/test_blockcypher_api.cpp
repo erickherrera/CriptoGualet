@@ -1,8 +1,10 @@
 #include "../backend/core/include/WalletAPI.h"
 #include "../backend/blockchain/include/BlockCypher.h"
 #include "../backend/core/include/Crypto.h"
+#include "TestUtils.h"
 #include <iostream>
 #include <string>
+#include <cstdint>
 #include <chrono>
 #include <thread>
 #include <map>
@@ -332,6 +334,7 @@ int main() {
         std::cout << "       Use SendSignedTransaction() or SendRawTransaction() to broadcast" << std::endl;
         std::cout << "       when you have funded addresses." << std::endl;
 
+        TestUtils::waitForUser();
     } catch (const std::exception& e) {
         std::cerr << "\n[ERROR] Test failed with exception: " << e.what() << std::endl;
         return 1;

@@ -33,10 +33,11 @@ function(configure_criptogualet_test target_name)
     target_link_libraries(${target_name} PRIVATE ws2_32 wsock32 bcrypt crypt32)
   endif()
 
-  target_compile_options(${target_name} PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:/W4>
-    $<$<COMPILE_LANGUAGE:CXX>:/Wall>
-  )
+  if(MSVC OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32))
+    target_compile_options(${target_name} PRIVATE /W4 /Wall)
+  else()
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra)
+  endif()
 endfunction()
 
 function(add_criptogualet_test target_name source_file)
@@ -53,14 +54,9 @@ endfunction()
 # Session Test Executables
 add_criptogualet_test(test_session_consolidated "test_session_consolidated.cpp")
 
-# Find SQLite3 for repository tests
-find_package(SQLite3)
-
 # Consolidated repository tests
 add_criptogualet_test(test_repository_consolidated "test_repository_consolidated.cpp")
-if(SQLITE3_FOUND)
-  target_link_libraries(test_repository_consolidated PRIVATE SQLite::SQLite3)
-endif()
+add_criptogualet_test(test_signing_robustness "test_signing_robustness.cpp")
 
 # Additional test executables (launch manually / set as startup)
 add_criptogualet_tool(test_password_verification "test_password_verification.cpp")

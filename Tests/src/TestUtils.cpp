@@ -1,10 +1,16 @@
 #include "TestUtils.h"
-#include <iostream>
-#include <filesystem>
 #include "Database/DatabaseManager.h"
+#include "Repository/Logger.h"
 #include "Repository/UserRepository.h"
 #include "Repository/WalletRepository.h"
-#include "Repository/Logger.h"
+#include <filesystem>
+#include <iostream>
+#include <cstdio>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE
@@ -18,41 +24,45 @@ extern "C" {
 
 // Global test counters
 namespace TestGlobals {
-    int g_testsRun = 0;
-    int g_testsPassed = 0;
-    int g_testsFailed = 0;
-}
+int g_testsRun = 0;
+int g_testsPassed = 0;
+int g_testsFailed = 0;
+}  // namespace TestGlobals
 
 namespace TestUtils {
 
-    bool createFullSchema(Database::DatabaseManager& dbManager);
+bool createFullSchema(Database::DatabaseManager& dbManager);
 
-    void printTestHeader(const std::string& title) {
-        std::cout << "\n" << COLOR_CYAN << "==================================================" << COLOR_RESET << std::endl;
-        std::cout << COLOR_CYAN << " " << title << COLOR_RESET << std::endl;
-        std::cout << COLOR_CYAN << "==================================================" << COLOR_RESET << std::endl;
+void printTestHeader(const std::string& title) {
+    std::cout << "\n"
+              << COLOR_CYAN << "==================================================" << COLOR_RESET
+              << std::endl;
+    std::cout << COLOR_CYAN << " " << title << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "==================================================" << COLOR_RESET
+              << std::endl;
+}
+
+void initializeTestLogger(const std::string& logFileName) {
+    Repository::Logger::getInstance().initialize(logFileName);
+}
+
+void initializeTestDatabase(Database::DatabaseManager& dbManager, const std::string& dbPath,
+                            const std::string& encryptionKey) {
+    if (std::filesystem::exists(dbPath)) {
+        std::filesystem::remove(dbPath);
     }
 
-    void initializeTestLogger(const std::string& logFileName) {
-        Repository::Logger::getInstance().initialize(logFileName);
+    auto initResult = dbManager.initialize(dbPath, encryptionKey);
+    if (!initResult.success) {
+        std::cout << COLOR_RED << "[TEST ERROR] Database init failed: " << initResult.message
+                  << COLOR_RESET << std::endl;
+        return;
     }
+    createFullSchema(dbManager);
+}
 
-    void initializeTestDatabase(Database::DatabaseManager& dbManager, const std::string& dbPath, const std::string& encryptionKey) {
-        if (std::filesystem::exists(dbPath)) {
-            std::filesystem::remove(dbPath);
-        }
-
-        auto initResult = dbManager.initialize(dbPath, encryptionKey);
-        if (!initResult.success) {
-            std::cout << COLOR_RED << "[TEST ERROR] Database init failed: "
-                      << initResult.message << COLOR_RESET << std::endl;
-            return;
-        }
-        createFullSchema(dbManager);
-    }
-
-    bool createFullSchema(Database::DatabaseManager& dbManager) {
-        std::string schemaSQL = R"(
+bool createFullSchema(Database::DatabaseManager& dbManager) {
+    std::string schemaSQL = R"(
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE,
@@ -65,7 +75,14 @@ namespace TestUtils {
                 totp_enabled INTEGER NOT NULL DEFAULT 0,
                 totp_secret TEXT,
                 totp_secret_pending TEXT,
-                backup_codes TEXT
+                backup_codes TEXT,
+                encrypted_seed TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS user_seeds (
+                username TEXT PRIMARY KEY,
+                encrypted_seed TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS wallets (
@@ -182,83 +199,111 @@ namespace TestUtils {
             CREATE INDEX IF NOT EXISTS idx_addresses_wallet_balance ON addresses(wallet_id, balance_satoshis DESC);
         )";
 
-        auto schemaResult = dbManager.executeQuery(schemaSQL);
-        if (!schemaResult.success) {
-            std::cout << COLOR_RED << "[TEST ERROR] Schema init failed: "
-                      << schemaResult.message << COLOR_RESET << std::endl;
-            return false;
-        }
-        return true;
+    auto schemaResult = dbManager.executeQuery(schemaSQL);
+    if (!schemaResult.success) {
+        std::cout << COLOR_RED << "[TEST ERROR] Schema init failed: " << schemaResult.message
+                  << COLOR_RESET << std::endl;
+        return false;
     }
+    return true;
+}
 
-    void shutdownTestEnvironment(Database::DatabaseManager& dbManager, const std::string& dbPath) {
-        dbManager.close();
-        if (std::filesystem::exists(dbPath)) {
-            // In case of test failures, you might want to inspect the database.
-            // For clean runs, uncomment the line below.
-            // std::filesystem::remove(dbPath);
-        }
-    }
-
-    void printTestSummary(const std::string& testSuiteName) {
-        std::cout << "\n" << COLOR_BLUE << "---------- Test Summary for " << testSuiteName << " ----------" << COLOR_RESET << std::endl;
-        std::cout << COLOR_GREEN << "  PASSED: " << TestGlobals::g_testsPassed << COLOR_RESET << std::endl;
-        std::cout << COLOR_RED << "  FAILED: " << TestGlobals::g_testsFailed << COLOR_RESET << std::endl;
-        std::cout << COLOR_BLUE << "  TOTAL:  " << TestGlobals::g_testsRun << COLOR_RESET << std::endl;
-        std::cout << COLOR_BLUE << "----------------------------------------------------" << COLOR_RESET << std::endl;
-    }
-
-    std::string getWritableTestPath(const std::string& filename) {
-        try {
-            std::filesystem::path testDir;
-#ifdef _WIN32
-            const char* localAppData = std::getenv("LOCALAPPDATA");
-            if (localAppData) {
-                testDir = std::filesystem::path(localAppData) / "CriptoGualet" / "Tests";
-            } else {
-                testDir = std::filesystem::temp_directory_path() / "CriptoGualetTests";
-            }
-#else
-            testDir = std::filesystem::temp_directory_path() / "CriptoGualetTests";
-#endif
-            std::error_code ec;
-            if (!std::filesystem::exists(testDir, ec)) {
-                std::filesystem::create_directories(testDir, ec);
-            }
-            
-            // If we still can't create/access the directory, fallback to current dir
-            // (though this is what failed in the first place)
-            if (ec) {
-                return filename;
-            }
-
-            return (testDir / filename).string();
-        } catch (...) {
-            return filename; // Ultimate fallback
-        }
-    }
-
-    int createTestUser(Repository::UserRepository& userRepo, const std::string& username) {
-        auto userResult = userRepo.createUser(username, "SecurePass123!");
-        if (!userResult.hasValue()) {
-            return -1;
-        }
-        return userResult->id;
-    }
-
-    int createTestUserWithWallet(Repository::UserRepository& userRepo, Repository::WalletRepository& walletRepo, const std::string& username) {
-        auto userResult = userRepo.createUser(username, "SecurePass123!");
-        if (!userResult.hasValue()) {
-            return -1;
-        }
-        auto walletResult = walletRepo.createWallet(userResult->id, "My Test Wallet", "bitcoin");
-        if (!walletResult.hasValue()) {
-            return -1;
-        }
-        return walletResult->id;
+void shutdownTestEnvironment(Database::DatabaseManager& dbManager, const std::string& dbPath) {
+    dbManager.close();
+    if (std::filesystem::exists(dbPath)) {
+        // In case of test failures, you might want to inspect the database.
+        // For clean runs, uncomment the line below.
+        // std::filesystem::remove(dbPath);
     }
 }
 
+void printTestSummary(const std::string& testSuiteName) {
+    std::cout << "\n"
+              << COLOR_BLUE << "---------- Test Summary for " << testSuiteName << " ----------"
+              << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "  PASSED: " << TestGlobals::g_testsPassed << COLOR_RESET
+              << std::endl;
+    std::cout << COLOR_RED << "  FAILED: " << TestGlobals::g_testsFailed << COLOR_RESET
+              << std::endl;
+    std::cout << COLOR_BLUE << "  TOTAL:  " << TestGlobals::g_testsRun << COLOR_RESET << std::endl;
+    std::cout << COLOR_BLUE << "----------------------------------------------------" << COLOR_RESET
+              << std::endl;
+}
+
+std::string getWritableTestPath(const std::string& filename) {
+    try {
+        std::filesystem::path testDir;
+#ifdef _WIN32
+        const char* localAppData = std::getenv("LOCALAPPDATA");
+        if (localAppData) {
+            testDir = std::filesystem::path(localAppData) / "CriptoGualet" / "Tests";
+        } else {
+            testDir = std::filesystem::temp_directory_path() / "CriptoGualetTests";
+        }
+#else
+        testDir = std::filesystem::temp_directory_path() / "CriptoGualetTests";
+#endif
+        std::error_code ec;
+        if (!std::filesystem::exists(testDir, ec)) {
+            std::filesystem::create_directories(testDir, ec);
+        }
+
+        // If we still can't create/access the directory, fallback to current dir
+        // (though this is what failed in the first place)
+        if (ec) {
+            return filename;
+        }
+
+        return (testDir / filename).string();
+    } catch (...) {
+        return filename;  // Ultimate fallback
+    }
+}
+
+int createTestUser(Repository::UserRepository& userRepo, const std::string& username) {
+    auto userResult = userRepo.createUser(username, "SecurePass123!");
+    if (!userResult.hasValue()) {
+        return -1;
+    }
+    return userResult->id;
+}
+
+int createTestUserWithWallet(Repository::UserRepository& userRepo,
+                             Repository::WalletRepository& walletRepo,
+                             const std::string& username) {
+    auto userResult = userRepo.createUser(username, "SecurePass123!");
+    if (!userResult.hasValue()) {
+        return -1;
+    }
+    auto walletResult = walletRepo.createWallet(userResult->id, "My Test Wallet", "bitcoin");
+    if (!walletResult.hasValue()) {
+        return -1;
+    }
+    return walletResult->id;
+}
+
+void waitForUser() {
+    // Check if we are running in an interactive terminal
+    bool isInteractive = false;
+#ifdef _WIN32
+    isInteractive = _isatty(_fileno(stdin));
+#else
+    isInteractive = isatty(fileno(stdin));
+#endif
+
+    // Also check for CI environment variable
+    if (std::getenv("CI") || std::getenv("GITHUB_ACTIONS")) {
+        isInteractive = false;
+    }
+
+    if (isInteractive) {
+        std::cout << "\nPress Enter to exit..." << std::endl;
+        std::cin.get();
+    } else {
+        std::cout << "\nNon-interactive environment detected, skipping wait." << std::endl;
+    }
+}
+}  // namespace TestUtils
 
 // Mock time management
 std::chrono::steady_clock::time_point MockTime::mockTime_;

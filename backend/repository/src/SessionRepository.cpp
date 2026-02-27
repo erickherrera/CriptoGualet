@@ -9,7 +9,12 @@
 #include <sqlite3.h>
 #endif
 
-SessionRepository::SessionRepository() {
+SessionRepository::SessionRepository(Database::DatabaseManager& dbManager) 
+    : m_dbManager(dbManager) {
+    // Queries removed from constructor to prevent issues with uninitialized DatabaseManager
+}
+
+bool SessionRepository::ensureTableExists() {
     std::string createTableQuery = R"(
         CREATE TABLE IF NOT EXISTS sessions (
             sessionId TEXT PRIMARY KEY,
@@ -24,10 +29,11 @@ SessionRepository::SessionRepository() {
             isActive INTEGER
         );
     )";
-    Database::DatabaseManager::getInstance().executeQuery(createTableQuery);
+    return m_dbManager.executeQuery(createTableQuery).success;
 }
 
 bool SessionRepository::storeSession(const SessionRecord& session) {
+    ensureTableExists();
     std::string insertQuery = R"(
         INSERT INTO sessions (sessionId, userId, username, createdAt, expiresAt, lastActivity, ipAddress, userAgent, totpAuthenticated, isActive)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -45,15 +51,16 @@ bool SessionRepository::storeSession(const SessionRecord& session) {
     params.push_back(std::to_string(session.totpAuthenticated));
     params.push_back(std::to_string(session.isActive));
 
-    Database::DatabaseResult result = Database::DatabaseManager::getInstance().executeQuery(insertQuery, params);
+    Database::DatabaseResult result = m_dbManager.executeQuery(insertQuery, params);
     return result.success;
 }
 
 std::optional<SessionRecord> SessionRepository::getSession(const std::string& sessionId) const {
+    const_cast<SessionRepository*>(this)->ensureTableExists();
     std::string selectQuery = "SELECT * FROM sessions WHERE sessionId = ?;";
     std::optional<SessionRecord> sessionRecord;
 
-    Database::DatabaseManager::getInstance().executeQuery(selectQuery, {sessionId}, [&](sqlite3* db) {
+    m_dbManager.executeQuery(selectQuery, {sessionId}, [&](sqlite3* db) {
         sqlite3_stmt* stmt;
         if (sqlite3_prepare_v2(db, selectQuery.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
             sqlite3_bind_text(stmt, 1, sessionId.c_str(), -1, SQLITE_STATIC);
@@ -79,6 +86,7 @@ std::optional<SessionRecord> SessionRepository::getSession(const std::string& se
 }
 
 bool SessionRepository::updateSessionActivity(const std::string& sessionId) {
+    ensureTableExists();
     std::string updateQuery = "UPDATE sessions SET lastActivity = ?, expiresAt = ? WHERE sessionId = ?;";
     
     auto now = std::chrono::system_clock::now();
@@ -89,21 +97,23 @@ bool SessionRepository::updateSessionActivity(const std::string& sessionId) {
     params.push_back(std::to_string(std::chrono::system_clock::to_time_t(newExpiresAt)));
     params.push_back(sessionId);
 
-    Database::DatabaseResult result = Database::DatabaseManager::getInstance().executeQuery(updateQuery, params);
+    Database::DatabaseResult result = m_dbManager.executeQuery(updateQuery, params);
     return result.success;
 }
 
 bool SessionRepository::invalidateSession(const std::string& sessionId) {
+    ensureTableExists();
     std::string updateQuery = "UPDATE sessions SET isActive = 0 WHERE sessionId = ?;";
-    Database::DatabaseResult result = Database::DatabaseManager::getInstance().executeQuery(updateQuery, {sessionId});
+    Database::DatabaseResult result = m_dbManager.executeQuery(updateQuery, {sessionId});
     return result.success;
 }
 
 std::vector<SessionRecord> SessionRepository::getActiveSessions(int userId) const {
+    const_cast<SessionRepository*>(this)->ensureTableExists();
     std::string selectQuery = "SELECT * FROM sessions WHERE userId = ? AND isActive = 1;";
     std::vector<SessionRecord> activeSessions;
 
-    Database::DatabaseManager::getInstance().executeQuery(selectQuery, {std::to_string(userId)}, [&](sqlite3* db) {
+    m_dbManager.executeQuery(selectQuery, {std::to_string(userId)}, [&](sqlite3* db) {
         sqlite3_stmt* stmt;
         if (sqlite3_prepare_v2(db, selectQuery.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
             sqlite3_bind_int(stmt, 1, userId);
@@ -129,7 +139,8 @@ std::vector<SessionRecord> SessionRepository::getActiveSessions(int userId) cons
 }
 
 void SessionRepository::cleanupExpiredSessions() {
+    ensureTableExists();
     std::string deleteQuery = "DELETE FROM sessions WHERE expiresAt < ?;";
     std::string now = std::to_string(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
-    Database::DatabaseManager::getInstance().executeQuery(deleteQuery, {now});
+    m_dbManager.executeQuery(deleteQuery, {now});
 }

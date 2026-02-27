@@ -11,45 +11,68 @@ target_include_directories(Database PUBLIC
 # Link Windows bcrypt library for cryptographic functions
 if(WIN32)
   target_link_libraries(Database PRIVATE bcrypt)
+else()
+  find_package(unofficial-sodium CONFIG REQUIRED)
+  target_link_libraries(Database PRIVATE unofficial-sodium::sodium)
 endif()
 
-# Try to find SQLCipher using CMake package first
-find_package(sqlcipher QUIET)
-if(sqlcipher_FOUND)
-  target_link_libraries(Database PRIVATE sqlcipher::sqlcipher)
-  target_compile_definitions(Database PRIVATE SQLCIPHER_AVAILABLE)
-  message(STATUS "Database library found SQLCipher via CMake package")
-else()
-  # Fallback to manual linking
-  find_path(SQLCIPHER_INCLUDE_DIR sqlcipher/sqlite3.h)
-  find_library(SQLCIPHER_LIBRARY NAMES sqlcipher)
-
+# Try to find SQLCipher
+# First, check for system-installed SQLCipher on Linux
+if(NOT WIN32)
+  find_path(SQLCIPHER_INCLUDE_DIR sqlcipher/sqlite3.h PATHS /usr/include)
+  find_library(SQLCIPHER_LIBRARY NAMES sqlcipher PATHS /usr/lib/x86_64-linux-gnu)
+  
   if(SQLCIPHER_INCLUDE_DIR AND SQLCIPHER_LIBRARY)
-    target_include_directories(Database PRIVATE ${SQLCIPHER_INCLUDE_DIR})
-    target_link_libraries(Database PRIVATE ${SQLCIPHER_LIBRARY})
+    set(sqlcipher_FOUND TRUE)
+    set(sqlcipher_SYSTEM TRUE)
+    message(STATUS "Database library found system SQLCipher: ${SQLCIPHER_LIBRARY}")
+  endif()
+endif()
 
-    # SQLCipher needs OpenSSL - add it explicitly
-    find_package(OpenSSL QUIET)
-    if(OpenSSL_FOUND)
-      target_link_libraries(Database PRIVATE OpenSSL::Crypto OpenSSL::SSL)
-      message(STATUS "Linked OpenSSL for SQLCipher support")
-    endif()
-
-    target_compile_definitions(Database PRIVATE SQLCIPHER_AVAILABLE)
-    message(STATUS "Database library found SQLCipher via vcpkg: ${SQLCIPHER_LIBRARY}")
-  else()
-    # Fallback to regular SQLite3
-    find_path(SQLITE3_INCLUDE_DIR sqlite3.h)
-    find_library(SQLITE3_LIBRARY NAMES sqlite3)
-
-    if(SQLITE3_INCLUDE_DIR AND SQLITE3_LIBRARY)
-      target_include_directories(Database PRIVATE ${SQLITE3_INCLUDE_DIR})
-      target_link_libraries(Database PRIVATE ${SQLITE3_LIBRARY})
-      message(STATUS "Database library found SQLite3 (fallback): ${SQLITE3_LIBRARY}")
-      message(WARNING "Using SQLite3 without encryption - install SQLCipher for production use")
-    else()
-      message(WARNING "Neither SQLCipher nor SQLite3 found - Database library will not be functional")
-      message(STATUS "Run 'vcpkg install sqlcipher sqlite3' to install database dependencies")
+# If not found system-wide, try vcpkg
+if(NOT sqlcipher_FOUND)
+  find_package(sqlcipher QUIET)
+  if(NOT sqlcipher_FOUND AND NOT WIN32)
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+      pkg_check_modules(SQLCIPHER QUIET sqlcipher)
+      if(SQLCIPHER_FOUND)
+        set(sqlcipher_FOUND TRUE)
+        add_library(sqlcipher::sqlcipher INTERFACE IMPORTED)
+        target_link_libraries(sqlcipher::sqlcipher INTERFACE ${SQLCIPHER_LIBRARIES})
+        target_include_directories(sqlcipher::sqlcipher INTERFACE ${SQLCIPHER_INCLUDE_DIRS})
+        target_link_options(sqlcipher::sqlcipher INTERFACE ${SQLCIPHER_LDFLAGS})
+        message(STATUS "Database library found SQLCipher via pkg-config")
+      endif()
     endif()
   endif()
+endif()
+
+if(sqlcipher_FOUND)
+  if(sqlcipher_SYSTEM)
+    target_include_directories(Database PUBLIC ${SQLCIPHER_INCLUDE_DIR})
+    target_link_libraries(Database PUBLIC ${SQLCIPHER_LIBRARY})
+    
+    # SQLCipher needs OpenSSL - add it explicitly for system installs
+    find_package(OpenSSL QUIET)
+    if(OpenSSL_FOUND)
+      target_link_libraries(Database PUBLIC OpenSSL::Crypto OpenSSL::SSL)
+      message(STATUS "Linked OpenSSL for SQLCipher support")
+    endif()
+  else()
+    target_link_libraries(Database PUBLIC sqlcipher::sqlcipher)
+  endif()
+  target_compile_definitions(Database PUBLIC SQLCIPHER_AVAILABLE)
+else()
+  message(FATAL_ERROR 
+    "SQLCipher is REQUIRED but was not found!\n"
+    "This application requires encrypted database storage.\n"
+    "\n"
+    "To install SQLCipher:\n"
+    "  Windows: vcpkg install sqlcipher\n"
+    "  Linux:   sudo apt-get install libsqlcipher-dev\n"
+    "          (or build from source: https://github.com/sqlcipher/sqlcipher)\n"
+    "\n"
+    "After installing, reconfigure the build."
+  )
 endif()

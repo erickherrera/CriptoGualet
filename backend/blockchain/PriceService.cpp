@@ -6,15 +6,159 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <map>
 
 using json = nlohmann::json;
 
 namespace PriceService {
 
+static const std::map<std::string, std::string> symbolToCoinId = {
+    {"btc", "bitcoin"},
+    {"eth", "ethereum"},
+    {"usdt", "tether"},
+    {"bnb", "binancecoin"},
+    {"sol", "solana"},
+    {"usdc", "usd-coin"},
+    {"xrp", "ripple"},
+    {"steth", "staked-ether"},
+    {"doge", "dogecoin"},
+    {"ada", "cardano"},
+    {"trx", "tron"},
+    {"avax", "avalanche-2"},
+    {"ton", "the-open-network"},
+    {"wbtc", "wrapped-bitcoin"},
+    {"link", "chainlink"},
+    {"shib", "shiba-inu"},
+    {"dot", "polkadot"},
+    {"matic", "matic-network"},
+    {"bch", "bitcoin-cash"},
+    {"dai", "dai"},
+    {"ltc", "litecoin"},
+    {"uni", "uniswap"},
+    {"atom", "cosmos"},
+    {"icp", "internet-computer"},
+    {"leo", "unus-sed-leo"},
+    {"etc", "ethereum-classic"},
+    {"xlm", "stellar"},
+    {"fil", "filecoin"},
+    {"xmr", "monero"},
+    {"apt", "aptos"},
+    {"okb", "okb"},
+    {"hbar", "hedera-hashgraph"},
+    {"mnt", "mantle"},
+    {"near", "near"},
+    {"cro", "crypto-com-chain"},
+    {"rndr", "render-token"},
+    {"kas", "kaspa"},
+    {"imx", "immutable-x"},
+    {"arb", "arbitrum"},
+    {"op", "optimism"},
+    {"vet", "vechain"},
+    {"stx", "stacks"},
+    {"grt", "the-graph"},
+    {"mkr", "maker"},
+    {"inj", "injective-protocol"},
+    {"algo", "algorand"},
+    {"rune", "thorchain"},
+    {"qnt", "quant-network"},
+    {"aave", "aave"},
+    {"flr", "flare-network"},
+    {"snx", "havven"},
+    {"egld", "elrond-erd-2"},
+    {"ftm", "fantom"},
+    {"xtz", "tezos"},
+    {"sand", "the-sandbox"},
+    {"theta", "theta-token"},
+    {"mana", "decentraland"},
+    {"eos", "eos"},
+    {"xdc", "xdce-crowd-sale"},
+    {"axs", "axie-infinity"},
+    {"flow", "flow"},
+    {"neo", "neo"},
+    {"klay", "klay-token"},
+    {"chz", "chiliz"},
+    {"usdd", "usdd"},
+    {"tusd", "true-usd"},
+    {"pepe", "pepe"},
+    {"cfx", "conflux-token"},
+    {"zec", "zcash"},
+    {"miota", "iota"},
+    {"ldo", "lido-dao"},
+    {"bsv", "bitcoin-cash-sv"},
+    {"kava", "kava"},
+    {"dash", "dash"},
+    {"ht", "huobi-token"},
+    {"1inch", "1inch"},
+    {"cake", "pancakeswap-token"},
+    {"gmx", "gmx"},
+    {"rpl", "rocket-pool"},
+    {"zil", "zilliqa"},
+    {"enj", "enjincoin"},
+    {"bat", "basic-attention-token"},
+    {"comp", "compound-governance-token"},
+    {"yfi", "yearn-finance"},
+    {"sui", "sui"},
+    {"blur", "blur"},
+    {"crv", "curve-dao-token"},
+    {"gala", "gala"},
+    {"chsb", "swissborg"},
+    {"frax", "frax-share"},
+    {"lrc", "loopring"},
+    {"zrx", "0x"},
+    {"sushi", "sushi"},
+    {"one", "harmony"},
+    {"waves", "waves"},
+    {"celo", "celo"},
+    {"icx", "icon"},
+    {"woo", "wootrade"},
+    {"qtum", "qtum"},
+    {"ar", "arweave"}
+};
+
+static std::string toLower(const std::string& str) {
+    std::string result = str;
+    for (char& c : result) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return result;
+}
+
+static std::string getCoinId(const std::string& symbol) {
+    std::string lowerSymbol = toLower(symbol);
+    auto it = symbolToCoinId.find(lowerSymbol);
+    if (it != symbolToCoinId.end()) {
+        return it->second;
+    }
+    return lowerSymbol;
+}
+
+static std::string coinIdToSymbol(const std::string& coinId) {
+    std::string lowerId = toLower(coinId);
+    for (const auto& pair : symbolToCoinId) {
+        if (pair.second == lowerId) {
+            std::string sym = pair.first;
+            for (char& c : sym) {
+                c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            }
+            return sym;
+        }
+    }
+    std::string result = lowerId;
+    for (char& c : result) {
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
+    return result;
+}
+
 PriceFetcher::PriceFetcher(int timeout)
     : base_url("https://api.coingecko.com/api/v3"),
       timeout_seconds(timeout),
-      last_status_code(0) {
+      last_status_code(0),
+      cache_ttl_seconds(30),
+      cached_price(),
+      cached_top_cryptos(),
+      last_top_cryptos_fetch(),
+      cache_mutex() {
 }
 
 std::string PriceFetcher::MakeRequest(const std::string& endpoint) {
@@ -59,8 +203,17 @@ std::optional<double> PriceFetcher::GetBTCPrice() {
 }
 
 std::optional<CryptoPriceData> PriceFetcher::GetCryptoPrice(const std::string& symbol) {
-    // CoinGecko endpoint: /simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true
-    std::string endpoint = "/simple/price?ids=" + symbol +
+    {
+        std::lock_guard<std::mutex> lock(cache_mutex);
+        auto cached = getCachedPrice();
+        if (cached) {
+            return cached;
+        }
+    }
+
+    std::string coin_id = getCoinId(symbol);
+
+    std::string endpoint = "/simple/price?ids=" + coin_id +
                           "&vs_currencies=usd&include_24hr_change=true&include_last_updated_at=true&include_market_cap=true";
 
     std::string response = MakeRequest(endpoint);
@@ -68,30 +221,35 @@ std::optional<CryptoPriceData> PriceFetcher::GetCryptoPrice(const std::string& s
         return std::nullopt;
     }
 
-    return ParsePriceResponse(response);
+    auto result = ParsePriceResponse(response, coin_id);
+    if (result) {
+        std::lock_guard<std::mutex> lock(cache_mutex);
+        updatePriceCache(*result);
+    }
+    return result;
 }
 
-std::optional<CryptoPriceData> PriceFetcher::ParsePriceResponse(const std::string& json_response) {
+std::optional<CryptoPriceData> PriceFetcher::ParsePriceResponse(const std::string& json_response, const std::string& coin_id) {
     try {
         json parsed = json::parse(json_response);
 
-        // Check if bitcoin data exists
-        if (!parsed.contains("bitcoin")) {
+        if (!parsed.contains(coin_id)) {
+            std::cout << "[PriceService] Coin not found in response: " << coin_id << std::endl;
             return std::nullopt;
         }
 
-        auto btc_data = parsed["bitcoin"];
+        auto coin_data = parsed[coin_id];
 
         CryptoPriceData data;
-        data.symbol = "BTC";
-        data.name = "Bitcoin";
-        data.usd_price = btc_data.value("usd", 0.0);
-        data.price_change_24h = btc_data.value("usd_24h_change", 0.0);
-        data.market_cap = btc_data.value("usd_market_cap", 0.0);
+        data.symbol = coinIdToSymbol(coin_id);
+        data.name = "";
+        data.usd_price = coin_data.value("usd", 0.0);
+        data.price_change_24h = coin_data.value("usd_24h_change", 0.0);
+        data.market_cap = coin_data.value("usd_market_cap", 0.0);
+        data.image_url = "";
 
-        // Convert timestamp to string if available
-        if (btc_data.contains("last_updated_at")) {
-            uint64_t timestamp = btc_data["last_updated_at"];
+        if (coin_data.contains("last_updated_at")) {
+            uint64_t timestamp = coin_data["last_updated_at"];
             data.last_updated = std::to_string(timestamp);
         } else {
             data.last_updated = "";
@@ -99,12 +257,20 @@ std::optional<CryptoPriceData> PriceFetcher::ParsePriceResponse(const std::strin
 
         return data;
     } catch (const std::exception& e) {
+        std::cout << "[PriceService] Parse exception: " << e.what() << std::endl;
         return std::nullopt;
     }
 }
 
 std::vector<CryptoPriceData> PriceFetcher::GetTopCryptosByMarketCap(int count) {
-    // CoinGecko endpoint for market data with pagination
+    {
+        std::lock_guard<std::mutex> lock(cache_mutex);
+        auto cached = getCachedTopCryptos();
+        if (cached) {
+            return *cached;
+        }
+    }
+
     std::string endpoint = "/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=" +
                           std::to_string(count) +
                           "&page=1&sparkline=false&price_change_percentage=24h";
@@ -117,6 +283,9 @@ std::vector<CryptoPriceData> PriceFetcher::GetTopCryptosByMarketCap(int count) {
         if (!response.empty()) {
             auto results = ParseTopCryptosResponse(response, count);
             if (!results.empty() || attempt == max_attempts) {
+                if (!results.empty()) {
+                    updateTopCryptosCache(results);
+                }
                 return results;
             }
         }
@@ -191,6 +360,56 @@ double PriceFetcher::ConvertBTCToUSD(double btc_amount, double usd_price) {
 
 void PriceFetcher::SetTimeout(int seconds) {
     timeout_seconds = seconds;
+}
+
+void PriceFetcher::SetCacheTTL(int seconds) {
+    cache_ttl_seconds = seconds;
+}
+
+void PriceFetcher::ClearCache() {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    cached_price = CachedPriceData();
+    cached_top_cryptos.clear();
+    last_top_cryptos_fetch = std::chrono::steady_clock::time_point();
+}
+
+bool PriceFetcher::isCacheValid(const std::chrono::steady_clock::time_point& timestamp) const {
+    if (timestamp == std::chrono::steady_clock::time_point()) {
+        return false;
+    }
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - timestamp).count();
+    return elapsed < cache_ttl_seconds;
+}
+
+void PriceFetcher::updatePriceCache(const CryptoPriceData& data) {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    cached_price.data = data;
+    cached_price.timestamp = std::chrono::steady_clock::now();
+}
+
+void PriceFetcher::updateTopCryptosCache(const std::vector<CryptoPriceData>& data) {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    cached_top_cryptos = data;
+    last_top_cryptos_fetch = std::chrono::steady_clock::now();
+}
+
+std::optional<CryptoPriceData> PriceFetcher::getCachedPrice() const {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    if (isCacheValid(cached_price.timestamp)) {
+        std::cout << "[PriceService] Returning cached price data" << std::endl;
+        return cached_price.data;
+    }
+    return std::nullopt;
+}
+
+std::optional<std::vector<CryptoPriceData>> PriceFetcher::getCachedTopCryptos() const {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    if (isCacheValid(last_top_cryptos_fetch)) {
+        std::cout << "[PriceService] Returning cached top cryptos data" << std::endl;
+        return cached_top_cryptos;
+    }
+    return std::nullopt;
 }
 
 } // namespace PriceService

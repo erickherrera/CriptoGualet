@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <set>
+#include <cstring>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE

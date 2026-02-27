@@ -36,6 +36,13 @@ public:
     static std::vector<uint8_t> EncodeUInt(uint64_t value);
 
     /**
+     * @brief Encode a decimal string (converts to big-endian bytes)
+     * @param decimal Decimal string
+     * @return RLP-encoded data
+     */
+    static std::vector<uint8_t> EncodeDecimal(const std::string& decimal);
+
+    /**
      * @brief Encode a hex string (0x... format)
      * @param hex Hex string
      * @return RLP-encoded data

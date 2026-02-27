@@ -1,4 +1,4 @@
-# Find MSVC compiler if not configured
+# Windows-only: Find MSVC compiler if not configured
 if(WIN32 AND NOT CMAKE_CXX_COMPILER)
     find_program(VSWHERE_EXE "vswhere.exe"
         PATHS "C:/Program Files (x86)/Microsoft Visual Studio/Installer"
@@ -31,7 +31,7 @@ if(WIN32 AND NOT CMAKE_CXX_COMPILER)
     endif()
 endif()
 
-# If clang-cl is requested but path is missing, locate it via VS installation
+# Windows-only: If clang-cl is requested but path is missing, locate it via VS installation
 if(WIN32 AND (CMAKE_CXX_COMPILER MATCHES "clang-cl" OR CMAKE_C_COMPILER MATCHES "clang-cl"))
     if((CMAKE_CXX_COMPILER AND NOT EXISTS "${CMAKE_CXX_COMPILER}") OR (CMAKE_C_COMPILER AND NOT EXISTS "${CMAKE_C_COMPILER}"))
         find_program(VSWHERE_EXE "vswhere.exe"
@@ -129,6 +129,31 @@ endif()
 # Declare the project EARLY so VS presets/toolsets apply cleanly
 project(CriptoGualet LANGUAGES CXX)
 
+# Reset persistent database on reconfigure (useful for debugging from scratch)
+if(WIN32)
+    set(ENV_LOCALAPPDATA "$ENV{LOCALAPPDATA}")
+    if(ENV_LOCALAPPDATA)
+        file(TO_CMAKE_PATH "${ENV_LOCALAPPDATA}/CriptoGualet/criptogualet.db" DEBUG_DB_PATH_CMAKE)
+        if(EXISTS "${DEBUG_DB_PATH_CMAKE}")
+            message(STATUS "RESETTING WINDOWS DATABASE: ${DEBUG_DB_PATH_CMAKE}")
+            file(REMOVE "${DEBUG_DB_PATH_CMAKE}")
+            file(REMOVE "${DEBUG_DB_PATH_CMAKE}-wal")
+            file(REMOVE "${DEBUG_DB_PATH_CMAKE}-shm")
+        endif()
+    endif()
+elseif(UNIX AND NOT APPLE)
+    set(ENV_HOME "$ENV{HOME}")
+    if(ENV_HOME)
+        set(DEBUG_DB_PATH_LINUX "${ENV_HOME}/.config/CriptoGualet/criptogualet.db")
+        if(EXISTS "${DEBUG_DB_PATH_LINUX}")
+            message(STATUS "RESETTING LINUX DATABASE: ${DEBUG_DB_PATH_LINUX}")
+            file(REMOVE "${DEBUG_DB_PATH_LINUX}")
+            file(REMOVE "${DEBUG_DB_PATH_LINUX}-wal")
+            file(REMOVE "${DEBUG_DB_PATH_LINUX}-shm")
+        endif()
+    endif()
+endif()
+
 # Set MSVC runtime library based on build type
 # With CMP0091 policy set, CMake handles runtime library selection properly
 # For multi-config generators (Visual Studio), we use a generator expression 
@@ -191,9 +216,15 @@ endif()
 
 # Enable vcpkg integration (matches your presets if VCPKG_ROOT is set)
 # Presets may already set CMAKE_TOOLCHAIN_FILE, so only set if not already defined
-if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING "Path to vcpkg toolchain file")
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  if(DEFINED ENV{VCPKG_ROOT})
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Path to vcpkg toolchain file")
+  elseif(UNIX AND EXISTS "$ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Path to vcpkg toolchain file")
+    message(STATUS "VCPKG_ROOT not found, using fallback: $ENV{HOME}/vcpkg")
+  endif()
 endif()
 
 # Set C++ standard (matches CMakePresets.json)
@@ -203,8 +234,8 @@ if(NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
-# Add MSVC-specific flags for Qt compatibility
-if(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+# Add MSVC-specific flags for Qt compatibility (Windows only)
+if(WIN32 AND (MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
   add_compile_options(/Zc:__cplusplus)
   # Force disable ASAN for this project to prevent flag conflicts
   add_compile_definitions(CRYPTO_NO_ASAN)
@@ -344,6 +375,28 @@ if(BUILD_GUI_QT)
           "${QT_VERSION}/clang_64")
       endif()
     endforeach()
+  elseif(UNIX AND NOT APPLE)
+    # Linux Qt6 detection
+    list(APPEND CMAKE_PREFIX_PATH
+      "/usr/local/qt6"
+      "/usr/local/Qt6"
+      "/opt/qt6"
+      "/opt/Qt6"
+      "$ENV{HOME}/Qt6"
+      "$ENV{HOME}/Qt/6.x.x/gcc_64"
+      "$ENV{HOME}/Qt/6.9.1/gcc_64"
+      "$ENV{HOME}/Qt/6.8.0/gcc_64"
+      "/usr/lib/x86_64-linux-gnu/qt6"
+      "/usr/lib/x86_64-linux-gnu/cmake/Qt6"
+    )
+    # Also check vcpkg-installed Qt6
+    if(DEFINED VCPKG_ROOT)
+      list(APPEND CMAKE_PREFIX_PATH "${VCPKG_ROOT}/installed/x64-linux/tools/Qt6")
+    endif()
+    if(DEFINED QT_DIR AND EXISTS "${QT_DIR}")
+      list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}")
+      message(STATUS "Using QT_DIR: ${QT_DIR}")
+    endif()
   endif()
 
   find_package(Qt6 QUIET COMPONENTS Core Widgets Gui Svg Network Concurrent)
@@ -364,6 +417,8 @@ if(BUILD_GUI_QT)
     message(WARNING "Qt6 not found - Qt GUI will not be built")
     if(WIN32)
       message(STATUS "Install Qt6 MSVC 2022 64-bit for best ClangCL compatibility")
+    elseif(UNIX AND NOT APPLE)
+      message(STATUS "Install Qt6 for Linux: apt install qt6-base-dev (or use vcpkg)")
     endif()
     set(BUILD_GUI_QT OFF)
   endif()
@@ -376,6 +431,10 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(PkgConfig QUIET)
 if(PKG_CONFIG_FOUND)
     pkg_check_modules(LIBQRENCODE QUIET libqrencode)
+    if(LIBQRENCODE_FOUND)
+        set(QRENCODE_INCLUDE_DIR ${LIBQRENCODE_INCLUDE_DIRS} CACHE PATH "libqrencode include dir" FORCE)
+        set(QRENCODE_LIBRARIES ${LIBQRENCODE_LINK_LIBRARIES} CACHE STRING "libqrencode libraries" FORCE)
+    endif()
 endif()
 
 if(NOT LIBQRENCODE_FOUND)
@@ -392,22 +451,22 @@ if(NOT LIBQRENCODE_FOUND)
     # Check vcpkg installed directory first
     find_path(QRENCODE_INCLUDE_DIR NAMES qrencode.h
         PATHS
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/include
+            ${VCPKG_INSTALLED_DIR}/x64-windows/include
+            ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include
         NO_DEFAULT_PATH
     )
 
     find_library(QRENCODE_LIBRARY_RELEASE NAMES qrencode
         PATHS
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/lib
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib
+            ${VCPKG_INSTALLED_DIR}/x64-windows/lib
+            ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
         NO_DEFAULT_PATH
     )
 
     find_library(QRENCODE_LIBRARY_DEBUG NAMES qrencoded
         PATHS
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/lib
-            ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/debug/lib
+            ${VCPKG_INSTALLED_DIR}/x64-windows/debug/lib
+            ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
         NO_DEFAULT_PATH
     )
 
@@ -451,16 +510,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Check for BlockCypher dependencies
 # Add vcpkg installed directory to prefix path if it exists
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed")
+if(EXISTS "${VCPKG_INSTALLED_DIR}")
   if(WIN32)
-    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows")
+    list(APPEND CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_DIR}/x64-windows")
   else()
-    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-linux")
+    list(APPEND CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_DIR}/x64-linux")
   endif()
 endif()
 
 find_package(cpr CONFIG QUIET)
 find_package(nlohmann_json CONFIG QUIET)
+find_package(unofficial-sodium CONFIG QUIET)
+find_package(OpenSSL QUIET)
+
 if(cpr_FOUND AND nlohmann_json_FOUND)
   set(BLOCKCYPHER_AVAILABLE TRUE CACHE BOOL "BlockCypher API dependencies found" FORCE)
   message(STATUS "BlockCypher API dependencies found")

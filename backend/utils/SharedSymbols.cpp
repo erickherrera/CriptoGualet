@@ -1,7 +1,14 @@
 #include "SharedTypes.h"
+#ifdef _WIN32
 #include <windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
+#else
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <sodium.h>
+#include <cstdio>
+#endif
 #include <cstdlib>
 #include <map>
 #include <stdexcept>
@@ -57,11 +64,13 @@ std::string EncodeBase58(const std::vector<uint8_t>& data) {
     return result;
 }
 
-// SHA256 hash function using Windows CryptoAPI
+// SHA256 hash function using platform-specific Crypto APIs
 std::vector<uint8_t> SHA256Hash(const std::vector<uint8_t>& data) {
+    std::vector<uint8_t> hash(32);
+
+#ifdef _WIN32
     BCRYPT_ALG_HANDLE hAlg = nullptr;
     BCRYPT_HASH_HANDLE hHash = nullptr;
-    std::vector<uint8_t> hash(32);
 
     NTSTATUS status = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
     if (!BCRYPT_SUCCESS(status)) {
@@ -91,6 +100,28 @@ std::vector<uint8_t> SHA256Hash(const std::vector<uint8_t>& data) {
 
     BCryptDestroyHash(hHash);
     BCryptCloseAlgorithmProvider(hAlg, 0);
+#else
+    unsigned int hashLen = 0;
+    EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
+    if (mdctx == nullptr) throw std::runtime_error("Failed to create EVP_MD_CTX");
+
+    if (EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr) != 1) {
+        EVP_MD_CTX_free(mdctx);
+        throw std::runtime_error("Failed to initialize SHA256");
+    }
+
+    if (EVP_DigestUpdate(mdctx, data.data(), data.size()) != 1) {
+        EVP_MD_CTX_free(mdctx);
+        throw std::runtime_error("Failed to update SHA256");
+    }
+
+    if (EVP_DigestFinal_ex(mdctx, hash.data(), &hashLen) != 1) {
+        EVP_MD_CTX_free(mdctx);
+        throw std::runtime_error("Failed to finish SHA256");
+    }
+
+    EVP_MD_CTX_free(mdctx);
+#endif
     return hash;
 }
 
@@ -98,6 +129,7 @@ std::vector<uint8_t> SHA256Hash(const std::vector<uint8_t>& data) {
 std::string GeneratePrivateKey() {
     unsigned char privateKeyBytes[32];
 
+#ifdef _WIN32
     // Generate 32 secure random bytes using Windows CryptoAPI
     HCRYPTPROV hProv;
     if (!CryptAcquireContext(&hProv, nullptr, nullptr, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
@@ -110,6 +142,11 @@ std::string GeneratePrivateKey() {
     }
 
     CryptReleaseContext(hProv, 0);
+#else
+    if (RAND_bytes(privateKeyBytes, 32) != 1) {
+        throw std::runtime_error("Failed to generate secure random bytes");
+    }
+#endif
 
     // Ensure the private key is within valid range for secp256k1
     // Must be between 1 and n-1 where n is the order of secp256k1
@@ -131,7 +168,11 @@ std::string GeneratePrivateKey() {
     privateKey.reserve(64);
     for (int i = 0; i < 32; i++) {
         char hex[3];
+#ifdef _WIN32
         sprintf_s(hex, "%02x", privateKeyBytes[i]);
+#else
+        sprintf(hex, "%02x", privateKeyBytes[i]);
+#endif
         privateKey += hex;
     }
 
@@ -146,7 +187,11 @@ std::string GenerateBitcoinAddress() {
         // Convert hex private key to bytes
         std::vector<uint8_t> privateKeyBytes(32);
         for (int i = 0; i < 32; i++) {
+#ifdef _WIN32
             sscanf_s(privateKeyHex.substr(i * 2, 2).c_str(), "%02hhx", &privateKeyBytes[i]);
+#else
+            sscanf(privateKeyHex.substr(i * 2, 2).c_str(), "%02hhx", &privateKeyBytes[i]);
+#endif
         }
 
         // For this demo, we'll generate a simplified public key hash

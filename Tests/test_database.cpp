@@ -383,6 +383,7 @@ int main() {
     std::cout << "Tests completed with result: " << (result ? "PASS" : "FAIL")
               << std::endl;
 
+    TestUtils::waitForUser();
     return result ? 0 : 1;
   } catch (const std::exception &e) {
     std::cout << "FATAL ERROR: " << e.what() << std::endl;

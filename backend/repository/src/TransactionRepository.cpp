@@ -2,6 +2,7 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <cstring>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE

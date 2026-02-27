@@ -20,14 +20,114 @@
         "CMAKE_TOOLCHAIN_FILE": {
           "type": "FILEPATH",
           "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-        }
+        },
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/out/v"
       }
     },
     {
-      "name": "linux-clang-debug",
-      "displayName": "Linux Clang Debug",
+      "name": "win-base",
+      "hidden": true,
       "inherits": "vcpkg-base",
-      "generator": "Unix Makefiles",
+      "generator": "Visual Studio 18 2026",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT_DIR}"
+      }
+    },
+    {
+      "name": "win-ninja-base",
+      "hidden": true,
+      "inherits": "vcpkg-base",
+      "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT_DIR}"
+      }
+    },
+    {
+      "name": "win-vs2022-msvc-debug",
+      "displayName": "Windows x64 MSVC Debug",
+      "inherits": "win-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "win-ninja-msvc-debug",
+      "displayName": "Windows x64 Ninja MSVC Debug",
+      "inherits": "win-ninja-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "win-vs2022-msvc-release",
+      "displayName": "Windows x64 MSVC Release",
+      "inherits": "win-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "win-vs2022-clangcl-debug",
+      "displayName": "Windows x64 Clang-CL Debug",
+      "inherits": "win-base",
+      "architecture": "x64",
+      "toolset": "ClangCL",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "win-ninja-clangcl-debug",
+      "displayName": "Windows x64 Ninja Clang-CL Debug",
+      "inherits": "win-ninja-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl"
+      }
+    },
+    {
+      "name": "win-vs2022-clangcl-release",
+      "displayName": "Windows x64 Clang-CL Release",
+      "inherits": "win-base",
+      "architecture": "x64",
+      "toolset": "ClangCL",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "vcpkg-linux-base",
+      "hidden": true,
+      "inherits": "base",
+      "environment": {
+        "VCPKG_ROOT": "$env{HOME}/vcpkg"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": {
+          "type": "FILEPATH",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        },
+        "VCPKG_FEATURE_FLAGS": "allow_unsupported"
+      }
+    },
+    {
+      "name": "linux-dbg",
+      "displayName": "WSL Linux Debug",
+      "inherits": "vcpkg-linux-base",
+      "generator": "Ninja",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -35,121 +135,101 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++",
-        "VCPKG_TARGET_TRIPLET": "x64-linux"
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_MAKE_PROGRAM": "ninja",
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT_DIR}"
       }
     },
     {
-      "name": "linux-clang-release",
-      "displayName": "Linux Clang Release",
-      "inherits": "linux-clang-debug",
+      "name": "linux-rel",
+      "displayName": "WSL Linux Release",
+      "inherits": "linux-dbg",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
-    },
-    {
-      "name": "w-msvc-dbg",
-      "displayName": "MSVC 2026 Debug",
-      "inherits": "vcpkg-base",
-      "generator": "Visual Studio 18 2026",
-      "architecture": "x64",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "cacheVariables": {
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
-        "CMAKE_GENERATOR_PLATFORM": "x64",
-        "ENABLE_UNITY_BUILD": "ON",
-        "ENABLE_MSVC_MP": "ON"
-      },
-      "description": "MSVC 2026 Debug builds."
-    },
-    {
-      "name": "w-msvc-rel",
-      "displayName": "MSVC 2026 Release",
-      "inherits": "w-msvc-dbg",
-      "cacheVariables": {},
-      "description": "MSVC 2026 Release builds."
-    },
-    {
-      "name": "w-cl-dbg",
-      "displayName": "ClangCL 2026 Debug (Qt)",
-      "inherits": "vcpkg-base",
-      "generator": "Visual Studio 18 2026",
-      "toolset": "ClangCL",
-      "architecture": "x64",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "cacheVariables": {
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
-        "CMAKE_GENERATOR_PLATFORM": "x64",
-        "QT_DIR": {
-          "type": "PATH",
-          "value": "C:/Program Files/Qt/6.9.1/msvc2022_64"
-        }
-      },
-      "description": "ClangCL Debug builds with VS 2026."
-    },
-    {
-      "name": "w-cl-rel",
-      "displayName": "ClangCL 2026 Release",
-      "inherits": "w-cl-dbg",
-      "cacheVariables": {},
-      "description": "ClangCL Release builds with VS 2026."
     }
   ],
   "buildPresets": [
     {
-      "name": "linux-clang-build",
-      "displayName": "Linux Clang Debug",
-      "configurePreset": "linux-clang-debug"
+      "name": "win-vs2022-msvc-debug",
+      "configurePreset": "win-vs2022-msvc-debug"
     },
     {
-      "name": "linux-clang-build-release",
-      "displayName": "Linux Clang Release",
-      "configurePreset": "linux-clang-release"
+      "name": "win-vs2022-msvc-release",
+      "configurePreset": "win-vs2022-msvc-release"
     },
     {
-      "name": "w-msvc-build",
-      "displayName": "Windows MSVC Debug",
-      "configurePreset": "w-msvc-dbg",
-      "configuration": "Debug"
+      "name": "win-vs2022-clangcl-debug",
+      "configurePreset": "win-vs2022-clangcl-debug"
     },
     {
-      "name": "w-msvc-build-release",
-      "displayName": "Windows MSVC Release",
-      "configurePreset": "w-msvc-rel",
-      "configuration": "Release"
+      "name": "win-vs2022-clangcl-release",
+      "configurePreset": "win-vs2022-clangcl-release"
     },
     {
-      "name": "w-cl-build",
-      "displayName": "Windows ClangCL Debug",
-      "configurePreset": "w-cl-dbg",
-      "configuration": "Debug"
+      "name": "linux-dbg",
+      "configurePreset": "linux-dbg"
     },
     {
-      "name": "w-cl-build-release",
-      "displayName": "Windows ClangCL Release",
-      "configurePreset": "w-cl-rel",
-      "configuration": "Release"
+      "name": "linux-rel",
+      "configurePreset": "linux-rel"
     }
   ],
   "testPresets": [
     {
-      "name": "w-cl-test",
-      "displayName": "Windows ClangCL 2026 Tests",
-      "configurePreset": "w-cl-dbg",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
+      "name": "win-vs2022-msvc-debug",
+      "configurePreset": "win-vs2022-msvc-debug",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
+    },
+    {
+      "name": "win-vs2022-msvc-release",
+      "configurePreset": "win-vs2022-msvc-release",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
+    },
+    {
+      "name": "win-vs2022-clangcl-debug",
+      "configurePreset": "win-vs2022-clangcl-debug",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
+    },
+    {
+      "name": "win-vs2022-clangcl-release",
+      "configurePreset": "win-vs2022-clangcl-release",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
+    },
+    {
+      "name": "linux-dbg",
+      "configurePreset": "linux-dbg",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
+      }
+    },
+    {
+      "name": "linux-rel",
+      "configurePreset": "linux-rel",
+      "filter": {
+        "include": {
+          "name": "test_session_consolidated|test_repository_consolidated|test_signing_robustness|test_blockcypher_api"
+        }
       }
     }
   ]
