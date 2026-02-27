@@ -1,12 +1,12 @@
 #pragma once
 
 #include <QFrame>
-#include <QLabel>
-#include <QPushButton>
-#include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QPushButton>
+#include <QVBoxLayout>
 
 class QtThemeManager;
 
@@ -22,36 +22,37 @@ struct TokenCardData {
 class QtTokenCard : public QFrame {
     Q_OBJECT
 
-public:
+  public:
     explicit QtTokenCard(QtThemeManager* themeManager, QWidget* parent = nullptr);
     ~QtTokenCard() override = default;
 
     void setTokenData(const TokenCardData& tokenData);
-    void setTokenData(const QString& contractAddress, const QString& name, const QString& symbol, int decimals);
+    void setTokenData(const QString& contractAddress, const QString& name, const QString& symbol,
+                      int decimals);
     void setBalance(const QString& balance);
     void setBalanceUSD(const QString& balanceUSD);
     void applyTheme();
 
     TokenCardData getTokenData() const;
 
-signals:
+  signals:
     void tokenClicked(const QString& contractAddress);
     void deleteTokenClicked(const QString& contractAddress);
     void sendTokenClicked(const QString& contractAddress);
 
-private slots:
+  private slots:
     void onCardClicked();
     void onDeleteClicked();
     void onSendClicked();
     void onIconDownloaded(QNetworkReply* reply);
     void onThemeChanged();
 
-protected:
+  protected:
     void mousePressEvent(QMouseEvent* event) override;
     void enterEvent(QEnterEvent* event) override;
     void leaveEvent(QEvent* event) override;
 
-private:
+  private:
     void setupUI();
     void updateStyles();
     QString getTokenIconUrl(const QString& symbol);

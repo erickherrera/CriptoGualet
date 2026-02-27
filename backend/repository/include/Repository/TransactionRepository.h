@@ -1,12 +1,12 @@
 #pragma once
 
-#include "RepositoryTypes.h"
-#include "Logger.h"
 #include "../../database/include/Database/DatabaseManager.h"
+#include "Logger.h"
+#include "RepositoryTypes.h"
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
 
 // Forward declaration
 struct sqlite3_stmt;
@@ -32,7 +32,7 @@ struct TransactionSearchCriteria;
  * - Confirmation tracking
  */
 class TransactionRepository {
-public:
+  public:
     /**
      * @brief Constructor
      * @param dbManager Reference to the database manager
@@ -69,10 +69,8 @@ public:
      * @return Result containing paginated transaction list
      */
     Result<PaginatedResult<Transaction>> getTransactionsByWallet(
-        int walletId,
-        const PaginationParams& params = PaginationParams(),
-        const std::optional<std::string>& direction = std::nullopt,
-        bool confirmedOnly = false);
+        int walletId, const PaginationParams& params = PaginationParams(),
+        const std::optional<std::string>& direction = std::nullopt, bool confirmedOnly = false);
 
     /**
      * @brief Get transactions for a specific address
@@ -81,8 +79,7 @@ public:
      * @return Result containing paginated transaction list
      */
     Result<PaginatedResult<Transaction>> getTransactionsByAddress(
-        const std::string& address,
-        const PaginationParams& params = PaginationParams());
+        const std::string& address, const PaginationParams& params = PaginationParams());
 
     /**
      * @brief Update transaction confirmation status
@@ -92,10 +89,8 @@ public:
      * @param confirmationCount Number of confirmations
      * @return Result indicating success or failure
      */
-    Result<bool> updateTransactionConfirmation(const std::string& txid,
-                                              int blockHeight,
-                                              const std::string& blockHash,
-                                              int confirmationCount);
+    Result<bool> updateTransactionConfirmation(const std::string& txid, int blockHeight,
+                                               const std::string& blockHash, int confirmationCount);
 
     /**
      * @brief Mark transaction as confirmed
@@ -103,8 +98,9 @@ public:
      * @param confirmedAt Confirmation timestamp
      * @return Result indicating success or failure
      */
-    Result<bool> confirmTransaction(const std::string& txid,
-                                   const std::optional<std::chrono::system_clock::time_point>& confirmedAt = std::nullopt);
+    Result<bool> confirmTransaction(
+        const std::string& txid,
+        const std::optional<std::chrono::system_clock::time_point>& confirmedAt = std::nullopt);
 
     /**
      * @brief Update transaction memo/note
@@ -159,7 +155,8 @@ public:
      * @param inputs Vector of transaction inputs
      * @return Result indicating success or failure
      */
-    Result<bool> addTransactionInputs(int transactionId, const std::vector<TransactionInput>& inputs);
+    Result<bool> addTransactionInputs(int transactionId,
+                                      const std::vector<TransactionInput>& inputs);
 
     /**
      * @brief Add transaction output details
@@ -167,7 +164,8 @@ public:
      * @param outputs Vector of transaction outputs
      * @return Result indicating success or failure
      */
-    Result<bool> addTransactionOutputs(int transactionId, const std::vector<TransactionOutput>& outputs);
+    Result<bool> addTransactionOutputs(int transactionId,
+                                       const std::vector<TransactionOutput>& outputs);
 
     /**
      * @brief Get transaction inputs
@@ -190,7 +188,8 @@ public:
      * @param spentInTxid Transaction ID where this output was spent
      * @return Result indicating success or failure
      */
-    Result<bool> markOutputAsSpent(int transactionId, int outputIndex, const std::string& spentInTxid);
+    Result<bool> markOutputAsSpent(int transactionId, int outputIndex,
+                                   const std::string& spentInTxid);
 
     /**
      * @brief Get unspent transaction outputs (UTXOs) for a wallet
@@ -198,7 +197,8 @@ public:
      * @param minAmount Minimum amount in satoshis (optional)
      * @return Result containing list of UTXOs
      */
-    Result<std::vector<UTXO>> getUTXOs(int walletId, const std::optional<int64_t>& minAmount = std::nullopt);
+    Result<std::vector<UTXO>> getUTXOs(int walletId,
+                                       const std::optional<int64_t>& minAmount = std::nullopt);
 
     /**
      * @brief Delete old transactions (for cleanup)
@@ -208,10 +208,10 @@ public:
      * @return Result indicating number of deleted transactions
      */
     Result<int> deleteOldTransactions(int walletId,
-                                     const std::chrono::system_clock::time_point& olderThan,
-                                     int keepCount = 100);
+                                      const std::chrono::system_clock::time_point& olderThan,
+                                      int keepCount = 100);
 
-private:
+  private:
     /**
      * @brief Convert database row to Transaction object
      * @param stmt SQLite statement handle
@@ -254,9 +254,9 @@ private:
      * @return SQL WHERE clause string
      */
     std::string buildSearchWhereClause(const TransactionSearchCriteria& criteria,
-                                      std::vector<std::string>& params);
+                                       std::vector<std::string>& params);
 
-private:
+  private:
     Database::DatabaseManager& m_dbManager;
     static constexpr const char* COMPONENT_NAME = "TransactionRepository";
     static constexpr int MIN_CONFIRMATIONS_FOR_CONFIRMED = 6;
@@ -276,7 +276,9 @@ struct TransactionInput {
     std::optional<std::string> address;
     std::optional<int64_t> amountSatoshis;
 
-    TransactionInput() : id(0), transactionId(0), inputIndex(0), prevOutputIndex(0), sequence(0xFFFFFFFF) {}
+    TransactionInput()
+        : id(0), transactionId(0), inputIndex(0), prevOutputIndex(0), sequence(0xFFFFFFFF) {
+    }
 };
 
 /**
@@ -292,7 +294,9 @@ struct TransactionOutput {
     bool isSpent;
     std::optional<std::string> spentInTxid;
 
-    TransactionOutput() : id(0), transactionId(0), outputIndex(0), amountSatoshis(0), isSpent(false) {}
+    TransactionOutput()
+        : id(0), transactionId(0), outputIndex(0), amountSatoshis(0), isSpent(false) {
+    }
 };
 
 /**
@@ -308,8 +312,14 @@ struct TransactionStats {
     std::optional<std::chrono::system_clock::time_point> firstTransaction;
     std::optional<std::chrono::system_clock::time_point> lastTransaction;
 
-    TransactionStats() : totalTransactions(0), confirmedTransactions(0), pendingTransactions(0),
-                        totalReceived(0), totalSent(0), totalFees(0) {}
+    TransactionStats()
+        : totalTransactions(0),
+          confirmedTransactions(0),
+          pendingTransactions(0),
+          totalReceived(0),
+          totalSent(0),
+          totalFees(0) {
+    }
 };
 
 /**
@@ -321,7 +331,8 @@ struct WalletBalance {
     int64_t totalBalance;
     int utxoCount;
 
-    WalletBalance() : confirmedBalance(0), unconfirmedBalance(0), totalBalance(0), utxoCount(0) {}
+    WalletBalance() : confirmedBalance(0), unconfirmedBalance(0), totalBalance(0), utxoCount(0) {
+    }
 };
 
 // UTXO struct is defined in RepositoryTypes.h
@@ -343,4 +354,4 @@ struct TransactionSearchCriteria {
     TransactionSearchCriteria() = default;
 };
 
-} // namespace Repository
+}  // namespace Repository

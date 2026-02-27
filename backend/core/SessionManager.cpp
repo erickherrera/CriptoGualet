@@ -1,19 +1,20 @@
 #include "SessionManager.h"
 #include "Crypto.h"
-#include <sstream>
-#include <iomanip>
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
 
-SessionManager::SessionManager(Database::DatabaseManager& dbManager) 
+SessionManager::SessionManager(Database::DatabaseManager& dbManager)
     : sessionRepository_(dbManager) {
     //
 }
 
-std::string SessionManager::createSession(int userId, const std::string& username, bool totpAuthenticated) {
+std::string SessionManager::createSession(int userId, const std::string& username,
+                                          bool totpAuthenticated) {
     UserSession session;
     session.userId = userId;
     session.username = username;
-    
+
     session.sessionId = Crypto::GenerateSecureRandomString(32);
 
     session.createdAt = std::chrono::steady_clock::now();
@@ -32,8 +33,8 @@ std::string SessionManager::createSession(int userId, const std::string& usernam
     record.createdAt = std::chrono::system_clock::now();
     record.expiresAt = record.createdAt + std::chrono::minutes(15);
     record.lastActivity = record.createdAt;
-    record.ipAddress = ""; // Should be filled with real IP
-    record.userAgent = ""; // Should be filled with real user agent
+    record.ipAddress = "";  // Should be filled with real IP
+    record.userAgent = "";  // Should be filled with real user agent
     record.totpAuthenticated = totpAuthenticated;
     record.isActive = true;
     sessionRepository_.storeSession(record);
@@ -46,7 +47,7 @@ bool SessionManager::validateSession(const std::string& sessionId) {
     if (it == activeSessions_.end()) {
         return false;
     }
-    
+
     if (!it->second.isExpired() && it->second.isActive) {
         refreshSession(sessionId);
         return true;
@@ -54,7 +55,6 @@ bool SessionManager::validateSession(const std::string& sessionId) {
 
     return false;
 }
-
 
 void SessionManager::refreshSession(const std::string& sessionId) {
     auto it = activeSessions_.find(sessionId);

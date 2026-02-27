@@ -1,14 +1,13 @@
 #include "WalletAPI.h"
 #include "Crypto.h"
-#include <iostream>
 #include <cmath>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 
 namespace WalletAPI {
 
-SimpleWallet::SimpleWallet(const std::string& network)
-    : current_network(network) {
+SimpleWallet::SimpleWallet(const std::string& network) : current_network(network) {
     client = std::make_unique<BlockCypher::BlockCypherClient>(network);
     provider_config.type = BitcoinProviderType::BlockCypher;
     provider_config.enableFallback = true;
@@ -105,7 +104,8 @@ uint64_t SimpleWallet::GetBalance(const std::string& address) {
     return balance.value_or(0);
 }
 
-std::vector<std::string> SimpleWallet::GetTransactionHistory(const std::string& address, uint32_t limit) {
+std::vector<std::string> SimpleWallet::GetTransactionHistory(const std::string& address,
+                                                             uint32_t limit) {
     std::optional<BitcoinProviders::AddressInfo> providerInfo;
     if (provider) {
         providerInfo = provider->getAddressInfo(address, limit);
@@ -122,12 +122,9 @@ std::vector<std::string> SimpleWallet::GetTransactionHistory(const std::string& 
 }
 
 SendTransactionResult SimpleWallet::SendFunds(
-    const std::vector<std::string>& from_addresses,
-    const std::string& to_address,
-    uint64_t amount_satoshis,
-    const std::map<std::string, std::vector<uint8_t>>& private_keys,
+    const std::vector<std::string>& from_addresses, const std::string& to_address,
+    uint64_t amount_satoshis, const std::map<std::string, std::vector<uint8_t>>& private_keys,
     uint64_t fee_satoshis) {
-
     SendTransactionResult result;
     result.success = false;
     result.total_fees = 0;
@@ -174,13 +171,14 @@ SendTransactionResult SimpleWallet::SendFunds(
             // Rough estimate: base fee per KB for average transaction size (~250 bytes)
             fee_satoshis = (fee_estimate.value() * 250) / 1000;
         } else {
-            fee_satoshis = 10000; // Default 10k satoshis (~$4 at $40k BTC)
+            fee_satoshis = 10000;  // Default 10k satoshis (~$4 at $40k BTC)
         }
     }
 
     if (total_available < amount_satoshis + fee_satoshis) {
-        result.error_message = "Insufficient funds. Available: " + std::to_string(total_available) +
-                              " satoshis, Required: " + std::to_string(amount_satoshis + fee_satoshis) + " satoshis";
+        result.error_message =
+            "Insufficient funds. Available: " + std::to_string(total_available) +
+            " satoshis, Required: " + std::to_string(amount_satoshis + fee_satoshis) + " satoshis";
         return result;
     }
 
@@ -224,10 +222,10 @@ SendTransactionResult SimpleWallet::SendFunds(
             hash_bytes[j] = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
         }
 
-        // Map the input to the correct source address. BlockCypher returns tosign hashes in input order.
-        // For simple transactions, inputs correspond to from_addresses in the same order.
+        // Map the input to the correct source address. BlockCypher returns tosign hashes in input
+        // order. For simple transactions, inputs correspond to from_addresses in the same order.
         std::string input_address = from_addresses[i % from_addresses.size()];
-        
+
         auto key_it = private_keys.find(input_address);
         if (key_it == private_keys.end()) {
             result.error_message = "Missing private key for address: " + input_address;
@@ -309,7 +307,7 @@ uint64_t SimpleWallet::EstimateTransactionFee() {
         }
     }
 
-    return 10000; // Default fallback
+    return 10000;  // Default fallback
 }
 
 uint64_t SimpleWallet::ConvertBTCToSatoshis(double btc_amount) {
@@ -330,8 +328,7 @@ std::string SimpleWallet::GetNetworkInfo() {
 
 // ===== Ethereum Wallet Implementation =====
 
-EthereumWallet::EthereumWallet(const std::string& network)
-    : current_network(network) {
+EthereumWallet::EthereumWallet(const std::string& network) : current_network(network) {
     client = std::make_unique<EthereumService::EthereumClient>(network);
 }
 
@@ -348,7 +345,8 @@ void EthereumWallet::SetNetwork(const std::string& network) {
     }
 }
 
-std::optional<EthereumService::AddressBalance> EthereumWallet::GetAddressInfo(const std::string& address) {
+std::optional<EthereumService::AddressBalance> EthereumWallet::GetAddressInfo(
+    const std::string& address) {
     if (!client) {
         return std::nullopt;
     }
@@ -368,7 +366,8 @@ double EthereumWallet::GetBalance(const std::string& address) {
     return 0.0;
 }
 
-std::vector<EthereumService::Transaction> EthereumWallet::GetTransactionHistory(const std::string& address, uint32_t limit) {
+std::vector<EthereumService::Transaction> EthereumWallet::GetTransactionHistory(
+    const std::string& address, uint32_t limit) {
     if (!client) {
         return {};
     }
@@ -403,7 +402,8 @@ std::string EthereumWallet::ConvertEthToWei(double eth) {
     return EthereumService::EthereumClient::EthToWei(eth);
 }
 
-ImportTokenResult EthereumWallet::importERC20Token(int walletId, const std::string& contractAddress, Repository::TokenRepository& tokenRepo) {
+ImportTokenResult EthereumWallet::importERC20Token(int walletId, const std::string& contractAddress,
+                                                   Repository::TokenRepository& tokenRepo) {
     if (!client) {
         return {false, "Ethereum client not initialized."};
     }
@@ -433,7 +433,8 @@ ImportTokenResult EthereumWallet::importERC20Token(int walletId, const std::stri
     auto& tokenInfo = tokenInfoOpt.value();
 
     // Save token to repository
-    auto createResult = tokenRepo.createToken(walletId, tokenInfo.contract_address, tokenInfo.symbol, tokenInfo.name, tokenInfo.decimals);
+    auto createResult = tokenRepo.createToken(walletId, tokenInfo.contract_address,
+                                              tokenInfo.symbol, tokenInfo.name, tokenInfo.decimals);
     if (!createResult.success) {
         return {false, "Failed to save token to the database."};
     }
@@ -441,28 +442,27 @@ ImportTokenResult EthereumWallet::importERC20Token(int walletId, const std::stri
     return {true, "Token imported successfully.", tokenInfo};
 }
 
-std::optional<std::string> EthereumWallet::GetTokenBalance(const std::string& walletAddress, const std::string& contractAddress) {
+std::optional<std::string> EthereumWallet::GetTokenBalance(const std::string& walletAddress,
+                                                           const std::string& contractAddress) {
     if (!client) {
         return std::nullopt;
     }
     return client->GetTokenBalance(walletAddress, contractAddress);
 }
 
-std::optional<EthereumService::TokenInfo> EthereumWallet::GetTokenInfo(const std::string& contractAddress) {
+std::optional<EthereumService::TokenInfo> EthereumWallet::GetTokenInfo(
+    const std::string& contractAddress) {
     if (!client) {
         return std::nullopt;
     }
     return client->GetTokenInfo(contractAddress);
 }
 
-EthereumSendResult EthereumWallet::SendFunds(
-    const std::string& from_address,
-    const std::string& to_address,
-    double amount_eth,
-    const std::string& private_key_hex,
-    const std::string& gas_price_gwei,
-    uint64_t gas_limit
-) {
+EthereumSendResult EthereumWallet::SendFunds(const std::string& from_address,
+                                             const std::string& to_address, double amount_eth,
+                                             const std::string& private_key_hex,
+                                             const std::string& gas_price_gwei,
+                                             uint64_t gas_limit) {
     EthereumSendResult result;
     result.success = false;
     result.total_cost_eth = 0.0;
@@ -528,11 +528,12 @@ EthereumSendResult EthereumWallet::SendFunds(
     // Check if balance is sufficient
     double balance_wei_double = std::stod(balance_info->balance_wei);
     if (balance_wei_double < total_cost_wei_double) {
-        result.error_message = "Insufficient funds. Balance: " +
-                              std::to_string(balance_info->balance_eth) +
-                              " ETH, Required: " +
-                              std::to_string(EthereumService::EthereumClient::WeiToEth(std::to_string(static_cast<uint64_t>(total_cost_wei_double)))) +
-                              " ETH (including gas)";
+        result.error_message =
+            "Insufficient funds. Balance: " + std::to_string(balance_info->balance_eth) +
+            " ETH, Required: " +
+            std::to_string(EthereumService::EthereumClient::WeiToEth(
+                std::to_string(static_cast<uint64_t>(total_cost_wei_double)))) +
+            " ETH (including gas)";
         return result;
     }
 
@@ -546,14 +547,7 @@ EthereumSendResult EthereumWallet::SendFunds(
 
     // Create and sign transaction
     auto signed_tx = client->CreateSignedTransaction(
-        from_address,
-        to_address,
-        value_wei,
-        gas_price_wei,
-        gas_limit,
-        private_key_hex,
-        chain_id
-    );
+        from_address, to_address, value_wei, gas_price_wei, gas_limit, private_key_hex, chain_id);
 
     if (!signed_tx.has_value()) {
         result.error_message = "Failed to create signed transaction";
@@ -582,8 +576,7 @@ std::string EthereumWallet::GetNetworkInfo() {
 
 // ===== Litecoin Wallet Implementation =====
 
-LitecoinWallet::LitecoinWallet(const std::string& network)
-    : current_network(network) {
+LitecoinWallet::LitecoinWallet(const std::string& network) : current_network(network) {
     // BlockCypher supports Litecoin with "ltc/main" network
     client = std::make_unique<BlockCypher::BlockCypherClient>(network);
 }
@@ -642,7 +635,8 @@ uint64_t LitecoinWallet::GetBalance(const std::string& address) {
     return 0;
 }
 
-std::vector<std::string> LitecoinWallet::GetTransactionHistory(const std::string& address, uint32_t limit) {
+std::vector<std::string> LitecoinWallet::GetTransactionHistory(const std::string& address,
+                                                               uint32_t limit) {
     if (!client) {
         return {};
     }
@@ -656,12 +650,9 @@ std::vector<std::string> LitecoinWallet::GetTransactionHistory(const std::string
 }
 
 LitecoinSendResult LitecoinWallet::SendFunds(
-    const std::vector<std::string>& from_addresses,
-    const std::string& to_address,
-    uint64_t amount_litoshis,
-    const std::map<std::string, std::vector<uint8_t>>& private_keys,
+    const std::vector<std::string>& from_addresses, const std::string& to_address,
+    uint64_t amount_litoshis, const std::map<std::string, std::vector<uint8_t>>& private_keys,
     uint64_t fee_litoshis) {
-
     LitecoinSendResult result;
     result.success = false;
     result.total_fees = 0;
@@ -708,13 +699,14 @@ LitecoinSendResult LitecoinWallet::SendFunds(
             // Rough estimate: base fee per KB for average transaction size (~250 bytes)
             fee_litoshis = (fee_estimate.value() * 250) / 1000;
         } else {
-            fee_litoshis = 10000; // Default 10k litoshis
+            fee_litoshis = 10000;  // Default 10k litoshis
         }
     }
 
     if (total_available < amount_litoshis + fee_litoshis) {
-        result.error_message = "Insufficient funds. Available: " + std::to_string(total_available) +
-                              " litoshis, Required: " + std::to_string(amount_litoshis + fee_litoshis) + " litoshis";
+        result.error_message =
+            "Insufficient funds. Available: " + std::to_string(total_available) +
+            " litoshis, Required: " + std::to_string(amount_litoshis + fee_litoshis) + " litoshis";
         return result;
     }
 
@@ -756,9 +748,10 @@ LitecoinSendResult LitecoinWallet::SendFunds(
             hash_bytes[j] = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
         }
 
-        // Map the input to the correct source address. BlockCypher returns tosign hashes in input order.
+        // Map the input to the correct source address. BlockCypher returns tosign hashes in input
+        // order.
         std::string input_address = from_addresses[i % from_addresses.size()];
-        
+
         auto key_it = private_keys.find(input_address);
         if (key_it == private_keys.end()) {
             result.error_message = "Missing private key for address: " + input_address;
@@ -822,7 +815,7 @@ bool LitecoinWallet::ValidateAddress(const std::string& address) {
 
 uint64_t LitecoinWallet::EstimateTransactionFee() {
     if (!client) {
-        return 10000; // Default fallback
+        return 10000;  // Default fallback
     }
 
     auto fee_estimate = client->EstimateFees();
@@ -831,7 +824,7 @@ uint64_t LitecoinWallet::EstimateTransactionFee() {
         return (fee_estimate.value() * 250) / 1000;
     }
 
-    return 10000; // Default fallback
+    return 10000;  // Default fallback
 }
 
 uint64_t LitecoinWallet::ConvertLTCToLitoshis(double ltc_amount) {
@@ -846,4 +839,4 @@ std::string LitecoinWallet::GetNetworkInfo() {
     return "Connected to BlockCypher API - Network: " + current_network;
 }
 
-} // namespace WalletAPI
+}  // namespace WalletAPI

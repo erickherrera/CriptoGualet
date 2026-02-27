@@ -1,30 +1,30 @@
 #pragma once
 
+#include <QTimer>
 #include <QDialog>
+#include <QFrame>
+#include <QGraphicsDropShadowEffect>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QMouseEvent>
+#include <QPaintEvent>
+#include <QPainter>
+#include <QPoint>
 #include <QPushButton>
 #include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QFrame>
-#include <QTimer>
-#include <QMouseEvent>
-#include <QPoint>
-#include <QPainter>
-#include <QPaintEvent>
-#include <QGraphicsDropShadowEffect>
 
 class QtSuccessDialog : public QDialog {
     Q_OBJECT
 
-public:
+  public:
     explicit QtSuccessDialog(const QString& username, QWidget* parent = nullptr);
     ~QtSuccessDialog();
 
-private slots:
+  private slots:
     void onOkClicked();
     void onAutoDismiss();
 
-private:
+  private:
     void setupUI();
     void setupConnections();
     void applyTheme();
@@ -40,12 +40,12 @@ private:
     QLabel* m_messageLabel;
     QLabel* m_infoLabel;
     QPushButton* m_okButton;
-    
+
     // Layout
     QVBoxLayout* m_mainLayout;
     QVBoxLayout* m_cardLayout;
     QHBoxLayout* m_buttonLayout;
-    
+
     // Data
     QString m_username;
     QTimer* m_autoDismissTimer;
@@ -55,7 +55,7 @@ private:
     int m_dialogX;
     int m_dialogY;
     QPoint m_dragPosition;
-    
+
     // Constants
-    static constexpr int AUTO_DISMISS_DELAY = 5000; // 5 seconds
+    static constexpr int AUTO_DISMISS_DELAY = 5000;  // 5 seconds
 };

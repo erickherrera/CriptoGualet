@@ -1,17 +1,17 @@
 // QtReceiveDialog.cpp
 #include "QtReceiveDialog.h"
-#include "QtThemeManager.h"
 #include "../../backend/utils/include/QRGenerator.h"
+#include "QtThemeManager.h"
 
-#include <QGroupBox>
-#include <QMessageBox>
-#include <QClipboard>
-#include <QApplication>
-#include <QScreen>
-#include <QImage>
-#include <QPainter>
-#include <QBuffer>
 #include <QTimer>
+#include <QApplication>
+#include <QBuffer>
+#include <QClipboard>
+#include <QGroupBox>
+#include <QImage>
+#include <QMessageBox>
+#include <QPainter>
+#include <QScreen>
 
 QtReceiveDialog::QtReceiveDialog(ChainType chainType, const QString& address, QWidget* parent)
     : QDialog(parent),
@@ -23,7 +23,6 @@ QtReceiveDialog::QtReceiveDialog(ChainType chainType, const QString& address, QW
       m_contentLayout(nullptr),
       m_includeAmount(false),
       m_requestAmount(0.0) {
-
     // Set window title based on chain type
     if (m_chainType == ChainType::BITCOIN) {
         setWindowTitle("Receive Bitcoin");
@@ -34,14 +33,14 @@ QtReceiveDialog::QtReceiveDialog(ChainType chainType, const QString& address, QW
     }
 
     setModal(true);
-    
+
     // Set responsive initial size
     int screenWidth = QApplication::primaryScreen()->geometry().width();
     int screenHeight = QApplication::primaryScreen()->geometry().height();
-    
+
     int targetWidth = qMin(550, screenWidth - 40);
     int targetHeight = qMin(750, screenHeight - 80);
-    
+
     resize(targetWidth, targetHeight);
     setMinimumWidth(qMin(320, screenWidth));
     setMinimumHeight(qMin(400, screenHeight));
@@ -64,15 +63,14 @@ void QtReceiveDialog::setupUI() {
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
     m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    
+
     m_scrollContent = new QWidget();
     m_contentLayout = new QVBoxLayout(m_scrollContent);
-    m_contentLayout->setSpacing(m_themeManager->standardSpacing());  // 16px
-    m_contentLayout->setContentsMargins(
-        m_themeManager->generousMargin(),  // 32px
-        m_themeManager->generousMargin(),  // 32px
-        m_themeManager->generousMargin(),  // 32px
-        m_themeManager->generousMargin()   // 32px
+    m_contentLayout->setSpacing(m_themeManager->standardSpacing());        // 16px
+    m_contentLayout->setContentsMargins(m_themeManager->generousMargin(),  // 32px
+                                        m_themeManager->generousMargin(),  // 32px
+                                        m_themeManager->generousMargin(),  // 32px
+                                        m_themeManager->generousMargin()   // 32px
     );
 
     const bool isBitcoin = (m_chainType == ChainType::BITCOIN);
@@ -92,7 +90,8 @@ void QtReceiveDialog::setupUI() {
 
     m_subtitleLabel = new QLabel("Share this address to receive payments");
     m_subtitleLabel->setAlignment(Qt::AlignCenter);
-    m_subtitleLabel->setStyleSheet(QString("color: %1; font-size: 12px;").arg(m_themeManager->dimmedTextColor().name()));
+    m_subtitleLabel->setStyleSheet(
+        QString("color: %1; font-size: 12px;").arg(m_themeManager->dimmedTextColor().name()));
     m_contentLayout->addWidget(m_subtitleLabel);
 
     m_contentLayout->addSpacing(m_themeManager->standardSpacing());
@@ -110,7 +109,8 @@ void QtReceiveDialog::setupUI() {
 
     m_qrStatusLabel = new QLabel();
     m_qrStatusLabel->setAlignment(Qt::AlignCenter);
-    m_qrStatusLabel->setStyleSheet(QString("color: %1; font-size: 11px;").arg(m_themeManager->dimmedTextColor().name()));
+    m_qrStatusLabel->setStyleSheet(
+        QString("color: %1; font-size: 11px;").arg(m_themeManager->dimmedTextColor().name()));
     m_qrStatusLabel->hide();
     qrLayout->addWidget(m_qrStatusLabel);
 
@@ -153,8 +153,9 @@ void QtReceiveDialog::setupUI() {
 
     m_amountInput = new QDoubleSpinBox();
     m_amountInput->setDecimals(isBitcoinLike ? 8 : 18);  // BTC/LTC: 8 decimals, ETH: 18 decimals
-    m_amountInput->setMinimum(isBitcoinLike ? 0.00000001 : 0.000000000000000001);  // 1 satoshi/litoshi or 1 wei
-    m_amountInput->setMaximum(1000000.0);  // Reasonable maximum
+    m_amountInput->setMinimum(isBitcoinLike ? 0.00000001
+                                            : 0.000000000000000001);  // 1 satoshi/litoshi or 1 wei
+    m_amountInput->setMaximum(1000000.0);                             // Reasonable maximum
     m_amountInput->setSingleStep(isBitcoinLike ? 0.001 : 0.01);
     m_amountInput->setValue(isBitcoinLike ? 0.001 : 0.01);
     m_amountInput->setEnabled(false);
@@ -162,10 +163,10 @@ void QtReceiveDialog::setupUI() {
 
     m_amountNote = new QLabel(
         "When you include an amount, the QR code will contain a payment request URI. "
-        "Compatible wallets will automatically fill in the amount when scanning."
-    );
+        "Compatible wallets will automatically fill in the amount when scanning.");
     m_amountNote->setWordWrap(true);
-    m_amountNote->setStyleSheet(QString("color: %1; font-size: 11px;").arg(m_themeManager->dimmedTextColor().name()));
+    m_amountNote->setStyleSheet(
+        QString("color: %1; font-size: 11px;").arg(m_themeManager->dimmedTextColor().name()));
     m_amountNote->setEnabled(false);
     amountLayout->addWidget(m_amountNote);
 
@@ -177,11 +178,8 @@ void QtReceiveDialog::setupUI() {
     // === Buttons ===
     m_buttonLayout = new QHBoxLayout();
     m_buttonLayout->setContentsMargins(
-        m_themeManager->standardMargin(),
-        m_themeManager->standardMargin(),
-        m_themeManager->standardMargin(),
-        m_themeManager->standardMargin()
-    );
+        m_themeManager->standardMargin(), m_themeManager->standardMargin(),
+        m_themeManager->standardMargin(), m_themeManager->standardMargin());
     m_buttonLayout->addStretch();
 
     m_closeButton = new QPushButton("Close");
@@ -194,13 +192,16 @@ void QtReceiveDialog::setupUI() {
 
     // Connect signals
     connect(m_copyButton, &QPushButton::clicked, this, &QtReceiveDialog::onCopyAddressClicked);
-    connect(m_includeAmountCheckbox, &QCheckBox::toggled, this, &QtReceiveDialog::onIncludeAmountToggled);
-    connect(m_amountInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &QtReceiveDialog::onAmountChanged);
+    connect(m_includeAmountCheckbox, &QCheckBox::toggled, this,
+            &QtReceiveDialog::onIncludeAmountToggled);
+    connect(m_amountInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            &QtReceiveDialog::onAmountChanged);
     connect(m_closeButton, &QPushButton::clicked, this, &QtReceiveDialog::onCloseClicked);
 }
 
 void QtReceiveDialog::applyTheme() {
-    if (!m_themeManager) return;
+    if (!m_themeManager)
+        return;
 
     // Apply theme to dialog
     QString bgColor = m_themeManager->backgroundColor().name();
@@ -303,16 +304,18 @@ void QtReceiveDialog::applyTheme() {
         QCheckBox::indicator:hover {
             border-color: %5;
         }
-    )").arg(bgColor)
-       .arg(textColor)
-       .arg(surfaceColor)
-       .arg(borderColor)
-       .arg(accentColor)
-       .arg(surfaceColor.replace("surfaceColor", m_themeManager->surfaceColor().darker(105).name()))
-       .arg(m_themeManager->accentColor().lighter(110).name())
-       .arg(m_themeManager->accentColor().darker(110).name())
-       .arg(m_themeManager->surfaceColor().darker(120).name())
-       .arg(m_themeManager->dimmedTextColor().name()));
+    )")
+                      .arg(bgColor)
+                      .arg(textColor)
+                      .arg(surfaceColor)
+                      .arg(borderColor)
+                      .arg(accentColor)
+                      .arg(surfaceColor.replace("surfaceColor",
+                                                m_themeManager->surfaceColor().darker(105).name()))
+                      .arg(m_themeManager->accentColor().lighter(110).name())
+                      .arg(m_themeManager->accentColor().darker(110).name())
+                      .arg(m_themeManager->surfaceColor().darker(120).name())
+                      .arg(m_themeManager->dimmedTextColor().name()));
 
     // Style the scroll content background
     if (m_scrollContent) {
@@ -330,25 +333,26 @@ void QtReceiveDialog::resizeEvent(QResizeEvent* event) {
 
 void QtReceiveDialog::updateResponsiveLayout() {
     int dialogWidth = width();
-    
+
     // Adjust content margins based on width
     if (m_contentLayout) {
         int margin = dialogWidth < 450 ? 15 : 32;
         m_contentLayout->setContentsMargins(margin, margin, margin, margin);
     }
-    
+
     // Adjust QR code size if necessary
     if (m_qrCodeLabel) {
-        int margins = m_contentLayout ? m_contentLayout->contentsMargins().left() + m_contentLayout->contentsMargins().right() : 64;
-        int availableWidth = dialogWidth - margins - 40; // 40 for groupbox padding etc
+        int margins = m_contentLayout ? m_contentLayout->contentsMargins().left() +
+                                            m_contentLayout->contentsMargins().right()
+                                      : 64;
+        int availableWidth = dialogWidth - margins - 40;  // 40 for groupbox padding etc
         int targetSize = qMin(QR_CODE_SIZE + 40, availableWidth);
-        
+
         if (targetSize > 100) {
             m_qrCodeLabel->setFixedSize(targetSize, targetSize);
         }
     }
 }
-
 
 void QtReceiveDialog::onCopyAddressClicked() {
     QClipboard* clipboard = QApplication::clipboard();
@@ -356,7 +360,8 @@ void QtReceiveDialog::onCopyAddressClicked() {
 
     // Show confirmation
     m_qrStatusLabel->setText("Address copied to clipboard!");
-    m_qrStatusLabel->setStyleSheet(QString("color: %1; font-size: 11px;").arg(m_themeManager->successColor().name()));
+    m_qrStatusLabel->setStyleSheet(
+        QString("color: %1; font-size: 11px;").arg(m_themeManager->successColor().name()));
     m_qrStatusLabel->show();
 
     // Optional: Change button text temporarily
@@ -403,7 +408,8 @@ void QtReceiveDialog::generateQRCode() {
     // If we have no data at all, then it's a real failure
     if (qrData.width == 0 || qrData.height == 0 || qrData.data.empty()) {
         m_qrStatusLabel->setText("Error: Could not generate QR code");
-        m_qrStatusLabel->setStyleSheet(QString("color: %1; font-size: 11px;").arg(m_themeManager->errorColor().name()));
+        m_qrStatusLabel->setStyleSheet(
+            QString("color: %1; font-size: 11px;").arg(m_themeManager->errorColor().name()));
         m_qrStatusLabel->show();
         return;
     }
@@ -429,17 +435,13 @@ void QtReceiveDialog::generateQRCode() {
     }
 
     // Scale up the QR code for better visibility
-    QImage scaledQrImage = qrImage.scaled(
-        QR_CODE_SIZE,
-        QR_CODE_SIZE,
-        Qt::KeepAspectRatio,
-        Qt::FastTransformation
-    );
+    QImage scaledQrImage =
+        qrImage.scaled(QR_CODE_SIZE, QR_CODE_SIZE, Qt::KeepAspectRatio, Qt::FastTransformation);
 
     // Convert to pixmap and add white border
     int borderSize = 20;
     QPixmap finalPixmap(QR_CODE_SIZE + 2 * borderSize, QR_CODE_SIZE + 2 * borderSize);
-    finalPixmap.fill(Qt::white); // Always white background for QR codes for better scanning
+    finalPixmap.fill(Qt::white);  // Always white background for QR codes for better scanning
 
     QPainter painter(&finalPixmap);
     painter.drawImage(borderSize, borderSize, scaledQrImage);
@@ -447,10 +449,11 @@ void QtReceiveDialog::generateQRCode() {
 
     m_qrPixmap = finalPixmap;
     m_qrCodeLabel->setPixmap(m_qrPixmap);
-    
+
     if (!success) {
         m_qrStatusLabel->setText("Using fallback pattern (libqrencode not available)");
-        m_qrStatusLabel->setStyleSheet(QString("color: %1; font-size: 11px;").arg(m_themeManager->warningColor().name()));
+        m_qrStatusLabel->setStyleSheet(
+            QString("color: %1; font-size: 11px;").arg(m_themeManager->warningColor().name()));
         m_qrStatusLabel->show();
     } else {
         m_qrStatusLabel->hide();
@@ -471,14 +474,10 @@ QString QtReceiveDialog::getPaymentURI() const {
     // Generate payment URI with amount
     if (m_chainType == ChainType::BITCOIN) {
         // Bitcoin URI: bitcoin:address?amount=value
-        return QString("bitcoin:%1?amount=%2")
-            .arg(m_address)
-            .arg(formatCrypto(m_requestAmount));
+        return QString("bitcoin:%1?amount=%2").arg(m_address).arg(formatCrypto(m_requestAmount));
     } else if (m_chainType == ChainType::LITECOIN) {
         // Litecoin URI: litecoin:address?amount=value
-        return QString("litecoin:%1?amount=%2")
-            .arg(m_address)
-            .arg(formatCrypto(m_requestAmount));
+        return QString("litecoin:%1?amount=%2").arg(m_address).arg(formatCrypto(m_requestAmount));
     } else {
         // Ethereum URI: ethereum:address?value=value_in_wei
         // Convert ETH to Wei (1 ETH = 10^18 Wei)

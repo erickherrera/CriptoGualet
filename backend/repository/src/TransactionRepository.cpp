@@ -1,8 +1,8 @@
 #include "../include/Repository/TransactionRepository.h"
-#include <sstream>
-#include <iomanip>
 #include <algorithm>
 #include <cstring>
+#include <iomanip>
+#include <sstream>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE
@@ -14,7 +14,8 @@ extern "C" {
 
 namespace Repository {
 
-TransactionRepository::TransactionRepository(Database::DatabaseManager& dbManager) : m_dbManager(dbManager) {
+TransactionRepository::TransactionRepository(Database::DatabaseManager& dbManager)
+    : m_dbManager(dbManager) {
     REPO_LOG_INFO(COMPONENT_NAME, "TransactionRepository initialized");
 }
 
@@ -105,7 +106,8 @@ Result<Transaction> TransactionRepository::addTransaction(const Transaction& tra
         auto balanceUpdateResult = updateAddressBalances(transaction);
         if (!balanceUpdateResult) {
             m_dbManager.rollbackTransaction();
-            REPO_LOG_ERROR(COMPONENT_NAME, "Failed to update address balances", balanceUpdateResult.error());
+            REPO_LOG_ERROR(COMPONENT_NAME, "Failed to update address balances",
+                           balanceUpdateResult.error());
             return Result<Transaction>("Failed to update address balances", 500);
         }
 
@@ -120,7 +122,8 @@ Result<Transaction> TransactionRepository::addTransaction(const Transaction& tra
         auto transactionResult = getTransactionById(transactionId);
         if (transactionResult) {
             REPO_LOG_INFO(COMPONENT_NAME, "Transaction added successfully",
-                         "TXID: " + transaction.txid + ", Amount: " + std::to_string(transaction.amountSatoshis));
+                          "TXID: " + transaction.txid +
+                              ", Amount: " + std::to_string(transaction.amountSatoshis));
         }
 
         return transactionResult;
@@ -197,11 +200,8 @@ Result<Transaction> TransactionRepository::getTransactionById(int transactionId)
 }
 
 Result<PaginatedResult<Transaction>> TransactionRepository::getTransactionsByWallet(
-    int walletId,
-    const PaginationParams& params,
-    const std::optional<std::string>& direction,
+    int walletId, const PaginationParams& params, const std::optional<std::string>& direction,
     bool confirmedOnly) {
-
     REPO_SCOPED_LOG(COMPONENT_NAME, "getTransactionsByWallet");
 
     // Build the base query
@@ -276,7 +276,8 @@ Result<PaginatedResult<Transaction>> TransactionRepository::getTransactionsByWal
             if (i == 0) {
                 sqlite3_bind_int(stmt, static_cast<int>(i + 1), std::stoi(bindParams[i]));
             } else {
-                sqlite3_bind_text(stmt, static_cast<int>(i + 1), bindParams[i].c_str(), -1, SQLITE_STATIC);
+                sqlite3_bind_text(stmt, static_cast<int>(i + 1), bindParams[i].c_str(), -1,
+                                  SQLITE_STATIC);
             }
         } else {
             // Limit and offset are always integers
@@ -295,14 +296,15 @@ Result<PaginatedResult<Transaction>> TransactionRepository::getTransactionsByWal
         PaginatedResult<Transaction> result(transactions, totalCount, params.offset, params.limit);
         return Result<PaginatedResult<Transaction>>(result);
     } else {
-        return Result<PaginatedResult<Transaction>>("Database error while retrieving transactions", 500);
+        return Result<PaginatedResult<Transaction>>("Database error while retrieving transactions",
+                                                    500);
     }
 }
 
 Result<bool> TransactionRepository::updateTransactionConfirmation(const std::string& txid,
-                                                                 int blockHeight,
-                                                                 const std::string& blockHash,
-                                                                 int confirmationCount) {
+                                                                  int blockHeight,
+                                                                  const std::string& blockHash,
+                                                                  int confirmationCount) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "updateTransactionConfirmation");
 
     const std::string sql = R"(
@@ -329,8 +331,9 @@ Result<bool> TransactionRepository::updateTransactionConfirmation(const std::str
     if (rc == SQLITE_DONE) {
         int changes = sqlite3_changes(m_dbManager.getHandle());
         if (changes > 0) {
-            REPO_LOG_INFO(COMPONENT_NAME, "Transaction confirmation updated",
-                         "TXID: " + txid + ", Confirmations: " + std::to_string(confirmationCount));
+            REPO_LOG_INFO(
+                COMPONENT_NAME, "Transaction confirmation updated",
+                "TXID: " + txid + ", Confirmations: " + std::to_string(confirmationCount));
             return Result<bool>(true);
         } else {
             return Result<bool>("Transaction not found", 404);
@@ -377,12 +380,12 @@ Result<TransactionStats> TransactionRepository::getTransactionStats(int walletId
 
         const char* firstTxStr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
         if (firstTxStr && strlen(firstTxStr) > 0) {
-            stats.firstTransaction = std::chrono::system_clock::now(); // Simplified
+            stats.firstTransaction = std::chrono::system_clock::now();  // Simplified
         }
 
         const char* lastTxStr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
         if (lastTxStr && strlen(lastTxStr) > 0) {
-            stats.lastTransaction = std::chrono::system_clock::now(); // Simplified
+            stats.lastTransaction = std::chrono::system_clock::now();  // Simplified
         }
 
         sqlite3_finalize(stmt);
@@ -494,7 +497,8 @@ Result<bool> TransactionRepository::validateTransaction(const Transaction& trans
         return Result<bool>("Transaction ID cannot be empty", 400);
     }
 
-    if (transaction.direction != "incoming" && transaction.direction != "outgoing" && transaction.direction != "internal") {
+    if (transaction.direction != "incoming" && transaction.direction != "outgoing" &&
+        transaction.direction != "internal") {
         return Result<bool>("Invalid transaction direction", 400);
     }
 
@@ -563,4 +567,4 @@ Result<bool> TransactionRepository::updateAddressBalances(const Transaction& tra
     return Result<bool>(true);
 }
 
-} // namespace Repository
+}  // namespace Repository

@@ -1,13 +1,13 @@
-#include "../backend/core/include/WalletAPI.h"
 #include "../backend/blockchain/include/BlockCypher.h"
 #include "../backend/core/include/Crypto.h"
+#include "../backend/core/include/WalletAPI.h"
 #include "TestUtils.h"
-#include <iostream>
-#include <string>
-#include <cstdint>
 #include <chrono>
-#include <thread>
+#include <cstdint>
+#include <iostream>
 #include <map>
+#include <string>
+#include <thread>
 
 // Test 1: Address validation
 void TestAddressValidation() {
@@ -16,18 +16,15 @@ void TestAddressValidation() {
     BlockCypher::BlockCypherClient client("btc/test3");
 
     // Valid testnet addresses
-    std::vector<std::string> valid_addresses = {
-        "mzBc4XEFSdzCDcTxAgf6EZXgsZWpztRhef",
-        "mjSk1Ny9spzU2fouzYgLqGUD8U41iR35QN",
-        "n2ZNV88uQbede7C5M5jzi6SyG4GVuPpng6"
-    };
+    std::vector<std::string> valid_addresses = {"mzBc4XEFSdzCDcTxAgf6EZXgsZWpztRhef",
+                                                "mjSk1Ny9spzU2fouzYgLqGUD8U41iR35QN",
+                                                "n2ZNV88uQbede7C5M5jzi6SyG4GVuPpng6"};
 
     // Invalid addresses
     std::vector<std::string> invalid_addresses = {
         "invalid_address",
-        "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", // Mainnet address
-        ""
-    };
+        "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",  // Mainnet address
+        ""};
 
     std::cout << "\nTesting valid addresses:" << std::endl;
     for (const auto& addr : valid_addresses) {
@@ -61,7 +58,8 @@ void TestGetAddressBalance() {
         std::cout << "[OK] API call successful!" << std::endl;
         std::cout << "  Address: " << balance_result->address << std::endl;
         std::cout << "  Balance: " << balance_result->balance << " satoshis" << std::endl;
-        std::cout << "  Unconfirmed Balance: " << balance_result->unconfirmed_balance << " satoshis" << std::endl;
+        std::cout << "  Unconfirmed Balance: " << balance_result->unconfirmed_balance << " satoshis"
+                  << std::endl;
         std::cout << "  Transaction Count: " << balance_result->n_tx << std::endl;
     } else {
         std::cout << "[ERROR] Failed to fetch address balance" << std::endl;
@@ -128,7 +126,8 @@ void TestGetTransaction() {
     } else {
         std::cout << "[WARNING] Transaction not found or API call failed" << std::endl;
         std::cout << "  This is expected if the transaction hash doesn't exist" << std::endl;
-        std::cout << "  The API correctly returns empty result for non-existent transactions" << std::endl;
+        std::cout << "  The API correctly returns empty result for non-existent transactions"
+                  << std::endl;
     }
 
     std::cout << "\n[OK] Get transaction API test completed" << std::endl;
@@ -149,9 +148,9 @@ void TestFeeEstimation() {
         std::cout << "  Estimated fee: " << fee_result.value() << " satoshis per KB" << std::endl;
 
         // Calculate example fees
-        uint64_t small_tx_fee = (fee_result.value() * 250) / 1000; // ~250 bytes
-        uint64_t medium_tx_fee = (fee_result.value() * 500) / 1000; // ~500 bytes
-        uint64_t large_tx_fee = (fee_result.value() * 1000) / 1000; // ~1000 bytes
+        uint64_t small_tx_fee = (fee_result.value() * 250) / 1000;   // ~250 bytes
+        uint64_t medium_tx_fee = (fee_result.value() * 500) / 1000;  // ~500 bytes
+        uint64_t large_tx_fee = (fee_result.value() * 1000) / 1000;  // ~1000 bytes
 
         std::cout << "\nExample transaction fees:" << std::endl;
         std::cout << "  Small TX (~250 bytes): " << small_tx_fee << " satoshis" << std::endl;
@@ -171,10 +170,9 @@ void TestCreateTransaction() {
     BlockCypher::BlockCypherClient client("btc/test3");
 
     // Generate a test address
-    std::vector<std::string> test_mnemonic = {
-        "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-        "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-    };
+    std::vector<std::string> test_mnemonic = {"abandon", "abandon", "abandon", "abandon",
+                                              "abandon", "abandon", "abandon", "abandon",
+                                              "abandon", "abandon", "abandon", "about"};
 
     std::array<uint8_t, 64> seed;
     Crypto::BIP39_SeedFromMnemonic(test_mnemonic, "", seed);
@@ -201,12 +199,16 @@ void TestCreateTransaction() {
     auto tx_result = client.CreateTransaction(request);
 
     if (tx_result) {
-        std::cout << "[OK] API call successful - CreateTransaction endpoint is working" << std::endl;
+        std::cout << "[OK] API call successful - CreateTransaction endpoint is working"
+                  << std::endl;
 
         if (!tx_result->errors.empty()) {
             std::cout << "  API response: " << tx_result->errors << std::endl;
-            std::cout << "  [NOTE] This is expected - the address has no UTXOs (no funds)" << std::endl;
-            std::cout << "  [NOTE] The API correctly reports that the address cannot create transactions" << std::endl;
+            std::cout << "  [NOTE] This is expected - the address has no UTXOs (no funds)"
+                      << std::endl;
+            std::cout
+                << "  [NOTE] The API correctly reports that the address cannot create transactions"
+                << std::endl;
             std::cout << "  [OK] CreateTransaction API validated successfully" << std::endl;
         } else {
             std::cout << "  Transaction skeleton created successfully!" << std::endl;
@@ -216,7 +218,8 @@ void TestCreateTransaction() {
                 std::cout << "  Transaction size: " << tx_result->tx.size << " bytes" << std::endl;
             }
             if (tx_result->tx.fees > 0) {
-                std::cout << "  Transaction fees: " << tx_result->tx.fees << " satoshis" << std::endl;
+                std::cout << "  Transaction fees: " << tx_result->tx.fees << " satoshis"
+                          << std::endl;
             }
 
             if (!tx_result->tosign.empty()) {
@@ -275,12 +278,14 @@ void TestNetworkConnectivity() {
         std::cout << "[FAILED]" << std::endl;
     }
 
-    std::cout << "\nConnectivity test results: " << successful_calls << "/" << total_calls << " endpoints accessible" << std::endl;
+    std::cout << "\nConnectivity test results: " << successful_calls << "/" << total_calls
+              << " endpoints accessible" << std::endl;
 
     if (successful_calls == total_calls) {
         std::cout << "[OK] All endpoints are accessible" << std::endl;
     } else if (successful_calls > 0) {
-        std::cout << "[WARNING] Some endpoints failed - may be rate limiting or network issues" << std::endl;
+        std::cout << "[WARNING] Some endpoints failed - may be rate limiting or network issues"
+                  << std::endl;
     } else {
         std::cout << "[ERROR] No endpoints accessible - check network connection" << std::endl;
     }
@@ -330,8 +335,10 @@ int main() {
         std::cout << "  - Create transaction skeleton (CreateTransaction)" << std::endl;
         std::cout << "  - Network connectivity checks" << std::endl;
         std::cout << "\n[READY] BlockCypher API integration is working correctly!" << std::endl;
-        std::cout << "\n[NOTE] Transaction broadcasting was not tested (requires testnet funds)." << std::endl;
-        std::cout << "       Use SendSignedTransaction() or SendRawTransaction() to broadcast" << std::endl;
+        std::cout << "\n[NOTE] Transaction broadcasting was not tested (requires testnet funds)."
+                  << std::endl;
+        std::cout << "       Use SendSignedTransaction() or SendRawTransaction() to broadcast"
+                  << std::endl;
         std::cout << "       when you have funded addresses." << std::endl;
 
         TestUtils::waitForUser();

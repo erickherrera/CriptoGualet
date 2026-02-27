@@ -301,7 +301,7 @@ void QtSeedDisplayDialog::generateQRCode() {
 
     // Check if we have valid QR data (width/height > 0 and data not empty)
     if (qrData.width <= 0 || qrData.height <= 0 || qrData.data.empty()) {
-        qDebug() << "QR Data validation failed: width=" << qrData.width 
+        qDebug() << "QR Data validation failed: width=" << qrData.width
                  << "height=" << qrData.height << "data size=" << qrData.data.size();
         displayQRError("QR Code Generation Failed\n\nPlease copy the words\nbelow manually");
         return;

@@ -1,15 +1,15 @@
 #pragma once
 
+#include <QTextEdit>
+#include <QComboBox>
 #include <QDialog>
+#include <QDoubleSpinBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QDoubleSpinBox>
-#include <QTextEdit>
-#include <QComboBox>
 #include <QSpinBox>
+#include <QVBoxLayout>
 #include <optional>
 
 // Forward declarations
@@ -27,15 +27,11 @@ class QtThemeManager;
 class QtSendDialog : public QDialog {
     Q_OBJECT
 
-public:
+  public:
     /**
      * @brief Blockchain type enumeration
      */
-    enum class ChainType {
-        BITCOIN,
-        LITECOIN,
-        ETHEREUM
-    };
+    enum class ChainType { BITCOIN, LITECOIN, ETHEREUM };
 
     /**
      * @brief Transaction data structure
@@ -72,7 +68,8 @@ public:
      * @param price Current cryptocurrency price in USD
      * @param parent Parent widget
      */
-    explicit QtSendDialog(ChainType chainType, double currentBalance, double price, QWidget* parent = nullptr);
+    explicit QtSendDialog(ChainType chainType, double currentBalance, double price,
+                          QWidget* parent = nullptr);
 
     /**
      * @brief Get the transaction data if user confirmed
@@ -80,7 +77,7 @@ public:
      */
     std::optional<TransactionData> getTransactionData() const;
 
-private slots:
+  private slots:
     void onRecipientAddressChanged();
     void onAmountChanged(double value);
     void onSendMaxClicked();
@@ -89,7 +86,7 @@ private slots:
     void onGasPriceChanged(int index);
     void onGasLimitChanged(int value);
 
-private:
+  private:
     void setupUI();
     void applyTheme();
     void updateEstimates();
@@ -100,7 +97,7 @@ private:
     bool validateLitecoinAddress(const QString& address) const;
     bool validateEthereumAddress(const QString& address) const;
 
-private:
+  private:
     QtThemeManager* m_themeManager;
     ChainType m_chainType;
 

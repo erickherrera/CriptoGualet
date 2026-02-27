@@ -3,15 +3,15 @@
 #include "../../../backend/blockchain/include/EthereumService.h"
 #include "../../../backend/blockchain/include/PriceService.h"
 #include "../../../backend/core/include/Crypto.h"
-#include "../../../backend/repository/include/Repository/TokenRepository.h"
 #include "../../../backend/core/include/WalletAPI.h"
+#include "../../../backend/repository/include/Repository/TokenRepository.h"
 #include "../../../backend/repository/include/Repository/UserRepository.h"
 #include "../../../backend/repository/include/Repository/WalletRepository.h"
 #include "QtTokenCard.h"
 #include <QTextEdit>
 #include <QTimer>
-#include <QDateTime>
 #include <QColor>
+#include <QDateTime>
 #include <QFrame>
 #include <QFutureWatcher>
 #include <QGridLayout>
@@ -79,7 +79,9 @@ class QtWalletUI : public QWidget {
 
   public slots:
     void onThemeChanged();
-    void refreshUSDBalance() { updateUSDBalance(); }
+    void refreshUSDBalance() {
+        updateUSDBalance();
+    }
 
   signals:
     void logoutRequested();
@@ -111,14 +113,14 @@ class QtWalletUI : public QWidget {
     void onImportTokenClicked();
     void onPriceFetchFinished();
     void onBalanceFetchFinished();
-     
-     // Stablecoin handlers
-     void onSendUSDTClicked();
-     void onReceiveUSDTClicked();
-     void onSendUSDCClicked();
-     void onReceiveUSDCClicked();
-     void onSendDAIClicked();
-     void onReceiveDAIClicked();
+
+    // Stablecoin handlers
+    void onSendUSDTClicked();
+    void onReceiveUSDTClicked();
+    void onSendUSDCClicked();
+    void onReceiveUSDCClicked();
+    void onSendDAIClicked();
+    void onReceiveDAIClicked();
 
   private:
     struct PriceFetchResult {
@@ -189,8 +191,8 @@ class QtWalletUI : public QWidget {
 
     // Private helper for deriving private key
     std::vector<uint8_t> derivePrivateKeyForAddress(const QString& address,
-                                                     const QString& password);
-    
+                                                    const QString& password);
+
     // Private helper for calculating token USD value
     double calculateTotalTokenUSDValue();
 
@@ -211,13 +213,13 @@ class QtWalletUI : public QWidget {
     class QtExpandableWalletCard* m_bitcoinWalletCard;
     class QtExpandableWalletCard* m_litecoinWalletCard;
     class QtExpandableWalletCard* m_ethereumWalletCard;
-    
+
     // Stablecoin section
     QLabel* m_stablecoinSectionHeader;
     class QtExpandableWalletCard* m_usdtWalletCard;
     class QtExpandableWalletCard* m_usdcWalletCard;
     class QtExpandableWalletCard* m_daiWalletCard;
-    
+
     QPushButton* m_importTokenButton;
     QLabel* m_statusLabel;  // PHASE 2
 

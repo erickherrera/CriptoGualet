@@ -47,7 +47,8 @@ class QtSidebar : public QWidget {
     void animateTextOpacity(qreal targetOpacity, int duration = 150, int delay = 0);
     void animateHoverLabelOpacity(qreal targetOpacity);
     void stopActiveTextAnimations();
-    void createOpacityAnimation(QGraphicsOpacityEffect* effect, qreal targetOpacity, int duration, int delay = 0);
+    void createOpacityAnimation(QGraphicsOpacityEffect* effect, qreal targetOpacity, int duration,
+                                int delay = 0);
 
     struct IconPair {
         QPixmap active;
@@ -70,9 +71,9 @@ class QtSidebar : public QWidget {
     QPropertyAnimation* m_hoverFadeAnimation;
     QList<QPropertyAnimation*> m_activeTextAnimations;
     QMetaObject::Connection m_hoverFadeFinishedConn;
-    
+
     QLabel* m_hoverLabel;
-    
+
     QGraphicsOpacityEffect* m_walletTextOpacity;
     QGraphicsOpacityEffect* m_topCryptosTextOpacity;
     QGraphicsOpacityEffect* m_settingsTextOpacity;

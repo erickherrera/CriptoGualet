@@ -1,12 +1,12 @@
 #pragma once
 
+#include <chrono>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
-#include <chrono>
 
 namespace Database {
-    class DatabaseManager;
+class DatabaseManager;
 }
 
 struct SessionRecord {
@@ -23,7 +23,7 @@ struct SessionRecord {
 };
 
 class SessionRepository {
-public:
+  public:
     explicit SessionRepository(Database::DatabaseManager& dbManager);
     bool storeSession(const SessionRecord& session);
     std::optional<SessionRecord> getSession(const std::string& sessionId) const;
@@ -32,7 +32,7 @@ public:
     std::vector<SessionRecord> getActiveSessions(int userId) const;
     void cleanupExpiredSessions();
 
-private:
+  private:
     Database::DatabaseManager& m_dbManager;
     bool ensureTableExists();
 };

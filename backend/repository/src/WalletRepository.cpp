@@ -1,9 +1,9 @@
 #include "../include/Repository/WalletRepository.h"
-#include <sstream>
-#include <iomanip>
 #include <algorithm>
-#include <set>
 #include <cstring>
+#include <iomanip>
+#include <set>
+#include <sstream>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE
@@ -20,9 +20,9 @@ WalletRepository::WalletRepository(Database::DatabaseManager& dbManager) : m_dbM
 }
 
 Result<Wallet> WalletRepository::createWallet(int userId, const std::string& walletName,
-                                             const std::string& walletType,
-                                             const std::optional<std::string>& derivationPath,
-                                             const std::optional<std::string>& extendedPublicKey) {
+                                              const std::string& walletType,
+                                              const std::optional<std::string>& derivationPath,
+                                              const std::optional<std::string>& extendedPublicKey) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "createWallet");
 
     // Validate input parameters
@@ -94,14 +94,16 @@ Result<Wallet> WalletRepository::createWallet(int userId, const std::string& wal
         auto addressResult = generateAddress(walletId, false, "Default receiving address");
         if (!addressResult) {
             m_dbManager.rollbackTransaction();
-            REPO_LOG_ERROR(COMPONENT_NAME, "Failed to generate initial address", addressResult.error());
+            REPO_LOG_ERROR(COMPONENT_NAME, "Failed to generate initial address",
+                           addressResult.error());
             return Result<Wallet>("Failed to generate initial wallet address", 500);
         }
 
         // Commit transaction
         auto commitResult = m_dbManager.commitTransaction();
         if (!commitResult) {
-            REPO_LOG_ERROR(COMPONENT_NAME, "Failed to commit wallet creation", commitResult.message);
+            REPO_LOG_ERROR(COMPONENT_NAME, "Failed to commit wallet creation",
+                           commitResult.message);
             return Result<Wallet>("Failed to commit wallet creation", 500);
         }
 
@@ -109,7 +111,8 @@ Result<Wallet> WalletRepository::createWallet(int userId, const std::string& wal
         auto walletResult = getWalletById(walletId);
         if (walletResult) {
             REPO_LOG_INFO(COMPONENT_NAME, "Wallet created successfully",
-                         "Name: " + walletName + ", ID: " + std::to_string(walletId) + ", Type: " + walletType);
+                          "Name: " + walletName + ", ID: " + std::to_string(walletId) +
+                              ", Type: " + walletType);
         }
 
         return walletResult;
@@ -190,8 +193,9 @@ Result<std::vector<Wallet>> WalletRepository::getWalletsByUserId(int userId, boo
 }
 
 // PHASE 3: Get wallets by type for a user
-Result<std::vector<Wallet>> WalletRepository::getWalletsByType(int userId, const std::string& walletType,
-                                                                bool includeInactive) {
+Result<std::vector<Wallet>> WalletRepository::getWalletsByType(int userId,
+                                                               const std::string& walletType,
+                                                               bool includeInactive) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "getWalletsByType");
 
     // Validate wallet type
@@ -269,7 +273,7 @@ Result<Wallet> WalletRepository::getWalletByName(int userId, const std::string& 
 }
 
 Result<Address> WalletRepository::generateAddress(int walletId, bool isChange,
-                                                 const std::optional<std::string>& label) {
+                                                  const std::optional<std::string>& label) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "generateAddress");
 
     // Get next address index
@@ -339,8 +343,8 @@ Result<Address> WalletRepository::generateAddress(int walletId, bool isChange,
         sqlite3_finalize(stmt);
 
         REPO_LOG_INFO(COMPONENT_NAME, "Address generated successfully",
-                     "Address: " + addressStr + ", Index: " + std::to_string(addressIndex) +
-                     ", IsChange: " + (isChange ? "true" : "false"));
+                      "Address: " + addressStr + ", Index: " + std::to_string(addressIndex) +
+                          ", IsChange: " + (isChange ? "true" : "false"));
 
         return Result<Address>(address);
     } else {
@@ -349,8 +353,8 @@ Result<Address> WalletRepository::generateAddress(int walletId, bool isChange,
     }
 }
 
-Result<std::vector<Address>> WalletRepository::getAddressesByWallet(int walletId,
-                                                                   const std::optional<bool>& isChange) {
+Result<std::vector<Address>> WalletRepository::getAddressesByWallet(
+    int walletId, const std::optional<bool>& isChange) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "getAddressesByWallet");
 
     std::string sql = R"(
@@ -433,7 +437,7 @@ Result<WalletSummary> WalletRepository::getWalletSummary(int walletId) {
 
         const char* lastTxDateStr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
         if (lastTxDateStr && strlen(lastTxDateStr) > 0) {
-            summary.lastTransactionDate = std::chrono::system_clock::now(); // Simplified
+            summary.lastTransactionDate = std::chrono::system_clock::now();  // Simplified
         }
 
         sqlite3_finalize(stmt);
@@ -445,7 +449,7 @@ Result<WalletSummary> WalletRepository::getWalletSummary(int walletId) {
 }
 
 Result<bool> WalletRepository::storeEncryptedSeed(int userId, const std::string& password,
-                                                 const std::vector<std::string>& mnemonic) {
+                                                  const std::vector<std::string>& mnemonic) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "storeEncryptedSeed");
 
     // Encrypt the seed using our crypto functions
@@ -470,25 +474,27 @@ Result<bool> WalletRepository::storeEncryptedSeed(int userId, const std::string&
 
     sqlite3_bind_int(stmt, 1, userId);
     sqlite3_bind_blob(stmt, 2, encryptedSeed.encrypted_data.data(),
-                     static_cast<int>(encryptedSeed.encrypted_data.size()), SQLITE_STATIC);
+                      static_cast<int>(encryptedSeed.encrypted_data.size()), SQLITE_STATIC);
     sqlite3_bind_blob(stmt, 3, encryptedSeed.salt.data(),
-                     static_cast<int>(encryptedSeed.salt.size()), SQLITE_STATIC);
+                      static_cast<int>(encryptedSeed.salt.size()), SQLITE_STATIC);
     sqlite3_bind_blob(stmt, 4, encryptedSeed.verification_hash.data(),
-                     static_cast<int>(encryptedSeed.verification_hash.size()), SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 5, 600000); // PBKDF2 iterations
+                      static_cast<int>(encryptedSeed.verification_hash.size()), SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 5, 600000);  // PBKDF2 iterations
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
     if (rc == SQLITE_DONE) {
-        REPO_LOG_INFO(COMPONENT_NAME, "Encrypted seed stored successfully", "UserID: " + std::to_string(userId));
+        REPO_LOG_INFO(COMPONENT_NAME, "Encrypted seed stored successfully",
+                      "UserID: " + std::to_string(userId));
         return Result<bool>(true);
     } else {
         return Result<bool>("Failed to store encrypted seed", 500);
     }
 }
 
-Result<std::vector<std::string>> WalletRepository::retrieveDecryptedSeed(int userId, const std::string& password) {
+Result<std::vector<std::string>> WalletRepository::retrieveDecryptedSeed(
+    int userId, const std::string& password) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "retrieveDecryptedSeed");
 
     // Retrieve encrypted seed from database
@@ -522,22 +528,23 @@ Result<std::vector<std::string>> WalletRepository::retrieveDecryptedSeed(int use
     const void* encryptedData = sqlite3_column_blob(stmt, 0);
     int encryptedSize = sqlite3_column_bytes(stmt, 0);
     if (encryptedData && encryptedSize > 0) {
-        encryptedSeed.encrypted_data.assign(static_cast<const uint8_t*>(encryptedData),
-                                           static_cast<const uint8_t*>(encryptedData) + encryptedSize);
+        encryptedSeed.encrypted_data.assign(
+            static_cast<const uint8_t*>(encryptedData),
+            static_cast<const uint8_t*>(encryptedData) + encryptedSize);
     }
 
     const void* saltData = sqlite3_column_blob(stmt, 1);
     int saltSize = sqlite3_column_bytes(stmt, 1);
     if (saltData && saltSize > 0) {
         encryptedSeed.salt.assign(static_cast<const uint8_t*>(saltData),
-                                 static_cast<const uint8_t*>(saltData) + saltSize);
+                                  static_cast<const uint8_t*>(saltData) + saltSize);
     }
 
     const void* hashData = sqlite3_column_blob(stmt, 2);
     int hashSize = sqlite3_column_bytes(stmt, 2);
     if (hashData && hashSize > 0) {
         encryptedSeed.verification_hash.assign(static_cast<const uint8_t*>(hashData),
-                                              static_cast<const uint8_t*>(hashData) + hashSize);
+                                               static_cast<const uint8_t*>(hashData) + hashSize);
     }
 
     sqlite3_finalize(stmt);
@@ -545,11 +552,14 @@ Result<std::vector<std::string>> WalletRepository::retrieveDecryptedSeed(int use
     // Decrypt the seed
     std::vector<std::string> mnemonic;
     if (!Crypto::DecryptSeedPhrase(password, encryptedSeed, mnemonic)) {
-        REPO_LOG_WARNING(COMPONENT_NAME, "Failed to decrypt seed phrase", "UserID: " + std::to_string(userId));
-        return Result<std::vector<std::string>>("Failed to decrypt seed phrase - invalid password", 401);
+        REPO_LOG_WARNING(COMPONENT_NAME, "Failed to decrypt seed phrase",
+                         "UserID: " + std::to_string(userId));
+        return Result<std::vector<std::string>>("Failed to decrypt seed phrase - invalid password",
+                                                401);
     }
 
-    REPO_LOG_INFO(COMPONENT_NAME, "Seed phrase decrypted successfully", "UserID: " + std::to_string(userId));
+    REPO_LOG_INFO(COMPONENT_NAME, "Seed phrase decrypted successfully",
+                  "UserID: " + std::to_string(userId));
     return Result<std::vector<std::string>>(mnemonic);
 }
 
@@ -590,7 +600,7 @@ Address WalletRepository::mapRowToAddress(sqlite3_stmt* stmt) {
         address.publicKey = publicKey;
     }
 
-    address.createdAt = std::chrono::system_clock::now(); // Simplified
+    address.createdAt = std::chrono::system_clock::now();  // Simplified
 
     const char* label = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
     if (label && strlen(label) > 0) {
@@ -615,9 +625,8 @@ Result<bool> WalletRepository::validateWalletName(const std::string& walletName)
 }
 
 Result<bool> WalletRepository::validateWalletType(const std::string& walletType) {
-    static const std::set<std::string> validTypes = {
-        "bitcoin", "bitcoin_testnet", "litecoin", "ethereum"
-    };
+    static const std::set<std::string> validTypes = {"bitcoin", "bitcoin_testnet", "litecoin",
+                                                     "ethereum"};
 
     if (validTypes.find(walletType) == validTypes.end()) {
         return Result<bool>("Invalid wallet type", 400);
@@ -653,14 +662,16 @@ Result<int> WalletRepository::getNextAddressIndex(int walletId, bool isChange) {
     }
 }
 
-std::string WalletRepository::generateAddressString(const std::string& walletType, int walletId, int addressIndex, bool isChange) {
+std::string WalletRepository::generateAddressString(const std::string& walletType, int walletId,
+                                                    int addressIndex, bool isChange) {
     // Simplified address generation for testing purposes
     // In production, this would use proper BIP44 derivation via the Crypto module
     std::ostringstream oss;
-    
+
     if (walletType == "litecoin") {
         // Litecoin mainnet addresses typically start with L
-        oss << "L" << std::hex << walletId << std::setfill('0') << std::setw(4) << addressIndex << (isChange ? "c" : "r");
+        oss << "L" << std::hex << walletId << std::setfill('0') << std::setw(4) << addressIndex
+            << (isChange ? "c" : "r");
         // Fill to standard length
         std::string res = oss.str();
         if (res.length() < 30) {
@@ -669,8 +680,8 @@ std::string WalletRepository::generateAddressString(const std::string& walletTyp
         return res;
     } else if (walletType == "ethereum") {
         // Ethereum addresses are 0x + 40 hex chars
-        oss << "0x" << std::hex << std::setfill('0') << std::setw(8) << walletId 
-            << std::setw(8) << addressIndex << (isChange ? "c" : "f");
+        oss << "0x" << std::hex << std::setfill('0') << std::setw(8) << walletId << std::setw(8)
+            << addressIndex << (isChange ? "c" : "f");
         std::string res = oss.str();
         if (res.length() < 42) {
             res.append(42 - res.length(), '0');
@@ -678,7 +689,8 @@ std::string WalletRepository::generateAddressString(const std::string& walletTyp
         return res;
     } else {
         // Default to Bitcoin (bc1q...)
-        oss << "bc1q" << std::hex << walletId << std::setfill('0') << std::setw(4) << addressIndex << (isChange ? "c" : "r");
+        oss << "bc1q" << std::hex << walletId << std::setfill('0') << std::setw(4) << addressIndex
+            << (isChange ? "c" : "r");
         std::string res = oss.str();
         if (res.length() < 42) {
             res.append(42 - res.length(), 'z');
@@ -692,20 +704,21 @@ std::string WalletRepository::generateEthereumAddress(int walletId, int addressI
     // Format: 0x + 40 hex chars
     std::ostringstream oss;
     oss << "0x";
-    
+
     // Use walletId and index to create a deterministic but unique mock address
-    // We need 40 chars. 
+    // We need 40 chars.
     // Fill with a pattern based on walletId (4 chars) and index (4 chars) and padding
     oss << std::hex << std::setfill('0') << std::setw(4) << walletId;
     oss << std::hex << std::setfill('0') << std::setw(4) << addressIndex;
-    
+
     // Fill remaining 32 chars with a placeholder pattern
     oss << "00000000000000000000000000000000";
-    
+
     return oss.str();
 }
 
-std::string WalletRepository::generateLitecoinAddress(int walletId, int addressIndex, bool isChange) {
+std::string WalletRepository::generateLitecoinAddress(int walletId, int addressIndex,
+                                                      bool isChange) {
     // Simplified address generation for Litecoin (Bech32 prefix ltc1)
     std::ostringstream oss;
     oss << "ltc1q" << std::hex << walletId << addressIndex << (isChange ? "c" : "r");
@@ -740,9 +753,9 @@ int64_t WalletRepository::calculateWalletBalance(int walletId) {
 // === Additional Wallet Management Methods ===
 
 Result<bool> WalletRepository::updateWallet(int walletId,
-                                           const std::optional<std::string>& walletName,
-                                           const std::optional<std::string>& derivationPath,
-                                           const std::optional<std::string>& extendedPublicKey) {
+                                            const std::optional<std::string>& walletName,
+                                            const std::optional<std::string>& derivationPath,
+                                            const std::optional<std::string>& extendedPublicKey) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "updateWallet");
 
     std::string sql = "UPDATE wallets SET ";
@@ -769,7 +782,8 @@ Result<bool> WalletRepository::updateWallet(int walletId,
     }
 
     for (size_t i = 0; i < updates.size(); ++i) {
-        if (i > 0) sql += ", ";
+        if (i > 0)
+            sql += ", ";
         sql += updates[i];
     }
     sql += " WHERE id = ?";
@@ -796,7 +810,8 @@ Result<bool> WalletRepository::updateWallet(int walletId,
     sqlite3_finalize(stmt);
 
     if (rc == SQLITE_DONE) {
-        REPO_LOG_INFO(COMPONENT_NAME, "Wallet updated successfully", "WalletID: " + std::to_string(walletId));
+        REPO_LOG_INFO(COMPONENT_NAME, "Wallet updated successfully",
+                      "WalletID: " + std::to_string(walletId));
         return Result<bool>(true);
     } else {
         return Result<bool>("Database error during wallet update", 500);
@@ -1054,14 +1069,15 @@ Result<UTXO> WalletRepository::addUTXO(int walletId, int addressId, const std::s
         utxo.createdAt = std::chrono::system_clock::now();
 
         REPO_LOG_INFO(COMPONENT_NAME, "UTXO added successfully",
-                     "TXID: " + txid + ", Vout: " + std::to_string(vout));
+                      "TXID: " + txid + ", Vout: " + std::to_string(vout));
         return Result<UTXO>(utxo);
     } else {
         return Result<UTXO>("Failed to insert UTXO", 500);
     }
 }
 
-Result<std::vector<UTXO>> WalletRepository::getUnspentUTXOs(int walletId, uint32_t minConfirmations) {
+Result<std::vector<UTXO>> WalletRepository::getUnspentUTXOs(int walletId,
+                                                            uint32_t minConfirmations) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "getUnspentUTXOs");
 
     const std::string sql = R"(
@@ -1099,13 +1115,15 @@ Result<std::vector<UTXO>> WalletRepository::getUnspentUTXOs(int walletId, uint32
     }
 }
 
-Result<std::vector<UTXO>> WalletRepository::getUnspentUTXOsByAddress(int addressId, uint32_t minConfirmations) {
+Result<std::vector<UTXO>> WalletRepository::getUnspentUTXOsByAddress(int addressId,
+                                                                     uint32_t minConfirmations) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "getUnspentUTXOsByAddress");
 
     // Get address string first
     const std::string addressSql = "SELECT address FROM addresses WHERE id = ?";
     sqlite3_stmt* addrStmt = nullptr;
-    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), addressSql.c_str(), -1, &addrStmt, nullptr);
+    int rc =
+        sqlite3_prepare_v2(m_dbManager.getHandle(), addressSql.c_str(), -1, &addrStmt, nullptr);
     if (rc != SQLITE_OK) {
         return Result<std::vector<UTXO>>("Failed to query address", 500);
     }
@@ -1188,7 +1206,8 @@ Result<bool> WalletRepository::markUTXOAsSpent(int utxoId, const std::string& sp
     }
 }
 
-Result<bool> WalletRepository::markUTXOsAsSpent(const std::vector<int>& utxoIds, const std::string& spentInTxid) {
+Result<bool> WalletRepository::markUTXOsAsSpent(const std::vector<int>& utxoIds,
+                                                const std::string& spentInTxid) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "markUTXOsAsSpent");
 
     if (utxoIds.empty()) {
@@ -1215,7 +1234,7 @@ Result<bool> WalletRepository::markUTXOsAsSpent(const std::vector<int>& utxoIds,
         }
 
         REPO_LOG_INFO(COMPONENT_NAME, "Multiple UTXOs marked as spent",
-                     "Count: " + std::to_string(utxoIds.size()));
+                      "Count: " + std::to_string(utxoIds.size()));
         return Result<bool>(true);
 
     } catch (const std::exception&) {
@@ -1224,7 +1243,8 @@ Result<bool> WalletRepository::markUTXOsAsSpent(const std::vector<int>& utxoIds,
     }
 }
 
-Result<bool> WalletRepository::updateUTXOConfirmations(const std::string& txid, uint32_t confirmations) {
+Result<bool> WalletRepository::updateUTXOConfirmations(const std::string& txid,
+                                                       uint32_t confirmations) {
     REPO_SCOPED_LOG(COMPONENT_NAME, "updateUTXOConfirmations");
 
     const std::string sql = "UPDATE transactions SET confirmation_count = ? WHERE txid = ?";
@@ -1358,10 +1378,10 @@ UTXO WalletRepository::mapRowToUTXO(sqlite3_stmt* stmt) {
     utxo.confirmations = static_cast<uint32_t>(sqlite3_column_int(stmt, 6));
     // Column 7 is is_confirmed boolean - currently unused but read for future use
     // bool isConfirmed = sqlite3_column_int(stmt, 7) != 0;
-    (void)sqlite3_column_int(stmt, 7); // Suppress unused warning
-    utxo.isSpent = false;  // We only query unspent UTXOs, so this is always false
-    utxo.createdAt = std::chrono::system_clock::now(); // Simplified
+    (void)sqlite3_column_int(stmt, 7);  // Suppress unused warning
+    utxo.isSpent = false;               // We only query unspent UTXOs, so this is always false
+    utxo.createdAt = std::chrono::system_clock::now();  // Simplified
     return utxo;
 }
 
-} // namespace Repository
+}  // namespace Repository

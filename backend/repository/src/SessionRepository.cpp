@@ -9,7 +9,7 @@
 #include <sqlite3.h>
 #endif
 
-SessionRepository::SessionRepository(Database::DatabaseManager& dbManager) 
+SessionRepository::SessionRepository(Database::DatabaseManager& dbManager)
     : m_dbManager(dbManager) {
     // Queries removed from constructor to prevent issues with uninitialized DatabaseManager
 }
@@ -69,9 +69,12 @@ std::optional<SessionRecord> SessionRepository::getSession(const std::string& se
                 record.sessionId = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
                 record.userId = sqlite3_column_int(stmt, 1);
                 record.username = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-                record.createdAt = std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 3));
-                record.expiresAt = std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 4));
-                record.lastActivity = std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 5));
+                record.createdAt =
+                    std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 3));
+                record.expiresAt =
+                    std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 4));
+                record.lastActivity =
+                    std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 5));
                 record.ipAddress = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
                 record.userAgent = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
                 record.totpAuthenticated = sqlite3_column_int(stmt, 8);
@@ -87,8 +90,9 @@ std::optional<SessionRecord> SessionRepository::getSession(const std::string& se
 
 bool SessionRepository::updateSessionActivity(const std::string& sessionId) {
     ensureTableExists();
-    std::string updateQuery = "UPDATE sessions SET lastActivity = ?, expiresAt = ? WHERE sessionId = ?;";
-    
+    std::string updateQuery =
+        "UPDATE sessions SET lastActivity = ?, expiresAt = ? WHERE sessionId = ?;";
+
     auto now = std::chrono::system_clock::now();
     auto newExpiresAt = now + std::chrono::minutes(15);
 
@@ -122,9 +126,12 @@ std::vector<SessionRecord> SessionRepository::getActiveSessions(int userId) cons
                 record.sessionId = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
                 record.userId = sqlite3_column_int(stmt, 1);
                 record.username = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-                record.createdAt = std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 3));
-                record.expiresAt = std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 4));
-                record.lastActivity = std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 5));
+                record.createdAt =
+                    std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 3));
+                record.expiresAt =
+                    std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 4));
+                record.lastActivity =
+                    std::chrono::system_clock::from_time_t(sqlite3_column_int64(stmt, 5));
                 record.ipAddress = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
                 record.userAgent = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
                 record.totpAuthenticated = sqlite3_column_int(stmt, 8);
@@ -141,6 +148,7 @@ std::vector<SessionRecord> SessionRepository::getActiveSessions(int userId) cons
 void SessionRepository::cleanupExpiredSessions() {
     ensureTableExists();
     std::string deleteQuery = "DELETE FROM sessions WHERE expiresAt < ?;";
-    std::string now = std::to_string(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+    std::string now =
+        std::to_string(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
     m_dbManager.executeQuery(deleteQuery, {now});
 }

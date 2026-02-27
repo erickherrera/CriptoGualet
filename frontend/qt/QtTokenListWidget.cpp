@@ -1,13 +1,11 @@
 #include "QtTokenListWidget.h"
 #include "QtThemeManager.h"
-#include <QLineEdit>
 #include <QComboBox>
+#include <QLineEdit>
 #include <QScrollBar>
 
 QtTokenListWidget::QtTokenListWidget(QtThemeManager* themeManager, QWidget* parent)
-    : QWidget(parent)
-    , m_themeManager(themeManager)
-{
+    : QWidget(parent), m_themeManager(themeManager) {
     setupUI();
     applyTheme();
     setEmptyMessage("No tokens imported yet.\nClick 'Import Token' to add your first ERC20 token.");
@@ -54,7 +52,8 @@ void QtTokenListWidget::removeToken(const QString& contractAddress) {
     m_countLabel->setText(QString("%1 tokens").arg(m_tokenCards.size()));
 }
 
-void QtTokenListWidget::updateTokenBalance(const QString& contractAddress, const QString& balance, const QString& balanceUSD) {
+void QtTokenListWidget::updateTokenBalance(const QString& contractAddress, const QString& balance,
+                                           const QString& balanceUSD) {
     auto it = m_tokenCards.find(contractAddress);
     if (it != m_tokenCards.end()) {
         QtTokenCard* card = it.value();
@@ -92,11 +91,14 @@ void QtTokenListWidget::applyTheme() {
     m_searchInput->setStyleSheet(lineEditStyle);
     m_sortCombo->setStyleSheet("QComboBox { " + lineEditStyle + " padding: 8px; }");
     m_importButton->setStyleSheet(buttonStyle);
-    m_emptyLabel->setStyleSheet(labelStyle + "QLabel { color: " + m_themeManager->subtitleColor().name() + "; text-align: center; }");
-    m_countLabel->setStyleSheet(labelStyle + "QLabel { color: " + m_themeManager->subtitleColor().name() + "; font-size: 12px; }");
+    m_emptyLabel->setStyleSheet(labelStyle + "QLabel { color: " +
+                                m_themeManager->subtitleColor().name() + "; text-align: center; }");
+    m_countLabel->setStyleSheet(labelStyle + "QLabel { color: " +
+                                m_themeManager->subtitleColor().name() + "; font-size: 12px; }");
 
     m_scrollArea->setStyleSheet("QScrollArea { border: none; background-color: transparent; }");
-    m_scrollContent->setStyleSheet("QWidget { background-color: " + m_themeManager->backgroundColor().name() + "; }");
+    m_scrollContent->setStyleSheet(
+        "QWidget { background-color: " + m_themeManager->backgroundColor().name() + "; }");
 
     for (auto card : m_tokenCards) {
         card->applyTheme();
@@ -125,7 +127,7 @@ void QtTokenListWidget::onImportClicked() {
 }
 
 void QtTokenListWidget::onSearchChanged(const QString& text) {
-    (void)text; // Suppress unused parameter warning
+    (void)text;  // Suppress unused parameter warning
     updateTokenVisibility();
 }
 
@@ -188,7 +190,8 @@ void QtTokenListWidget::setupUI() {
 
     connect(m_importButton, &QPushButton::clicked, this, &QtTokenListWidget::onImportClicked);
     connect(m_searchInput, &QLineEdit::textChanged, this, &QtTokenListWidget::onSearchChanged);
-    connect(m_sortCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &QtTokenListWidget::onSortChanged);
+    connect(m_sortCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &QtTokenListWidget::onSortChanged);
 }
 
 void QtTokenListWidget::updateTokenVisibility() {
@@ -202,9 +205,9 @@ void QtTokenListWidget::updateTokenVisibility() {
         TokenCardData tokenData = card->getTokenData();
 
         bool matchesSearch = searchText.isEmpty() ||
-                            tokenData.symbol.toLower().contains(searchText) ||
-                            tokenData.name.toLower().contains(searchText) ||
-                            tokenData.contractAddress.toLower().contains(searchText);
+                             tokenData.symbol.toLower().contains(searchText) ||
+                             tokenData.name.toLower().contains(searchText) ||
+                             tokenData.contractAddress.toLower().contains(searchText);
 
         card->setVisible(matchesSearch);
         if (matchesSearch) {
@@ -212,7 +215,8 @@ void QtTokenListWidget::updateTokenVisibility() {
         }
     }
 
-    auto compareCards = [sortMode](const QPair<QString, QtTokenCard*>& a, const QPair<QString, QtTokenCard*>& b) {
+    auto compareCards = [sortMode](const QPair<QString, QtTokenCard*>& a,
+                                   const QPair<QString, QtTokenCard*>& b) {
         TokenCardData dataA = a.second->getTokenData();
         TokenCardData dataB = b.second->getTokenData();
 
@@ -258,5 +262,3 @@ QString QtTokenListWidget::calculateTokenUSD(const QString& balance, const QStri
     // For now, return a placeholder - this would need real price data
     return "$0.00 USD";
 }
-
-

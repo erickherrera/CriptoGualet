@@ -1,15 +1,15 @@
 #pragma once
 
+#include <QCheckBox>
 #include <QDialog>
+#include <QDoubleSpinBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPushButton>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QDoubleSpinBox>
-#include <QCheckBox>
 #include <QPixmap>
+#include <QPushButton>
 #include <QScrollArea>
+#include <QVBoxLayout>
 
 // Forward declarations
 class QtThemeManager;
@@ -27,15 +27,11 @@ class QResizeEvent;
 class QtReceiveDialog : public QDialog {
     Q_OBJECT
 
-public:
+  public:
     /**
      * @brief Blockchain type enumeration
      */
-    enum class ChainType {
-        BITCOIN,
-        LITECOIN,
-        ETHEREUM
-    };
+    enum class ChainType { BITCOIN, LITECOIN, ETHEREUM };
 
     /**
      * @brief Constructor
@@ -43,18 +39,19 @@ public:
      * @param address Receiving address to display
      * @param parent Parent widget
      */
-    explicit QtReceiveDialog(ChainType chainType, const QString& address, QWidget* parent = nullptr);
+    explicit QtReceiveDialog(ChainType chainType, const QString& address,
+                             QWidget* parent = nullptr);
 
-protected:
+  protected:
     void resizeEvent(QResizeEvent* event) override;
 
-private slots:
+  private slots:
     void onCopyAddressClicked();
     void onAmountChanged(double value);
     void onIncludeAmountToggled(bool checked);
     void onCloseClicked();
 
-private:
+  private:
     void setupUI();
     void applyTheme();
     void generateQRCode();
@@ -63,7 +60,7 @@ private:
     QString getPaymentURI() const;
     QString formatCrypto(double amount) const;
 
-private:
+  private:
     QtThemeManager* m_themeManager;
     ChainType m_chainType;
     QString m_address;
@@ -103,6 +100,6 @@ private:
     double m_requestAmount;
 
     // Constants
-    static constexpr int QR_CODE_SIZE = 300;  // Display size in pixels
+    static constexpr int QR_CODE_SIZE = 300;   // Display size in pixels
     static constexpr int QR_SCALE_FACTOR = 8;  // Scale factor for QR generation
 };

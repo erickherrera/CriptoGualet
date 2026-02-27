@@ -3,9 +3,9 @@
 #include "Repository/Logger.h"
 #include "Repository/UserRepository.h"
 #include "Repository/WalletRepository.h"
+#include <cstdio>
 #include <filesystem>
 #include <iostream>
-#include <cstdio>
 #ifdef _WIN32
 #include <io.h>
 #else

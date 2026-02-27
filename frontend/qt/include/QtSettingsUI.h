@@ -1,5 +1,6 @@
 #pragma once
 
+#include "QtThemeManager.h"
 #include <QCheckBox>
 #include <QComboBox>
 #include <QHBoxLayout>
@@ -12,13 +13,12 @@
 #include <QString>
 #include <QVBoxLayout>
 #include <QWidget>
-#include "QtThemeManager.h"
 
 namespace Repository {
 class SettingsRepository;
 class UserRepository;
 class WalletRepository;
-}
+}  // namespace Repository
 
 class QtSettingsUI : public QWidget {
     Q_OBJECT
@@ -39,12 +39,9 @@ class QtSettingsUI : public QWidget {
 
   signals:
     void themeChangeRequested(ThemeType theme);
-    void bitcoinProviderSettingsChanged(const QString& providerType,
-                                        const QString& rpcUrl,
-                                        const QString& rpcUsername,
-                                        const QString& rpcPassword,
-                                        bool allowInsecureHttp,
-                                        bool enableFallback);
+    void bitcoinProviderSettingsChanged(const QString& providerType, const QString& rpcUrl,
+                                        const QString& rpcUsername, const QString& rpcPassword,
+                                        bool allowInsecureHttp, bool enableFallback);
 
   private slots:
     void onEnable2FAClicked();

@@ -1,7 +1,7 @@
 #include "BlockCypher.h"
 #include <cpr/cpr.h>
-#include <nlohmann/json.hpp>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <regex>
 
 using json = nlohmann::json;
@@ -21,7 +21,8 @@ std::string BlockCypherClient::BuildUrl(const std::string& endpoint) {
     return url;
 }
 
-std::string BlockCypherClient::MakeRequest(const std::string& endpoint, const std::string& method, const std::string& payload) {
+std::string BlockCypherClient::MakeRequest(const std::string& endpoint, const std::string& method,
+                                           const std::string& payload) {
     try {
         std::string url = BuildUrl(endpoint);
 
@@ -29,11 +30,8 @@ std::string BlockCypherClient::MakeRequest(const std::string& endpoint, const st
         if (method == "GET") {
             response = cpr::Get(cpr::Url{url});
         } else if (method == "POST") {
-            response = cpr::Post(
-                cpr::Url{url},
-                cpr::Body{payload},
-                cpr::Header{{"Content-Type", "application/json"}}
-            );
+            response = cpr::Post(cpr::Url{url}, cpr::Body{payload},
+                                 cpr::Header{{"Content-Type", "application/json"}});
         } else {
             return "";
         }
@@ -41,7 +39,8 @@ std::string BlockCypherClient::MakeRequest(const std::string& endpoint, const st
         if (response.status_code >= 200 && response.status_code < 300) {
             return response.text;
         } else {
-            std::cerr << "HTTP Error " << response.status_code << ": " << response.text << std::endl;
+            std::cerr << "HTTP Error " << response.status_code << ": " << response.text
+                      << std::endl;
             return "";
         }
     } catch (const std::exception& e) {
@@ -74,7 +73,8 @@ std::optional<AddressBalance> BlockCypherClient::GetAddressBalance(const std::st
     }
 }
 
-std::optional<std::vector<std::string>> BlockCypherClient::GetAddressTransactions(const std::string& address, uint32_t limit) {
+std::optional<std::vector<std::string>> BlockCypherClient::GetAddressTransactions(
+    const std::string& address, uint32_t limit) {
     try {
         std::string endpoint = "addrs/" + address + "?limit=" + std::to_string(limit);
         std::string response = MakeRequest(endpoint);
@@ -173,7 +173,8 @@ std::optional<Transaction> BlockCypherClient::GetTransaction(const std::string& 
     }
 }
 
-std::optional<CreateTransactionResponse> BlockCypherClient::CreateTransaction(const CreateTransactionRequest& request) {
+std::optional<CreateTransactionResponse> BlockCypherClient::CreateTransaction(
+    const CreateTransactionRequest& request) {
     try {
         json payload;
 
@@ -186,10 +187,7 @@ std::optional<CreateTransactionResponse> BlockCypherClient::CreateTransaction(co
         // Build outputs
         payload["outputs"] = json::array();
         for (const auto& output : request.outputs) {
-            payload["outputs"].push_back({
-                {"addresses", {output.first}},
-                {"value", output.second}
-            });
+            payload["outputs"].push_back({{"addresses", {output.first}}, {"value", output.second}});
         }
 
         // Add fees if specified
@@ -246,7 +244,8 @@ std::optional<CreateTransactionResponse> BlockCypherClient::CreateTransaction(co
     }
 }
 
-std::optional<std::string> BlockCypherClient::SendSignedTransaction(const CreateTransactionResponse& signed_tx) {
+std::optional<std::string> BlockCypherClient::SendSignedTransaction(
+    const CreateTransactionResponse& signed_tx) {
     try {
         json payload;
 
@@ -275,7 +274,8 @@ std::optional<std::string> BlockCypherClient::SendSignedTransaction(const Create
 
         // Check for errors
         if (j.contains("errors") && j["errors"].is_array() && !j["errors"].empty()) {
-            std::cerr << "BlockCypher error: " << j["errors"][0].value("error", "Unknown error") << std::endl;
+            std::cerr << "BlockCypher error: " << j["errors"][0].value("error", "Unknown error")
+                      << std::endl;
             return std::nullopt;
         }
 
@@ -315,7 +315,8 @@ std::optional<std::string> BlockCypherClient::SendRawTransaction(const std::stri
 
 bool BlockCypherClient::IsValidAddress(const std::string& address) {
     // Basic Bitcoin address validation
-    if (address.empty()) return false;
+    if (address.empty())
+        return false;
 
     // Bitcoin mainnet addresses
     if (network == "btc/main") {
@@ -335,7 +336,8 @@ bool BlockCypherClient::IsValidAddress(const std::string& address) {
     // Bitcoin testnet addresses
     else if (network == "btc/test3") {
         // Testnet legacy (m... or n...)
-        if ((address[0] == 'm' || address[0] == 'n') && address.length() >= 26 && address.length() <= 35) {
+        if ((address[0] == 'm' || address[0] == 'n') && address.length() >= 26 &&
+            address.length() <= 35) {
             return true;
         }
         // Testnet P2SH (2...)
@@ -379,4 +381,4 @@ void BlockCypherClient::SetNetwork(const std::string& network) {
     this->network = network;
 }
 
-} // namespace BlockCypher
+}  // namespace BlockCypher

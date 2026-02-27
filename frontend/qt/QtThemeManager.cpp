@@ -7,7 +7,9 @@ QtThemeManager& QtThemeManager::instance() {
     return instance;
 }
 
-QtThemeManager::QtThemeManager(QObject* parent) : QObject(parent) { setupCryptoDarkTheme(); }
+QtThemeManager::QtThemeManager(QObject* parent) : QObject(parent) {
+    setupCryptoDarkTheme();
+}
 
 int QtThemeManager::spacing(int scale) const {
     static const QMap<int, int> spacingScale = {
@@ -111,12 +113,13 @@ void QtThemeManager::setupLightTheme() {
     m_secondaryColor =
         QColor(148, 163, 184);  // Slate-400 - FIXED: better contrast (was 226,232,240)
     m_backgroundColor = QColor(255, 255, 255);  // White
-    m_surfaceColor = QColor(255, 255, 255);     // White - distinct from background     // White - distinct from background
-    m_textColor = QColor(15, 23, 42);           // Slate-900 - better contrast
-    m_accentColor = QColor(59, 130, 246);       // Blue-500 - matches dark theme
-    m_errorColor = QColor(239, 68, 68);         // Red-500 - matches dark theme
-    m_successColor = QColor(34, 197, 94);       // Green-500 - matches dark theme
-    m_warningColor = QColor(245, 158, 11);      // Amber-500 - matches dark theme
+    m_surfaceColor = QColor(
+        255, 255, 255);  // White - distinct from background     // White - distinct from background
+    m_textColor = QColor(15, 23, 42);       // Slate-900 - better contrast
+    m_accentColor = QColor(59, 130, 246);   // Blue-500 - matches dark theme
+    m_errorColor = QColor(239, 68, 68);     // Red-500 - matches dark theme
+    m_successColor = QColor(34, 197, 94);   // Green-500 - matches dark theme
+    m_warningColor = QColor(245, 158, 11);  // Amber-500 - matches dark theme
 
     // Semantic colors
     m_positiveColor = QColor(34, 197, 94);  // Green-500 (same as success)
@@ -201,12 +204,13 @@ void QtThemeManager::setupCryptoLightTheme() {
     m_secondaryColor =
         QColor(161, 161, 170);  // Zinc-400 - FIXED: better contrast (was 228,228,231)
     m_backgroundColor = QColor(255, 255, 255);  // White
-    m_surfaceColor = QColor(255, 255, 255);     // White - distinct from background     // White - distinct layer
-    m_textColor = QColor(9, 9, 11);             // Zinc-950 - high contrast
-    m_accentColor = QColor(168, 85, 247);       // Purple-500 (Canonical Dark Theme Purple)
-    m_errorColor = QColor(239, 68, 68);         // Red-500 - matches other themes
-    m_successColor = QColor(34, 197, 94);       // Green-500 - matches other themes
-    m_warningColor = QColor(245, 158, 11);      // Amber-500 - matches other themes
+    m_surfaceColor =
+        QColor(255, 255, 255);  // White - distinct from background     // White - distinct layer
+    m_textColor = QColor(9, 9, 11);         // Zinc-950 - high contrast
+    m_accentColor = QColor(168, 85, 247);   // Purple-500 (Canonical Dark Theme Purple)
+    m_errorColor = QColor(239, 68, 68);     // Red-500 - matches other themes
+    m_successColor = QColor(34, 197, 94);   // Green-500 - matches other themes
+    m_warningColor = QColor(245, 158, 11);  // Amber-500 - matches other themes
 
     // Semantic colors
     m_positiveColor = QColor(34, 197, 94);  // Green-500 (same as success)

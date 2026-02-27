@@ -1,12 +1,12 @@
 #pragma once
 
-#include <memory>
-#include <string>
-#include <vector>
-#include <mutex>
-#include <functional>
 #include <chrono>
 #include <cstdint>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
 
 // Forward declaration to avoid including SQLCipher headers in the header
 struct sqlite3;
@@ -22,9 +22,12 @@ struct DatabaseResult {
     int errorCode;
 
     DatabaseResult(bool s = false, const std::string& msg = "", int errCode = 0)
-        : success(s), message(msg), errorCode(errCode) {}
+        : success(s), message(msg), errorCode(errCode) {
+    }
 
-    operator bool() const { return success; }
+    operator bool() const {
+        return success;
+    }
 };
 
 /**
@@ -36,7 +39,8 @@ struct Migration {
     std::string sql;
 
     Migration(int v, const std::string& desc, const std::string& query)
-        : version(v), description(desc), sql(query) {}
+        : version(v), description(desc), sql(query) {
+    }
 };
 
 /**
@@ -50,7 +54,7 @@ struct Migration {
  * - Thread-safe operations
  */
 class DatabaseManager {
-public:
+  public:
     /**
      * @brief Get the singleton instance of DatabaseManager
      * @return Reference to the singleton instance
@@ -92,8 +96,7 @@ public:
      * @param callback Optional callback function for result processing
      * @return DatabaseResult indicating success or failure
      */
-    DatabaseResult executeQuery(const std::string& sql,
-                                const std::vector<std::string>& params,
+    DatabaseResult executeQuery(const std::string& sql, const std::vector<std::string>& params,
                                 std::function<void(sqlite3*)> callback = nullptr);
 
     /**
@@ -167,9 +170,10 @@ public:
      */
     std::vector<std::string> getAuditLog(size_t maxEntries = 0) const;
 
-private:
-    DatabaseManager() : m_db(nullptr), m_initialized(false),
-                       m_inTransaction(false), m_connectionAttempts(0) {}
+  private:
+    DatabaseManager()
+        : m_db(nullptr), m_initialized(false), m_inTransaction(false), m_connectionAttempts(0) {
+    }
     ~DatabaseManager();
 
     // Prevent copying
@@ -220,15 +224,14 @@ private:
      * @param details Operation details
      * @param error Error message if any
      */
-    void logDatabaseOperation(const std::string& operation,
-                             const std::string& details,
-                             const std::string& error);
+    void logDatabaseOperation(const std::string& operation, const std::string& details,
+                              const std::string& error);
 
-private:
+  private:
     sqlite3* m_db;
     std::string m_dbPath;
-    std::string m_encryptionKey;                       // Encryption key (will be securely cleared)
-    std::vector<uint8_t> m_keyDerivationSalt;          // Salt for key derivation
+    std::string m_encryptionKey;               // Encryption key (will be securely cleared)
+    std::vector<uint8_t> m_keyDerivationSalt;  // Salt for key derivation
     bool m_initialized;
     mutable std::recursive_mutex m_mutex;
     bool m_inTransaction;
@@ -250,7 +253,7 @@ private:
  * @brief RAII transaction guard for automatic rollback on exception
  */
 class TransactionGuard {
-public:
+  public:
     explicit TransactionGuard(DatabaseManager& db);
     ~TransactionGuard();
 
@@ -259,9 +262,9 @@ public:
      */
     void commit();
 
-private:
+  private:
     DatabaseManager& m_db;
     bool m_committed;
 };
 
-} // namespace Database
+}  // namespace Database

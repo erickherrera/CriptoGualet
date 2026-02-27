@@ -1,8 +1,8 @@
 #pragma once
 
-#include <vector>
-#include <string>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 namespace RLP {
 
@@ -13,7 +13,7 @@ namespace RLP {
  * Used for encoding transaction data before signing and broadcasting
  */
 class Encoder {
-public:
+  public:
     /**
      * @brief Encode a byte array
      * @param data Input data
@@ -70,7 +70,7 @@ public:
      */
     static std::string BytesToHex(const std::vector<uint8_t>& data);
 
-private:
+  private:
     /**
      * @brief Encode raw bytes according to RLP specification
      * @param data Input data
@@ -94,4 +94,4 @@ private:
     static std::vector<uint8_t> encodeLength(size_t length, uint8_t offset);
 };
 
-} // namespace RLP
+}  // namespace RLP

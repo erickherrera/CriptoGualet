@@ -1,8 +1,8 @@
 #pragma once
 
 #include <QDialog>
-#include <optional>
 #include <QPaintEvent>
+#include <optional>
 
 #include "EthereumService.h"
 
@@ -19,7 +19,7 @@ class QtThemeManager;
 class QtTokenImportDialog : public QDialog {
     Q_OBJECT
 
-public:
+  public:
     struct ImportData {
         QString contractAddress;
     };
@@ -31,18 +31,18 @@ public:
     void setEthereumWallet(WalletAPI::EthereumWallet* ethereumWallet);
     void setThemeManager(QtThemeManager* themeManager);
 
-signals:
+  signals:
     void tokenInfoFetched(bool success, const EthereumService::TokenInfo& tokenInfo);
 
-protected:
+  protected:
     void paintEvent(QPaintEvent* event) override;
 
-private slots:
+  private slots:
     void onAddressChanged(const QString& address);
     void onTokenInfoFetched(bool success, const EthereumService::TokenInfo& tokenInfo);
     void applyTheme();
 
-private:
+  private:
     void setupUI();
     void fetchTokenInfo(const QString& address);
 

@@ -1,20 +1,20 @@
 #include "QtTokenCard.h"
 #include "QtThemeManager.h"
-#include <QMouseEvent>
 #include <QEnterEvent>
+#include <QMouseEvent>
 #include <QNetworkRequest>
 #include <QPixmap>
 
 QtTokenCard::QtTokenCard(QtThemeManager* themeManager, QWidget* parent)
-    : QFrame(parent)
-    , m_themeManager(themeManager)
-    , m_networkManager(new QNetworkAccessManager(this))
-    , m_isHovered(false)
-{
+    : QFrame(parent),
+      m_themeManager(themeManager),
+      m_networkManager(new QNetworkAccessManager(this)),
+      m_isHovered(false) {
     setupUI();
     applyTheme();
 
-    connect(m_networkManager, &QNetworkAccessManager::finished, this, &QtTokenCard::onIconDownloaded);
+    connect(m_networkManager, &QNetworkAccessManager::finished, this,
+            &QtTokenCard::onIconDownloaded);
 }
 
 void QtTokenCard::setTokenData(const TokenCardData& tokenData) {
@@ -29,11 +29,13 @@ void QtTokenCard::setTokenData(const TokenCardData& tokenData) {
     QString iconUrl = getTokenIconUrl(tokenData.symbol);
     QNetworkRequest request{QUrl(iconUrl)};
     request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
     m_networkManager->get(request);
 }
 
-void QtTokenCard::setTokenData(const QString& contractAddress, const QString& name, const QString& symbol, int decimals) {
+void QtTokenCard::setTokenData(const QString& contractAddress, const QString& name,
+                               const QString& symbol, int decimals) {
     m_tokenData.contractAddress = contractAddress;
     m_tokenData.name = name;
     m_tokenData.symbol = symbol;
@@ -45,7 +47,8 @@ void QtTokenCard::setTokenData(const QString& contractAddress, const QString& na
     QString iconUrl = getTokenIconUrl(symbol);
     QNetworkRequest request{QUrl(iconUrl)};
     request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
     m_networkManager->get(request);
 }
 
@@ -69,15 +72,23 @@ void QtTokenCard::applyTheme() {
     QString buttonStyle = m_themeManager->getButtonStyleSheet();
 
     setStyleSheet(baseStyle);
-    m_container->setStyleSheet("QFrame { background-color: " + m_themeManager->surfaceColor().name() + "; border-radius: " + QString::number(m_themeManager->borderRadiusMedium()) + "px; border: 1px solid " + m_themeManager->defaultBorderColor().name() + "; }");
+    m_container->setStyleSheet(
+        "QFrame { background-color: " + m_themeManager->surfaceColor().name() +
+        "; border-radius: " + QString::number(m_themeManager->borderRadiusMedium()) +
+        "px; border: 1px solid " + m_themeManager->defaultBorderColor().name() + "; }");
 
     m_tokenSymbol->setStyleSheet(labelStyle + "QLabel { font-size: 16px; font-weight: bold; }");
-    m_tokenName->setStyleSheet(labelStyle + "QLabel { color: " + m_themeManager->subtitleColor().name() + "; font-size: 12px; }");
+    m_tokenName->setStyleSheet(labelStyle + "QLabel { color: " +
+                               m_themeManager->subtitleColor().name() + "; font-size: 12px; }");
     m_tokenBalance->setStyleSheet(labelStyle + "QLabel { font-size: 14px; }");
-    m_tokenBalanceUSD->setStyleSheet(labelStyle + "QLabel { color: " + m_themeManager->subtitleColor().name() + "; font-size: 12px; }");
+    m_tokenBalanceUSD->setStyleSheet(labelStyle +
+                                     "QLabel { color: " + m_themeManager->subtitleColor().name() +
+                                     "; font-size: 12px; }");
 
-    m_deleteButton->setStyleSheet(buttonStyle + "QPushButton { max-width: 30px; max-height: 30px; font-size: 12px; }");
-    m_sendButton->setStyleSheet(buttonStyle + "QPushButton { max-width: 30px; max-height: 30px; font-size: 12px; }");
+    m_deleteButton->setStyleSheet(
+        buttonStyle + "QPushButton { max-width: 30px; max-height: 30px; font-size: 12px; }");
+    m_sendButton->setStyleSheet(
+        buttonStyle + "QPushButton { max-width: 30px; max-height: 30px; font-size: 12px; }");
 }
 
 TokenCardData QtTokenCard::getTokenData() const {
@@ -101,7 +112,8 @@ void QtTokenCard::onIconDownloaded(QNetworkReply* reply) {
         QByteArray iconData = reply->readAll();
         QPixmap pixmap;
         if (pixmap.loadFromData(iconData)) {
-            m_tokenIcon->setPixmap(pixmap.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            m_tokenIcon->setPixmap(
+                pixmap.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         } else {
             setFallbackIcon();
         }
@@ -207,8 +219,12 @@ void QtTokenCard::updateStyles() {
         return;
     }
 
-    QString borderColor = m_isHovered ? m_themeManager->accentColor().name() : m_themeManager->defaultBorderColor().name();
-    m_container->setStyleSheet("QFrame { background-color: " + m_themeManager->surfaceColor().name() + "; border-radius: " + QString::number(m_themeManager->borderRadiusMedium()) + "px; border: 1px solid " + borderColor + "; }");
+    QString borderColor = m_isHovered ? m_themeManager->accentColor().name()
+                                      : m_themeManager->defaultBorderColor().name();
+    m_container->setStyleSheet(
+        "QFrame { background-color: " + m_themeManager->surfaceColor().name() +
+        "; border-radius: " + QString::number(m_themeManager->borderRadiusMedium()) +
+        "px; border: 1px solid " + borderColor + "; }");
 }
 
 QString QtTokenCard::getTokenIconUrl(const QString& symbol) {

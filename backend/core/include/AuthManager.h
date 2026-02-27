@@ -10,10 +10,11 @@ class QtSeedDisplayDialog;
 namespace Auth {
 
 class AuthManager {
-public:
+  public:
     static AuthManager& getInstance();
 
-    AuthResponse RegisterUser(const std::string& username, const std::string& password, std::vector<std::string>& outMnemonic);
+    AuthResponse RegisterUser(const std::string& username, const std::string& password,
+                              std::vector<std::string>& outMnemonic);
     AuthResponse LoginUser(const std::string& username, const std::string& password);
     AuthResponse RevealSeed(const std::string& username, const std::string& password,
                             std::string& outSeedHex, std::optional<std::string>& outMnemonic);
@@ -25,7 +26,7 @@ public:
     void cleanupSessions();
     UserSession* getSession(const std::string& sessionId);
 
-private:
+  private:
     AuthManager();
     ~AuthManager();
 
@@ -35,4 +36,4 @@ private:
     SessionManager sessionManager_;
 };
 
-} // namespace Auth
+}  // namespace Auth

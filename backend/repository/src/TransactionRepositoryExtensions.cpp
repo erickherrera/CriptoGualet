@@ -3,9 +3,9 @@
 // Include this content at the end of TransactionRepository.cpp
 
 #include "../include/Repository/TransactionRepository.h"
-#include <sstream>
-#include <iomanip>
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE
@@ -28,9 +28,8 @@ Result<PaginatedResult<Transaction>> TransactionRepository::getTransactionsByAdd
 
     std::string sql = R"(
         SELECT id, wallet_id, txid, block_height, block_hash, amount_satoshis, fee_satoshis,
-               direction, from_address, to_address, confirmation_count, is_confirmed, created_at, confirmed_at, memo
-        FROM transactions
-        WHERE from_address = ? OR to_address = ?
+               direction, from_address, to_address, confirmation_count, is_confirmed, created_at,
+confirmed_at, memo FROM transactions WHERE from_address = ? OR to_address = ?
     )";
 
     sql += " ORDER BY " + params.sortField;
@@ -40,11 +39,10 @@ Result<PaginatedResult<Transaction>> TransactionRepository::getTransactionsByAdd
     sql += " LIMIT ? OFFSET ?";
 
     // Get total count
-    std::string countSql = "SELECT COUNT(*) FROM transactions WHERE from_address = ? OR to_address = ?";
-    sqlite3_stmt* countStmt = nullptr;
-    int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), countSql.c_str(), -1, &countStmt, nullptr);
-    if (rc != SQLITE_OK) {
-        return Result<PaginatedResult<Transaction>>("Failed to prepare count query", 500);
+    std::string countSql = "SELECT COUNT(*) FROM transactions WHERE from_address = ? OR to_address =
+?"; sqlite3_stmt* countStmt = nullptr; int rc = sqlite3_prepare_v2(m_dbManager.getHandle(),
+countSql.c_str(), -1, &countStmt, nullptr); if (rc != SQLITE_OK) { return
+Result<PaginatedResult<Transaction>>("Failed to prepare count query", 500);
     }
 
     sqlite3_bind_text(countStmt, 1, address.c_str(), -1, SQLITE_STATIC);
@@ -80,13 +78,15 @@ Result<PaginatedResult<Transaction>> TransactionRepository::getTransactionsByAdd
         PaginatedResult<Transaction> result(transactions, totalCount, params.offset, params.limit);
         return Result<PaginatedResult<Transaction>>(result);
     } else {
-        return Result<PaginatedResult<Transaction>>("Database error while retrieving transactions", 500);
+        return Result<PaginatedResult<Transaction>>("Database error while retrieving transactions",
+500);
     }
 }
 
 Result<bool> TransactionRepository::confirmTransaction(const std::string& txid,
-                                                       const std::optional<std::chrono::system_clock::time_point>& confirmedAt) {
-    REPO_SCOPED_LOG(COMPONENT_NAME, "confirmTransaction");
+                                                       const
+std::optional<std::chrono::system_clock::time_point>& confirmedAt) { REPO_SCOPED_LOG(COMPONENT_NAME,
+"confirmTransaction");
 
     const std::string sql = R"(
         UPDATE transactions
@@ -113,8 +113,8 @@ Result<bool> TransactionRepository::confirmTransaction(const std::string& txid,
     }
 }
 
-Result<bool> TransactionRepository::updateTransactionMemo(int transactionId, const std::string& memo) {
-    REPO_SCOPED_LOG(COMPONENT_NAME, "updateTransactionMemo");
+Result<bool> TransactionRepository::updateTransactionMemo(int transactionId, const std::string&
+memo) { REPO_SCOPED_LOG(COMPONENT_NAME, "updateTransactionMemo");
 
     const std::string sql = "UPDATE transactions SET memo = ? WHERE id = ?";
 
@@ -137,12 +137,12 @@ Result<bool> TransactionRepository::updateTransactionMemo(int transactionId, con
     }
 }
 
-Result<std::vector<Transaction>> TransactionRepository::getRecentTransactionsForUser(int userId, int limit) {
-    REPO_SCOPED_LOG(COMPONENT_NAME, "getRecentTransactionsForUser");
+Result<std::vector<Transaction>> TransactionRepository::getRecentTransactionsForUser(int userId, int
+limit) { REPO_SCOPED_LOG(COMPONENT_NAME, "getRecentTransactionsForUser");
 
     const std::string sql = R"(
-        SELECT t.id, t.wallet_id, t.txid, t.block_height, t.block_hash, t.amount_satoshis, t.fee_satoshis,
-               t.direction, t.from_address, t.to_address, t.confirmation_count, t.is_confirmed,
+        SELECT t.id, t.wallet_id, t.txid, t.block_height, t.block_hash, t.amount_satoshis,
+t.fee_satoshis, t.direction, t.from_address, t.to_address, t.confirmation_count, t.is_confirmed,
                t.created_at, t.confirmed_at, t.memo
         FROM transactions t
         JOIN wallets w ON t.wallet_id = w.id
@@ -170,7 +170,8 @@ Result<std::vector<Transaction>> TransactionRepository::getRecentTransactionsFor
     if (rc == SQLITE_DONE) {
         return Result<std::vector<Transaction>>(transactions);
     } else {
-        return Result<std::vector<Transaction>>("Database error while retrieving transactions", 500);
+        return Result<std::vector<Transaction>>("Database error while retrieving transactions",
+500);
     }
 }
 
@@ -179,16 +180,16 @@ Result<std::vector<Transaction>> TransactionRepository::getPendingTransactions(i
 
     const std::string sql = R"(
         SELECT id, wallet_id, txid, block_height, block_hash, amount_satoshis, fee_satoshis,
-               direction, from_address, to_address, confirmation_count, is_confirmed, created_at, confirmed_at, memo
-        FROM transactions
-        WHERE wallet_id = ? AND is_confirmed = 0
-        ORDER BY created_at DESC
+               direction, from_address, to_address, confirmation_count, is_confirmed, created_at,
+confirmed_at, memo FROM transactions WHERE wallet_id = ? AND is_confirmed = 0 ORDER BY created_at
+DESC
     )";
 
     sqlite3_stmt* stmt = nullptr;
     int rc = sqlite3_prepare_v2(m_dbManager.getHandle(), sql.c_str(), -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
-        return Result<std::vector<Transaction>>("Failed to prepare pending transactions query", 500);
+        return Result<std::vector<Transaction>>("Failed to prepare pending transactions query",
+500);
     }
 
     sqlite3_bind_int(stmt, 1, walletId);
@@ -203,7 +204,8 @@ Result<std::vector<Transaction>> TransactionRepository::getPendingTransactions(i
     if (rc == SQLITE_DONE) {
         return Result<std::vector<Transaction>>(transactions);
     } else {
-        return Result<std::vector<Transaction>>("Database error while retrieving pending transactions", 500);
+        return Result<std::vector<Transaction>>("Database error while retrieving pending
+transactions", 500);
     }
 }
 
@@ -213,4 +215,4 @@ Result<std::vector<Transaction>> TransactionRepository::getPendingTransactions(i
 // should be added similarly to complete the TransactionRepository implementation.
 */
 
-} // namespace Repository
+}  // namespace Repository

@@ -2,26 +2,26 @@
 
 #include "../../../backend/core/include/WalletAPI.h"
 #include "../../../backend/database/include/Database/DatabaseManager.h"
-#include "../../../backend/repository/include/Repository/UserRepository.h"
-#include "../../../backend/repository/include/Repository/WalletRepository.h"
 #include "../../../backend/repository/include/Repository/SettingsRepository.h"
 #include "../../../backend/repository/include/Repository/TokenRepository.h"
+#include "../../../backend/repository/include/Repository/UserRepository.h"
+#include "../../../backend/repository/include/Repository/WalletRepository.h"
+#include "QtThemeManager.h"
+#include <QThreadPool>
+#include <QtConcurrent>
 #include <QApplication>
 #include <QFrame>
+#include <QFutureWatcher>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMutex>
 #include <QPushButton>
 #include <QResizeEvent>
+#include <QRunnable>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <memory>
-#include <QThreadPool>
-#include <QRunnable>
-#include <QMutex>
-#include <QFutureWatcher>
-#include <QtConcurrent>
-#include "QtThemeManager.h"
 
 class QtLoginUI;
 class QtWalletUI;
@@ -32,7 +32,7 @@ class QtTestConsole;
 class LoadingOverlay;
 
 namespace Auth {
-    struct AuthResponse;
+struct AuthResponse;
 }
 
 class CriptoGualetQt : public QMainWindow {
@@ -63,20 +63,18 @@ class CriptoGualetQt : public QMainWindow {
     void applyNavbarStyling();
     void changeTheme(ThemeType theme);
     void applyBitcoinProviderSettings(int userId);
-    void applyBitcoinProviderSettingsFromValues(const QString& providerType,
-                                                const QString& rpcUrl,
+    void applyBitcoinProviderSettingsFromValues(const QString& providerType, const QString& rpcUrl,
                                                 const QString& rpcUsername,
-                                                const QString& rpcPassword,
-                                                bool allowInsecureHttp,
+                                                const QString& rpcPassword, bool allowInsecureHttp,
                                                 bool enableFallback);
-    
+
     // Helper methods for reliability
     bool validateUserSession() const;
     bool initializeRepositories();
     void deriveMultiChainAddresses(int userId, const QString& password);
-    void handleAuthenticationResult(const QString& username, const QString& password, 
-                                   const Auth::AuthResponse& response);
-    
+    void handleAuthenticationResult(const QString& username, const QString& password,
+                                    const Auth::AuthResponse& response);
+
     // Thread pool for background operations
     QThreadPool* m_threadPool;
 

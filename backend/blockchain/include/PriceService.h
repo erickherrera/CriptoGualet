@@ -1,12 +1,12 @@
 #pragma once
 
-#include <string>
-#include <optional>
-#include <memory>
-#include <functional>
-#include <vector>
 #include <chrono>
+#include <functional>
+#include <memory>
 #include <mutex>
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace PriceService {
 
@@ -26,7 +26,7 @@ struct CachedPriceData {
 };
 
 class PriceFetcher {
-private:
+  private:
     std::string base_url;
     int timeout_seconds;
     long last_status_code;
@@ -42,7 +42,7 @@ private:
     std::optional<CryptoPriceData> getCachedPrice() const;
     std::optional<std::vector<CryptoPriceData>> getCachedTopCryptos() const;
 
-public:
+  public:
     explicit PriceFetcher(int timeout = 10);
 
     // Get current BTC price in USD
@@ -66,10 +66,12 @@ public:
     // Set cache TTL in seconds
     void SetCacheTTL(int seconds);
 
-private:
+  private:
     std::string MakeRequest(const std::string& endpoint);
-    std::optional<CryptoPriceData> ParsePriceResponse(const std::string& json_response, const std::string& coin_id);
-    std::vector<CryptoPriceData> ParseTopCryptosResponse(const std::string& json_response, int count);
+    std::optional<CryptoPriceData> ParsePriceResponse(const std::string& json_response,
+                                                      const std::string& coin_id);
+    std::vector<CryptoPriceData> ParseTopCryptosResponse(const std::string& json_response,
+                                                         int count);
 };
 
-} // namespace PriceService
+}  // namespace PriceService

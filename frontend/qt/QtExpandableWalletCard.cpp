@@ -2,453 +2,452 @@
 #include "QtThemeManager.h"
 #include "QtTokenListWidget.h"
 #include <qglobal.h>
+#include <QDebug>
 #include <QEvent>
 #include <QMouseEvent>
-#include <QNetworkRequest>
 #include <QNetworkReply>
-#include <QPixmap>
+#include <QNetworkRequest>
 #include <QPainter>
 #include <QPainterPath>
-#include <QDebug>
+#include <QPixmap>
 
-QtExpandableWalletCard::QtExpandableWalletCard(QtThemeManager *themeManager,
-                                               QWidget *parent)
-    : QFrame(parent), m_themeManager(themeManager), m_isExpanded(false),
+QtExpandableWalletCard::QtExpandableWalletCard(QtThemeManager* themeManager, QWidget* parent)
+    : QFrame(parent),
+      m_themeManager(themeManager),
+      m_isExpanded(false),
       m_networkManager(new QNetworkAccessManager(this)),
-      m_collapsedHeader(nullptr), m_cryptoLogo(nullptr), m_cryptoName(nullptr),
-      m_balanceLabel(nullptr), m_expandIndicator(nullptr),
-      m_expandedContent(nullptr), m_sendButton(nullptr),
-      m_receiveButton(nullptr), m_tokenListWidget(nullptr),
-      m_historyTitleLabel(nullptr), m_historyText(nullptr),
-      m_expandAnimation(nullptr), m_cryptoSymbol() {
-  setupUI();
-  applyTheme();
+      m_collapsedHeader(nullptr),
+      m_cryptoLogo(nullptr),
+      m_cryptoName(nullptr),
+      m_balanceLabel(nullptr),
+      m_expandIndicator(nullptr),
+      m_expandedContent(nullptr),
+      m_sendButton(nullptr),
+      m_receiveButton(nullptr),
+      m_tokenListWidget(nullptr),
+      m_historyTitleLabel(nullptr),
+      m_historyText(nullptr),
+      m_expandAnimation(nullptr),
+      m_cryptoSymbol() {
+    setupUI();
+    applyTheme();
 
-  if (m_networkManager) {
-    connect(m_networkManager, &QNetworkAccessManager::finished, this,
-            &QtExpandableWalletCard::onIconDownloaded);
-  }
+    if (m_networkManager) {
+        connect(m_networkManager, &QNetworkAccessManager::finished, this,
+                &QtExpandableWalletCard::onIconDownloaded);
+    }
 
-  // Connect to theme changes to update styling dynamically
-  if (m_themeManager) {
-    connect(m_themeManager, &QtThemeManager::themeChanged, this,
-            &QtExpandableWalletCard::onThemeChanged);
-  }
+    // Connect to theme changes to update styling dynamically
+    if (m_themeManager) {
+        connect(m_themeManager, &QtThemeManager::themeChanged, this,
+                &QtExpandableWalletCard::onThemeChanged);
+    }
 }
 
 void QtExpandableWalletCard::setupUI() {
-  setProperty("class", "card");
-  setObjectName("expandableWalletCard");
+    setProperty("class", "card");
+    setObjectName("expandableWalletCard");
 
-  QVBoxLayout *mainLayout = new QVBoxLayout(this);
-  if (m_themeManager) {
-    mainLayout->setContentsMargins(
-        m_themeManager->spacing(6), m_themeManager->spacing(6),
-        m_themeManager->spacing(6), m_themeManager->spacing(6));
-  }
-  mainLayout->setSpacing(0);
-
-  // Collapsed header (clickable)
-  m_collapsedHeader = new QWidget(this);
-  m_collapsedHeader->setObjectName("walletButton");
-  m_collapsedHeader->setCursor(Qt::PointingHandCursor);
-  m_collapsedHeader->installEventFilter(this);
-
-  QHBoxLayout *collapsedLayout = new QHBoxLayout(m_collapsedHeader);
-  if (m_themeManager) {
-    collapsedLayout->setContentsMargins(
-        m_themeManager->spacing(5), m_themeManager->compactSpacing(),
-        m_themeManager->spacing(5), m_themeManager->compactSpacing());
-    collapsedLayout->setSpacing(m_themeManager->standardSpacing());
-  }
-
-  // Crypto logo container with background (circular)
-  QWidget *logoContainer = new QWidget(m_collapsedHeader);
-  logoContainer->setObjectName("logoContainer");
-  logoContainer->setFixedSize(48, 48);
-
-  QHBoxLayout *logoLayout = new QHBoxLayout(logoContainer);
-  logoLayout->setContentsMargins(0, 0, 0, 0);
-  logoLayout->setAlignment(Qt::AlignCenter);
-
-  m_cryptoLogo = new QLabel("₿", logoContainer);
-  m_cryptoLogo->setObjectName("cryptoLogo");
-  m_cryptoLogo->setAlignment(Qt::AlignCenter);
-  m_cryptoLogo->setScaledContents(false);
-  logoLayout->addWidget(m_cryptoLogo);
-
-  collapsedLayout->addWidget(logoContainer);
-
-  // Balance container
-  QWidget *balanceContainer = new QWidget(m_collapsedHeader);
-  balanceContainer->setObjectName("balanceContainer");
-  QVBoxLayout *balanceLayout = new QVBoxLayout(balanceContainer);
-  balanceLayout->setContentsMargins(0, 0, 0, 0);
-  balanceLayout->setSpacing(2);
-
-  m_cryptoName = new QLabel("BITCOIN", balanceContainer);
-  m_cryptoName->setObjectName("cryptoName");
-  balanceLayout->addWidget(m_cryptoName);
-
-  m_balanceLabel = new QLabel("0.00000000 BTC", balanceContainer);
-  m_balanceLabel->setObjectName("balanceAmount");
-  balanceLayout->addWidget(m_balanceLabel);
-
-  collapsedLayout->addWidget(balanceContainer);
-  collapsedLayout->addStretch();
-
-  // Expand indicator
-  m_expandIndicator = new QLabel("⌄", m_collapsedHeader);
-  m_expandIndicator->setObjectName("expandIndicator");
-  collapsedLayout->addWidget(m_expandIndicator);
-
-  mainLayout->addWidget(m_collapsedHeader);
-
-  // Expanded content
-  m_expandedContent = new QWidget(this);
-  m_expandedContent->setObjectName("expandedCard");
-  m_expandedContent->setVisible(false);
-
-  QVBoxLayout *expandedLayout = new QVBoxLayout(m_expandedContent);
-  expandedLayout->setContentsMargins(25, 20, 25, 25);
-  expandedLayout->setSpacing(20);
-
-  // Action buttons
-  QHBoxLayout *actionsLayout = new QHBoxLayout();
-  actionsLayout->setSpacing(15);
-
-  m_sendButton = new QPushButton("Send", m_expandedContent);
-  m_sendButton->setObjectName("actionButton");
-  m_sendButton->setCursor(Qt::PointingHandCursor);
-  connect(m_sendButton, &QPushButton::clicked, this,
-          &QtExpandableWalletCard::sendRequested);
-
-  m_receiveButton = new QPushButton("Receive", m_expandedContent);
-  m_receiveButton->setObjectName("actionButton");
-  m_receiveButton->setCursor(Qt::PointingHandCursor);
-  connect(m_receiveButton, &QPushButton::clicked, this,
-          &QtExpandableWalletCard::receiveRequested);
-
-  actionsLayout->addWidget(m_sendButton);
-  actionsLayout->addWidget(m_receiveButton);
-  expandedLayout->addLayout(actionsLayout);
-
-  // Token list section (for Ethereum wallet)
-  if (m_themeManager) {
-    m_tokenListWidget = new QtTokenListWidget(m_themeManager, m_expandedContent);
-    m_tokenListWidget->setMaximumHeight(300);
-    m_tokenListWidget->hide();
-    expandedLayout->addWidget(m_tokenListWidget);
-  }
-
-  // Transaction history section
-  QWidget *historySection = new QWidget(m_expandedContent);
-  historySection->setObjectName("historySection");
-  QVBoxLayout *historyLayout = new QVBoxLayout(historySection);
-  historyLayout->setContentsMargins(15, 15, 15, 15);
-  historyLayout->setSpacing(10);
-
-  m_historyTitleLabel = new QLabel("Transaction History", historySection);
-  m_historyTitleLabel->setObjectName("historyTitle");
-  historyLayout->addWidget(m_historyTitleLabel);
-
-  m_historyText = new QTextEdit(historySection);
-  m_historyText->setReadOnly(true);
-  m_historyText->setObjectName("historyText");
-  m_historyText->setMinimumHeight(150);
-  historyLayout->addWidget(m_historyText);
-
-  expandedLayout->addWidget(historySection);
-
-  mainLayout->addWidget(m_expandedContent);
-}
-
-void QtExpandableWalletCard::setCryptocurrency(const QString &name,
-                                               const QString &symbol,
-                                               const QString &logoText) {
-  if (m_cryptoName) {
-    m_cryptoName->setText(name.toUpper());
-  }
-  m_cryptoSymbol = symbol;
-
-  // Download crypto icon
-  QString iconUrl = getCryptoIconUrl(symbol);
-
-  // Set placeholder while loading (use theme color)
-  if (m_cryptoLogo && m_themeManager) {
-    m_cryptoLogo->clear();
-    QColor placeholderColor = m_themeManager->secondaryColor();
-    placeholderColor.setAlpha(25); // 10% opacity
-    m_cryptoLogo->setStyleSheet(
-        QString("border-radius: 24px; background-color: %1;")
-            .arg(placeholderColor.name(QColor::HexArgb)));
-  }
-
-  // Trigger icon download with proper headers
-  QNetworkRequest request(iconUrl);
-  request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
-  request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
-                       QNetworkRequest::NoLessSafeRedirectPolicy);
-  if (m_networkManager) {
-    m_networkManager->get(request);
-  }
-}
-
-void QtExpandableWalletCard::setBalance(const QString &balance) {
-  if (m_balanceLabel) {
-    m_balanceLabel->setText(balance);
-  }
-}
-
-void QtExpandableWalletCard::setTransactionHistory(
-    const QString &historyHtml) {
-  if (m_historyText) {
-    m_historyText->setHtml(historyHtml);
-  }
-}
-
-void QtExpandableWalletCard::setTokenListWidget(
-    QtTokenListWidget *tokenListWidget) {
-  // If there's an old token list widget, remove and delete it.
-  if (m_tokenListWidget) {
-    if (m_expandedContent && m_expandedContent->layout()) {
-      m_expandedContent->layout()->removeWidget(m_tokenListWidget);
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    if (m_themeManager) {
+        mainLayout->setContentsMargins(m_themeManager->spacing(6), m_themeManager->spacing(6),
+                                       m_themeManager->spacing(6), m_themeManager->spacing(6));
     }
-    m_tokenListWidget->deleteLater();
-  }
+    mainLayout->setSpacing(0);
 
-  m_tokenListWidget = tokenListWidget;
+    // Collapsed header (clickable)
+    m_collapsedHeader = new QWidget(this);
+    m_collapsedHeader->setObjectName("walletButton");
+    m_collapsedHeader->setCursor(Qt::PointingHandCursor);
+    m_collapsedHeader->installEventFilter(this);
 
-  if (m_tokenListWidget) {
-    if (m_expandedContent) {
-      QVBoxLayout *expandedLayout =
-          qobject_cast<QVBoxLayout *>(m_expandedContent->layout());
-      if (expandedLayout) {
-        // Insert the token list widget after the actions layout.
-        expandedLayout->insertWidget(1, m_tokenListWidget);
-        m_tokenListWidget->show();
-      }
+    QHBoxLayout* collapsedLayout = new QHBoxLayout(m_collapsedHeader);
+    if (m_themeManager) {
+        collapsedLayout->setContentsMargins(
+            m_themeManager->spacing(5), m_themeManager->compactSpacing(),
+            m_themeManager->spacing(5), m_themeManager->compactSpacing());
+        collapsedLayout->setSpacing(m_themeManager->standardSpacing());
     }
-  }
+
+    // Crypto logo container with background (circular)
+    QWidget* logoContainer = new QWidget(m_collapsedHeader);
+    logoContainer->setObjectName("logoContainer");
+    logoContainer->setFixedSize(48, 48);
+
+    QHBoxLayout* logoLayout = new QHBoxLayout(logoContainer);
+    logoLayout->setContentsMargins(0, 0, 0, 0);
+    logoLayout->setAlignment(Qt::AlignCenter);
+
+    m_cryptoLogo = new QLabel("₿", logoContainer);
+    m_cryptoLogo->setObjectName("cryptoLogo");
+    m_cryptoLogo->setAlignment(Qt::AlignCenter);
+    m_cryptoLogo->setScaledContents(false);
+    logoLayout->addWidget(m_cryptoLogo);
+
+    collapsedLayout->addWidget(logoContainer);
+
+    // Balance container
+    QWidget* balanceContainer = new QWidget(m_collapsedHeader);
+    balanceContainer->setObjectName("balanceContainer");
+    QVBoxLayout* balanceLayout = new QVBoxLayout(balanceContainer);
+    balanceLayout->setContentsMargins(0, 0, 0, 0);
+    balanceLayout->setSpacing(2);
+
+    m_cryptoName = new QLabel("BITCOIN", balanceContainer);
+    m_cryptoName->setObjectName("cryptoName");
+    balanceLayout->addWidget(m_cryptoName);
+
+    m_balanceLabel = new QLabel("0.00000000 BTC", balanceContainer);
+    m_balanceLabel->setObjectName("balanceAmount");
+    balanceLayout->addWidget(m_balanceLabel);
+
+    collapsedLayout->addWidget(balanceContainer);
+    collapsedLayout->addStretch();
+
+    // Expand indicator
+    m_expandIndicator = new QLabel("⌄", m_collapsedHeader);
+    m_expandIndicator->setObjectName("expandIndicator");
+    collapsedLayout->addWidget(m_expandIndicator);
+
+    mainLayout->addWidget(m_collapsedHeader);
+
+    // Expanded content
+    m_expandedContent = new QWidget(this);
+    m_expandedContent->setObjectName("expandedCard");
+    m_expandedContent->setVisible(false);
+
+    QVBoxLayout* expandedLayout = new QVBoxLayout(m_expandedContent);
+    expandedLayout->setContentsMargins(25, 20, 25, 25);
+    expandedLayout->setSpacing(20);
+
+    // Action buttons
+    QHBoxLayout* actionsLayout = new QHBoxLayout();
+    actionsLayout->setSpacing(15);
+
+    m_sendButton = new QPushButton("Send", m_expandedContent);
+    m_sendButton->setObjectName("actionButton");
+    m_sendButton->setCursor(Qt::PointingHandCursor);
+    connect(m_sendButton, &QPushButton::clicked, this, &QtExpandableWalletCard::sendRequested);
+
+    m_receiveButton = new QPushButton("Receive", m_expandedContent);
+    m_receiveButton->setObjectName("actionButton");
+    m_receiveButton->setCursor(Qt::PointingHandCursor);
+    connect(m_receiveButton, &QPushButton::clicked, this,
+            &QtExpandableWalletCard::receiveRequested);
+
+    actionsLayout->addWidget(m_sendButton);
+    actionsLayout->addWidget(m_receiveButton);
+    expandedLayout->addLayout(actionsLayout);
+
+    // Token list section (for Ethereum wallet)
+    if (m_themeManager) {
+        m_tokenListWidget = new QtTokenListWidget(m_themeManager, m_expandedContent);
+        m_tokenListWidget->setMaximumHeight(300);
+        m_tokenListWidget->hide();
+        expandedLayout->addWidget(m_tokenListWidget);
+    }
+
+    // Transaction history section
+    QWidget* historySection = new QWidget(m_expandedContent);
+    historySection->setObjectName("historySection");
+    QVBoxLayout* historyLayout = new QVBoxLayout(historySection);
+    historyLayout->setContentsMargins(15, 15, 15, 15);
+    historyLayout->setSpacing(10);
+
+    m_historyTitleLabel = new QLabel("Transaction History", historySection);
+    m_historyTitleLabel->setObjectName("historyTitle");
+    historyLayout->addWidget(m_historyTitleLabel);
+
+    m_historyText = new QTextEdit(historySection);
+    m_historyText->setReadOnly(true);
+    m_historyText->setObjectName("historyText");
+    m_historyText->setMinimumHeight(150);
+    historyLayout->addWidget(m_historyText);
+
+    expandedLayout->addWidget(historySection);
+
+    mainLayout->addWidget(m_expandedContent);
 }
 
-QString QtExpandableWalletCard::getCryptoIconUrl(const QString &symbol) {
-  // Use CoinGecko assets API
-  // Format: https://assets.coingecko.com/coins/images/{id}/large/{coin}.png
-  static const QMap<QString, QString> symbolToImagePath = {
-      {"BTC", "1/large/bitcoin.png"},
-      {"LTC", "2/large/litecoin.png"},
-      {"ETH", "279/large/ethereum.png"},
-      {"USDT", "325/large/tether.png"},
-      {"BNB", "825/large/binance-coin-logo.png"},
-      {"SOL", "4128/large/solana.png"},
-      {"USDC", "6319/large/usd-coin.png"},
-      {"DAI", "9956/large/Badge_Dai.png"},
-      {"XRP", "44/large/xrp.png"},
-      {"DOGE", "5/large/dogecoin.png"},
-      {"ADA", "975/large/cardano.png"},
-      {"TRX", "1094/large/tron-logo.png"},
-      {"AVAX", "12559/large/Avalanche_Circle_RedWhite_Trans.png"},
-      {"SHIB", "11939/large/shiba.png"},
-      {"DOT", "12171/large/polkadot.png"},
-      {"LINK", "877/large/chainlink-new-logo.png"},
-      {"MATIC", "4713/large/matic-token-icon.png"}};
+void QtExpandableWalletCard::setCryptocurrency(const QString& name, const QString& symbol,
+                                               const QString& logoText) {
+    if (m_cryptoName) {
+        m_cryptoName->setText(name.toUpper());
+    }
+    m_cryptoSymbol = symbol;
 
-  QString imagePath =
-      symbolToImagePath.value(symbol.toUpper(), "1/large/bitcoin.png");
-  return QString("https://assets.coingecko.com/coins/images/%1").arg(imagePath);
+    // Download crypto icon
+    QString iconUrl = getCryptoIconUrl(symbol);
+
+    // Set placeholder while loading (use theme color)
+    if (m_cryptoLogo && m_themeManager) {
+        m_cryptoLogo->clear();
+        QColor placeholderColor = m_themeManager->secondaryColor();
+        placeholderColor.setAlpha(25);  // 10% opacity
+        m_cryptoLogo->setStyleSheet(QString("border-radius: 24px; background-color: %1;")
+                                        .arg(placeholderColor.name(QColor::HexArgb)));
+    }
+
+    // Trigger icon download with proper headers
+    QNetworkRequest request(iconUrl);
+    request.setHeader(QNetworkRequest::UserAgentHeader, "CriptoGualet/1.0");
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    if (m_networkManager) {
+        m_networkManager->get(request);
+    }
 }
 
-void QtExpandableWalletCard::onIconDownloaded(QNetworkReply *reply) {
-  if (!reply) {
-    return;
-  }
+void QtExpandableWalletCard::setBalance(const QString& balance) {
+    if (m_balanceLabel) {
+        m_balanceLabel->setText(balance);
+    }
+}
 
-  if (reply->error() == QNetworkReply::NoError) {
-    QByteArray imageData = reply->readAll();
-    QPixmap pixmap;
+void QtExpandableWalletCard::setTransactionHistory(const QString& historyHtml) {
+    if (m_historyText) {
+        m_historyText->setHtml(historyHtml);
+    }
+}
 
-    if (pixmap.loadFromData(imageData)) {
-      // Get device pixel ratio for high DPI support
-      qreal dpr = devicePixelRatioF();
-      int iconSize = 48; // Display size in logical pixels
+void QtExpandableWalletCard::setTokenListWidget(QtTokenListWidget* tokenListWidget) {
+    // If there's an old token list widget, remove and delete it.
+    if (m_tokenListWidget) {
+        if (m_expandedContent && m_expandedContent->layout()) {
+            m_expandedContent->layout()->removeWidget(m_tokenListWidget);
+        }
+        m_tokenListWidget->deleteLater();
+    }
 
-      // Calculate the target size in device pixels for crisp rendering
-      int targetSize = qRound(iconSize * dpr);
+    m_tokenListWidget = tokenListWidget;
 
-      // Create a high-quality scaled pixmap using QImage for better
-      // interpolation
-      QImage sourceImage = pixmap.toImage();
+    if (m_tokenListWidget) {
+        if (m_expandedContent) {
+            QVBoxLayout* expandedLayout = qobject_cast<QVBoxLayout*>(m_expandedContent->layout());
+            if (expandedLayout) {
+                // Insert the token list widget after the actions layout.
+                expandedLayout->insertWidget(1, m_tokenListWidget);
+                m_tokenListWidget->show();
+            }
+        }
+    }
+}
 
-      // Scale using high-quality bilinear/bicubic interpolation
-      QImage scaledImage = sourceImage.scaled(
-          targetSize, targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+QString QtExpandableWalletCard::getCryptoIconUrl(const QString& symbol) {
+    // Use CoinGecko assets API
+    // Format: https://assets.coingecko.com/coins/images/{id}/large/{coin}.png
+    static const QMap<QString, QString> symbolToImagePath = {
+        {"BTC", "1/large/bitcoin.png"},
+        {"LTC", "2/large/litecoin.png"},
+        {"ETH", "279/large/ethereum.png"},
+        {"USDT", "325/large/tether.png"},
+        {"BNB", "825/large/binance-coin-logo.png"},
+        {"SOL", "4128/large/solana.png"},
+        {"USDC", "6319/large/usd-coin.png"},
+        {"DAI", "9956/large/Badge_Dai.png"},
+        {"XRP", "44/large/xrp.png"},
+        {"DOGE", "5/large/dogecoin.png"},
+        {"ADA", "975/large/cardano.png"},
+        {"TRX", "1094/large/tron-logo.png"},
+        {"AVAX", "12559/large/Avalanche_Circle_RedWhite_Trans.png"},
+        {"SHIB", "11939/large/shiba.png"},
+        {"DOT", "12171/large/polkadot.png"},
+        {"LINK", "877/large/chainlink-new-logo.png"},
+        {"MATIC", "4713/large/matic-token-icon.png"}};
 
-      // Convert back to pixmap and set device pixel ratio
-      QPixmap scaledPixmap = QPixmap::fromImage(scaledImage);
-      scaledPixmap.setDevicePixelRatio(dpr);
+    QString imagePath = symbolToImagePath.value(symbol.toUpper(), "1/large/bitcoin.png");
+    return QString("https://assets.coingecko.com/coins/images/%1").arg(imagePath);
+}
 
-      if (m_cryptoLogo) {
-        m_cryptoLogo->setPixmap(scaledPixmap);
-        m_cryptoLogo->setStyleSheet("background: transparent; border: none;");
-      }
+void QtExpandableWalletCard::onIconDownloaded(QNetworkReply* reply) {
+    if (!reply) {
+        return;
+    }
 
-      qDebug() << "Successfully loaded wallet icon from"
-               << reply->url().toString() << "Original size:" << pixmap.size()
-               << "Scaled to:" << scaledImage.size();
+    if (reply->error() == QNetworkReply::NoError) {
+        QByteArray imageData = reply->readAll();
+        QPixmap pixmap;
+
+        if (pixmap.loadFromData(imageData)) {
+            // Get device pixel ratio for high DPI support
+            qreal dpr = devicePixelRatioF();
+            int iconSize = 48;  // Display size in logical pixels
+
+            // Calculate the target size in device pixels for crisp rendering
+            int targetSize = qRound(iconSize * dpr);
+
+            // Create a high-quality scaled pixmap using QImage for better
+            // interpolation
+            QImage sourceImage = pixmap.toImage();
+
+            // Scale using high-quality bilinear/bicubic interpolation
+            QImage scaledImage = sourceImage.scaled(targetSize, targetSize, Qt::KeepAspectRatio,
+                                                    Qt::SmoothTransformation);
+
+            // Convert back to pixmap and set device pixel ratio
+            QPixmap scaledPixmap = QPixmap::fromImage(scaledImage);
+            scaledPixmap.setDevicePixelRatio(dpr);
+
+            if (m_cryptoLogo) {
+                m_cryptoLogo->setPixmap(scaledPixmap);
+                m_cryptoLogo->setStyleSheet("background: transparent; border: none;");
+            }
+
+            qDebug() << "Successfully loaded wallet icon from" << reply->url().toString()
+                     << "Original size:" << pixmap.size() << "Scaled to:" << scaledImage.size();
+        } else {
+            qDebug() << "Failed to load image data from" << reply->url().toString();
+            setFallbackIcon();
+        }
     } else {
-      qDebug() << "Failed to load image data from" << reply->url().toString();
-      setFallbackIcon();
+        qDebug() << "Network error downloading wallet icon:" << reply->errorString() << "from"
+                 << reply->url().toString();
+        setFallbackIcon();
     }
-  } else {
-    qDebug() << "Network error downloading wallet icon:"
-             << reply->errorString() << "from" << reply->url().toString();
-    setFallbackIcon();
-  }
-  reply->deleteLater();
+    reply->deleteLater();
 }
 
 void QtExpandableWalletCard::setFallbackIcon() {
-  if (!m_cryptoLogo || !m_themeManager) {
-    return;
-  }
+    if (!m_cryptoLogo || !m_themeManager) {
+        return;
+    }
 
-  // Get device pixel ratio for high DPI support
-  qreal dpr = devicePixelRatioF();
-  int iconSize = 48;
-  int scaledSize = qRound(iconSize * dpr);
+    // Get device pixel ratio for high DPI support
+    qreal dpr = devicePixelRatioF();
+    int iconSize = 48;
+    int scaledSize = qRound(iconSize * dpr);
 
-  // Create a simple colored circle as fallback with crypto symbol
-  QPixmap fallback(scaledSize, scaledSize);
-  fallback.fill(Qt::transparent);
-  fallback.setDevicePixelRatio(dpr);
+    // Create a simple colored circle as fallback with crypto symbol
+    QPixmap fallback(scaledSize, scaledSize);
+    fallback.fill(Qt::transparent);
+    fallback.setDevicePixelRatio(dpr);
 
-  QPainter painter(&fallback);
-  painter.setRenderHint(QPainter::Antialiasing);
+    QPainter painter(&fallback);
+    painter.setRenderHint(QPainter::Antialiasing);
 
-  // Use theme colors for fallback icon
-  QColor circleColor = m_themeManager->secondaryColor();
-  circleColor.setAlpha(50); // ~20% opacity
-  QColor symbolColor = m_themeManager->subtitleColor();
+    // Use theme colors for fallback icon
+    QColor circleColor = m_themeManager->secondaryColor();
+    circleColor.setAlpha(50);  // ~20% opacity
+    QColor symbolColor = m_themeManager->subtitleColor();
 
-  // Draw colored circle
-  painter.setBrush(circleColor);
-  painter.setPen(Qt::NoPen);
-  painter.drawEllipse(0, 0, scaledSize, scaledSize);
+    // Draw colored circle
+    painter.setBrush(circleColor);
+    painter.setPen(Qt::NoPen);
+    painter.drawEllipse(0, 0, scaledSize, scaledSize);
 
-  // Draw crypto symbol (use first letter of crypto name or default to ₿)
-  painter.setPen(symbolColor);
-  QFont font = painter.font();
-  font.setPointSize(20);
-  font.setBold(true);
-  painter.setFont(font);
+    // Draw crypto symbol (use first letter of crypto name or default to ₿)
+    painter.setPen(symbolColor);
+    QFont font = painter.font();
+    font.setPointSize(20);
+    font.setBold(true);
+    painter.setFont(font);
 
-  QString symbol =
-      m_cryptoSymbol.isEmpty() ? "₿" : m_cryptoSymbol.left(1).toUpper();
-  painter.drawText(QRect(0, 0, scaledSize, scaledSize), Qt::AlignCenter,
-                   symbol);
+    QString symbol = m_cryptoSymbol.isEmpty() ? "₿" : m_cryptoSymbol.left(1).toUpper();
+    painter.drawText(QRect(0, 0, scaledSize, scaledSize), Qt::AlignCenter, symbol);
 
-  m_cryptoLogo->setPixmap(fallback);
-  m_cryptoLogo->setStyleSheet("");
+    m_cryptoLogo->setPixmap(fallback);
+    m_cryptoLogo->setStyleSheet("");
 }
 
 void QtExpandableWalletCard::toggleExpanded() {
-  m_isExpanded = !m_isExpanded;
-  
-  if (m_expandIndicator) {
-    m_expandIndicator->setText(m_isExpanded ? "⌃" : "⌄");
-  }
+    m_isExpanded = !m_isExpanded;
 
-  if (!m_expandedContent) return;
+    if (m_expandIndicator) {
+        m_expandIndicator->setText(m_isExpanded ? "⌃" : "⌄");
+    }
 
-  // Create animation on first use
-  if (!m_expandAnimation) {
-    m_expandAnimation = new QPropertyAnimation(m_expandedContent, "maximumHeight", this);
-    m_expandAnimation->setEasingCurve(QEasingCurve::OutCubic);
-    connect(m_expandAnimation, &QPropertyAnimation::finished, this, [this]() {
-      if (!m_isExpanded) {
-        // Hide after collapse completes to free layout space
-        m_expandedContent->setVisible(false);
-      } else {
-        // Remove height constraint after expand completes for natural sizing
-        m_expandedContent->setMaximumHeight(16777215); // QWIDGETSIZE_MAX
-      }
-    });
-  }
+    if (!m_expandedContent)
+        return;
 
-  // Stop any running animation for smooth interruption
-  if (m_expandAnimation->state() == QAbstractAnimation::Running) {
-    m_expandAnimation->stop();
-  }
+    // Create animation on first use
+    if (!m_expandAnimation) {
+        m_expandAnimation = new QPropertyAnimation(m_expandedContent, "maximumHeight", this);
+        m_expandAnimation->setEasingCurve(QEasingCurve::OutCubic);
+        connect(m_expandAnimation, &QPropertyAnimation::finished, this, [this]() {
+            if (!m_isExpanded) {
+                // Hide after collapse completes to free layout space
+                m_expandedContent->setVisible(false);
+            } else {
+                // Remove height constraint after expand completes for natural sizing
+                m_expandedContent->setMaximumHeight(16777215);  // QWIDGETSIZE_MAX
+            }
+        });
+    }
 
-  if (m_isExpanded) {
-    // Expanding: measure natural height, then animate from 0 to target
-    m_expandedContent->setVisible(true);
-    m_expandedContent->setMaximumHeight(0);
-    m_expandedContent->adjustSize();
-    int targetHeight = m_expandedContent->sizeHint().height();
-    
-    m_expandAnimation->setDuration(EXPAND_DURATION);
-    m_expandAnimation->setStartValue(0);
-    m_expandAnimation->setEndValue(targetHeight);
-  } else {
-    // Collapsing: animate from current height to 0
-    int currentHeight = m_expandedContent->height();
-    m_expandAnimation->setDuration(EXPAND_DURATION);
-    m_expandAnimation->setStartValue(currentHeight);
-    m_expandAnimation->setEndValue(0);
-  }
+    // Stop any running animation for smooth interruption
+    if (m_expandAnimation->state() == QAbstractAnimation::Running) {
+        m_expandAnimation->stop();
+    }
 
-  m_expandAnimation->start();
+    if (m_isExpanded) {
+        // Expanding: measure natural height, then animate from 0 to target
+        m_expandedContent->setVisible(true);
+        m_expandedContent->setMaximumHeight(0);
+        m_expandedContent->adjustSize();
+        int targetHeight = m_expandedContent->sizeHint().height();
+
+        m_expandAnimation->setDuration(EXPAND_DURATION);
+        m_expandAnimation->setStartValue(0);
+        m_expandAnimation->setEndValue(targetHeight);
+    } else {
+        // Collapsing: animate from current height to 0
+        int currentHeight = m_expandedContent->height();
+        m_expandAnimation->setDuration(EXPAND_DURATION);
+        m_expandAnimation->setStartValue(currentHeight);
+        m_expandAnimation->setEndValue(0);
+    }
+
+    m_expandAnimation->start();
 }
 
-bool QtExpandableWalletCard::eventFilter(QObject *obj, QEvent *event) {
-  if (obj == m_collapsedHeader && event->type() == QEvent::MouseButtonPress) {
-    toggleExpanded();
-    return true;
-  }
-  return QFrame::eventFilter(obj, event);
+bool QtExpandableWalletCard::eventFilter(QObject* obj, QEvent* event) {
+    if (obj == m_collapsedHeader && event->type() == QEvent::MouseButtonPress) {
+        toggleExpanded();
+        return true;
+    }
+    return QFrame::eventFilter(obj, event);
 }
 
-void QtExpandableWalletCard::applyTheme() { updateStyles(); }
+void QtExpandableWalletCard::applyTheme() {
+    updateStyles();
+}
 
 void QtExpandableWalletCard::onThemeChanged() {
-  // Update all styling when theme changes
-  updateStyles();
+    // Update all styling when theme changes
+    updateStyles();
 
-  // Re-apply placeholder color if logo hasn't loaded yet
-  if (m_cryptoLogo && (m_cryptoLogo->pixmap().isNull()) && m_themeManager) {
-    QColor placeholderColor = m_themeManager->secondaryColor();
-    placeholderColor.setAlpha(25); // 10% opacity
-    m_cryptoLogo->setStyleSheet(
-        QString("border-radius: 24px; background-color: %1;")
-            .arg(placeholderColor.name(QColor::HexArgb)));
-  }
+    // Re-apply placeholder color if logo hasn't loaded yet
+    if (m_cryptoLogo && (m_cryptoLogo->pixmap().isNull()) && m_themeManager) {
+        QColor placeholderColor = m_themeManager->secondaryColor();
+        placeholderColor.setAlpha(25);  // 10% opacity
+        m_cryptoLogo->setStyleSheet(QString("border-radius: 24px; background-color: %1;")
+                                        .arg(placeholderColor.name(QColor::HexArgb)));
+    }
 }
 
 void QtExpandableWalletCard::updateStyles() {
-  if (!m_themeManager)
-    return;
+    if (!m_themeManager)
+        return;
 
-  // Get QColor objects for manipulation
-  QColor surfaceColor = m_themeManager->surfaceColor();
-  QColor accentColor = m_themeManager->accentColor();
-  QColor backgroundColor = m_themeManager->backgroundColor();
+    // Get QColor objects for manipulation
+    QColor surfaceColor = m_themeManager->surfaceColor();
+    QColor accentColor = m_themeManager->accentColor();
+    QColor backgroundColor = m_themeManager->backgroundColor();
 
-  // Get QString color names for direct use
-  QString surface = surfaceColor.name();
-  QString accent = accentColor.name();
-  QString text = m_themeManager->textColor().name();
-  QString textSecondary = m_themeManager->subtitleColor().name();
-  QString primary = m_themeManager->primaryColor().name();
-  QString background = backgroundColor.name();
+    // Get QString color names for direct use
+    QString surface = surfaceColor.name();
+    QString accent = accentColor.name();
+    QString text = m_themeManager->textColor().name();
+    QString textSecondary = m_themeManager->subtitleColor().name();
+    QString primary = m_themeManager->primaryColor().name();
+    QString background = backgroundColor.name();
 
-  // Note: isDarkTheme could be used for conditional styling in the future
-  (void)surfaceColor.lightness(); // Suppress unused warning
+    // Note: isDarkTheme could be used for conditional styling in the future
+    (void)surfaceColor.lightness();  // Suppress unused warning
 
-  // Card styling with rounded corners and subtle shadow
-  QString walletCardCss =
-      QString(R"(
+    // Card styling with rounded corners and subtle shadow
+    QString walletCardCss =
+        QString(R"(
     QFrame#expandableWalletCard {
       background-color: %1;
       border: 1px solid %2;
@@ -485,18 +484,18 @@ void QtExpandableWalletCard::updateStyles() {
       padding: 8px;
     }
   )")
-          .arg(surface)                                     // %1 - card background
-          .arg(m_themeManager->secondaryColor().name())     // %2 - outer border (subtle)
-          .arg(m_themeManager->secondaryColor().name())     // %3 - hover (theme-aware)
-          .arg(m_themeManager->surfaceColor().name())       // %4 - logo container background
-          .arg(m_themeManager->backgroundColor().name())    // %5 - history section bg
-          .arg(m_themeManager->secondaryColor().name());    // %6 - history section border
+            .arg(surface)                                   // %1 - card background
+            .arg(m_themeManager->secondaryColor().name())   // %2 - outer border (subtle)
+            .arg(m_themeManager->secondaryColor().name())   // %3 - hover (theme-aware)
+            .arg(m_themeManager->surfaceColor().name())     // %4 - logo container background
+            .arg(m_themeManager->backgroundColor().name())  // %5 - history section bg
+            .arg(m_themeManager->secondaryColor().name());  // %6 - history section border
 
-  setStyleSheet(walletCardCss);
+    setStyleSheet(walletCardCss);
 
-  // Logo styling with high contrast
-  // Use accent color for icon on foreground background for extra contrast
-  QString logoStyle = QString(R"(
+    // Logo styling with high contrast
+    // Use accent color for icon on foreground background for extra contrast
+    QString logoStyle = QString(R"(
     QLabel#cryptoLogo {
       color: %1;
       font-size: 22px;
@@ -505,14 +504,14 @@ void QtExpandableWalletCard::updateStyles() {
       border: none;
     }
   )")
-                          .arg(accent);
-  if (m_cryptoLogo)
-    m_cryptoLogo->setStyleSheet(logoStyle);
+                            .arg(accent);
+    if (m_cryptoLogo)
+        m_cryptoLogo->setStyleSheet(logoStyle);
 
-  // Crypto name styling - uses theme-aware subtitle color
-  QString cryptoNameColor = m_themeManager->subtitleColor().name();
+    // Crypto name styling - uses theme-aware subtitle color
+    QString cryptoNameColor = m_themeManager->subtitleColor().name();
 
-  QString nameStyle = QString(R"(
+    QString nameStyle = QString(R"(
     QLabel#cryptoName {
       color: %1;
       font-size: 10px;
@@ -521,13 +520,13 @@ void QtExpandableWalletCard::updateStyles() {
       background-color: transparent;
     }
   )")
-                          .arg(cryptoNameColor);
-  if (m_cryptoName)
-    m_cryptoName->setStyleSheet(nameStyle);
+                            .arg(cryptoNameColor);
+    if (m_cryptoName)
+        m_cryptoName->setStyleSheet(nameStyle);
 
-  // Balance styling - uses theme text color for proper contrast
-  QString balanceColor = m_themeManager->textColor().name();
-  QString balanceStyle = QString(R"(
+    // Balance styling - uses theme text color for proper contrast
+    QString balanceColor = m_themeManager->textColor().name();
+    QString balanceStyle = QString(R"(
     QLabel#balanceAmount {
       color: %1;
       font-size: 14px;
@@ -535,12 +534,12 @@ void QtExpandableWalletCard::updateStyles() {
       background-color: transparent;
     }
   )")
-                             .arg(balanceColor);
-  if (m_balanceLabel)
-    m_balanceLabel->setStyleSheet(balanceStyle);
+                               .arg(balanceColor);
+    if (m_balanceLabel)
+        m_balanceLabel->setStyleSheet(balanceStyle);
 
-  // Expand indicator styling - use accent color for better visibility
-  QString indicatorStyle = QString(R"(
+    // Expand indicator styling - use accent color for better visibility
+    QString indicatorStyle = QString(R"(
     QLabel#expandIndicator {
       color: %1;
       font-size: 18px;
@@ -548,16 +547,16 @@ void QtExpandableWalletCard::updateStyles() {
       background-color: transparent;
     }
   )")
-                               .arg(accent);
-  if (m_expandIndicator)
-    m_expandIndicator->setStyleSheet(indicatorStyle);
+                                 .arg(accent);
+    if (m_expandIndicator)
+        m_expandIndicator->setStyleSheet(indicatorStyle);
 
-  // Action button styling with rounded corners and modern look
-  QString buttonTextColor =
-      QColor(Qt::white).name(); // White text on accent buttons for contrast
+    // Action button styling with rounded corners and modern look
+    QString buttonTextColor =
+        QColor(Qt::white).name();  // White text on accent buttons for contrast
 
-  QString buttonStyle =
-      QString(R"(
+    QString buttonStyle =
+        QString(R"(
     QPushButton#actionButton {
       background-color: %1;
       color: %2;
@@ -575,17 +574,17 @@ void QtExpandableWalletCard::updateStyles() {
       background-color: %4;
     }
   )")
-          .arg(accent)                                            // normal state
-          .arg(buttonTextColor)                                   // text color
-          .arg(m_themeManager->accentColor().lighter(115).name()) // hover state
-          .arg(m_themeManager->accentColor().darker(110).name()); // pressed state
-  if (m_sendButton)
-    m_sendButton->setStyleSheet(buttonStyle);
-  if (m_receiveButton)
-    m_receiveButton->setStyleSheet(buttonStyle);
+            .arg(accent)                                             // normal state
+            .arg(buttonTextColor)                                    // text color
+            .arg(m_themeManager->accentColor().lighter(115).name())  // hover state
+            .arg(m_themeManager->accentColor().darker(110).name());  // pressed state
+    if (m_sendButton)
+        m_sendButton->setStyleSheet(buttonStyle);
+    if (m_receiveButton)
+        m_receiveButton->setStyleSheet(buttonStyle);
 
-  // History title styling using theme text color
-  QString historyTitleStyle = QString(R"(
+    // History title styling using theme text color
+    QString historyTitleStyle = QString(R"(
     QLabel#historyTitle {
       color: %1;
       font-size: 15px;
@@ -593,16 +592,15 @@ void QtExpandableWalletCard::updateStyles() {
       background-color: transparent;
     }
   )")
-                                  .arg(text);
-  if (m_historyTitleLabel)
-    m_historyTitleLabel->setStyleSheet(historyTitleStyle);
+                                    .arg(text);
+    if (m_historyTitleLabel)
+        m_historyTitleLabel->setStyleSheet(historyTitleStyle);
 
-  // History text area styling - modern and clean
-  QString historyBgColor = m_themeManager->backgroundColor().name();
-  QString historyBorderColor = m_themeManager->defaultBorderColor().name();
+    // History text area styling - modern and clean
+    QString historyBgColor = m_themeManager->backgroundColor().name();
+    QString historyBorderColor = m_themeManager->defaultBorderColor().name();
 
-  QString textEditStyle =
-      QString(R"(
+    QString textEditStyle = QString(R"(
     QTextEdit#historyText {
       background-color: %1;
       color: %2;
@@ -638,14 +636,14 @@ void QtExpandableWalletCard::updateStyles() {
       background: none;
     }
   )")
-          .arg(historyBgColor)                                // %1 - background color
-          .arg(text)                                          // %2 - text color
-          .arg(historyBorderColor)                            // %3 - border
-          .arg(m_themeManager->textFont().family())           // %4 - font family
-          .arg(m_themeManager->textFont().pointSize())        // %5 - font size
-          .arg(accent)                                        // %6 - selection bg
-          .arg(surface)                                       // %7 - selection text
-          .arg(accent);                                       // %8 - focus border
-  if (m_historyText)
-    m_historyText->setStyleSheet(textEditStyle);
+                                .arg(historyBgColor)                       // %1 - background color
+                                .arg(text)                                 // %2 - text color
+                                .arg(historyBorderColor)                   // %3 - border
+                                .arg(m_themeManager->textFont().family())  // %4 - font family
+                                .arg(m_themeManager->textFont().pointSize())  // %5 - font size
+                                .arg(accent)                                  // %6 - selection bg
+                                .arg(surface)                                 // %7 - selection text
+                                .arg(accent);                                 // %8 - focus border
+    if (m_historyText)
+        m_historyText->setStyleSheet(textEditStyle);
 }

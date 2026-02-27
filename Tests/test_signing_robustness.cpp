@@ -2,12 +2,12 @@
 #include "../backend/core/include/Crypto.h"
 #include "../backend/utils/include/RLPEncoder.h"
 #include "TestUtils.h"
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <map>
 #include <string>
 #include <vector>
-#include <cstdint>
 
 void testRLPDecimalEncoding() {
     TEST_START("RLP Decimal Encoding (Wei amounts)");

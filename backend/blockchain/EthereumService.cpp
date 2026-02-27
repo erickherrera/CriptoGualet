@@ -1,19 +1,18 @@
 #include "EthereumService.h"
-#include "../utils/include/RLPEncoder.h"
 #include "../core/include/Crypto.h"
+#include "../utils/include/RLPEncoder.h"
 #include <cpr/cpr.h>
+#include <cmath>
+#include <iomanip>
 #include <nlohmann/json.hpp>
 #include <regex>
 #include <sstream>
-#include <iomanip>
-#include <cmath>
 
 using json = nlohmann::json;
 
 namespace EthereumService {
 
-EthereumClient::EthereumClient(const std::string& network)
-    : m_network(network), m_apiToken("") {
+EthereumClient::EthereumClient(const std::string& network) : m_network(network), m_apiToken("") {
     updateBaseUrl();
 }
 
@@ -51,12 +50,10 @@ std::string EthereumClient::makeRequest(const std::string& endpoint) {
     cpr::Header headers{{"User-Agent", "CriptoGualet/1.0"}};
 
     try {
-        cpr::Response response = cpr::Get(
-            cpr::Url{url},
-            cpr::Timeout{10000},  // 10 second timeout
-            headers,
-            cpr::VerifySsl{true}  // SECURITY: Enforce SSL certificate validation
-        );
+        cpr::Response response =
+            cpr::Get(cpr::Url{url}, cpr::Timeout{10000},  // 10 second timeout
+                     headers, cpr::VerifySsl{true}  // SECURITY: Enforce SSL certificate validation
+            );
 
         if (response.status_code == 200) {
             return response.text;
@@ -107,17 +104,15 @@ std::optional<AddressBalance> EthereumClient::GetAddressBalance(const std::strin
 }
 
 std::optional<std::vector<Transaction>> EthereumClient::GetTransactionHistory(
-    const std::string& address,
-    uint32_t limit
-) {
+    const std::string& address, uint32_t limit) {
     if (!IsValidAddress(address)) {
         return std::nullopt;
     }
 
     // Etherscan API: Get normal transactions
-    std::string endpoint = "?module=account&action=txlist&address=" + address +
-                          "&startblock=0&endblock=99999999&page=1&offset=" +
-                          std::to_string(limit) + "&sort=desc";
+    std::string endpoint =
+        "?module=account&action=txlist&address=" + address +
+        "&startblock=0&endblock=99999999&page=1&offset=" + std::to_string(limit) + "&sort=desc";
 
     std::string response = makeRequest(endpoint);
 
@@ -192,8 +187,8 @@ std::optional<uint64_t> EthereumClient::GetTransactionCount(const std::string& a
     }
 
     // Etherscan API: Get transaction count
-    std::string endpoint = "?module=proxy&action=eth_getTransactionCount&address=" +
-                          address + "&tag=latest";
+    std::string endpoint =
+        "?module=proxy&action=eth_getTransactionCount&address=" + address + "&tag=latest";
     std::string response = makeRequest(endpoint);
 
     if (response.empty()) {
@@ -236,7 +231,8 @@ std::optional<TokenInfo> EthereumClient::GetTokenInfo(const std::string& contrac
     try {
         json data = json::parse(response);
 
-        if (data["status"] == "1" && data.contains("result") && data["result"].is_array() && !data["result"].empty()) {
+        if (data["status"] == "1" && data.contains("result") && data["result"].is_array() &&
+            !data["result"].empty()) {
             auto token_data = data["result"][0];
             TokenInfo tokenInfo;
             tokenInfo.contract_address = token_data.value("contractAddress", "");
@@ -252,12 +248,15 @@ std::optional<TokenInfo> EthereumClient::GetTokenInfo(const std::string& contrac
     return std::nullopt;
 }
 
-std::optional<std::string> EthereumClient::GetTokenBalance(const std::string& contractAddress, const std::string& userAddress) {
+std::optional<std::string> EthereumClient::GetTokenBalance(const std::string& contractAddress,
+                                                           const std::string& userAddress) {
     if (!IsValidAddress(contractAddress) || !IsValidAddress(userAddress)) {
         return std::nullopt;
     }
 
-    std::string endpoint = "?module=account&action=tokenbalance&contractaddress=" + contractAddress + "&address=" + userAddress + "&tag=latest";
+    std::string endpoint =
+        "?module=account&action=tokenbalance&contractaddress=" + contractAddress +
+        "&address=" + userAddress + "&tag=latest";
     std::string response = makeRequest(endpoint);
 
     if (response.empty()) {
@@ -275,7 +274,6 @@ std::optional<std::string> EthereumClient::GetTokenBalance(const std::string& co
 
     return std::nullopt;
 }
-
 
 bool EthereumClient::IsValidAddress(const std::string& address) {
     // Ethereum address format: 0x followed by 40 hexadecimal characters
@@ -441,14 +439,9 @@ std::optional<std::string> EthereumClient::BroadcastTransaction(const std::strin
 }
 
 std::optional<std::string> EthereumClient::CreateSignedTransaction(
-    const std::string& from_address,
-    const std::string& to_address,
-    const std::string& value_wei,
-    const std::string& gas_price_wei,
-    uint64_t gas_limit,
-    const std::string& private_key_hex,
-    uint64_t chain_id
-) {
+    const std::string& from_address, const std::string& to_address, const std::string& value_wei,
+    const std::string& gas_price_wei, uint64_t gas_limit, const std::string& private_key_hex,
+    uint64_t chain_id) {
     // Validate addresses
     if (!IsValidAddress(from_address) || !IsValidAddress(to_address)) {
         return std::nullopt;
@@ -475,10 +468,10 @@ std::optional<std::string> EthereumClient::CreateSignedTransaction(
     tx_fields.push_back(RLP::Encoder::EncodeUInt(gas_limit));
     tx_fields.push_back(RLP::Encoder::EncodeHex(to_address));
     tx_fields.push_back(RLP::Encoder::EncodeDecimal(value_wei));
-    tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // Empty data for simple transfer
+    tx_fields.push_back(RLP::Encoder::EncodeBytes({}));       // Empty data for simple transfer
     tx_fields.push_back(RLP::Encoder::EncodeUInt(chain_id));  // Chain ID for EIP-155
-    tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // r = 0 for unsigned
-    tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // s = 0 for unsigned
+    tx_fields.push_back(RLP::Encoder::EncodeBytes({}));       // r = 0 for unsigned
+    tx_fields.push_back(RLP::Encoder::EncodeBytes({}));       // s = 0 for unsigned
 
     // RLP encode the transaction
     std::vector<uint8_t> rlp_encoded = RLP::Encoder::EncodeList(tx_fields);
@@ -525,4 +518,4 @@ std::optional<std::string> EthereumClient::CreateSignedTransaction(
     return signed_tx_hex;
 }
 
-} // namespace EthereumService
+}  // namespace EthereumService

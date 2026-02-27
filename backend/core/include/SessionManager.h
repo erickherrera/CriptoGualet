@@ -1,11 +1,11 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <optional>
+#include "Repository/SessionRepository.h"
 #include <chrono>
 #include <map>
-#include "Repository/SessionRepository.h"
+#include <optional>
+#include <string>
+#include <vector>
 
 struct UserSession {
     int userId;
@@ -15,7 +15,7 @@ struct UserSession {
     std::chrono::steady_clock::time_point lastActivity;
     std::chrono::steady_clock::time_point expiresAt;
     bool totpAuthenticated;
-    
+
     struct WalletData {
         std::string btcAddress;
         std::string ltcAddress;
@@ -24,9 +24,9 @@ struct UserSession {
         double ltcBalance;
         double ethBalance;
     } walletData;
-    
+
     bool isActive;
-    
+
     bool isExpired() const;
     bool isFullyAuthenticated() const;
     bool canPerformSensitiveOperation() const;
@@ -34,9 +34,10 @@ struct UserSession {
 };
 
 class SessionManager {
-public:
+  public:
     explicit SessionManager(Database::DatabaseManager& dbManager);
-    std::string createSession(int userId, const std::string& username, bool totpAuthenticated = false);
+    std::string createSession(int userId, const std::string& username,
+                              bool totpAuthenticated = false);
     bool validateSession(const std::string& sessionId);
     void refreshSession(const std::string& sessionId);
     void invalidateSession(const std::string& sessionId);
@@ -44,7 +45,7 @@ public:
     UserSession* getSession(const std::string& sessionId);
     void cleanup();
 
-private:
+  private:
     std::map<std::string, UserSession> activeSessions_;
     std::string currentSessionId_;
     SessionRepository sessionRepository_;

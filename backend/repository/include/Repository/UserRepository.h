@@ -130,7 +130,7 @@ class UserRepository {
     /**
      * @brief Get user statistics
      * @return Result containing user count statistics
- */
+     */
     Result<UserStats> getUserStats();
 
     /**

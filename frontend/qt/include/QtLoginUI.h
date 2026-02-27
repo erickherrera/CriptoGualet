@@ -7,12 +7,12 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QSpacerItem>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QWidget>
-#include <QProgressBar>
 
 // Forward declarations
 class QtThemeManager;

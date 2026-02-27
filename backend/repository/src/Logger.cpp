@@ -1,8 +1,8 @@
 #include "../include/Repository/Logger.h"
-#include <iostream>
-#include <iomanip>
-#include <sstream>
 #include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
 
 namespace Repository {
 
@@ -20,7 +20,7 @@ bool Logger::initialize(const std::string& logFilePath, LogLevel minLevel, bool 
         std::lock_guard<std::mutex> lock(m_queueMutex);
 
         if (m_initialized) {
-            return true; // Already initialized
+            return true;  // Already initialized
         }
 
         m_logFilePath = logFilePath;
@@ -39,7 +39,7 @@ bool Logger::initialize(const std::string& logFilePath, LogLevel minLevel, bool 
         m_logWorker = std::thread(&Logger::logWorker, this);
 
         m_initialized = true;
-    } // Release lock before calling log()
+    }  // Release lock before calling log()
 
     // Log initialization
     log(LogLevel::INFO, "Logger", "Logger initialized", "LogFile: " + m_logFilePath);
@@ -69,7 +69,8 @@ void Logger::shutdown() {
     m_initialized = false;
 }
 
-void Logger::log(LogLevel level, const std::string& component, const std::string& message, const std::string& details) {
+void Logger::log(LogLevel level, const std::string& component, const std::string& message,
+                 const std::string& details) {
     if (!m_initialized || level < m_minLevel) {
         return;
     }
@@ -93,23 +94,28 @@ void Logger::log(LogLevel level, const std::string& component, const std::string
     }
 }
 
-void Logger::debug(const std::string& component, const std::string& message, const std::string& details) {
+void Logger::debug(const std::string& component, const std::string& message,
+                   const std::string& details) {
     log(LogLevel::DEBUG, component, message, details);
 }
 
-void Logger::info(const std::string& component, const std::string& message, const std::string& details) {
+void Logger::info(const std::string& component, const std::string& message,
+                  const std::string& details) {
     log(LogLevel::INFO, component, message, details);
 }
 
-void Logger::warning(const std::string& component, const std::string& message, const std::string& details) {
+void Logger::warning(const std::string& component, const std::string& message,
+                     const std::string& details) {
     log(LogLevel::WARNING, component, message, details);
 }
 
-void Logger::error(const std::string& component, const std::string& message, const std::string& details) {
+void Logger::error(const std::string& component, const std::string& message,
+                   const std::string& details) {
     log(LogLevel::ERROR, component, message, details);
 }
 
-void Logger::critical(const std::string& component, const std::string& message, const std::string& details) {
+void Logger::critical(const std::string& component, const std::string& message,
+                      const std::string& details) {
     log(LogLevel::CRITICAL, component, message, details);
 }
 
@@ -124,16 +130,15 @@ std::vector<LogEntry> Logger::getRecentEntries(size_t maxEntries) const {
         return m_recentEntries;
     }
 
-    return std::vector<LogEntry>(
-        m_recentEntries.end() - maxEntries,
-        m_recentEntries.end()
-    );
+    return std::vector<LogEntry>(m_recentEntries.end() - maxEntries, m_recentEntries.end());
 }
 
 void Logger::logWorker() {
     while (!m_shutdown) {
         std::unique_lock<std::mutex> lock(m_queueMutex);
-        m_queueCondition.wait(lock, [this] { return !m_logQueue.empty() || m_shutdown; });
+        m_queueCondition.wait(lock, [this] {
+            return !m_logQueue.empty() || m_shutdown;
+        });
 
         while (!m_logQueue.empty()) {
             LogEntry entry = m_logQueue.front();
@@ -168,8 +173,9 @@ std::string Logger::formatLogEntry(const LogEntry& entry) const {
 
     // Format timestamp
     auto time_t = std::chrono::system_clock::to_time_t(entry.timestamp);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        entry.timestamp.time_since_epoch()) % 1000;
+    auto ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(entry.timestamp.time_since_epoch()) %
+        1000;
 
     std::tm timeInfo = {};
 #ifdef _WIN32
@@ -199,18 +205,27 @@ std::string Logger::formatLogEntry(const LogEntry& entry) const {
 
 std::string Logger::logLevelToString(LogLevel level) const {
     switch (level) {
-        case LogLevel::DEBUG:    return "DEBUG";
-        case LogLevel::INFO:     return "INFO";
-        case LogLevel::WARNING:  return "WARN";
-        case LogLevel::ERROR:    return "ERROR";
-        case LogLevel::CRITICAL: return "CRIT";
-        default:                 return "UNKNOWN";
+        case LogLevel::DEBUG:
+            return "DEBUG";
+        case LogLevel::INFO:
+            return "INFO";
+        case LogLevel::WARNING:
+            return "WARN";
+        case LogLevel::ERROR:
+            return "ERROR";
+        case LogLevel::CRITICAL:
+            return "CRIT";
+        default:
+            return "UNKNOWN";
     }
 }
 
 // ScopedLogger implementation
 ScopedLogger::ScopedLogger(const std::string& component, const std::string& operation)
-    : m_component(component), m_operation(operation), m_startTime(std::chrono::steady_clock::now()), m_completed(false) {
+    : m_component(component),
+      m_operation(operation),
+      m_startTime(std::chrono::steady_clock::now()),
+      m_completed(false) {
     Logger::getInstance().debug(m_component, "Starting operation: " + m_operation);
 }
 
@@ -229,7 +244,8 @@ ScopedLogger::~ScopedLogger() {
 }
 
 void ScopedLogger::success(const std::string& details) {
-    if (m_completed) return;
+    if (m_completed)
+        return;
 
     auto duration = std::chrono::steady_clock::now() - m_startTime;
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
@@ -247,7 +263,8 @@ void ScopedLogger::success(const std::string& details) {
 }
 
 void ScopedLogger::failure(const std::string& error, const std::string& details) {
-    if (m_completed) return;
+    if (m_completed)
+        return;
 
     auto duration = std::chrono::steady_clock::now() - m_startTime;
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
@@ -271,4 +288,4 @@ void ScopedLogger::addContext(const std::string& key, const std::string& value) 
     m_context += key + "=" + value;
 }
 
-} // namespace Repository
+}  // namespace Repository

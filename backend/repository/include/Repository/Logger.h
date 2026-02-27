@@ -1,13 +1,13 @@
 #pragma once
 
 #include "RepositoryTypes.h"
-#include <memory>
+#include <atomic>
+#include <condition_variable>
 #include <fstream>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
-#include <atomic>
-#include <condition_variable>
 
 namespace Repository {
 
@@ -15,7 +15,7 @@ namespace Repository {
  * @brief Thread-safe logger for repository operations
  */
 class Logger {
-public:
+  public:
     /**
      * @brief Get the singleton logger instance
      */
@@ -28,7 +28,8 @@ public:
      * @param enableConsole Whether to also log to console
      * @return true if initialization successful
      */
-    bool initialize(const std::string& logFilePath, LogLevel minLevel = LogLevel::INFO, bool enableConsole = false);
+    bool initialize(const std::string& logFilePath, LogLevel minLevel = LogLevel::INFO,
+                    bool enableConsole = false);
 
     /**
      * @brief Shutdown the logger and flush all pending logs
@@ -42,16 +43,22 @@ public:
      * @param message Main log message
      * @param details Optional additional details
      */
-    void log(LogLevel level, const std::string& component, const std::string& message, const std::string& details = "");
+    void log(LogLevel level, const std::string& component, const std::string& message,
+             const std::string& details = "");
 
     /**
      * @brief Convenience logging methods
      */
-    void debug(const std::string& component, const std::string& message, const std::string& details = "");
-    void info(const std::string& component, const std::string& message, const std::string& details = "");
-    void warning(const std::string& component, const std::string& message, const std::string& details = "");
-    void error(const std::string& component, const std::string& message, const std::string& details = "");
-    void critical(const std::string& component, const std::string& message, const std::string& details = "");
+    void debug(const std::string& component, const std::string& message,
+               const std::string& details = "");
+    void info(const std::string& component, const std::string& message,
+              const std::string& details = "");
+    void warning(const std::string& component, const std::string& message,
+                 const std::string& details = "");
+    void error(const std::string& component, const std::string& message,
+               const std::string& details = "");
+    void critical(const std::string& component, const std::string& message,
+                  const std::string& details = "");
 
     /**
      * @brief Set the minimum log level
@@ -69,10 +76,17 @@ public:
     /**
      * @brief Check if logger is initialized
      */
-    bool isInitialized() const { return m_initialized; }
+    bool isInitialized() const {
+        return m_initialized;
+    }
 
-private:
-    Logger() : m_initialized(false), m_minLevel(LogLevel::INFO), m_enableConsole(false), m_shutdown(false) {}
+  private:
+    Logger()
+        : m_initialized(false),
+          m_minLevel(LogLevel::INFO),
+          m_enableConsole(false),
+          m_shutdown(false) {
+    }
     ~Logger();
 
     // Prevent copying
@@ -98,7 +112,7 @@ private:
      */
     std::string logLevelToString(LogLevel level) const;
 
-private:
+  private:
     std::atomic<bool> m_initialized;
     std::atomic<LogLevel> m_minLevel;
     std::atomic<bool> m_enableConsole;
@@ -123,7 +137,7 @@ private:
  * @brief RAII class for scoped logging of operations
  */
 class ScopedLogger {
-public:
+  public:
     ScopedLogger(const std::string& component, const std::string& operation);
     ~ScopedLogger();
 
@@ -142,7 +156,7 @@ public:
      */
     void addContext(const std::string& key, const std::string& value);
 
-private:
+  private:
     std::string m_component;
     std::string m_operation;
     std::chrono::steady_clock::time_point m_startTime;
@@ -150,7 +164,7 @@ private:
     std::string m_context;
 };
 
-} // namespace Repository
+}  // namespace Repository
 
 // Convenience macros for logging
 // Suppress warning about GNU extension for variadic macros (this is intentional and safe)

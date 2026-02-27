@@ -3,9 +3,9 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <sstream>
 
 #include "../backend/core/include/Crypto.h"
 
@@ -69,12 +69,13 @@ void audit_cryptographic_primitives() {
         std::string input = "abc";
         Crypto::RIPEMD160(reinterpret_cast<const uint8_t*>(input.data()), input.size(), hash);
         // expected for 'abc'
-        std::string expected = "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc"; 
-        
+        std::string expected = "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc";
+
         std::stringstream ss;
         ss << std::hex << std::setfill('0');
-        for (uint8_t b : hash) ss << std::setw(2) << (int)b;
-        
+        for (uint8_t b : hash)
+            ss << std::setw(2) << (int)b;
+
         audit_check(ss.str() == expected, "RIPEMD-160 correctness ('abc')");
     }
 
@@ -84,8 +85,10 @@ void audit_cryptographic_primitives() {
         std::string data = "Hi There";
         std::vector<uint8_t> out;
         Crypto::HMAC_SHA512(key, reinterpret_cast<const uint8_t*>(data.data()), data.size(), out);
-        
-        std::string expected = "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cdedaa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854";
+
+        std::string expected =
+            "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cdedaa833b7d6b8a702038b27"
+            "4eaea3f4e4be9d914eeb61f1702e696c203a126854";
         audit_check(to_hex(out) == expected, "HMAC-SHA512 correctness (RFC 4231)");
     }
 }
@@ -97,10 +100,10 @@ void audit_memory_security() {
     std::vector<uint8_t> sensitive_data = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE};
     size_t original_cap = sensitive_data.capacity();
     Crypto::SecureWipeVector(sensitive_data);
-    
+
     audit_check(sensitive_data.empty(), "SecureWipeVector clears container");
-    
-    // We can't easily check if memory was actually zeroed without unsafe access, 
+
+    // We can't easily check if memory was actually zeroed without unsafe access,
     // but we can check if the API is consistent.
 }
 
@@ -109,18 +112,18 @@ void audit_encryption_standards() {
 
     // 1. AES-GCM
     {
-        std::vector<uint8_t> key(32); // 256 bits
+        std::vector<uint8_t> key(32);  // 256 bits
         Crypto::RandBytes(key.data(), key.size());
         std::vector<uint8_t> plaintext(64, 'A');
         std::vector<uint8_t> aad = {0x01, 0x02};
         std::vector<uint8_t> ciphertext, iv, tag;
-        
+
         bool encrypt_ok = Crypto::AES_GCM_Encrypt(key, plaintext, aad, ciphertext, iv, tag);
         audit_check(encrypt_ok, "AES-GCM-256 Encryption");
-        
+
         audit_check(iv.size() == 12, "AES-GCM IV length (12 bytes/96 bits)");
         audit_check(tag.size() == 16, "AES-GCM Tag length (16 bytes/128 bits)");
-        
+
         std::vector<uint8_t> decrypted;
         bool decrypt_ok = Crypto::AES_GCM_Decrypt(key, ciphertext, aad, iv, tag, decrypted);
         audit_check(decrypt_ok && decrypted == plaintext, "AES-GCM-256 Decryption Integrity");
@@ -132,7 +135,7 @@ void audit_encryption_standards() {
         std::vector<uint8_t> data(100, 0xFF);
         std::vector<uint8_t> blob;
         Crypto::EncryptDBData(key, data, blob);
-        
+
         // Format: IV(12) + Tag(16) + Ciphertext(N)
         audit_check(blob.size() == 12 + 16 + 100, "Encrypted DB Data Envelope Size");
     }
@@ -144,7 +147,7 @@ void audit_key_derivation() {
     std::string password = "audit_password";
     std::vector<uint8_t> salt(16);
     Crypto::GenerateSecureSalt(salt, 16);
-    
+
     // 1. Wallet Key Derivation
     {
         std::vector<uint8_t> key;
@@ -159,9 +162,10 @@ void audit_key_derivation() {
         Crypto::DatabaseKeyInfo info;
         std::vector<uint8_t> db_key;
         bool ok = Crypto::CreateDatabaseKey(password, info, db_key);
-        
+
         audit_check(ok, "Database Key Creation");
-        audit_check(info.iteration_count >= 600000, "DB KDF Iterations >= 600,000 (OWASP recommended)");
+        audit_check(info.iteration_count >= 600000,
+                    "DB KDF Iterations >= 600,000 (OWASP recommended)");
     }
 }
 
@@ -183,33 +187,32 @@ void audit_bip39_standards() {
         // We need to load wordlist... this test might fail if wordlist isn't found.
         // Skip strictly loading from file to avoid path dependency issues in test.
         // Instead, verify the API handles errors or mocks.
-        
+
         // Actually, let's test the entropy-to-seed directly if we had a fixed mnemonic
-        // But since we can't easily load wordlist here without file access, 
+        // But since we can't easily load wordlist here without file access,
         // we'll audit the key derivation part which is pure math.
-        
-        std::vector<std::string> mnemonic_vec = {
-            "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-            "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-        };
+
+        std::vector<std::string> mnemonic_vec = {"abandon", "abandon", "abandon", "abandon",
+                                                 "abandon", "abandon", "abandon", "abandon",
+                                                 "abandon", "abandon", "abandon", "about"};
         std::string passphrase = "TREZOR";
         std::array<uint8_t, 64> seed;
         Crypto::BIP39_SeedFromMnemonic(mnemonic_vec, passphrase, seed);
-        
+
         // First 4 bytes of expected seed for this vector:
         // c55257c360c3...
         std::stringstream ss;
-        ss << std::hex << std::setfill('0') << std::setw(2) << (int)seed[0] 
-           << std::setw(2) << (int)seed[1];
-        
+        ss << std::hex << std::setfill('0') << std::setw(2) << (int)seed[0] << std::setw(2)
+           << (int)seed[1];
+
         std::string actual = ss.str();
         std::string expected = "c552";
-        
+
         if (actual == expected) {
             audit_check(true, "BIP-39 Seed Derivation (Vector Check)");
         } else {
-            audit_check(false, "BIP-39 Seed Derivation (Vector Check)", 
-                "Expected start: " + expected + ", Actual start: " + actual);
+            audit_check(false, "BIP-39 Seed Derivation (Vector Check)",
+                        "Expected start: " + expected + ", Actual start: " + actual);
         }
     }
 }
@@ -219,15 +222,13 @@ void audit_2fa_totp() {
 
     // RFC 6238 Test Vector (SHA1)
     // Secret: 12345678901234567890 (20 bytes)
-    std::vector<uint8_t> secret = {
-        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30,
-        0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30
-    };
-    
+    std::vector<uint8_t> secret = {0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30,
+                                   0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30};
+
     // Time: 59 (Window 1) -> Expect 287082
     std::string code = Crypto::GenerateTOTP(secret, 59);
     audit_check(code == "287082", "TOTP Generation (RFC 6238 Vector @ 59s)");
-    
+
     // Time: 1111111109 -> Expect 081804
     code = Crypto::GenerateTOTP(secret, 1111111109);
     audit_check(code == "081804", "TOTP Generation (RFC 6238 Vector @ 1.1G)");

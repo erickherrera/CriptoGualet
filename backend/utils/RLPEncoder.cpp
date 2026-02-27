@@ -1,8 +1,8 @@
 #include "RLPEncoder.h"
-#include <sstream>
-#include <iomanip>
-#include <stdexcept>
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
+#include <stdexcept>
 
 namespace RLP {
 
@@ -32,10 +32,11 @@ std::vector<uint8_t> Encoder::EncodeDecimal(const std::string& decimal) {
 
     // Convert decimal string to bytes (big-endian)
     std::vector<uint8_t> bytes;
-    bytes.push_back(0); // Start with zero
+    bytes.push_back(0);  // Start with zero
 
     for (char c : decimal) {
-        if (!std::isdigit(c)) continue;
+        if (!std::isdigit(c))
+            continue;
 
         uint32_t carry = c - '0';
         for (int i = static_cast<int>(bytes.size()) - 1; i >= 0; i--) {
@@ -93,7 +94,8 @@ std::vector<uint8_t> Encoder::HexToBytes(const std::string& hex) {
     std::string clean_hex = hex;
 
     // Remove 0x prefix if present
-    if (clean_hex.size() >= 2 && clean_hex[0] == '0' && (clean_hex[1] == 'x' || clean_hex[1] == 'X')) {
+    if (clean_hex.size() >= 2 && clean_hex[0] == '0' &&
+        (clean_hex[1] == 'x' || clean_hex[1] == 'X')) {
         clean_hex = clean_hex.substr(2);
     }
 
@@ -182,4 +184,4 @@ std::vector<uint8_t> Encoder::encodeLength(size_t length, uint8_t offset) {
     return result;
 }
 
-} // namespace RLP
+}  // namespace RLP

@@ -1,48 +1,59 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <optional>
 #include <chrono>
 #include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace Repository {
 
 /**
  * @brief Result wrapper for repository operations
  */
-template<typename T>
+template <typename T>
 struct Result {
     bool success;
     std::string errorMessage;
     T data;
     int errorCode;
 
-    Result() : success(false), errorCode(0) {}
-    Result(const T& value) : success(true), data(value), errorCode(0) {}
+    Result() : success(false), errorCode(0) {
+    }
+    Result(const T& value) : success(true), data(value), errorCode(0) {
+    }
     Result(const std::string& error, int errCode = 0)
-        : success(false), errorMessage(error), errorCode(errCode) {}
+        : success(false), errorMessage(error), errorCode(errCode) {
+    }
 
-    operator bool() const { return success; }
-    const T& operator*() const { return data; }
-    T& operator*() { return data; }
-    const T* operator->() const { return &data; }
-    T* operator->() { return &data; }
+    operator bool() const {
+        return success;
+    }
+    const T& operator*() const {
+        return data;
+    }
+    T& operator*() {
+        return data;
+    }
+    const T* operator->() const {
+        return &data;
+    }
+    T* operator->() {
+        return &data;
+    }
 
-    bool hasValue() const { return success; }
-    const std::string& error() const { return errorMessage; }
+    bool hasValue() const {
+        return success;
+    }
+    const std::string& error() const {
+        return errorMessage;
+    }
 };
 
 /**
  * @brief Log levels for repository operations
  */
-enum class LogLevel {
-    DEBUG = 0,
-    INFO = 1,
-    WARNING = 2,
-    ERROR = 3,
-    CRITICAL = 4
-};
+enum class LogLevel { DEBUG = 0, INFO = 1, WARNING = 2, ERROR = 3, CRITICAL = 4 };
 
 /**
  * @brief Log entry structure
@@ -54,8 +65,14 @@ struct LogEntry {
     std::string message;
     std::string details;
 
-    LogEntry(LogLevel lvl, const std::string& comp, const std::string& msg, const std::string& det = "")
-        : timestamp(std::chrono::system_clock::now()), level(lvl), component(comp), message(msg), details(det) {}
+    LogEntry(LogLevel lvl, const std::string& comp, const std::string& msg,
+             const std::string& det = "")
+        : timestamp(std::chrono::system_clock::now()),
+          level(lvl),
+          component(comp),
+          message(msg),
+          details(det) {
+    }
 };
 
 /**
@@ -71,7 +88,8 @@ struct User {
     int walletVersion;
     bool isActive;
 
-    User() : id(0), walletVersion(1), isActive(true) {}
+    User() : id(0), walletVersion(1), isActive(true) {
+    }
 };
 
 /**
@@ -87,7 +105,8 @@ struct Wallet {
     std::chrono::system_clock::time_point createdAt;
     bool isActive;
 
-    Wallet() : id(0), userId(0), walletType("bitcoin"), isActive(true) {}
+    Wallet() : id(0), userId(0), walletType("bitcoin"), isActive(true) {
+    }
 };
 
 /**
@@ -104,7 +123,8 @@ struct Address {
     std::optional<std::string> label;
     int64_t balanceSatoshis;
 
-    Address() : id(0), walletId(0), addressIndex(0), isChange(false), balanceSatoshis(0) {}
+    Address() : id(0), walletId(0), addressIndex(0), isChange(false), balanceSatoshis(0) {
+    }
 };
 
 /**
@@ -118,7 +138,7 @@ struct Transaction {
     std::optional<std::string> blockHash;
     int64_t amountSatoshis;
     int64_t feeSatoshis;
-    std::string direction; // 'incoming', 'outgoing', 'internal'
+    std::string direction;  // 'incoming', 'outgoing', 'internal'
     std::optional<std::string> fromAddress;
     std::optional<std::string> toAddress;
     int confirmationCount;
@@ -127,8 +147,15 @@ struct Transaction {
     std::optional<std::chrono::system_clock::time_point> confirmedAt;
     std::optional<std::string> memo;
 
-    Transaction() : id(0), walletId(0), amountSatoshis(0), feeSatoshis(0),
-                   direction("incoming"), confirmationCount(0), isConfirmed(false) {}
+    Transaction()
+        : id(0),
+          walletId(0),
+          amountSatoshis(0),
+          feeSatoshis(0),
+          direction("incoming"),
+          confirmationCount(0),
+          isConfirmed(false) {
+    }
 };
 
 /**
@@ -138,20 +165,27 @@ struct UTXO {
     int id;
     int walletId;
     int addressId;
-    std::string txid;                  // Transaction ID (hex)
-    uint32_t vout;                     // Output index
-    int64_t amountSatoshis;            // Amount in satoshis
-    std::string address;               // Address that can spend this UTXO
-    std::string scriptPubKey;          // Script public key (hex)
-    uint32_t confirmations;            // Number of confirmations
-    std::optional<int> blockHeight;    // Block height where confirmed
-    bool isSpent;                      // Whether this UTXO has been spent
+    std::string txid;                        // Transaction ID (hex)
+    uint32_t vout;                           // Output index
+    int64_t amountSatoshis;                  // Amount in satoshis
+    std::string address;                     // Address that can spend this UTXO
+    std::string scriptPubKey;                // Script public key (hex)
+    uint32_t confirmations;                  // Number of confirmations
+    std::optional<int> blockHeight;          // Block height where confirmed
+    bool isSpent;                            // Whether this UTXO has been spent
     std::optional<std::string> spentInTxid;  // Transaction ID where spent
     std::chrono::system_clock::time_point createdAt;
     std::optional<std::chrono::system_clock::time_point> spentAt;
 
-    UTXO() : id(0), walletId(0), addressId(0), vout(0), amountSatoshis(0),
-             confirmations(0), isSpent(false) {}
+    UTXO()
+        : id(0),
+          walletId(0),
+          addressId(0),
+          vout(0),
+          amountSatoshis(0),
+          confirmations(0),
+          isSpent(false) {
+    }
 };
 
 /**
@@ -166,7 +200,8 @@ struct EncryptedSeed {
     std::chrono::system_clock::time_point createdAt;
     bool backupConfirmed;
 
-    EncryptedSeed() : id(0), userId(0), keyDerivationIterations(100000), backupConfirmed(false) {}
+    EncryptedSeed() : id(0), userId(0), keyDerivationIterations(100000), backupConfirmed(false) {
+    }
 };
 
 /**
@@ -179,13 +214,14 @@ struct PaginationParams {
     bool ascending;
 
     PaginationParams(int off = 0, int lim = 50, const std::string& sort = "id", bool asc = true)
-        : offset(off), limit(lim), sortField(sort), ascending(asc) {}
+        : offset(off), limit(lim), sortField(sort), ascending(asc) {
+    }
 };
 
 /**
  * @brief Paginated result wrapper
  */
-template<typename T>
+template <typename T>
 struct PaginatedResult {
     std::vector<T> items;
     int totalCount;
@@ -193,9 +229,11 @@ struct PaginatedResult {
     int limit;
     bool hasMore;
 
-    PaginatedResult() : totalCount(0), offset(0), limit(0), hasMore(false) {}
+    PaginatedResult() : totalCount(0), offset(0), limit(0), hasMore(false) {
+    }
     PaginatedResult(const std::vector<T>& data, int total, int off, int lim)
-        : items(data), totalCount(total), offset(off), limit(lim), hasMore(off + lim < total) {}
+        : items(data), totalCount(total), offset(off), limit(lim), hasMore(off + lim < total) {
+    }
 };
 
 /**
@@ -207,7 +245,8 @@ struct UserStats {
     std::optional<std::chrono::system_clock::time_point> accountCreated;
     bool isActive;
 
-    UserStats() : totalLogins(0), isActive(true) {}
+    UserStats() : totalLogins(0), isActive(true) {
+    }
 };
 
 /**
@@ -218,11 +257,13 @@ struct PasswordValidation {
     std::string errorMessage;
     std::vector<std::string> requirements;
     std::vector<std::string> violations;
-    int strengthScore; // 0-100
+    int strengthScore;  // 0-100
 
-    PasswordValidation() : isValid(false), strengthScore(0) {}
+    PasswordValidation() : isValid(false), strengthScore(0) {
+    }
     PasswordValidation(bool valid, const std::string& message = "")
-        : isValid(valid), errorMessage(message), strengthScore(0) {}
+        : isValid(valid), errorMessage(message), strengthScore(0) {
+    }
 };
 
 /**
@@ -233,8 +274,8 @@ struct PasswordHashResult {
     std::vector<uint8_t> salt;
 
     PasswordHashResult() = default;
-    PasswordHashResult(const std::string& h, const std::vector<uint8_t>& s)
-        : hash(h), salt(s) {}
+    PasswordHashResult(const std::string& h, const std::vector<uint8_t>& s) : hash(h), salt(s) {
+    }
 };
 
-} // namespace Repository
+}  // namespace Repository

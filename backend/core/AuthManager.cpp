@@ -10,8 +10,7 @@ AuthManager& AuthManager::getInstance() {
     return instance;
 }
 
-AuthManager::AuthManager() 
-    : sessionManager_(Database::DatabaseManager::getInstance()) {
+AuthManager::AuthManager() : sessionManager_(Database::DatabaseManager::getInstance()) {
     //
 }
 
@@ -55,7 +54,8 @@ AuthResponse AuthManager::LoginUser(const std::string& username, const std::stri
                     std::string sessionId = sessionManager_.createSession(userId, username);
 
                     // SECURITY: Do not include session ID in user-visible message
-                    AuthResponse response = {AuthResult::SUCCESS, "Login successful. Welcome to CriptoGualet!"};
+                    AuthResponse response = {AuthResult::SUCCESS,
+                                             "Login successful. Welcome to CriptoGualet!"};
                     response.sessionId = sessionId;
                     return response;
                 }
@@ -85,7 +85,8 @@ AuthResponse AuthManager::RestoreFromSeed(const std::string& username,
     return Auth::RestoreFromSeed(username, mnemonicText, passphrase, passwordForReauth);
 }
 
-AuthResponse AuthManager::VerifyTwoFactorCode(const std::string& username, const std::string& totpCode) {
+AuthResponse AuthManager::VerifyTwoFactorCode(const std::string& username,
+                                              const std::string& totpCode) {
     auto authResponse = Auth::VerifyTwoFactorCode(username, totpCode);
 
     if (authResponse.success()) {

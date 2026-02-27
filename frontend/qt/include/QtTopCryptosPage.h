@@ -1,23 +1,23 @@
 #pragma once
 
-#include <QWidget>
-#include <QVBoxLayout>
+#include "../../../backend/blockchain/include/PriceService.h"
+#include <QTimer>
+#include <QComboBox>
+#include <QDateTime>
+#include <QFrame>
+#include <QFutureWatcher>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QFrame>
-#include <QScrollArea>
-#include <QTimer>
+#include <QLineEdit>
+#include <QMap>
+#include <QNetworkAccessManager>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QResizeEvent>
-#include <QNetworkAccessManager>
-#include <QMap>
-#include <QLineEdit>
-#include <QComboBox>
-#include <QFutureWatcher>
-#include <QProgressBar>
-#include <QDateTime>
+#include <QScrollArea>
+#include <QVBoxLayout>
+#include <QWidget>
 #include <memory>
-#include "../../../backend/blockchain/include/PriceService.h"
 
 class QtThemeManager;
 
@@ -25,64 +25,65 @@ class QtThemeManager;
 class QtCryptoCard : public QFrame {
     Q_OBJECT
 
-public:
-    explicit QtCryptoCard(QWidget *parent = nullptr);
-    void setCryptoData(const PriceService::CryptoPriceData &cryptoData, int rank);
+  public:
+    explicit QtCryptoCard(QWidget* parent = nullptr);
+    void setCryptoData(const PriceService::CryptoPriceData& cryptoData, int rank);
     void applyTheme();
-    void loadIcon(const QString &symbol);
-    bool isIconLoaded() const { return m_iconLoaded; }
+    void loadIcon(const QString& symbol);
+    bool isIconLoaded() const {
+        return m_iconLoaded;
+    }
 
-private:
+  private:
     void setupUI();
     QString formatPrice(double price);
     QString formatMarketCap(double marketCap);
-    QString getCryptoIconUrl(const QString &symbol);
+    QString getCryptoIconUrl(const QString& symbol);
     void setFallbackIcon();
 
-    QLabel *m_iconLabel;
-    QLabel *m_symbolLabel;
-    QLabel *m_nameLabel;
-    QLabel *m_priceLabel;
-    QLabel *m_changeLabel;
-    QLabel *m_marketCapLabel;
+    QLabel* m_iconLabel;
+    QLabel* m_symbolLabel;
+    QLabel* m_nameLabel;
+    QLabel* m_priceLabel;
+    QLabel* m_changeLabel;
+    QLabel* m_marketCapLabel;
 
-    QtThemeManager *m_themeManager;
-    QNetworkAccessManager *m_networkManager;
+    QtThemeManager* m_themeManager;
+    QNetworkAccessManager* m_networkManager;
     QString m_currentSymbol;
     QString m_currentImageUrl;
     bool m_iconLoaded;
 
-private slots:
-    void onIconDownloaded(QNetworkReply *reply);
+  private slots:
+    void onIconDownloaded(QNetworkReply* reply);
 };
 
 // Main page for displaying top cryptocurrencies
 class QtTopCryptosPage : public QWidget {
     Q_OBJECT
 
-public:
-    explicit QtTopCryptosPage(QWidget *parent = nullptr);
+  public:
+    explicit QtTopCryptosPage(QWidget* parent = nullptr);
     void applyTheme();
     void refreshData();
 
-signals:
+  signals:
     void backRequested();
 
-protected:
-    void resizeEvent(QResizeEvent *event) override;
+  protected:
+    void resizeEvent(QResizeEvent* event) override;
 
   private slots:
     void onRefreshClicked();
     void onAutoRefreshTimer();
-    void onSearchTextChanged(const QString &text);
+    void onSearchTextChanged(const QString& text);
     void onSortChanged(int index);
     void onSearchDebounceTimer();
     void onTopCryptosFetched();
     void onRetryStatusTimer();
     void onClearClicked();
 
-
-private:
+  private:
     void setupUI();
     void createHeader();
     void createSearchBar();
@@ -97,35 +98,35 @@ private:
     void updateResultCounter();
     void loadVisibleIcons();
 
-    QtThemeManager *m_themeManager;
+    QtThemeManager* m_themeManager;
 
     // Layout
-    QVBoxLayout *m_mainLayout;
-    QHBoxLayout *m_centeringLayout;
-    QSpacerItem *m_leftSpacer;
-    QSpacerItem *m_rightSpacer;
-    QScrollArea *m_scrollArea;
-    QWidget *m_scrollContent;
-    QVBoxLayout *m_contentLayout;
+    QVBoxLayout* m_mainLayout;
+    QHBoxLayout* m_centeringLayout;
+    QSpacerItem* m_leftSpacer;
+    QSpacerItem* m_rightSpacer;
+    QScrollArea* m_scrollArea;
+    QWidget* m_scrollContent;
+    QVBoxLayout* m_contentLayout;
 
     // Header
-    QWidget *m_headerWidget;
-    QLabel *m_titleLabel;
-    QLabel *m_subtitleLabel;
-    QProgressBar *m_loadingBar;
-    QPushButton *m_refreshButton;
-    QPushButton *m_backButton;
+    QWidget* m_headerWidget;
+    QLabel* m_titleLabel;
+    QLabel* m_subtitleLabel;
+    QProgressBar* m_loadingBar;
+    QPushButton* m_refreshButton;
+    QPushButton* m_backButton;
 
     // Search and filter controls
-    QLineEdit *m_searchBox;
-    QPushButton *m_clearSearchButton;
-    QComboBox *m_sortDropdown;
-    QLabel *m_resultCounterLabel;
+    QLineEdit* m_searchBox;
+    QPushButton* m_clearSearchButton;
+    QComboBox* m_sortDropdown;
+    QLabel* m_resultCounterLabel;
 
     // Crypto cards
     QVector<QtCryptoCard*> m_cryptoCards;
-    QWidget *m_cardsContainer;
-    QVBoxLayout *m_cardsLayout;
+    QWidget* m_cardsContainer;
+    QVBoxLayout* m_cardsLayout;
 
     // Price service
     std::unique_ptr<PriceService::PriceFetcher> m_priceFetcher;
@@ -136,13 +137,13 @@ private:
     // Search and sort state
     QString m_searchText;
     int m_currentSortIndex;
-    QTimer *m_searchDebounceTimer;
+    QTimer* m_searchDebounceTimer;
 
     // Auto-refresh timer
-    QTimer *m_refreshTimer;
+    QTimer* m_refreshTimer;
 
     // Retry status timer
-    QTimer *m_retryStatusTimer;
+    QTimer* m_retryStatusTimer;
     int m_retryStatusAttempt;
     int m_retryStatusMaxAttempts;
 

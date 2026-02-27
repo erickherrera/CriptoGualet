@@ -1,13 +1,13 @@
 #pragma once
 
-#include "RepositoryTypes.h"
-#include "Logger.h"
-#include "../../database/include/Database/DatabaseManager.h"
 #include "../../core/include/Crypto.h"
+#include "../../database/include/Database/DatabaseManager.h"
+#include "Logger.h"
+#include "RepositoryTypes.h"
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
 
 // Forward declaration
 struct sqlite3_stmt;
@@ -29,7 +29,7 @@ struct WalletStats;
  * - Multi-currency support
  */
 class WalletRepository {
-public:
+  public:
     /**
      * @brief Constructor
      * @param dbManager Reference to the database manager
@@ -46,9 +46,9 @@ public:
      * @return Result containing the created wallet or error information
      */
     Result<Wallet> createWallet(int userId, const std::string& walletName,
-                               const std::string& walletType = "bitcoin",
-                               const std::optional<std::string>& derivationPath = std::nullopt,
-                               const std::optional<std::string>& extendedPublicKey = std::nullopt);
+                                const std::string& walletType = "bitcoin",
+                                const std::optional<std::string>& derivationPath = std::nullopt,
+                                const std::optional<std::string>& extendedPublicKey = std::nullopt);
 
     /**
      * @brief Get wallet by ID
@@ -92,9 +92,9 @@ public:
      * @return Result indicating success or failure
      */
     Result<bool> updateWallet(int walletId,
-                             const std::optional<std::string>& walletName = std::nullopt,
-                             const std::optional<std::string>& derivationPath = std::nullopt,
-                             const std::optional<std::string>& extendedPublicKey = std::nullopt);
+                              const std::optional<std::string>& walletName = std::nullopt,
+                              const std::optional<std::string>& derivationPath = std::nullopt,
+                              const std::optional<std::string>& extendedPublicKey = std::nullopt);
 
     /**
      * @brief Set wallet active status
@@ -119,7 +119,7 @@ public:
      * @return Result containing the generated address
      */
     Result<Address> generateAddress(int walletId, bool isChange = false,
-                                   const std::optional<std::string>& label = std::nullopt);
+                                    const std::optional<std::string>& label = std::nullopt);
 
     /**
      * @brief Get address by address string
@@ -134,8 +134,8 @@ public:
      * @param isChange Optional filter for address type (nullopt = all)
      * @return Result containing list of addresses
      */
-    Result<std::vector<Address>> getAddressesByWallet(int walletId,
-                                                     const std::optional<bool>& isChange = std::nullopt);
+    Result<std::vector<Address>> getAddressesByWallet(
+        int walletId, const std::optional<bool>& isChange = std::nullopt);
 
     /**
      * @brief Update address label
@@ -176,7 +176,7 @@ public:
      * @return Result indicating success or failure
      */
     Result<bool> storeEncryptedSeed(int userId, const std::string& password,
-                                   const std::vector<std::string>& mnemonic);
+                                    const std::vector<std::string>& mnemonic);
 
     /**
      * @brief Retrieve and decrypt seed for a user
@@ -221,10 +221,10 @@ public:
      * @param blockHeight Optional block height
      * @return Result containing the created UTXO
      */
-    Result<UTXO> addUTXO(int walletId, int addressId, const std::string& txid,
-                        uint32_t vout, int64_t amountSatoshis,
-                        const std::string& scriptPubKey, uint32_t confirmations,
-                        const std::optional<int>& blockHeight = std::nullopt);
+    Result<UTXO> addUTXO(int walletId, int addressId, const std::string& txid, uint32_t vout,
+                         int64_t amountSatoshis, const std::string& scriptPubKey,
+                         uint32_t confirmations,
+                         const std::optional<int>& blockHeight = std::nullopt);
 
     /**
      * @brief Get all unspent UTXOs for a wallet
@@ -240,7 +240,8 @@ public:
      * @param minConfirmations Minimum number of confirmations (default: 1)
      * @return Result containing list of unspent UTXOs
      */
-    Result<std::vector<UTXO>> getUnspentUTXOsByAddress(int addressId, uint32_t minConfirmations = 1);
+    Result<std::vector<UTXO>> getUnspentUTXOsByAddress(int addressId,
+                                                       uint32_t minConfirmations = 1);
 
     /**
      * @brief Mark UTXO as spent
@@ -290,7 +291,7 @@ public:
      */
     Result<UTXO> getUTXOByTxidVout(const std::string& txid, uint32_t vout);
 
-private:
+  private:
     /**
      * @brief Convert database row to Wallet object
      * @param stmt SQLite statement handle
@@ -334,7 +335,8 @@ private:
      * @param isChange Whether this is a change address
      * @return Generated address string
      */
-    std::string generateAddressString(const std::string& walletType, int walletId, int addressIndex, bool isChange);
+    std::string generateAddressString(const std::string& walletType, int walletId, int addressIndex,
+                                      bool isChange);
 
     /**
      * @brief Generate an Ethereum address (simplified implementation)
@@ -360,12 +362,12 @@ private:
      */
     int64_t calculateWalletBalance(int walletId);
 
-private:
+  private:
     Database::DatabaseManager& m_dbManager;
     static constexpr const char* COMPONENT_NAME = "WalletRepository";
     static constexpr int MIN_WALLET_NAME_LENGTH = 1;
     static constexpr int MAX_WALLET_NAME_LENGTH = 100;
-    static constexpr int MAX_ADDRESS_GAP = 20; // BIP44 address gap limit
+    static constexpr int MAX_ADDRESS_GAP = 20;  // BIP44 address gap limit
 };
 
 /**
@@ -379,7 +381,9 @@ struct WalletSummary {
     int transactionCount;
     std::optional<std::chrono::system_clock::time_point> lastTransactionDate;
 
-    WalletSummary() : totalBalanceSatoshis(0), addressCount(0), usedAddressCount(0), transactionCount(0) {}
+    WalletSummary()
+        : totalBalanceSatoshis(0), addressCount(0), usedAddressCount(0), transactionCount(0) {
+    }
 };
 
 /**
@@ -389,10 +393,12 @@ struct WalletStats {
     int totalWallets;
     int activeWallets;
     int64_t totalBalanceSatoshis;
-    std::vector<std::pair<std::string, int>> walletsByType; // wallet_type, count
+    std::vector<std::pair<std::string, int>> walletsByType;  // wallet_type, count
     bool hasSeedBackup;
 
-    WalletStats() : totalWallets(0), activeWallets(0), totalBalanceSatoshis(0), hasSeedBackup(false) {}
+    WalletStats()
+        : totalWallets(0), activeWallets(0), totalBalanceSatoshis(0), hasSeedBackup(false) {
+    }
 };
 
-} // namespace Repository
+}  // namespace Repository

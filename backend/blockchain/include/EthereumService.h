@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
-#include <optional>
-#include <vector>
 #include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace EthereumService {
 
@@ -12,11 +12,12 @@ namespace EthereumService {
  */
 struct AddressBalance {
     std::string address;
-    std::string balance_wei;      // Balance in Wei (smallest unit)
-    double balance_eth;            // Balance in ETH
-    uint64_t transaction_count;    // Number of transactions
+    std::string balance_wei;     // Balance in Wei (smallest unit)
+    double balance_eth;          // Balance in ETH
+    uint64_t transaction_count;  // Number of transactions
 
-    AddressBalance() : balance_eth(0.0), transaction_count(0) {}
+    AddressBalance() : balance_eth(0.0), transaction_count(0) {
+    }
 };
 
 /**
@@ -35,18 +36,20 @@ struct Transaction {
     std::string status;  // "1" = success, "0" = failed
     bool is_error;
 
-    Transaction() : value_eth(0.0), is_error(false) {}
+    Transaction() : value_eth(0.0), is_error(false) {
+    }
 };
 
 /**
  * @brief Gas price information
  */
 struct GasPrice {
-    std::string safe_gas_price;      // Safe (slower) gas price in Gwei
-    std::string propose_gas_price;   // Proposed (average) gas price in Gwei
-    std::string fast_gas_price;      // Fast gas price in Gwei
+    std::string safe_gas_price;     // Safe (slower) gas price in Gwei
+    std::string propose_gas_price;  // Proposed (average) gas price in Gwei
+    std::string fast_gas_price;     // Fast gas price in Gwei
 
-    GasPrice() {}
+    GasPrice() {
+    }
 };
 
 /**
@@ -58,7 +61,8 @@ struct TokenInfo {
     std::string symbol;
     int decimals;
 
-    TokenInfo() : decimals(0) {}
+    TokenInfo() : decimals(0) {
+    }
 };
 
 /**
@@ -68,7 +72,7 @@ struct TokenInfo {
  * Free tier: 5 calls/second, up to 100,000 calls/day
  */
 class EthereumClient {
-public:
+  public:
     /**
      * @brief Constructor
      * @param network Network to connect to ("mainnet", "sepolia", "goerli")
@@ -100,10 +104,8 @@ public:
      * @param limit Maximum number of transactions to retrieve
      * @return Optional vector of transactions
      */
-    std::optional<std::vector<Transaction>> GetTransactionHistory(
-        const std::string& address,
-        uint32_t limit = 10
-    );
+    std::optional<std::vector<Transaction>> GetTransactionHistory(const std::string& address,
+                                                                  uint32_t limit = 10);
 
     /**
      * @brief Get current gas price estimates
@@ -131,7 +133,8 @@ public:
      * @param userAddress The address of the user
      * @return Optional balance as a string (in smallest unit)
      */
-    std::optional<std::string> GetTokenBalance(const std::string& contractAddress, const std::string& userAddress);
+    std::optional<std::string> GetTokenBalance(const std::string& contractAddress,
+                                               const std::string& userAddress);
 
     /**
      * @brief Send raw signed transaction to the network
@@ -152,14 +155,9 @@ public:
      * @return Optional signed transaction hex if successful
      */
     std::optional<std::string> CreateSignedTransaction(
-        const std::string& from_address,
-        const std::string& to_address,
-        const std::string& value_wei,
-        const std::string& gas_price_wei,
-        uint64_t gas_limit,
-        const std::string& private_key_hex,
-        uint64_t chain_id
-    );
+        const std::string& from_address, const std::string& to_address,
+        const std::string& value_wei, const std::string& gas_price_wei, uint64_t gas_limit,
+        const std::string& private_key_hex, uint64_t chain_id);
 
     /**
      * @brief Validate Ethereum address format
@@ -189,7 +187,7 @@ public:
      */
     static std::string GweiToWei(double gwei);
 
-private:
+  private:
     std::string m_network;
     std::string m_apiToken;
     std::string m_baseUrl;
@@ -207,4 +205,4 @@ private:
     std::string makeRequest(const std::string& endpoint);
 };
 
-} // namespace EthereumService
+}  // namespace EthereumService

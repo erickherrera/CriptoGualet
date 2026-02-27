@@ -5,16 +5,16 @@
 #include "../backend/core/include/WalletAPI.h"
 #include "../backend/repository/include/Repository/RepositoryTypes.h"
 #include "../backend/utils/include/SharedTypes.h"
+#include "../frontend/qt/include/LoadingOverlay.h"
 #include "../frontend/qt/include/QtLoginUI.h"
 #include "../frontend/qt/include/QtSeedDisplayDialog.h"
 #include "../frontend/qt/include/QtSettingsUI.h"
 #include "../frontend/qt/include/QtSidebar.h"
 #include "../frontend/qt/include/QtSuccessDialog.h"
+#include "../frontend/qt/include/QtTestConsole.h"
 #include "../frontend/qt/include/QtThemeManager.h"
 #include "../frontend/qt/include/QtTopCryptosPage.h"
 #include "../frontend/qt/include/QtWalletUI.h"
-#include "../frontend/qt/include/QtTestConsole.h"
-#include "../frontend/qt/include/LoadingOverlay.h"
 
 #include <QTimer>
 #include <QAction>
@@ -130,21 +130,21 @@ bool CriptoGualetQt::initializeRepositories() {
 
         // Get database path from environment or use a secure location in Local AppData
         std::string dbPath;
-        
+
 #ifdef Q_OS_WIN
         const char* localAppData = std::getenv("LOCALAPPDATA");
         if (localAppData) {
             std::string appDir = std::string(localAppData) + "\\CriptoGualet";
-            
+
             // Ensure directory exists using Windows API
             DWORD dwAttrib = GetFileAttributesA(appDir.c_str());
             if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY)) {
                 CreateDirectoryA(appDir.c_str(), NULL);
             }
-            
+
             dbPath = appDir + "\\criptogualet.db";
         } else {
-            dbPath = "criptogualet.db"; // Fallback
+            dbPath = "criptogualet.db";  // Fallback
         }
 #else
         dbPath = "criptogualet.db";
@@ -155,13 +155,18 @@ bool CriptoGualetQt::initializeRepositories() {
         if (!dbResult) {
             qCritical() << "Database initialization failed:" << dbResult.message.c_str()
                         << "Error code:" << dbResult.errorCode;
-            
-            // Recovery: If initialization failed, it might be due to a mismatch in SQLCipher settings 
-            // between versions or a corrupted file. Offer to reset in debug mode or if it's a new install.
-            auto button = QMessageBox::question(this, "Database Error", 
-                QString("Failed to initialize the secure database: %1\n\nWould you like to reset the database? (All local data will be lost, but you can recover your wallet with your seed phrase)").arg(QString::fromStdString(dbResult.message)),
+
+            // Recovery: If initialization failed, it might be due to a mismatch in SQLCipher
+            // settings between versions or a corrupted file. Offer to reset in debug mode or if
+            // it's a new install.
+            auto button = QMessageBox::question(
+                this, "Database Error",
+                QString("Failed to initialize the secure database: %1\n\nWould you like to reset "
+                        "the database? (All local data will be lost, but you can recover your "
+                        "wallet with your seed phrase)")
+                    .arg(QString::fromStdString(dbResult.message)),
                 QMessageBox::Yes | QMessageBox::No);
-            
+
             if (button == QMessageBox::Yes) {
                 dbManager.close();
                 QFile::remove(QString::fromStdString(dbPath));
@@ -357,7 +362,8 @@ void CriptoGualetQt::setupUI() {
                     void run() override {
                         std::string stdUsername = m_username.toStdString();
                         std::string stdPassword = m_password.toStdString();
-                        Auth::AuthResponse response = Auth::AuthManager::getInstance().LoginUser(stdUsername, stdPassword);
+                        Auth::AuthResponse response =
+                            Auth::AuthManager::getInstance().LoginUser(stdUsername, stdPassword);
 
                         // Report back to UI thread
                         QMetaObject::invokeMethod(
@@ -398,7 +404,8 @@ void CriptoGualetQt::setupUI() {
                     // Fallback to synchronous execution if thread pool unavailable
                     std::string stdUsername = username.toStdString();
                     std::string stdPassword = password.toStdString();
-                    Auth::AuthResponse response = Auth::AuthManager::getInstance().LoginUser(stdUsername, stdPassword);
+                    Auth::AuthResponse response =
+                        Auth::AuthManager::getInstance().LoginUser(stdUsername, stdPassword);
 
                     if (response.success()) {
                         {
@@ -431,8 +438,8 @@ void CriptoGualetQt::setupUI() {
 
                 void run() override {
                     std::vector<std::string> mnemonic;
-                    Auth::AuthResponse response =
-                        Auth::AuthManager::getInstance().RegisterUser(m_stdUsername, m_stdPassword, mnemonic);
+                    Auth::AuthResponse response = Auth::AuthManager::getInstance().RegisterUser(
+                        m_stdUsername, m_stdPassword, mnemonic);
                     QString message = QString::fromStdString(response.message);
 
                     // Report back to UI thread
@@ -504,7 +511,8 @@ void CriptoGualetQt::setupUI() {
                 std::string stdPassword = password.toStdString();
                 std::string stdTotpCode = totpCode.toStdString();
 
-                Auth::AuthResponse response = Auth::AuthManager::getInstance().VerifyTwoFactorCode(stdUsername, stdTotpCode);
+                Auth::AuthResponse response =
+                    Auth::AuthManager::getInstance().VerifyTwoFactorCode(stdUsername, stdTotpCode);
                 QString message = QString::fromStdString(response.message);
 
                 if (response.success()) {
@@ -1087,12 +1095,13 @@ void CriptoGualetQt::changeTheme(ThemeType theme) {
         m_loadingOverlay->raise();
     }
 
-    // Use a small delay to allow the loading overlay to render before blocking the UI thread with theme application
+    // Use a small delay to allow the loading overlay to render before blocking the UI thread with
+    // theme application
     QTimer::singleShot(100, this, [this, theme]() {
         if (m_themeManager) {
             m_themeManager->applyTheme(theme);
         }
-        
+
         // Keep the overlay for a short duration after theme is applied for a smoother feel
         QTimer::singleShot(500, this, [this]() {
             if (m_loadingOverlay) {
@@ -1107,10 +1116,11 @@ int main(int argc, char* argv[]) {
     // Set the AppUserModelID to ensure the taskbar icon is displayed correctly on Windows.
     // This must be done before any windows are created.
     const wchar_t* appId = L"ErickHerrera.CriptoGualet.1.0";
-    typedef HRESULT (WINAPI *SetAppIDFunc)(PCWSTR);
+    typedef HRESULT(WINAPI * SetAppIDFunc)(PCWSTR);
     HMODULE hShell32 = GetModuleHandleW(L"shell32.dll");
     if (hShell32) {
-        SetAppIDFunc setAppID = (SetAppIDFunc)GetProcAddress(hShell32, "SetCurrentProcessExplicitAppUserModelID");
+        SetAppIDFunc setAppID =
+            (SetAppIDFunc)GetProcAddress(hShell32, "SetCurrentProcessExplicitAppUserModelID");
         if (setAppID) {
             setAppID(appId);
         }
