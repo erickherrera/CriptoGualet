@@ -8,7 +8,10 @@
     "curl",
     "nlohmann-json",
     "secp256k1",
-    "sqlcipher",
+    {
+      "name": "sqlcipher",
+      "platform": "windows"
+    },
     "libsodium"
   ]
 }

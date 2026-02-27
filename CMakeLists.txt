@@ -1,4 +1,4 @@
-# Find MSVC compiler if not configured
+# Windows-only: Find MSVC compiler if not configured
 if(WIN32 AND NOT CMAKE_CXX_COMPILER)
     find_program(VSWHERE_EXE "vswhere.exe"
         PATHS "C:/Program Files (x86)/Microsoft Visual Studio/Installer"
@@ -31,7 +31,7 @@ if(WIN32 AND NOT CMAKE_CXX_COMPILER)
     endif()
 endif()
 
-# If clang-cl is requested but path is missing, locate it via VS installation
+# Windows-only: If clang-cl is requested but path is missing, locate it via VS installation
 if(WIN32 AND (CMAKE_CXX_COMPILER MATCHES "clang-cl" OR CMAKE_C_COMPILER MATCHES "clang-cl"))
     if((CMAKE_CXX_COMPILER AND NOT EXISTS "${CMAKE_CXX_COMPILER}") OR (CMAKE_C_COMPILER AND NOT EXISTS "${CMAKE_C_COMPILER}"))
         find_program(VSWHERE_EXE "vswhere.exe"
@@ -234,8 +234,8 @@ if(NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
-# Add MSVC-specific flags for Qt compatibility
-if(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+# Add MSVC-specific flags for Qt compatibility (Windows only)
+if(WIN32 AND (MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
   add_compile_options(/Zc:__cplusplus)
   # Force disable ASAN for this project to prevent flag conflicts
   add_compile_definitions(CRYPTO_NO_ASAN)

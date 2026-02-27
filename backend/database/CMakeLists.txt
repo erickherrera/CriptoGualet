@@ -37,7 +37,7 @@ if(sqlcipher_FOUND)
   target_compile_definitions(Database PUBLIC SQLCIPHER_AVAILABLE)
   message(STATUS "Database library found SQLCipher via CMake package")
 else()
-  # Fallback to manual linking
+  # Try to find SQLCipher manually
   find_path(SQLCIPHER_INCLUDE_DIR sqlcipher/sqlite3.h)
   find_library(SQLCIPHER_LIBRARY NAMES sqlcipher)
 
@@ -53,20 +53,19 @@ else()
     endif()
 
     target_compile_definitions(Database PUBLIC SQLCIPHER_AVAILABLE)
-    message(STATUS "Database library found SQLCipher via vcpkg: ${SQLCIPHER_LIBRARY}")
+    message(STATUS "Database library found SQLCipher: ${SQLCIPHER_LIBRARY}")
   else()
-    # Fallback to regular SQLite3
-    find_path(SQLITE3_INCLUDE_DIR sqlite3.h)
-    find_library(SQLITE3_LIBRARY NAMES sqlite3)
-
-    if(SQLITE3_INCLUDE_DIR AND SQLITE3_LIBRARY)
-      target_include_directories(Database PUBLIC ${SQLITE3_INCLUDE_DIR})
-      target_link_libraries(Database PUBLIC ${SQLITE3_LIBRARY})
-      message(STATUS "Database library found SQLite3 (fallback): ${SQLITE3_LIBRARY}")
-      message(WARNING "Using SQLite3 without encryption - install SQLCipher for production use")
-    else()
-      message(WARNING "Neither SQLCipher nor SQLite3 found - Database library will not be functional")
-      message(STATUS "Run 'vcpkg install sqlcipher sqlite3' to install database dependencies")
-    endif()
+    # SQLCipher is REQUIRED - fail the build
+    message(FATAL_ERROR 
+      "SQLCipher is REQUIRED but was not found!\n"
+      "This application requires encrypted database storage.\n"
+      "\n"
+      "To install SQLCipher:\n"
+      "  Windows: vcpkg install sqlcipher\n"
+      "  Linux:   sudo apt-get install libsqlcipher-dev\n"
+      "          (or build from source: https://github.com/sqlcipher/sqlcipher)\n"
+      "\n"
+      "After installing, reconfigure the build."
+    )
   endif()
 endif()
