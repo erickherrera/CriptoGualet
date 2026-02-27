@@ -1,0 +1,212 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+env:
+  BUILD_TYPE: Release
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+jobs:
+  # Job 1: Code Formatting Check
+  format-check:
+    name: Code Formatting
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install clang-format
+      run: |
+        choco install llvm --version=17.0.6 --no-progress
+        echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
+        
+    - name: Check code formatting
+      run: |
+        $files = Get-ChildItem -Path backend,frontend,src,Tests -Include *.cpp,*.h,*.hpp -Recurse -File
+        $unformatted = @()
+        
+        foreach ($file in $files) {
+          $result = clang-format --dry-run --Werror $file.FullName 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            $unformatted += $file.FullName
+            Write-Host "❌ $file needs formatting" -ForegroundColor Red
+          }
+        }
+        
+        if ($unformatted.Count -gt 0) {
+          Write-Host "`nThe following files need formatting:" -ForegroundColor Red
+          $unformatted | ForEach-Object { Write-Host "  $_" }
+          Write-Host "`nRun 'clang-format -i <file>' to fix formatting issues." -ForegroundColor Yellow
+          exit 1
+        }
+        
+        Write-Host "✅ All files are properly formatted!" -ForegroundColor Green
+
+  # Job 2: Static Analysis
+  static-analysis:
+    name: Static Analysis
+    runs-on: windows-latest
+    needs: format-check
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '4bb07a326d9b9bce3703272a509e5bc25dd9cfd5'
+        
+    - name: Install clang-tidy
+      run: |
+        choco install llvm --version=17.0.6 --no-progress
+        echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
+        
+    - name: Configure CMake
+      run: |
+        cmake -B ${{github.workspace}}/build `
+          -S ${{github.workspace}} `
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} `
+          -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake `
+          -DVCPKG_TARGET_TRIPLET=x64-windows `
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          
+    - name: Run clang-tidy
+      run: |
+        $files = Get-ChildItem -Path backend,frontend,src -Include *.cpp -Recurse -File | 
+                Where-Object { $_.FullName -notmatch 'Tests' }
+        
+        $hasErrors = $false
+        foreach ($file in $files) {
+          Write-Host "Analyzing: $file"
+          clang-tidy $file.FullName -- -std=c++20 -I${{github.workspace}}/backend -I${{github.workspace}}/frontend
+          if ($LASTEXITCODE -ne 0) {
+            $hasErrors = $true
+          }
+        }
+        
+        if ($hasErrors) {
+          exit 1
+        }
+
+  # Job 3: Build and Test
+  build-and-test:
+    name: Build & Test (Windows)
+    runs-on: windows-latest
+    needs: [format-check, static-analysis]
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Release, Debug]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+        
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '4bb07a326d9b9bce3703272a509e5bc25dd9cfd5'
+        
+    - name: Cache vcpkg
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{github.workspace}}/vcpkg_installed
+          ${{github.workspace}}/vcpkg
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-
+          
+    - name: Configure CMake
+      run: |
+        cmake -B ${{github.workspace}}/build `
+          -S ${{github.workspace}} `
+          -DCMAKE_BUILD_TYPE=${{matrix.config}} `
+          -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake `
+          -DVCPKG_TARGET_TRIPLET=x64-windows `
+          -DBUILD_TESTS=ON
+          
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{matrix.config}} --parallel
+      
+    - name: Run Tests
+      working-directory: ${{github.workspace}}/build
+      run: |
+        $testFailed = $false
+        
+        # Find and run all test executables
+        $testFiles = Get-ChildItem -Path Tests/${{matrix.config}} -Filter "*.exe" -File
+        
+        if ($testFiles.Count -eq 0) {
+          Write-Host "⚠️ No test executables found in Tests/${{matrix.config}}" -ForegroundColor Yellow
+          # Try alternative location
+          $testFiles = Get-ChildItem -Path Tests -Filter "*.exe" -Recurse -File
+        }
+        
+        foreach ($test in $testFiles) {
+          Write-Host "`n🧪 Running: $($test.Name)" -ForegroundColor Cyan
+          & $test.FullName
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ Test failed: $($test.Name)" -ForegroundColor Red
+            $testFailed = $true
+          } else {
+            Write-Host "✅ Test passed: $($test.Name)" -ForegroundColor Green
+          }
+        }
+        
+        if ($testFailed) {
+          exit 1
+        }
+        
+        Write-Host "`n✅ All tests passed!" -ForegroundColor Green
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      if: matrix.config == 'Release'
+      with:
+        name: criptogualet-windows-x64
+        path: |
+          ${{github.workspace}}/build/Release/*.exe
+          ${{github.workspace}}/build/Release/*.dll
+        retention-days: 7
+
+  # Job 4: Security Scan
+  security-scan:
+    name: Security Scan
+    runs-on: windows-latest
+    needs: format-check
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'

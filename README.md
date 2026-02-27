@@ -1,5 +1,10 @@
 # CriptoGualet
 
+[![CI](https://github.com/erickherrera/CriptoGualet/actions/workflows/ci.yml/badge.svg)](https://github.com/erickherrera/CriptoGualet/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![Qt6](https://img.shields.io/badge/Qt-6.5+-green.svg)](https://www.qt.io/)
+
 CriptoGualet is a **non-custodial, cross-platform cryptocurrency wallet** designed for high-security digital asset management. Built with **C++20** and the **Qt6 Framework**, it combines a professional-grade backend with a modern, theme-aware user interface.
 
 ---
@@ -86,6 +91,32 @@ CriptoGualet includes an extensive test suite for its cryptographic and reposito
 ```powershell
 ctest --preset w-cl-test
 ```
+
+---
+
+## 🔄 CI/CD Pipeline
+
+CriptoGualet uses **GitHub Actions** for continuous integration. Every pull request and push to `master` must pass:
+
+| Check | Status | Description |
+|-------|--------|-------------|
+| **Code Formatting** | ✅ Required | `clang-format` with Google style |
+| **Static Analysis** | ✅ Required | `clang-tidy` security & bug checks |
+| **Build (Release)** | ✅ Required | MSVC Release configuration |
+| **Build (Debug)** | ✅ Required | MSVC Debug configuration |
+| **Tests** | ✅ Required | All test suites must pass |
+
+### Running Checks Locally
+
+Before pushing, run the pre-commit check script:
+
+```batch
+scripts\pre-commit-check.bat
+```
+
+For detailed CI/CD documentation, see [docs/CI_CD.md](docs/CI_CD.md).
+
+For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
