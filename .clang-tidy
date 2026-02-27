@@ -13,7 +13,6 @@ Checks: >
 
 WarningsAsErrors: 'bugprone-*,clang-analyzer-*,cert-*,security-*'
 HeaderFilterRegex: '.*'
-AnalyzeTemporaryDtors: true
 FormatStyle: file   # will use .clang-format if available
 CheckOptions:
   - key:             modernize-use-nullptr.NullMacros
