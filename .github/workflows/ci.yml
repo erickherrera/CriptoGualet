@@ -60,76 +60,9 @@ jobs:
         
         Write-Host "✅ All files are properly formatted!" -ForegroundColor Green
 
-  # Job 2: Static Analysis
-  static-analysis:
-    name: Static Analysis
-    runs-on: windows-latest
-    needs: build-and-test
-    if: always() && needs.build-and-test.result == 'success'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        
-    - name: Install clang-tidy
-      run: |
-        # Check if clang-tidy is already available
-        if (Get-Command clang-tidy -ErrorAction SilentlyContinue) {
-          Write-Host "✅ clang-tidy already available"
-          clang-tidy --version
-        } else {
-          Write-Host "Installing LLVM..."
-          choco install llvm --no-progress
-          echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
-        }
-        
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: compile-commands
-        path: ${{github.workspace}}/build
-        
-    - name: Run clang-tidy with compile commands
-      run: |
-        # Run clang-tidy using compile_commands.json from build
-        $files = Get-ChildItem -Path backend,frontend,src -Include *.cpp -Recurse -File | 
-                Where-Object { $_.FullName -notmatch 'Tests' -and $_.FullName -notmatch 'build' }
-        
-        $hasErrors = $false
-        $errorCount = 0
-        
-        foreach ($file in $files) {
-          Write-Host "Analyzing: $file" -ForegroundColor Cyan
-          
-          # Run clang-tidy with compile_commands.json
-          clang-tidy $file.FullName -p ${{github.workspace}}/build --quiet 2>&1 | Tee-Object -Variable output
-          
-          $exitCode = $LASTEXITCODE
-          if ($exitCode -ne 0) {
-            # Count actual errors (not warnings)
-            $fileErrors = ($output | Select-String -Pattern "error:").Count
-            $errorCount += $fileErrors
-            if ($fileErrors -gt 0) {
-              $hasErrors = $true
-              Write-Host "❌ Found errors in $file" -ForegroundColor Red
-            }
-          }
-        }
-        
-        Write-Host "`n========================================" -ForegroundColor Yellow
-        if ($hasErrors) {
-          Write-Host "❌ Static analysis found $errorCount error(s)" -ForegroundColor Red
-          exit 1
-        } else {
-          Write-Host "✅ Static analysis passed - no errors found!" -ForegroundColor Green
-        }
-        Write-Host "========================================" -ForegroundColor Yellow
-
-  # Job 3: Build and Test
+  # Job 2: Build, Test, and Static Analysis
   build-and-test:
-    name: Build & Test (Windows)
+    name: Build, Test & Static Analysis (Windows)
     runs-on: windows-latest
     needs: format-check
     
@@ -137,6 +70,11 @@ jobs:
       fail-fast: false
       matrix:
         config: [Release, Debug]
+        include:
+          - config: Release
+            run_static_analysis: true
+          - config: Debug
+            run_static_analysis: false
         
     steps:
     - name: Checkout code
@@ -164,6 +102,19 @@ jobs:
         restore-keys: |
           vcpkg-${{ runner.os }}-
           
+    - name: Install clang-tidy
+      if: matrix.run_static_analysis
+      run: |
+        # Check if clang-tidy is already available
+        if (Get-Command clang-tidy -ErrorAction SilentlyContinue) {
+          Write-Host "✅ clang-tidy already available"
+          clang-tidy --version
+        } else {
+          Write-Host "Installing LLVM..."
+          choco install llvm --no-progress
+          echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
+        }
+          
     - name: Configure CMake
       run: |
         cmake -B ${{github.workspace}}/build `
@@ -172,7 +123,7 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake `
           -DVCPKG_TARGET_TRIPLET=x64-windows `
           -DBUILD_TESTS=ON `
-          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=${{matrix.run_static_analysis}}
           
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{matrix.config}} --parallel
@@ -207,6 +158,47 @@ jobs:
         }
         
         Write-Host "`n✅ All tests passed!" -ForegroundColor Green
+        
+    - name: Run Static Analysis
+      if: matrix.run_static_analysis
+      run: |
+        Write-Host "`n🔍 Running static analysis with clang-tidy..." -ForegroundColor Cyan
+        
+        $files = Get-ChildItem -Path backend,frontend,src -Include *.cpp -Recurse -File | 
+                Where-Object { $_.FullName -notmatch 'Tests' -and $_.FullName -notmatch 'build' }
+        
+        $hasErrors = $false
+        $errorCount = 0
+        $totalFiles = 0
+        
+        foreach ($file in $files) {
+          $totalFiles++
+          Write-Host "Analyzing [$totalFiles]: $file" -ForegroundColor Gray
+          
+          # Run clang-tidy with compile_commands.json
+          clang-tidy $file.FullName -p ${{github.workspace}}/build --quiet 2>&1 | Tee-Object -Variable output
+          
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            # Count actual errors (not warnings)
+            $fileErrors = ($output | Select-String -Pattern "error:").Count
+            $errorCount += $fileErrors
+            if ($fileErrors -gt 0) {
+              $hasErrors = $true
+              Write-Host "❌ Found $fileErrors error(s) in $file" -ForegroundColor Red
+            }
+          }
+        }
+        
+        Write-Host "`n========================================" -ForegroundColor Yellow
+        Write-Host "Files analyzed: $totalFiles" -ForegroundColor Cyan
+        if ($hasErrors) {
+          Write-Host "❌ Static analysis found $errorCount error(s)" -ForegroundColor Red
+          exit 1
+        } else {
+          Write-Host "✅ Static analysis passed - no errors found!" -ForegroundColor Green
+        }
+        Write-Host "========================================" -ForegroundColor Yellow
       
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -217,16 +209,8 @@ jobs:
           ${{github.workspace}}/build/Release/*.exe
           ${{github.workspace}}/build/Release/*.dll
         retention-days: 7
-        
-    - name: Upload compile commands
-      uses: actions/upload-artifact@v4
-      if: matrix.config == 'Release'
-      with:
-        name: compile-commands
-        path: ${{github.workspace}}/build/compile_commands.json
-        retention-days: 1
 
-  # Job 4: Security Scan
+  # Job 3: Security Scan
   security-scan:
     name: Security Scan
     runs-on: windows-latest
