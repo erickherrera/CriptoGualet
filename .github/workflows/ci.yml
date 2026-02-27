@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ master, main ]
 
+# Add permissions for security scanning
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 env:
   BUILD_TYPE: Release
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
@@ -254,7 +260,7 @@ jobs:
         severity: 'CRITICAL,HIGH'
         
     - name: Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'

@@ -30,6 +30,8 @@ double parseBtcValue(const json& value) {
 
 class BlockCypherProvider : public BitcoinProvider {
   public:
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): network and apiToken have distinct
+    // purposes
     BlockCypherProvider(const std::string& network, const std::string& apiToken)
         : m_client(std::make_unique<BlockCypher::BlockCypherClient>(network)) {
         if (!apiToken.empty()) {
@@ -173,6 +175,8 @@ class BitcoinRpcProvider : public BitcoinProvider {
         }
 
         double feeRateBtc = parseBtcValue((*result)["feerate"]);
+        // NOLINTNEXTLINE(bugprone-narrowing-conversions): btcToSatoshis handles the conversion
+        // safely
         return btcToSatoshis(feeRateBtc);
     }
 
@@ -200,6 +204,7 @@ class BitcoinRpcProvider : public BitcoinProvider {
         cpr::Header headers{{"Content-Type", "application/json"}};
         cpr::Response response;
 
+        // NOLINTBEGIN(bugprone-branch-clone): Conditional auth parameter
         if (!m_rpcUsername.empty()) {
             response =
                 cpr::Post(cpr::Url{m_rpcUrl}, cpr::Body{payload.dump()}, headers,
@@ -209,6 +214,7 @@ class BitcoinRpcProvider : public BitcoinProvider {
             response = cpr::Post(cpr::Url{m_rpcUrl}, cpr::Body{payload.dump()}, headers,
                                  cpr::Timeout{10000});
         }
+        // NOLINTEND(bugprone-branch-clone)
 
         if (response.status_code < 200 || response.status_code >= 300 || response.text.empty()) {
             return std::nullopt;
@@ -217,7 +223,8 @@ class BitcoinRpcProvider : public BitcoinProvider {
         json parsed;
         try {
             parsed = json::parse(response.text);
-        } catch (const std::exception&) {
+        } catch (const std::exception& e) {
+            (void)e;  // Exception details not needed, parse failure is handled below
             return std::nullopt;
         }
 
