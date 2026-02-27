@@ -8,7 +8,6 @@
     "curl",
     "nlohmann-json",
     "secp256k1",
-    "sqlite3",
     "libsodium"
   ]
 }
