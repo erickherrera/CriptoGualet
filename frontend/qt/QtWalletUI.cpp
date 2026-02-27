@@ -1104,41 +1104,49 @@ void QtWalletUI::updateTokenBalances() {
 
     auto future =
         QtConcurrent::run([ethereumWallet, tokenRepository, ethereumAddress, ethereumWalletId]() {
-            std::vector<TokenBalanceUpdate> updates;
-            auto tokensResult = tokenRepository->getTokensForWallet(ethereumWalletId);
-            if (!tokensResult.success) {
-                return updates;
-            }
-
-            for (const auto& token : tokensResult.data) {
-                TokenBalanceUpdate update;
-                update.contractAddress = token.contract_address;
-
-                auto balanceOpt =
-                    ethereumWallet->GetTokenBalance(ethereumAddress, token.contract_address);
-                if (balanceOpt.has_value()) {
-                    double rawBalance = 0.0;
-                    try {
-                        rawBalance = std::stod(balanceOpt.value());
-                    } catch (const std::exception&) {
-                        update.success = false;
-                        updates.push_back(std::move(update));
-                        continue;
-                    }
-
-                    double formattedBalance = rawBalance / std::pow(10.0, token.decimals);
-                    update.balanceText =
-                        QString::number(formattedBalance, 'f', std::min(token.decimals, 8))
-                            .toStdString();
-                    update.success = true;
-                } else {
-                    update.success = false;
+            try {
+                std::vector<TokenBalanceUpdate> updates;
+                auto tokensResult = tokenRepository->getTokensForWallet(ethereumWalletId);
+                if (!tokensResult.success) {
+                    return updates;
                 }
 
-                updates.push_back(std::move(update));
-            }
+                for (const auto& token : tokensResult.data) {
+                    TokenBalanceUpdate update;
+                    update.contractAddress = token.contract_address;
 
-            return updates;
+                    auto balanceOpt =
+                        ethereumWallet->GetTokenBalance(ethereumAddress, token.contract_address);
+                    if (balanceOpt.has_value()) {
+                        double rawBalance = 0.0;
+                        try {
+                            rawBalance = std::stod(balanceOpt.value());
+                        } catch (const std::exception&) {
+                            update.success = false;
+                            updates.push_back(std::move(update));
+                            continue;
+                        }
+
+                        double formattedBalance = rawBalance / std::pow(10.0, token.decimals);
+                        update.balanceText =
+                            QString::number(formattedBalance, 'f', std::min(token.decimals, 8))
+                                .toStdString();
+                        update.success = true;
+                    } else {
+                        update.success = false;
+                    }
+
+                    updates.push_back(std::move(update));
+                }
+
+                return updates;
+            } catch (const std::exception& e) {
+                qDebug() << "Exception in refreshTokenBalances:" << e.what();
+                return std::vector<TokenBalanceUpdate>{};
+            } catch (...) {
+                qDebug() << "Unknown exception in refreshTokenBalances";
+                return std::vector<TokenBalanceUpdate>{};
+            }
         });
 
     watcher->setFuture(future);
@@ -1418,8 +1426,7 @@ void QtWalletUI::updateStyles() {
 
     // Toggle button - simple and clean with responsive icon size
     if (m_toggleBalanceButton) {
-        QString toggleButtonStyle =
-            QString(R"(
+        QString toggleButtonStyle = QString(R"(
         QPushButton {
             background-color: transparent;
             border: none;
@@ -1429,10 +1436,11 @@ void QtWalletUI::updateStyles() {
             background-color: %1;
         }
     )")
-                .arg(m_themeManager->secondaryColor().name());
+                                        .arg(m_themeManager->secondaryColor().name());
         m_toggleBalanceButton->setStyleSheet(toggleButtonStyle);
 
-        QString iconPath = m_balanceVisible ? ":/icons/icons/eye-open.svg" : ":/icons/icons/eye-closed.svg";
+        QString iconPath =
+            m_balanceVisible ? ":/icons/icons/eye-open.svg" : ":/icons/icons/eye-closed.svg";
         m_toggleBalanceButton->setIcon(createColoredIcon(iconPath, m_themeManager->textColor()));
         m_toggleBalanceButton->setIconSize(QSize(toggleButtonSize, toggleButtonSize));
         m_toggleBalanceButton->setText("");
@@ -1455,8 +1463,9 @@ void QtWalletUI::updateStyles() {
     )")
                                          .arg(m_themeManager->secondaryColor().name());
         m_refreshButton->setStyleSheet(refreshButtonStyle);
-        
-        m_refreshButton->setIcon(createColoredIcon(":/icons/icons/refresh.svg", m_themeManager->textColor()));
+
+        m_refreshButton->setIcon(
+            createColoredIcon(":/icons/icons/refresh.svg", m_themeManager->textColor()));
         m_refreshButton->setIconSize(QSize(toggleButtonSize, toggleButtonSize));
         m_refreshButton->setText("");
     }
@@ -1525,7 +1534,8 @@ void QtWalletUI::onToggleBalanceClicked() {
     m_balanceVisible = !m_balanceVisible;
 
     // Update icon
-    QString iconPath = m_balanceVisible ? ":/icons/icons/eye-open.svg" : ":/icons/icons/eye-closed.svg";
+    QString iconPath =
+        m_balanceVisible ? ":/icons/icons/eye-open.svg" : ":/icons/icons/eye-closed.svg";
     m_toggleBalanceButton->setIcon(createColoredIcon(iconPath, m_themeManager->textColor()));
 
     // Update balance display
@@ -1543,18 +1553,20 @@ void QtWalletUI::onRefreshClicked() {
     if (m_lastManualRefresh.isValid() && m_lastManualRefresh.secsTo(now) < 30) {
         int remaining = 30 - m_lastManualRefresh.secsTo(now);
         if (m_statusLabel) {
-            m_statusLabel->setText(QString("Please wait %1s before refreshing again").arg(remaining));
+            m_statusLabel->setText(
+                QString("Please wait %1s before refreshing again").arg(remaining));
             m_statusLabel->setVisible(true);
-            
+
             // Apply warning styling if theme manager is available
             if (m_themeManager) {
                 m_statusLabel->setStyleSheet(QString("color: %1; font-weight: 600;")
-                    .arg(m_themeManager->warningColor().name()));
+                                                 .arg(m_themeManager->warningColor().name()));
             }
-            
+
             // Clear message after 3 seconds
             QTimer::singleShot(3000, this, [this]() {
-                if (m_statusLabel) updateStatusLabel();
+                if (m_statusLabel)
+                    updateStatusLabel();
             });
         }
         return;
@@ -1665,7 +1677,8 @@ void QtWalletUI::hideEvent(QHideEvent* event) {
         m_balanceVisible = false;
         updateUSDBalance();
         if (m_toggleBalanceButton) {
-            m_toggleBalanceButton->setIcon(createColoredIcon(":/icons/icons/eye-closed.svg", m_themeManager->textColor()));
+            m_toggleBalanceButton->setIcon(
+                createColoredIcon(":/icons/icons/eye-closed.svg", m_themeManager->textColor()));
         }
     }
 
@@ -2013,22 +2026,30 @@ void QtWalletUI::fetchAllPrices() {
     }
 
     auto future = QtConcurrent::run([]() {
-        PriceFetchResult result;
-        PriceService::PriceFetcher fetcher;
+        try {
+            PriceFetchResult result;
+            PriceService::PriceFetcher fetcher;
 
-        if (auto btcData = fetcher.GetCryptoPrice("bitcoin"); btcData.has_value()) {
-            result.btcPrice = btcData->usd_price;
+            if (auto btcData = fetcher.GetCryptoPrice("bitcoin"); btcData.has_value()) {
+                result.btcPrice = btcData->usd_price;
+            }
+
+            if (auto ltcData = fetcher.GetCryptoPrice("litecoin"); ltcData.has_value()) {
+                result.ltcPrice = ltcData->usd_price;
+            }
+
+            if (auto ethData = fetcher.GetCryptoPrice("ethereum"); ethData.has_value()) {
+                result.ethPrice = ethData->usd_price;
+            }
+
+            return result;
+        } catch (const std::exception& e) {
+            qDebug() << "Exception in fetchPrices:" << e.what();
+            return PriceFetchResult{};
+        } catch (...) {
+            qDebug() << "Unknown exception in fetchPrices";
+            return PriceFetchResult{};
         }
-
-        if (auto ltcData = fetcher.GetCryptoPrice("litecoin"); ltcData.has_value()) {
-            result.ltcPrice = ltcData->usd_price;
-        }
-
-        if (auto ethData = fetcher.GetCryptoPrice("ethereum"); ethData.has_value()) {
-            result.ethPrice = ethData->usd_price;
-        }
-
-        return result;
     });
 
     m_priceFetchWatcher->setFuture(future);
