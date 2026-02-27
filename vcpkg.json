@@ -8,6 +8,7 @@
     "curl",
     "nlohmann-json",
     "secp256k1",
+    "sqlcipher",
     "libsodium"
   ]
 }

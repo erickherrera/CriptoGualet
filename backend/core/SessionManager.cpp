@@ -4,7 +4,8 @@
 #include <iomanip>
 #include <algorithm>
 
-SessionManager::SessionManager() {
+SessionManager::SessionManager(Database::DatabaseManager& dbManager) 
+    : sessionRepository_(dbManager) {
     //
 }
 

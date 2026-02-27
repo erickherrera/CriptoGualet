@@ -35,7 +35,7 @@ struct UserSession {
 
 class SessionManager {
 public:
-    SessionManager();
+    explicit SessionManager(Database::DatabaseManager& dbManager);
     std::string createSession(int userId, const std::string& username, bool totpAuthenticated = false);
     bool validateSession(const std::string& sessionId);
     void refreshSession(const std::string& sessionId);
