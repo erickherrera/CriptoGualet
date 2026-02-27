@@ -145,12 +145,12 @@ QtWalletUI::QtWalletUI(QWidget* parent)
 
 void QtWalletUI::setupUI() {
     m_mainLayout = new QVBoxLayout(this);
-    // Use more compact margins - reduced from standardMargin to optimized values
+    // Use theme manager spacing for consistent margins across all pages
     // Initial margins will be overridden by updateResponsiveLayout() but these
-    // provide good defaults
-    int defaultMargin = 16;  // Reduced from standardMargin (~20-24px)
+    // provide good defaults using theme manager spacing(6) = 24px
+    int defaultMargin = m_themeManager->spacing(6);  // 24px from theme manager
     m_mainLayout->setContentsMargins(defaultMargin, defaultMargin, defaultMargin, defaultMargin);
-    m_mainLayout->setSpacing(16);  // Reduced from standardSpacing (~20px)
+    m_mainLayout->setSpacing(m_themeManager->spacing(4));  // 16px from theme manager
 
     // Create a horizontal layout to center content with max width
     m_centeringLayout = new QHBoxLayout();
@@ -165,10 +165,10 @@ void QtWalletUI::setupUI() {
 
     m_scrollContent = new QWidget();
     m_contentLayout = new QVBoxLayout(m_scrollContent);
-    // More compact content margins - optimized for better space utilization
-    int contentMargin = 16;  // Reduced from 20 for tighter layout
+    // Use theme manager spacing for consistent content margins
+    int contentMargin = m_themeManager->spacing(6);  // 24px from theme manager
     m_contentLayout->setContentsMargins(contentMargin, contentMargin, contentMargin, contentMargin);
-    m_contentLayout->setSpacing(16);  // Reduced from 20 for more compact layout
+    m_contentLayout->setSpacing(m_themeManager->spacing(4));  // 16px from theme manager
 
     createHeaderSection();
     createActionButtons();
@@ -1704,93 +1704,39 @@ void QtWalletUI::updateScrollAreaWidth() {
         return;
     }
 
-    double aspectRatio = static_cast<double>(windowWidth) / windowHeight;
-
-    // Sidebar collapsed width - this is always present as an overlay
-    const int SIDEBAR_WIDTH = 70;
-
-    // Reset constraints first with safety check
-    if (m_scrollArea) {
-        m_scrollArea->setMinimumWidth(0);
-        m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
-    }
-
-    // Optimized responsive width calculation for multiple screen sizes
-    // Laptop screens typically have aspect ratios between 1.5 and 1.8
-    bool isLaptopScreen = (aspectRatio >= 1.5 && aspectRatio <= 1.8);
-    bool useFullWidth = false;
-
+    // Calculate dynamic sidebar width based on screen size
+    int sidebarWidth = 70;
     if (windowWidth <= 768) {
-        // Mobile/Small tablets (portrait) - Full width with optimized constraints
-        useFullWidth = true;
-        m_scrollArea->setMinimumWidth(qMax(320, windowWidth - SIDEBAR_WIDTH - 20));
-    } else if (windowWidth <= 1024) {
-        // Tablets (landscape) / Small laptops - Full width with optimized
-        // constraints
-        useFullWidth = true;
-        m_scrollArea->setMinimumWidth(qMax(480, windowWidth - SIDEBAR_WIDTH - 30));
+        sidebarWidth = 60;
     } else if (windowWidth <= 1366) {
-        // Common laptop size (1366x768) - Full width with optimized constraints
-        useFullWidth = true;
-        m_scrollArea->setMinimumWidth(qMax(600, windowWidth - SIDEBAR_WIDTH - 40));
-    } else if (windowWidth <= 1600 && isLaptopScreen) {
-        // Medium laptops (1440p, 1536p, 1600p) - Balanced width
-        int availableWidth = windowWidth - SIDEBAR_WIDTH;
-        int targetWidth =
-            static_cast<int>(availableWidth * 0.85);  // Increased from 0.85 for better utilization
-        m_scrollArea->setMaximumWidth(targetWidth);
-        m_scrollArea->setMinimumWidth(qMax(700, targetWidth));
-        useFullWidth = false;
-    } else if (windowWidth <= 1920 && isLaptopScreen) {
-        // Full HD laptops - Balanced width for optimal use of space
-        int availableWidth = windowWidth - SIDEBAR_WIDTH;
-        int targetWidth = static_cast<int>(availableWidth * 0.80);  // Increased from 0.80
-        m_scrollArea->setMaximumWidth(targetWidth);
-        m_scrollArea->setMinimumWidth(qMax(800, targetWidth));
-        useFullWidth = false;
+        sidebarWidth = 70;
     } else if (windowWidth <= 1920) {
-        // Desktop monitors (16:9, 16:10) - Constrained for readability but more
-        // generous
-        int availableWidth = windowWidth - SIDEBAR_WIDTH;
-        int targetWidth = static_cast<int>(availableWidth * 0.75);  // Increased from 0.70
-        m_scrollArea->setMaximumWidth(targetWidth);
-        m_scrollArea->setMinimumWidth(qMax(850, targetWidth));
-        useFullWidth = false;
-    } else if (windowWidth <= 2560) {
-        // Large desktop monitors (1440p, QHD) - More generous constraint
-        int availableWidth = windowWidth - SIDEBAR_WIDTH;
-        int targetWidth = static_cast<int>(availableWidth * 0.70);  // Increased from 0.65
-        m_scrollArea->setMaximumWidth(targetWidth);
-        m_scrollArea->setMinimumWidth(qMax(1000, targetWidth));
-        useFullWidth = false;
-    } else if (aspectRatio > 2.2) {
-        // Ultra-wide monitors (21:9, 32:9) - More generous constraint
-        int availableWidth = windowWidth - SIDEBAR_WIDTH;
-        int targetWidth = static_cast<int>(availableWidth * 0.65);  // Increased from 0.55
-        m_scrollArea->setMaximumWidth(targetWidth);
-        m_scrollArea->setMinimumWidth(qMax(1200, targetWidth));
-        useFullWidth = false;
+        sidebarWidth = 75;
     } else {
-        // 4K and larger desktop monitors - More generous constraint
-        int availableWidth = windowWidth - SIDEBAR_WIDTH;
-        int targetWidth = static_cast<int>(availableWidth * 0.68);  // Increased from 0.60
-        m_scrollArea->setMaximumWidth(targetWidth);
-        m_scrollArea->setMinimumWidth(qMax(1200, targetWidth));
-        useFullWidth = false;
+        sidebarWidth = 80;
     }
 
-    // Control spacers based on whether we want full width or centered
-    if (useFullWidth) {
-        // Disable spacers for full width - set to fixed size 0
-        m_leftSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
-        m_rightSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
-    } else {
-        // Enable spacers for centered content - set to expanding
+    // Apply a 60% maximum width for large and ultra-wide screens
+    // to keep content centered and readable in the user's focus area.
+    if (windowWidth > 1200) {
+        int targetWidth = static_cast<int>(windowWidth * 0.60);
+        m_scrollArea->setMaximumWidth(targetWidth);
+        m_scrollArea->setMinimumWidth(targetWidth);
+
+        // Enable spacers for centering
         m_leftSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
         m_rightSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
+    } else {
+        // Full width on smaller screens
+        m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
+        m_scrollArea->setMinimumWidth(0);
+
+        // Disable spacers
+        m_leftSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+        m_rightSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
     }
 
-    // Invalidate the layout to apply spacer changes
+    // Ensure layout is refreshed
     if (m_centeringLayout) {
         m_centeringLayout->invalidate();
     }
@@ -1833,94 +1779,99 @@ void QtWalletUI::updateResponsiveLayout() {
         return;
     }
 
-    double aspectRatio = static_cast<double>(windowWidth) / windowHeight;
+    // Calculate dynamic sidebar width based on screen size
+    int sidebarWidth;
+    if (windowWidth <= 768) {
+        sidebarWidth = 60;
+    } else if (windowWidth <= 1366) {
+        sidebarWidth = 70;
+    } else if (windowWidth <= 1920) {
+        sidebarWidth = 75;
+    } else {
+        sidebarWidth = 80;
+    }
 
-    // Determine if this is a laptop screen
-    bool isLaptopScreen = (aspectRatio >= 1.5 && aspectRatio <= 1.8);
-
-    // Sidebar collapsed width that we need to account for
-    const int SIDEBAR_WIDTH = 70;
-    // Floating Sign Out button space - reduced from 100 to 60 for better space
-    // utilization
-    const int SIGNOUT_BUTTON_SPACE = 60;
+    // Calculate dynamic sign out button space based on screen size
+    int signOutButtonSpace;
+    if (windowWidth <= 768) {
+        signOutButtonSpace = 50;
+    } else if (windowWidth <= 1366) {
+        signOutButtonSpace = 60;
+    } else if (windowWidth <= 1920) {
+        signOutButtonSpace = 65;
+    } else {
+        signOutButtonSpace = 70;
+    }
 
     // Responsive margins and spacing based on screen size - optimized for better
-    // visual balance
+    // visual balance using theme manager spacing where appropriate
     int topMargin, rightMargin, bottomMargin, leftMargin;
     int contentMargin, spacing;
 
     if (windowWidth <= 480) {
         // Very small screens (phones portrait) - compact layout
-        topMargin = 20;  // Reduced from 40 - floating button only needs minimal space
-        rightMargin = SIGNOUT_BUTTON_SPACE + 5;
+        topMargin = m_themeManager->spacing(5);  // 20px from theme manager
+        rightMargin = signOutButtonSpace + 5;
         bottomMargin = 5;
-        leftMargin = SIDEBAR_WIDTH + 5;  // Account for sidebar + margin
-        contentMargin = 8;
-        spacing = 10;  // Reduced from 12 for tighter spacing
+        leftMargin = sidebarWidth + 5;               // Account for sidebar + margin
+        contentMargin = m_themeManager->spacing(2);  // 8px from theme manager
+        spacing = m_themeManager->spacing(2) + 2;    // 10px (8 + 2)
     } else if (windowWidth <= 768) {
         // Small screens (phones landscape, small tablets) - compact layout
-        topMargin = 25;  // Reduced from 45
-        rightMargin = SIGNOUT_BUTTON_SPACE + 8;
+        topMargin = m_themeManager->spacing(5) + 5;  // 25px
+        rightMargin = signOutButtonSpace + 8;
         bottomMargin = 8;
-        leftMargin = SIDEBAR_WIDTH + 8;
-        contentMargin = 12;
-        spacing = 12;  // Reduced from 15
+        leftMargin = sidebarWidth + 8;
+        contentMargin = m_themeManager->spacing(3);  // 12px from theme manager
+        spacing = m_themeManager->spacing(3);        // 12px from theme manager
     } else if (windowWidth <= 1024) {
         // Tablets and small laptops - balanced layout
-        topMargin = 30;  // Reduced from 50
-        rightMargin = SIGNOUT_BUTTON_SPACE + 12;
+        topMargin = m_themeManager->spacing(6) + 6;  // 30px (24 + 6)
+        rightMargin = signOutButtonSpace + 12;
         bottomMargin = 12;
-        leftMargin = SIDEBAR_WIDTH + 12;
-        contentMargin = 16;
-        spacing = 16;  // Reduced from 18
-    } else if (windowWidth <= 1366 && isLaptopScreen) {
+        leftMargin = sidebarWidth + 12;
+        contentMargin = m_themeManager->spacing(4);  // 16px from theme manager
+        spacing = m_themeManager->spacing(4);        // 16px from theme manager
+    } else if (windowWidth <= 1366) {
         // Common laptop screens (1366x768) - balanced layout
-        topMargin = 35;  // Reduced from 55
-        rightMargin = SIGNOUT_BUTTON_SPACE + 15;
+        topMargin = m_themeManager->spacing(6) + 11;  // 35px (24 + 11)
+        rightMargin = signOutButtonSpace + 15;
         bottomMargin = 15;
-        leftMargin = SIDEBAR_WIDTH + 15;
-        contentMargin = 18;  // Reduced from 20
-        spacing = 18;        // Reduced from 20
-    } else if (windowWidth <= 1600 && isLaptopScreen) {
+        leftMargin = sidebarWidth + 15;
+        contentMargin = m_themeManager->spacing(4) + 2;  // 18px (16 + 2)
+        spacing = m_themeManager->spacing(4) + 2;        // 18px (16 + 2)
+    } else if (windowWidth <= 1600) {
         // Medium laptop screens (1440p, 1536p, 1600p) - spacious layout
-        topMargin = 40;  // Reduced from 60
-        rightMargin = SIGNOUT_BUTTON_SPACE + 18;
+        topMargin = m_themeManager->spacing(8) + 8;  // 40px (32 + 8)
+        rightMargin = signOutButtonSpace + 18;
         bottomMargin = 18;
-        leftMargin = SIDEBAR_WIDTH + 18;
-        contentMargin = 20;  // Reduced from 22
-        spacing = 20;        // Reduced from 22
-    } else if (windowWidth <= 1920 && isLaptopScreen) {
-        // Full HD laptops - spacious layout
-        topMargin = 45;  // Reduced from 65
-        rightMargin = SIGNOUT_BUTTON_SPACE + 20;
-        bottomMargin = 20;
-        leftMargin = SIDEBAR_WIDTH + 20;
-        contentMargin = 22;  // Reduced from 24
-        spacing = 22;        // Reduced from 24
+        leftMargin = sidebarWidth + 18;
+        contentMargin = m_themeManager->spacing(5);  // 20px from theme manager
+        spacing = m_themeManager->spacing(5);        // 20px from theme manager
     } else if (windowWidth <= 1920) {
-        // Desktop monitors up to Full HD - generous layout
-        topMargin = 50;  // Reduced from 70
-        rightMargin = SIGNOUT_BUTTON_SPACE + 25;
-        bottomMargin = 25;
-        leftMargin = SIDEBAR_WIDTH + 25;
-        contentMargin = 24;  // Reduced from 28
-        spacing = 22;        // Reduced from 24
+        // Full HD laptops - spacious layout
+        topMargin = m_themeManager->spacing(8) + 13;  // 45px (32 + 13)
+        rightMargin = signOutButtonSpace + 20;
+        bottomMargin = 20;
+        leftMargin = sidebarWidth + 20;
+        contentMargin = m_themeManager->spacing(5) + 2;  // 22px (20 + 2)
+        spacing = m_themeManager->spacing(5) + 2;        // 22px (20 + 2)
     } else if (windowWidth <= 2560) {
         // Large desktop monitors (1440p, QHD) - generous layout
-        topMargin = 55;  // Reduced from 75
-        rightMargin = SIGNOUT_BUTTON_SPACE + 30;
+        topMargin = m_themeManager->spacing(8) + 23;  // 55px (32 + 23)
+        rightMargin = signOutButtonSpace + 30;
         bottomMargin = 30;
-        leftMargin = SIDEBAR_WIDTH + 30;
-        contentMargin = 28;  // Reduced from 32
-        spacing = 24;        // Reduced from 26
+        leftMargin = sidebarWidth + 30;
+        contentMargin = m_themeManager->spacing(6) + 4;  // 28px (24 + 4)
+        spacing = m_themeManager->spacing(6);            // 24px from theme manager
     } else {
         // 4K and ultra-wide monitors - luxurious layout
-        topMargin = 60;  // Reduced from 80
-        rightMargin = SIGNOUT_BUTTON_SPACE + 35;
+        topMargin = m_themeManager->spacing(10) + 20;  // 60px (40 + 20)
+        rightMargin = signOutButtonSpace + 35;
         bottomMargin = 35;
-        leftMargin = SIDEBAR_WIDTH + 35;
-        contentMargin = 32;  // Reduced from 36
-        spacing = 26;        // Reduced from 28
+        leftMargin = sidebarWidth + 35;
+        contentMargin = m_themeManager->spacing(6) + 8;  // 32px (24 + 8)
+        spacing = m_themeManager->spacing(6) + 2;        // 26px (24 + 2)
     }
 
     // Apply calculated margins with optimized spacing
@@ -1934,13 +1885,13 @@ void QtWalletUI::updateResponsiveLayout() {
     if (m_headerSection) {
         int headerVerticalPadding;
         if (windowWidth <= 768) {
-            headerVerticalPadding = 12;
+            headerVerticalPadding = m_themeManager->spacing(3);  // 12px
         } else if (windowWidth <= 1366) {
-            headerVerticalPadding = 16;
+            headerVerticalPadding = m_themeManager->spacing(4);  // 16px
         } else if (windowWidth <= 1920) {
-            headerVerticalPadding = 24;
+            headerVerticalPadding = m_themeManager->spacing(6);  // 24px
         } else {
-            headerVerticalPadding = 30;
+            headerVerticalPadding = m_themeManager->spacing(6) + 6;  // 30px (24 + 6)
         }
 
         // Add additional safety check to prevent access violation

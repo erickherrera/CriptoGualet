@@ -1,12 +1,12 @@
 #include "PriceService.h"
 #include <cpr/cpr.h>
-#include <nlohmann/json.hpp>
-#include <sstream>
+#include <chrono>
 #include <iomanip>
 #include <iostream>
-#include <thread>
-#include <chrono>
 #include <map>
+#include <nlohmann/json.hpp>
+#include <sstream>
+#include <thread>
 
 using json = nlohmann::json;
 
@@ -112,8 +112,7 @@ static const std::map<std::string, std::string> symbolToCoinId = {
     {"icx", "icon"},
     {"woo", "wootrade"},
     {"qtum", "qtum"},
-    {"ar", "arweave"}
-};
+    {"ar", "arweave"}};
 
 static std::string toLower(const std::string& str) {
     std::string result = str;
@@ -169,14 +168,14 @@ std::string PriceFetcher::MakeRequest(const std::string& endpoint) {
         cpr::Response response = cpr::Get(
             cpr::Url{url},
             cpr::Header{{"User-Agent", "CriptoGualet/1.0"}, {"Accept", "application/json"}},
-            cpr::Timeout{timeout_seconds * 1000}
-        );
+            cpr::Timeout{timeout_seconds * 1000});
 
         last_status_code = response.status_code;
         std::cout << "[PriceService] Response status: " << response.status_code << std::endl;
 
         if (response.status_code == 200) {
-            std::cout << "[PriceService] Success! Response length: " << response.text.length() << " bytes" << std::endl;
+            std::cout << "[PriceService] Success! Response length: " << response.text.length()
+                      << " bytes" << std::endl;
             return response.text;
         }
 
@@ -203,18 +202,17 @@ std::optional<double> PriceFetcher::GetBTCPrice() {
 }
 
 std::optional<CryptoPriceData> PriceFetcher::GetCryptoPrice(const std::string& symbol) {
-    {
-        std::lock_guard<std::mutex> lock(cache_mutex);
-        auto cached = getCachedPrice();
-        if (cached) {
-            return cached;
-        }
+    // Check cache first (getCachedPrice handles its own locking)
+    auto cached = getCachedPrice();
+    if (cached) {
+        return cached;
     }
 
     std::string coin_id = getCoinId(symbol);
 
     std::string endpoint = "/simple/price?ids=" + coin_id +
-                          "&vs_currencies=usd&include_24hr_change=true&include_last_updated_at=true&include_market_cap=true";
+                           "&vs_currencies=usd&include_24hr_change=true&include_last_updated_at="
+                           "true&include_market_cap=true";
 
     std::string response = MakeRequest(endpoint);
     if (response.empty()) {
@@ -229,7 +227,8 @@ std::optional<CryptoPriceData> PriceFetcher::GetCryptoPrice(const std::string& s
     return result;
 }
 
-std::optional<CryptoPriceData> PriceFetcher::ParsePriceResponse(const std::string& json_response, const std::string& coin_id) {
+std::optional<CryptoPriceData> PriceFetcher::ParsePriceResponse(const std::string& json_response,
+                                                                const std::string& coin_id) {
     try {
         json parsed = json::parse(json_response);
 
@@ -263,17 +262,15 @@ std::optional<CryptoPriceData> PriceFetcher::ParsePriceResponse(const std::strin
 }
 
 std::vector<CryptoPriceData> PriceFetcher::GetTopCryptosByMarketCap(int count) {
-    {
-        std::lock_guard<std::mutex> lock(cache_mutex);
-        auto cached = getCachedTopCryptos();
-        if (cached) {
-            return *cached;
-        }
+    // Check cache first (getCachedTopCryptos handles its own locking)
+    auto cached = getCachedTopCryptos();
+    if (cached) {
+        return *cached;
     }
 
-    std::string endpoint = "/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=" +
-                          std::to_string(count) +
-                          "&page=1&sparkline=false&price_change_percentage=24h";
+    std::string endpoint =
+        "/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=" + std::to_string(count) +
+        "&page=1&sparkline=false&price_change_percentage=24h";
 
     const int max_attempts = 3;
     const int retry_delay_seconds = 3;
@@ -298,21 +295,23 @@ std::vector<CryptoPriceData> PriceFetcher::GetTopCryptosByMarketCap(int count) {
             break;
         }
 
-        std::cout << "[PriceService] Retry " << (attempt + 1) << "/" << max_attempts
-                  << " after " << retry_delay_seconds << "s" << std::endl;
+        std::cout << "[PriceService] Retry " << (attempt + 1) << "/" << max_attempts << " after "
+                  << retry_delay_seconds << "s" << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(retry_delay_seconds));
     }
 
     return {};
 }
 
-std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::string& json_response, int count) {
+std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::string& json_response,
+                                                                   int count) {
     std::vector<CryptoPriceData> results;
 
     try {
         json parsed = json::parse(json_response);
 
-        std::cout << "[PriceService] Parsed JSON type: " << (parsed.is_array() ? "array" : "not array") << std::endl;
+        std::cout << "[PriceService] Parsed JSON type: "
+                  << (parsed.is_array() ? "array" : "not array") << std::endl;
 
         if (!parsed.is_array()) {
             std::cout << "[PriceService] Error: Response is not an array" << std::endl;
@@ -336,7 +335,8 @@ std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::st
                 c = std::toupper(c);
             }
 
-            std::cout << "[PriceService] Added: " << data.name << " (" << data.symbol << ") - $" << data.usd_price << std::endl;
+            std::cout << "[PriceService] Added: " << data.name << " (" << data.symbol << ") - $"
+                      << data.usd_price << std::endl;
 
             results.push_back(data);
 
@@ -412,4 +412,4 @@ std::optional<std::vector<CryptoPriceData>> PriceFetcher::getCachedTopCryptos() 
     return std::nullopt;
 }
 
-} // namespace PriceService
+}  // namespace PriceService

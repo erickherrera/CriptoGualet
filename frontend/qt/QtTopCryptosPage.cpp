@@ -1,8 +1,8 @@
 #include "QtTopCryptosPage.h"
 #include "QtThemeManager.h"
 #include <QTimer>
-#include <QDebug>
 #include <QtConcurrent/QtConcurrent>
+#include <QDebug>
 #include <QGraphicsDropShadowEffect>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
@@ -170,7 +170,7 @@ void QtCryptoCard::loadIcon(const QString& symbol) {
 
     QString iconUrl;
     bool useApiUrl = false;
-    
+
     if (!m_currentImageUrl.isEmpty()) {
         QUrl url(m_currentImageUrl);
         if (url.isValid() && !url.host().isEmpty()) {
@@ -179,7 +179,7 @@ void QtCryptoCard::loadIcon(const QString& symbol) {
             qDebug() << "Using API image URL for" << symbol << ":" << iconUrl;
         }
     }
-    
+
     if (!useApiUrl) {
         iconUrl = getCryptoIconUrl(symbol);
         qDebug() << "Using fallback static mapping for" << symbol << ":" << iconUrl;
@@ -438,11 +438,10 @@ QtTopCryptosPage::QtTopCryptosPage(QWidget* parent)
     setupUI();
     applyTheme();
 
-    m_topCryptosWatcher =
-        new QFutureWatcher<std::vector<PriceService::CryptoPriceData>>(this);
+    m_topCryptosWatcher = new QFutureWatcher<std::vector<PriceService::CryptoPriceData>>(this);
     connect(m_topCryptosWatcher,
-            &QFutureWatcher<std::vector<PriceService::CryptoPriceData>>::finished,
-            this, &QtTopCryptosPage::onTopCryptosFetched);
+            &QFutureWatcher<std::vector<PriceService::CryptoPriceData>>::finished, this,
+            &QtTopCryptosPage::onTopCryptosFetched);
 
     // Connect to theme changes
     connect(m_themeManager, &QtThemeManager::themeChanged, this, &QtTopCryptosPage::applyTheme);
@@ -458,8 +457,7 @@ QtTopCryptosPage::QtTopCryptosPage(QWidget* parent)
 
     // Configure retry status timer
     m_retryStatusTimer->setInterval(3000);
-    connect(m_retryStatusTimer, &QTimer::timeout, this,
-            &QtTopCryptosPage::onRetryStatusTimer);
+    connect(m_retryStatusTimer, &QTimer::timeout, this, &QtTopCryptosPage::onRetryStatusTimer);
 
     // Initial data fetch
     fetchTopCryptos();
@@ -507,12 +505,13 @@ void QtTopCryptosPage::setupUI() {
     m_scrollArea->setWidget(m_scrollContent);
 
     // Connect scroll area scrolling to icon loading
-    connect(m_scrollArea->verticalScrollBar(), &QScrollBar::valueChanged, this,
-            [this]() { QTimer::singleShot(50, this, &QtTopCryptosPage::loadVisibleIcons); });
+    connect(m_scrollArea->verticalScrollBar(), &QScrollBar::valueChanged, this, [this]() {
+        QTimer::singleShot(50, this, &QtTopCryptosPage::loadVisibleIcons);
+    });
 
     // Create a horizontal layout to center content with max width
     m_centeringLayout = new QHBoxLayout();
-    
+
     // Add left spacer (expanding)
     m_leftSpacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
     m_centeringLayout->addItem(m_leftSpacer);
@@ -531,7 +530,9 @@ void QtTopCryptosPage::setupUI() {
     createCryptoCards();
 
     // Initialize responsive layout
-    QTimer::singleShot(0, this, [this]() { updateScrollAreaWidth(); });
+    QTimer::singleShot(0, this, [this]() {
+        updateScrollAreaWidth();
+    });
 }
 
 void QtTopCryptosPage::createHeader() {
@@ -605,17 +606,17 @@ void QtTopCryptosPage::createSearchBar() {
     m_searchBox->setPlaceholderText("Search by name or symbol (e.g., Bitcoin, BTC)...");
     m_searchBox->setFixedHeight(38);            // Compacted (was 44)
     m_searchBox->setClearButtonEnabled(false);  // We'll use custom clear button
-    
+
     // Create clear button
     m_clearSearchButton = new QPushButton("✕", m_headerWidget);
     m_clearSearchButton->setFixedSize(38, 38);  // Same height as search box
     m_clearSearchButton->setCursor(Qt::PointingHandCursor);
     m_clearSearchButton->setVisible(false);  // Hide initially, show when search has text
     m_clearSearchButton->setToolTip("Clear search");
-    
+
     // Connect clear button
     connect(m_clearSearchButton, &QPushButton::clicked, this, &QtTopCryptosPage::onClearClicked);
-    
+
     // Connect search text changes with debouncing
     connect(m_searchBox, &QLineEdit::textChanged, this, &QtTopCryptosPage::onSearchTextChanged);
 }
@@ -693,17 +694,22 @@ void QtTopCryptosPage::fetchTopCryptos() {
         m_loadingBar->setVisible(true);
     }
 
-    auto future = QtConcurrent::run([this]() -> std::vector<PriceService::CryptoPriceData> {
-        try {
-            return m_priceFetcher->GetTopCryptosByMarketCap(100);
-        } catch (const std::exception& e) {
-            qDebug() << "Exception in fetchTopCryptos:" << e.what();
-            return {};
-        } catch (...) {
-            qDebug() << "Unknown exception in fetchTopCryptos";
-            return {};
-        }
-    });
+    auto future = QtConcurrent::run(QThreadPool::globalInstance(),
+                                    [this]() -> std::vector<PriceService::CryptoPriceData> {
+                                        try {
+                                            if (!m_priceFetcher) {
+                                                qDebug() << "PriceFetcher is null!";
+                                                return {};
+                                            }
+                                            return m_priceFetcher->GetTopCryptosByMarketCap(100);
+                                        } catch (const std::exception& e) {
+                                            qDebug() << "Exception in fetchTopCryptos:" << e.what();
+                                            return {};
+                                        } catch (...) {
+                                            qDebug() << "Unknown exception in fetchTopCryptos";
+                                            return {};
+                                        }
+                                    });
 
     m_topCryptosWatcher->setFuture(future);
 }
@@ -921,15 +927,19 @@ void QtTopCryptosPage::applySorting() {
             break;
 
         case 7:  // Name: A-Z
-            std::sort(m_filteredData.begin(), m_filteredData.end(),
-                      [](const PriceService::CryptoPriceData& a,
-                         const PriceService::CryptoPriceData& b) { return a.name < b.name; });
+            std::sort(
+                m_filteredData.begin(), m_filteredData.end(),
+                [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
+                    return a.name < b.name;
+                });
             break;
 
         case 8:  // Name: Z-A
-            std::sort(m_filteredData.begin(), m_filteredData.end(),
-                      [](const PriceService::CryptoPriceData& a,
-                         const PriceService::CryptoPriceData& b) { return a.name > b.name; });
+            std::sort(
+                m_filteredData.begin(), m_filteredData.end(),
+                [](const PriceService::CryptoPriceData& a, const PriceService::CryptoPriceData& b) {
+                    return a.name > b.name;
+                });
             break;
     }
 
@@ -957,7 +967,8 @@ void QtTopCryptosPage::loadVisibleIcons() {
     if (!m_scrollArea)
         return;
 
-    qDebug() << "loadVisibleIcons called - filteredData size:" << m_filteredData.size() << "cards size:" << m_cryptoCards.size();
+    qDebug() << "loadVisibleIcons called - filteredData size:" << m_filteredData.size()
+             << "cards size:" << m_cryptoCards.size();
 
     for (int i = 0; i < static_cast<int>(m_filteredData.size()) && i < m_cryptoCards.size(); ++i) {
         QtCryptoCard* card = m_cryptoCards[i];
@@ -998,8 +1009,6 @@ void QtTopCryptosPage::applyTheme() {
     for (auto* card : m_cryptoCards) {
         card->applyTheme();
     }
-
-    
 
     // Refresh button styling
     QString refreshButtonStyle = QString(
@@ -1042,8 +1051,7 @@ void QtTopCryptosPage::applyTheme() {
                                  "}"
                                  "QLineEdit:disabled {"
                                  "  opacity: 0.5;"
-                                 "}"
-                                 )
+                                 "}")
                                  .arg(surfaceColor)
                                  .arg(m_themeManager->accentColor().red())
                                  .arg(m_themeManager->accentColor().green())
@@ -1051,30 +1059,30 @@ void QtTopCryptosPage::applyTheme() {
                                  .arg(txtColor)
                                  .arg(accentColor);
     m_searchBox->setStyleSheet(searchBoxStyle);
-    
+
     // Clear button styling
     QString clearButtonStyle = QString(
-                                    "QPushButton {"
-                                    "  background-color: transparent;"
-                                    "  border: none;"
-                                    "  border-radius: 6px;"
-                                    "  color: %1;"
-                                    "  font-size: 16px;"
-                                    "  font-weight: 600;"
-                                    "  padding: 0px;"
-                                    "  min-width: 38px;"
-                                    "  max-width: 38px;"
-                                    "}"
-                                    "QPushButton:hover {"
-                                    "  background-color: rgba(%2, %3, %4, 0.1);"
-                                    "}"
-                                    "QPushButton:pressed {"
-                                    "  background-color: rgba(%2, %3, %4, 0.2);"
-                                    "}")
-                                    .arg(m_themeManager->dimmedTextColor().name())
-                                    .arg(m_themeManager->accentColor().red())
-                                    .arg(m_themeManager->accentColor().green())
-                                    .arg(m_themeManager->accentColor().blue());
+                                   "QPushButton {"
+                                   "  background-color: transparent;"
+                                   "  border: none;"
+                                   "  border-radius: 6px;"
+                                   "  color: %1;"
+                                   "  font-size: 16px;"
+                                   "  font-weight: 600;"
+                                   "  padding: 0px;"
+                                   "  min-width: 38px;"
+                                   "  max-width: 38px;"
+                                   "}"
+                                   "QPushButton:hover {"
+                                   "  background-color: rgba(%2, %3, %4, 0.1);"
+                                   "}"
+                                   "QPushButton:pressed {"
+                                   "  background-color: rgba(%2, %3, %4, 0.2);"
+                                   "}")
+                                   .arg(m_themeManager->dimmedTextColor().name())
+                                   .arg(m_themeManager->accentColor().red())
+                                   .arg(m_themeManager->accentColor().green())
+                                   .arg(m_themeManager->accentColor().blue());
     m_clearSearchButton->setStyleSheet(clearButtonStyle);
 
     // Sort dropdown styling
@@ -1131,7 +1139,9 @@ void QtTopCryptosPage::applyTheme() {
     m_subtitleLabel->setStyleSheet(QString("color: %1;").arg(subtitleColor));
 }
 
-void QtTopCryptosPage::refreshData() { fetchTopCryptos(); }
+void QtTopCryptosPage::refreshData() {
+    fetchTopCryptos();
+}
 
 void QtTopCryptosPage::onRefreshClicked() {
     if (m_topCryptosWatcher && m_topCryptosWatcher->isRunning()) {
@@ -1144,21 +1154,21 @@ void QtTopCryptosPage::onRefreshClicked() {
     fetchTopCryptos();
 }
 
-
-
-void QtTopCryptosPage::onAutoRefreshTimer() { fetchTopCryptos(); }
+void QtTopCryptosPage::onAutoRefreshTimer() {
+    fetchTopCryptos();
+}
 
 void QtTopCryptosPage::onSearchTextChanged(const QString& text) {
     m_searchText = text;
-    
+
     // Show/hide clear button based on search text
     if (m_clearSearchButton) {
         m_clearSearchButton->setVisible(!text.isEmpty());
     }
-    
+
     // Stop existing timer
     m_searchDebounceTimer->stop();
-    
+
     // Start new timer (300ms debounce)
     m_searchDebounceTimer->start(300);
 }
@@ -1166,7 +1176,7 @@ void QtTopCryptosPage::onSearchTextChanged(const QString& text) {
 void QtTopCryptosPage::onSortChanged(int index) {
     m_currentSortIndex = index;
     qDebug() << "Sort changed to index" << index;
-    
+
     // Re-apply filter and sort
     filterAndSortData();
 }
@@ -1235,7 +1245,7 @@ void QtTopCryptosPage::updateScrollAreaWidth() {
             int targetWidth = static_cast<int>(windowWidth * 0.55);
             m_scrollArea->setMaximumWidth(targetWidth);
             m_scrollArea->setMinimumWidth(targetWidth);
-            
+
             // Enable spacers for centering
             m_leftSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
             m_rightSpacer->changeSize(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
@@ -1243,12 +1253,12 @@ void QtTopCryptosPage::updateScrollAreaWidth() {
             // Full width on smaller screens
             m_scrollArea->setMaximumWidth(QWIDGETSIZE_MAX);
             m_scrollArea->setMinimumWidth(0);
-            
+
             // Disable spacers
             m_leftSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
             m_rightSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
         }
-        
+
         // Ensure layout is refreshed
         if (m_centeringLayout) {
             m_centeringLayout->invalidate();
