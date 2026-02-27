@@ -123,11 +123,17 @@ jobs:
         $hasErrors = $false
         $errorCount = 0
         
+        # Get vcpkg include paths
+        $vcpkgInclude = "${{github.workspace}}/vcpkg_installed/x64-windows/include"
+        $backendInclude = "${{github.workspace}}/backend"
+        $frontendInclude = "${{github.workspace}}/frontend"
+        
         foreach ($file in $files) {
           Write-Host "Analyzing: $file" -ForegroundColor Cyan
           
-          # Run clang-tidy with compile_commands.json
-          clang-tidy $file.FullName -p ${{github.workspace}}/build --quiet 2>&1 | Tee-Object -Variable output
+          # Run clang-tidy with explicit C++20 standard and include paths
+          $extraArgs = "-std=c++20", "-I$vcpkgInclude", "-I$backendInclude", "-I$frontendInclude"
+          clang-tidy $file.FullName -p ${{github.workspace}}/build --quiet -- $extraArgs 2>&1 | Tee-Object -Variable output
           
           $exitCode = $LASTEXITCODE
           if ($exitCode -ne 0) {

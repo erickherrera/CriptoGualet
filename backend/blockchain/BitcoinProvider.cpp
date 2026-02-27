@@ -30,8 +30,7 @@ double parseBtcValue(const json& value) {
 
 class BlockCypherProvider : public BitcoinProvider {
   public:
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): network and apiToken have distinct
-    // purposes
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     BlockCypherProvider(const std::string& network, const std::string& apiToken)
         : m_client(std::make_unique<BlockCypher::BlockCypherClient>(network)) {
         if (!apiToken.empty()) {
@@ -175,8 +174,7 @@ class BitcoinRpcProvider : public BitcoinProvider {
         }
 
         double feeRateBtc = parseBtcValue((*result)["feerate"]);
-        // NOLINTNEXTLINE(bugprone-narrowing-conversions): btcToSatoshis handles the conversion
-        // safely
+        // NOLINTNEXTLINE(bugprone-narrowing-conversions)
         return btcToSatoshis(feeRateBtc);
     }
 
