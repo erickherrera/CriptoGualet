@@ -5,13 +5,13 @@
       "compileCommands": "${workspaceRoot}/compile_commands.json",
       "includePath": [
         "${workspaceRoot}/**",
-        "${env.QT_ROOT_DIR}/include",
-        "${env.QT_ROOT_DIR}/include/QtCore",
-        "${env.QT_ROOT_DIR}/include/QtWidgets",
-        "${env.QT_ROOT_DIR}/include/QtGui",
-        "${env.QT_ROOT_DIR}/include/QtSvg",
-        "${env.QT_ROOT_DIR}/include/QtNetwork",
-        "${env.QT_ROOT_DIR}/mkspecs/win32-msvc"
+        "C:/Program Files/Qt/6.9.1/msvc2022_64/include",
+        "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtCore",
+        "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtWidgets",
+        "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtGui",
+        "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtSvg",
+        "C:/Program Files/Qt/6.9.1/msvc2022_64/include/QtNetwork",
+        "C:/Program Files/Qt/6.9.1/msvc2022_64/mkspecs/win32-msvc"
       ],
       "defines": [
         "_DEBUG",
