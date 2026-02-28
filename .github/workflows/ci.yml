@@ -194,17 +194,18 @@ jobs:
           Write-Host "Analyzing [$totalFiles]: $file" -ForegroundColor Gray
           
           # Run clang-tidy with compile_commands.json and explicit C++20 standard
-          clang-tidy $file.FullName -p $workspace/build --quiet -- -std=c++20 $includes 2>&1 | Tee-Object -Variable output
+          # Filter out warnings from vcpkg third-party code
+          $output = clang-tidy $file.FullName -p $workspace/build --quiet -- -std=c++20 $includes 2>&1 | 
+                    Where-Object { $_ -notmatch 'vcpkg_installed' -and $_ -notmatch 'include[/\\]cpr' }
           
-          $exitCode = $LASTEXITCODE
-          if ($exitCode -ne 0) {
-            # Count actual errors (not warnings)
-            $fileErrors = ($output | Select-String -Pattern "error:").Count
-            $errorCount += $fileErrors
-            if ($fileErrors -gt 0) {
-              $hasErrors = $true
-              Write-Host "❌ Found $fileErrors error(s) in $file" -ForegroundColor Red
-            }
+          # Check if there are any remaining errors (excluding vcpkg)
+          $fileErrors = ($output | Select-String -Pattern "error:").Count
+          $errorCount += $fileErrors
+          if ($fileErrors -gt 0) {
+            $hasErrors = $true
+            Write-Host "❌ Found $fileErrors error(s) in $file" -ForegroundColor Red
+            # Print the actual errors for debugging
+            $output | Select-String -Pattern "error:" | ForEach-Object { Write-Host $_ -ForegroundColor Red }
           }
         }
         

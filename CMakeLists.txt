@@ -239,6 +239,14 @@ if(WIN32 AND (MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
   add_compile_options(/Zc:__cplusplus)
   # Force disable ASAN for this project to prevent flag conflicts
   add_compile_definitions(CRYPTO_NO_ASAN)
+  
+  # Suppress easily-swappable-parameters warnings from third-party headers (cpr, etc.)
+  # This warning (C26456) is from MSVC's static analysis and fires on vcpkg headers
+  add_compile_options(/wd26456)
+  
+  # Alternative: suppress all warnings from external headers (vcpkg dependencies)
+  # /external:W0 disables all warnings from external includes
+  add_compile_options(/external:W0)
 endif()
 
 # Cross-platform compiler flags for Clang (only when using Clang)
@@ -267,6 +275,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual")
   # Disable C++98 compatibility warnings that cause linking issues
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic")
+
+  # Suppress bugprone-easily-swappable-parameters for third-party libraries (cpr)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-bugprone-easily-swappable-parameters")
 
   # ClangCL-specific optimizations
   if(CLANG_MODE STREQUAL "CLANGCL")
