@@ -8,7 +8,8 @@ using json = nlohmann::json;
 
 namespace BlockCypher {
 
-BlockCypherClient::BlockCypherClient(const std::string& networkIdentifier, const std::string& apiToken)
+BlockCypherClient::BlockCypherClient(const std::string& networkIdentifier,
+                                     const std::string& apiToken)
     : base_url("https://api.blockcypher.com/v1/"), network(networkIdentifier), api_token(apiToken) {
 }
 
@@ -21,7 +22,8 @@ std::string BlockCypherClient::BuildUrl(const std::string& endpoint) {
     return url;
 }
 
-std::string BlockCypherClient::MakeRequest(const std::string& endpointPath, const std::string& httpMethod,
+std::string BlockCypherClient::MakeRequest(const std::string& endpointPath,
+                                           const std::string& httpMethod,
                                            const std::string& requestPayload) {
     try {
         std::string url = BuildUrl(endpointPath);
@@ -29,11 +31,11 @@ std::string BlockCypherClient::MakeRequest(const std::string& endpointPath, cons
         cpr::Response response;
         bool isGetRequest = (httpMethod == "GET");
         bool isPostRequest = (httpMethod == "POST");
-        
+
         if (!isGetRequest && !isPostRequest) {
             return "";
         }
-        
+
         if (isGetRequest) {
             response = cpr::Get(cpr::Url{url});
         } else {

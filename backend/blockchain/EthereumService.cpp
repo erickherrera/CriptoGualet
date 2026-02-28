@@ -29,8 +29,7 @@ void EthereumClient::updateBaseUrl() {
     static const std::map<std::string, std::string> networkToUrl = {
         {"mainnet", "https://api.etherscan.io/api"},
         {"sepolia", "https://api-sepolia.etherscan.io/api"},
-        {"goerli", "https://api-goerli.etherscan.io/api"}
-    };
+        {"goerli", "https://api-goerli.etherscan.io/api"}};
 
     auto it = networkToUrl.find(m_network);
     m_baseUrl = (it != networkToUrl.end()) ? it->second : "https://api.etherscan.io/api";
@@ -437,9 +436,9 @@ std::optional<std::string> EthereumClient::BroadcastTransaction(const std::strin
 }
 
 std::optional<std::string> EthereumClient::CreateSignedTransaction(
-    const std::string& senderAddress, const std::string& recipientAddress, const std::string& value_wei,
-    const std::string& gas_price_wei, uint64_t gas_limit, const std::string& private_key_hex,
-    uint64_t chain_id) {
+    const std::string& senderAddress, const std::string& recipientAddress,
+    const std::string& value_wei, const std::string& gas_price_wei, uint64_t gas_limit,
+    const std::string& private_key_hex, uint64_t chain_id) {
     // Validate addresses
     if (!IsValidAddress(senderAddress) || !IsValidAddress(recipientAddress)) {
         return std::nullopt;
