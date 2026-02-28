@@ -31,3 +31,4 @@ CheckOptions:
   - key:             cert-err58-cpp.AllowDynamicExceptionCreation
     value:           '1'
   - key:             modernize-use-nullptr.NullMacros
+    value:           'NULL'
