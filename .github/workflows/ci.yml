@@ -186,7 +186,8 @@ jobs:
           "-I$workspace/frontend",
           "-I$workspace/frontend/qt/include",
           "-I$workspace/src",
-          "-I$vcpkgRoot/include"
+          "-I$vcpkgRoot/include",
+          "-I$vcpkgRoot/include/sqlcipher"
         )
         
         foreach ($file in $files) {

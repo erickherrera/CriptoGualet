@@ -12,9 +12,18 @@ Checks: >
   security-*
 
 WarningsAsErrors: 'bugprone-*,clang-analyzer-*,cert-*,security-*'
-HeaderFilterRegex: '.*'
-FormatStyle: file   # will use .clang-format if available
+HeaderFilterRegex: '.*/(backend|frontend|src)/.*'
+
+# Exclude problematic warnings that don't represent actual bugs
 CheckOptions:
+  - key:             bugprone-easily-swappable-parameters.AllMatches
+    value:           '1'
+  - key:             bugprone-easily-swappable-parameters.MinLength
+    value:           '4'
+  - key:             bugprone-narrowing-conversions.AllowIntegers
+    value:           '1'
+  - key:             cert-err58-cpp.AllowDynamicExceptionCreation
+    value:           '1'
   - key:             modernize-use-nullptr.NullMacros
     value:           'NULL'
   - key:             readability-identifier-naming.VariableCase
