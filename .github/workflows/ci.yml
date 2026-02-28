@@ -165,6 +165,9 @@ jobs:
       run: |
         Write-Host "`n🔍 Running static analysis with clang-tidy..." -ForegroundColor Cyan
         
+        $workspace = "${{github.workspace}}"
+        
+        # Use compile_commands.json which has correct include paths from CMake/vcpkg
         $files = Get-ChildItem -Path backend,frontend,src -Include *.cpp -Recurse -File | 
                 Where-Object { $_.FullName -notmatch 'Tests' -and $_.FullName -notmatch 'build' }
         
@@ -172,31 +175,12 @@ jobs:
         $errorCount = 0
         $totalFiles = 0
         
-        # Build comprehensive include paths
-        $workspace = "${{github.workspace}}"
-        $vcpkgRoot = "$workspace/vcpkg_installed/x64-windows"
-        $includes = @(
-          "-I$workspace",
-          "-I$workspace/backend",
-          "-I$workspace/backend/blockchain/include",
-          "-I$workspace/backend/core/include",
-          "-I$workspace/backend/database/include",
-          "-I$workspace/backend/repository/include",
-          "-I$workspace/backend/utils/include",
-          "-I$workspace/frontend",
-          "-I$workspace/frontend/qt/include",
-          "-I$workspace/src",
-          "-I$vcpkgRoot/include",
-          "-I$vcpkgRoot/include/sqlcipher"
-        )
-        
         foreach ($file in $files) {
           $totalFiles++
           Write-Host "Analyzing [$totalFiles]: $file" -ForegroundColor Gray
           
-          # Run clang-tidy with compile_commands.json and explicit C++20 standard
-          # Filter out warnings from vcpkg third-party code
-          $output = clang-tidy $file.FullName -p $workspace/build --quiet -- -std=c++20 $includes 2>&1 | 
+          # Run clang-tidy with compile_commands.json which has all correct include paths
+          $output = clang-tidy $file.FullName -p $workspace/build --quiet 2>&1 | 
                     Where-Object { $_ -notmatch 'vcpkg_installed' -and $_ -notmatch 'include[/\\]cpr' }
           
           # Check if there are any remaining errors (excluding vcpkg)
@@ -205,7 +189,6 @@ jobs:
           if ($fileErrors -gt 0) {
             $hasErrors = $true
             Write-Host "❌ Found $fileErrors error(s) in $file" -ForegroundColor Red
-            # Print the actual errors for debugging
             $output | Select-String -Pattern "error:" | ForEach-Object { Write-Host $_ -ForegroundColor Red }
           }
         }

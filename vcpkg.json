@@ -12,6 +12,10 @@
       "name": "sqlcipher",
       "platform": "windows"
     },
-    "libsodium"
+    "libsodium",
+    {
+      "name": "qtbase",
+      "platform": "windows"
+    }
   ]
 }
