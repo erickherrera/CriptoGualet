@@ -8,8 +8,8 @@ using json = nlohmann::json;
 
 namespace BlockCypher {
 
-BlockCypherClient::BlockCypherClient(const std::string& network, const std::string& token)
-    : base_url("https://api.blockcypher.com/v1/"), network(network), api_token(token) {
+BlockCypherClient::BlockCypherClient(const std::string& networkIdentifier, const std::string& apiToken)
+    : base_url("https://api.blockcypher.com/v1/"), network(networkIdentifier), api_token(apiToken) {
 }
 
 std::string BlockCypherClient::BuildUrl(const std::string& endpoint) {
@@ -21,19 +21,24 @@ std::string BlockCypherClient::BuildUrl(const std::string& endpoint) {
     return url;
 }
 
-std::string BlockCypherClient::MakeRequest(const std::string& endpoint, const std::string& method,
-                                           const std::string& payload) {
+std::string BlockCypherClient::MakeRequest(const std::string& endpointPath, const std::string& httpMethod,
+                                           const std::string& requestPayload) {
     try {
-        std::string url = BuildUrl(endpoint);
+        std::string url = BuildUrl(endpointPath);
 
         cpr::Response response;
-        if (method == "GET") {
-            response = cpr::Get(cpr::Url{url});
-        } else if (method == "POST") {
-            response = cpr::Post(cpr::Url{url}, cpr::Body{payload},
-                                 cpr::Header{{"Content-Type", "application/json"}});
-        } else {
+        bool isGetRequest = (httpMethod == "GET");
+        bool isPostRequest = (httpMethod == "POST");
+        
+        if (!isGetRequest && !isPostRequest) {
             return "";
+        }
+        
+        if (isGetRequest) {
+            response = cpr::Get(cpr::Url{url});
+        } else {
+            response = cpr::Post(cpr::Url{url}, cpr::Body{requestPayload},
+                                 cpr::Header{{"Content-Type", "application/json"}});
         }
 
         if (response.status_code >= 200 && response.status_code < 300) {

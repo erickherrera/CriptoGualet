@@ -50,8 +50,8 @@ CompileFlags:
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtSvg
     - -IC:/Program Files/Qt/6.9.1/msvc2022_64/include/QtNetwork
 
-    # vcpkg include path
-    - -Ivcpkg_installed/x64-windows/include
+    # vcpkg include path (for local dev - CI uses github.workspace path)
+    - -I${workspaceFolder}/vcpkg_installed/x64-windows/include
 
 Diagnostics:
   # Enable comprehensive diagnostics for security analysis

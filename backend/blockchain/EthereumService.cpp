@@ -26,16 +26,14 @@ void EthereumClient::SetNetwork(const std::string& network) {
 }
 
 void EthereumClient::updateBaseUrl() {
-    if (m_network == "mainnet") {
-        m_baseUrl = "https://api.etherscan.io/api";
-    } else if (m_network == "sepolia") {
-        m_baseUrl = "https://api-sepolia.etherscan.io/api";
-    } else if (m_network == "goerli") {
-        m_baseUrl = "https://api-goerli.etherscan.io/api";
-    } else {
-        // Default to mainnet
-        m_baseUrl = "https://api.etherscan.io/api";
-    }
+    static const std::map<std::string, std::string> networkToUrl = {
+        {"mainnet", "https://api.etherscan.io/api"},
+        {"sepolia", "https://api-sepolia.etherscan.io/api"},
+        {"goerli", "https://api-goerli.etherscan.io/api"}
+    };
+
+    auto it = networkToUrl.find(m_network);
+    m_baseUrl = (it != networkToUrl.end()) ? it->second : "https://api.etherscan.io/api";
 }
 
 std::string EthereumClient::makeRequest(const std::string& endpoint) {
@@ -439,16 +437,16 @@ std::optional<std::string> EthereumClient::BroadcastTransaction(const std::strin
 }
 
 std::optional<std::string> EthereumClient::CreateSignedTransaction(
-    const std::string& from_address, const std::string& to_address, const std::string& value_wei,
+    const std::string& senderAddress, const std::string& recipientAddress, const std::string& value_wei,
     const std::string& gas_price_wei, uint64_t gas_limit, const std::string& private_key_hex,
     uint64_t chain_id) {
     // Validate addresses
-    if (!IsValidAddress(from_address) || !IsValidAddress(to_address)) {
+    if (!IsValidAddress(senderAddress) || !IsValidAddress(recipientAddress)) {
         return std::nullopt;
     }
 
     // Get nonce (transaction count)
-    auto nonce_opt = GetTransactionCount(from_address);
+    auto nonce_opt = GetTransactionCount(senderAddress);
     if (!nonce_opt.has_value()) {
         return std::nullopt;
     }
@@ -466,7 +464,7 @@ std::optional<std::string> EthereumClient::CreateSignedTransaction(
     tx_fields.push_back(RLP::Encoder::EncodeUInt(nonce));
     tx_fields.push_back(RLP::Encoder::EncodeDecimal(gas_price_wei));
     tx_fields.push_back(RLP::Encoder::EncodeUInt(gas_limit));
-    tx_fields.push_back(RLP::Encoder::EncodeHex(to_address));
+    tx_fields.push_back(RLP::Encoder::EncodeHex(recipientAddress));
     tx_fields.push_back(RLP::Encoder::EncodeDecimal(value_wei));
     tx_fields.push_back(RLP::Encoder::EncodeBytes({}));       // Empty data for simple transfer
     tx_fields.push_back(RLP::Encoder::EncodeUInt(chain_id));  // Chain ID for EIP-155
@@ -502,7 +500,7 @@ std::optional<std::string> EthereumClient::CreateSignedTransaction(
     signed_tx_fields.push_back(RLP::Encoder::EncodeUInt(nonce));
     signed_tx_fields.push_back(RLP::Encoder::EncodeDecimal(gas_price_wei));
     signed_tx_fields.push_back(RLP::Encoder::EncodeUInt(gas_limit));
-    signed_tx_fields.push_back(RLP::Encoder::EncodeHex(to_address));
+    signed_tx_fields.push_back(RLP::Encoder::EncodeHex(recipientAddress));
     signed_tx_fields.push_back(RLP::Encoder::EncodeDecimal(value_wei));
     signed_tx_fields.push_back(RLP::Encoder::EncodeBytes({}));  // Empty data
     signed_tx_fields.push_back(RLP::Encoder::EncodeUInt(v));
