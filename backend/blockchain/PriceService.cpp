@@ -2,11 +2,12 @@
 #include <cpr/cpr.h>
 #include <chrono>
 #include <iomanip>
-#include <iostream>
 #include <map>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <thread>
+
+#include "Repository/Logger.h"
 
 using json = nlohmann::json;
 
@@ -163,7 +164,6 @@ PriceFetcher::PriceFetcher(int timeout)
 std::string PriceFetcher::MakeRequest(const std::string& endpoint) {
     try {
         std::string url = base_url + endpoint;
-        std::cout << "[PriceService] Making request to: " << url << std::endl;
 
         cpr::Response response = cpr::Get(
             cpr::Url{url},
@@ -171,24 +171,20 @@ std::string PriceFetcher::MakeRequest(const std::string& endpoint) {
             cpr::Timeout{timeout_seconds * 1000});
 
         last_status_code = response.status_code;
-        std::cout << "[PriceService] Response status: " << response.status_code << std::endl;
 
         if (response.status_code == 200) {
-            std::cout << "[PriceService] Success! Response length: " << response.text.length()
-                      << " bytes" << std::endl;
             return response.text;
         }
 
-        std::cout << "[PriceService] Request failed with status: " << response.status_code;
-        if (!response.text.empty()) {
-            std::cout << " | Body: " << response.text.substr(0, 200);
-        }
-        std::cout << std::endl;
+        REPO_LOG_WARNING(
+            "PriceService",
+            "Request failed with status: " + std::to_string(response.status_code) +
+                (!response.text.empty() ? " | Body: " + response.text.substr(0, 200) : ""));
         return "";
 
     } catch (const std::exception& e) {
         last_status_code = 0;
-        std::cout << "[PriceService] Exception: " << e.what() << std::endl;
+        REPO_LOG_WARNING("PriceService", "Exception: " + std::string(e.what()));
         return "";
     }
 }
@@ -233,7 +229,7 @@ std::optional<CryptoPriceData> PriceFetcher::ParsePriceResponse(const std::strin
         json parsed = json::parse(json_response);
 
         if (!parsed.contains(coin_id)) {
-            std::cout << "[PriceService] Coin not found in response: " << coin_id << std::endl;
+            REPO_LOG_WARNING("PriceService", "Coin not found in response: " + coin_id);
             return std::nullopt;
         }
 
@@ -256,7 +252,7 @@ std::optional<CryptoPriceData> PriceFetcher::ParsePriceResponse(const std::strin
 
         return data;
     } catch (const std::exception& e) {
-        std::cout << "[PriceService] Parse exception: " << e.what() << std::endl;
+        REPO_LOG_WARNING("PriceService", "Parse exception: " + std::string(e.what()));
         return std::nullopt;
     }
 }
@@ -295,8 +291,6 @@ std::vector<CryptoPriceData> PriceFetcher::GetTopCryptosByMarketCap(int count) {
             break;
         }
 
-        std::cout << "[PriceService] Retry " << (attempt + 1) << "/" << max_attempts << " after "
-                  << retry_delay_seconds << "s" << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(retry_delay_seconds));
     }
 
@@ -310,15 +304,10 @@ std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::st
     try {
         json parsed = json::parse(json_response);
 
-        std::cout << "[PriceService] Parsed JSON type: "
-                  << (parsed.is_array() ? "array" : "not array") << std::endl;
-
         if (!parsed.is_array()) {
-            std::cout << "[PriceService] Error: Response is not an array" << std::endl;
+            REPO_LOG_ERROR("PriceService", "Response is not an array");
             return results;
         }
-
-        std::cout << "[PriceService] Array size: " << parsed.size() << std::endl;
 
         for (const auto& coin : parsed) {
             CryptoPriceData data;
@@ -335,9 +324,6 @@ std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::st
                 c = std::toupper(c);
             }
 
-            std::cout << "[PriceService] Added: " << data.name << " (" << data.symbol << ") - $"
-                      << data.usd_price << std::endl;
-
             results.push_back(data);
 
             // Stop when we have enough results
@@ -346,10 +332,9 @@ std::vector<CryptoPriceData> PriceFetcher::ParseTopCryptosResponse(const std::st
             }
         }
 
-        std::cout << "[PriceService] Total results: " << results.size() << std::endl;
         return results;
     } catch (const std::exception& e) {
-        std::cout << "[PriceService] Parse exception: " << e.what() << std::endl;
+        REPO_LOG_WARNING("PriceService", "Parse exception: " + std::string(e.what()));
         return results;
     }
 }
@@ -397,7 +382,6 @@ void PriceFetcher::updateTopCryptosCache(const std::vector<CryptoPriceData>& dat
 std::optional<CryptoPriceData> PriceFetcher::getCachedPrice() const {
     std::lock_guard<std::mutex> lock(cache_mutex);
     if (isCacheValid(cached_price.timestamp)) {
-        std::cout << "[PriceService] Returning cached price data" << std::endl;
         return cached_price.data;
     }
     return std::nullopt;
@@ -406,7 +390,6 @@ std::optional<CryptoPriceData> PriceFetcher::getCachedPrice() const {
 std::optional<std::vector<CryptoPriceData>> PriceFetcher::getCachedTopCryptos() const {
     std::lock_guard<std::mutex> lock(cache_mutex);
     if (isCacheValid(last_top_cryptos_fetch)) {
-        std::cout << "[PriceService] Returning cached top cryptos data" << std::endl;
         return cached_top_cryptos;
     }
     return std::nullopt;

@@ -1,8 +1,9 @@
 #include "BlockCypher.h"
 #include <cpr/cpr.h>
-#include <iostream>
 #include <nlohmann/json.hpp>
 #include <regex>
+
+#include "Repository/Logger.h"
 
 using json = nlohmann::json;
 
@@ -46,12 +47,12 @@ std::string BlockCypherClient::MakeRequest(const std::string& endpointPath,
         if (response.status_code >= 200 && response.status_code < 300) {
             return response.text;
         } else {
-            std::cerr << "HTTP Error " << response.status_code << ": " << response.text
-                      << std::endl;
+            REPO_LOG_ERROR("BlockCypher", "HTTP Error " + std::to_string(response.status_code) +
+                                              ": " + response.text);
             return "";
         }
     } catch (const std::exception& e) {
-        std::cerr << "Request error: " << e.what() << std::endl;
+        REPO_LOG_ERROR("BlockCypher", "Request error: " + std::string(e.what()));
         return "";
     }
 }
@@ -75,7 +76,7 @@ std::optional<AddressBalance> BlockCypherClient::GetAddressBalance(const std::st
 
         return balance;
     } catch (const std::exception& e) {
-        std::cerr << "Error parsing address balance: " << e.what() << std::endl;
+        REPO_LOG_ERROR("BlockCypher", "Error parsing address balance: " + std::string(e.what()));
         return std::nullopt;
     }
 }
@@ -102,7 +103,8 @@ std::optional<std::vector<std::string>> BlockCypherClient::GetAddressTransaction
 
         return tx_hashes;
     } catch (const std::exception& e) {
-        std::cerr << "Error parsing address transactions: " << e.what() << std::endl;
+        REPO_LOG_ERROR("BlockCypher",
+                       "Error parsing address transactions: " + std::string(e.what()));
         return std::nullopt;
     }
 }
@@ -175,7 +177,7 @@ std::optional<Transaction> BlockCypherClient::GetTransaction(const std::string& 
 
         return tx;
     } catch (const std::exception& e) {
-        std::cerr << "Error parsing transaction: " << e.what() << std::endl;
+        REPO_LOG_ERROR("BlockCypher", "Error parsing transaction: " + std::string(e.what()));
         return std::nullopt;
     }
 }
@@ -246,7 +248,7 @@ std::optional<CreateTransactionResponse> BlockCypherClient::CreateTransaction(
 
         return create_response;
     } catch (const std::exception& e) {
-        std::cerr << "Error creating transaction: " << e.what() << std::endl;
+        REPO_LOG_ERROR("BlockCypher", "Error creating transaction: " + std::string(e.what()));
         return std::nullopt;
     }
 }
@@ -281,8 +283,8 @@ std::optional<std::string> BlockCypherClient::SendSignedTransaction(
 
         // Check for errors
         if (j.contains("errors") && j["errors"].is_array() && !j["errors"].empty()) {
-            std::cerr << "BlockCypher error: " << j["errors"][0].value("error", "Unknown error")
-                      << std::endl;
+            REPO_LOG_ERROR("BlockCypher",
+                           "BlockCypher error: " + j["errors"][0].value("error", "Unknown error"));
             return std::nullopt;
         }
 
@@ -292,7 +294,7 @@ std::optional<std::string> BlockCypherClient::SendSignedTransaction(
 
         return std::nullopt;
     } catch (const std::exception& e) {
-        std::cerr << "Error sending signed transaction: " << e.what() << std::endl;
+        REPO_LOG_ERROR("BlockCypher", "Error sending signed transaction: " + std::string(e.what()));
         return std::nullopt;
     }
 }
@@ -315,7 +317,7 @@ std::optional<std::string> BlockCypherClient::SendRawTransaction(const std::stri
 
         return std::nullopt;
     } catch (const std::exception& e) {
-        std::cerr << "Error sending raw transaction: " << e.what() << std::endl;
+        REPO_LOG_ERROR("BlockCypher", "Error sending raw transaction: " + std::string(e.what()));
         return std::nullopt;
     }
 }
@@ -375,7 +377,7 @@ std::optional<uint64_t> BlockCypherClient::EstimateFees() {
 
         return std::nullopt;
     } catch (const std::exception& e) {
-        std::cerr << "Error estimating fees: " << e.what() << std::endl;
+        REPO_LOG_ERROR("BlockCypher", "Error estimating fees: " + std::string(e.what()));
         return std::nullopt;
     }
 }
