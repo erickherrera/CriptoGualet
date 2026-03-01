@@ -115,7 +115,9 @@ jobs:
           vcpkg-${{ runner.os }}-
           
     - name: Configure CMake
+      shell: pwsh
       run: |
+        $ErrorActionPreference = "Stop"
         cmake -B ${{github.workspace}}/build `
           -S ${{github.workspace}} `
           -DCMAKE_BUILD_TYPE=Release `
@@ -124,15 +126,26 @@ jobs:
           -DVCPKG_INSTALLED_DIR=${{github.workspace}}/vcpkg_installed `
           -DBUILD_TESTS=ON `
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "❌ CMake configuration failed!" -ForegroundColor Red
+          exit 1
+        }
+        Write-Host "✅ CMake configuration successful" -ForegroundColor Green
           
     - name: Build
+      shell: pwsh
       run: |
-        cmake --build ${{github.workspace}}/build --config Release --parallel
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "❌ Build failed with exit code $LASTEXITCODE" -ForegroundColor Red
-          exit $LASTEXITCODE
+        $ErrorActionPreference = "Stop"
+        Write-Host "Starting build..." -ForegroundColor Cyan
+        cmake --build ${{github.workspace}}/build --config Release --parallel 2>&1 | Tee-Object -FilePath ${{github.workspace}}/build.log
+        $buildExitCode = $LASTEXITCODE
+        if ($buildExitCode -ne 0) {
+          Write-Host "`n❌ BUILD FAILED with exit code $buildExitCode" -ForegroundColor Red
+          Write-Host "`n=== Build Log (last 100 lines) ===" -ForegroundColor Yellow
+          Get-Content ${{github.workspace}}/build.log -Tail 100
+          exit $buildExitCode
         }
-        Write-Host "✅ Build completed successfully" -ForegroundColor Green
+        Write-Host "`n✅ Build completed successfully" -ForegroundColor Green
 
     - name: List build outputs
       run: |
@@ -168,7 +181,7 @@ jobs:
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
-      if: always()
+      if: success()
       with:
         name: criptogualet-build
         path: |
@@ -195,6 +208,16 @@ jobs:
       with:
         arch: x64
         
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: criptogualet-build
+        
+    - name: List downloaded artifacts
+      run: |
+        Write-Host "Downloaded artifacts:" -ForegroundColor Cyan
+        Get-ChildItem -Path . -Recurse | Where-Object { $_.FullName -notmatch '.git' } | ForEach-Object { Write-Host $_.FullName }
+        
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
       with:
@@ -210,29 +233,28 @@ jobs:
         restore-keys: |
           vcpkg-${{ runner.os }}-
           
-    - name: Configure CMake
+    - name: Configure CMake (for CTest)
+      shell: pwsh
       run: |
+        $ErrorActionPreference = "Stop"
         cmake -B ${{github.workspace}}/build `
           -S ${{github.workspace}} `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake `
           -DVCPKG_TARGET_TRIPLET=x64-windows `
           -DVCPKG_INSTALLED_DIR=${{github.workspace}}/vcpkg_installed `
-          -DBUILD_TESTS=ON `
-          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-          
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config Release --parallel
-      
-    - name: Configure CTest
+          -DBUILD_TESTS=ON
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "❌ CMake configuration failed!" -ForegroundColor Red
+          exit 1
+        }
+       
+    - name: Run Tests with CTest
       working-directory: ${{github.workspace}}/build
       run: |
         ctest -N
         Write-Host "`nTest discovery complete" -ForegroundColor Cyan
-        
-    - name: Run Tests with CTest
-      working-directory: ${{github.workspace}}/build
-      run: ctest --output-on-failure -C Release
+        ctest --output-on-failure -C Release
 
   # Job 5: Static Analysis (separate job using compile_commands.json)
   static-analysis:
