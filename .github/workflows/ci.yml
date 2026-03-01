@@ -128,6 +128,22 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config Release --parallel
 
+    - name: List build outputs
+      run: |
+        Write-Host "Build directory contents:" -ForegroundColor Cyan
+        if (Test-Path ${{github.workspace}}/build/Release) {
+          Get-ChildItem -Path ${{github.workspace}}/build/Release -Recurse | ForEach-Object { Write-Host $_.FullName }
+        } else {
+          Write-Host "Release directory not found!" -ForegroundColor Red
+          Get-ChildItem -Path ${{github.workspace}}/build -Recurse | ForEach-Object { Write-Host $_.FullName }
+        }
+        Write-Host "`nCompile commands:" -ForegroundColor Cyan
+        if (Test-Path ${{github.workspace}}/build/compile_commands.json) {
+          Write-Host "✅ compile_commands.json exists"
+        } else {
+          Write-Host "❌ compile_commands.json not found"
+        }
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       if: always()
@@ -210,12 +226,26 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: criptogualet-build
-        path: ${{github.workspace}}/build
         
     - name: List downloaded artifacts
       run: |
         Write-Host "Downloaded artifacts:" -ForegroundColor Cyan
-        Get-ChildItem -Path ${{github.workspace}}/build -Recurse | ForEach-Object { Write-Host $_.FullName }
+        Write-Host "Current directory: $(Get-Location)"
+        Get-ChildItem -Path . -Recurse | Where-Object { $_.FullName -notmatch '.git' } | ForEach-Object { 
+          $relativePath = $_.FullName.Replace($(Get-Location).Path, '.')
+          Write-Host $relativePath
+        }
+        
+        # Check if compile_commands.json exists and copy to build directory
+        if (Test-Path ./compile_commands.json) {
+          New-Item -ItemType Directory -Force -Path ${{github.workspace}}/build
+          Copy-Item ./compile_commands.json ${{github.workspace}}/build/compile_commands.json
+          Write-Host "✅ Copied compile_commands.json to build directory"
+        } elseif (Test-Path ${{github.workspace}}/build/compile_commands.json) {
+          Write-Host "✅ compile_commands.json already in build directory"
+        } else {
+          Write-Host "❌ compile_commands.json not found in artifact"
+        }
         
     - name: Install LLVM
       run: |
