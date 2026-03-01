@@ -17,7 +17,7 @@ env:
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
 jobs:
-  # Job 1: Code Formatting Check (fast, runs first)
+  # Job 1: Code Formatting Check (fast, runs in parallel with security-scan and build)
   format-check:
     name: Code Formatting
     runs-on: windows-latest
@@ -36,7 +36,6 @@ jobs:
           echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
         }
         clang-format --version
-        clang-tidy --version || echo "clang-tidy not in PATH"
         
     - name: Check code formatting
       run: |
@@ -59,7 +58,7 @@ jobs:
         
         Write-Host "✅ All files are properly formatted!" -ForegroundColor Green
 
-  # Job 2: Security Scan (Trivy only works on Linux)
+  # Job 2: Security Scan (runs in parallel with format-check and build)
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -84,11 +83,66 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
-  # Job 3: Build and Test (Release only - Debug adds little value)
-  build-and-test:
-    name: Build & Test (Windows)
+  # Job 3: Build (runs in parallel with format-check and security-scan)
+  build:
+    name: Build (Windows)
     runs-on: windows-latest
-    needs: format-check
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+        
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '4bb07a326d9b9bce3703272a509e5bc25dd9cfd5'
+        
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{github.workspace}}/vcpkg_installed
+          ${{github.workspace}}/vcpkg
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-
+          
+    - name: Configure CMake
+      run: |
+        cmake -B ${{github.workspace}}/build `
+          -S ${{github.workspace}} `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake `
+          -DVCPKG_TARGET_TRIPLET=x64-windows `
+          -DVCPKG_INSTALLED_DIR=${{github.workspace}}/vcpkg_installed `
+          -DBUILD_TESTS=ON `
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config Release --parallel
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: criptogualet-build
+        path: |
+          ${{github.workspace}}/build/Release/*.exe
+          ${{github.workspace}}/build/Release/*.dll
+          ${{github.workspace}}/build/compile_commands.json
+        retention-days: 7
+
+  # Job 4: Run Tests (uses CTest)
+  test:
+    name: Run Tests
+    runs-on: windows-latest
+    needs: build
     
     steps:
     - name: Checkout code
@@ -130,41 +184,48 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config Release --parallel
       
-    - name: Run Tests
+    - name: Configure CTest
       working-directory: ${{github.workspace}}/build
       run: |
-        $testFailed = $false
+        ctest -N
+        Write-Host "`nTest discovery complete" -ForegroundColor Cyan
         
-        $testFiles = Get-ChildItem -Path Tests/Release -Filter "*.exe" -File
+    - name: Run Tests with CTest
+      working-directory: ${{github.workspace}}/build
+      run: ctest --output-on-failure -C Release
+
+  # Job 5: Static Analysis (separate job using compile_commands.json)
+  static-analysis:
+    name: Static Analysis
+    runs-on: windows-latest
+    needs: build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: criptogualet-build
+        path: ${{github.workspace}}/build
         
-        if ($testFiles.Count -eq 0) {
-          Write-Host "⚠️ No test executables found" -ForegroundColor Yellow
-          $testFiles = Get-ChildItem -Path Tests -Filter "*.exe" -Recurse -File
+    - name: Install LLVM
+      run: |
+        if (Get-Command clang-tidy -ErrorAction SilentlyContinue) {
+          Write-Host "✅ clang-tidy already available"
+        } else {
+          Write-Host "Installing LLVM..."
+          choco install llvm --no-progress
+          echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
         }
-        
-        foreach ($test in $testFiles) {
-          Write-Host "`n🧪 Running: $($test.Name)" -ForegroundColor Cyan
-          & $test.FullName
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "❌ Test failed: $($test.Name)" -ForegroundColor Red
-            $testFailed = $true
-          } else {
-            Write-Host "✅ Test passed: $($test.Name)" -ForegroundColor Green
-          }
-        }
-        
-        if ($testFailed) {
-          exit 1
-        }
-        
-        Write-Host "`n✅ All tests passed!" -ForegroundColor Green
+        clang-tidy --version
         
     - name: Run Static Analysis
       run: |
         Write-Host "`n🔍 Running static analysis with clang-tidy..." -ForegroundColor Cyan
         
         $workspace = "${{github.workspace}}"
-        $vcpkgRoot = "$workspace/vcpkg_installed/x64-windows"
         
         # Only analyze backend code (Qt frontend has complex dependencies)
         $files = Get-ChildItem -Path backend,src -Include *.cpp -Recurse -File | 
@@ -185,9 +246,7 @@ jobs:
           "-I$workspace/backend/database/include",
           "-I$workspace/backend/repository/include",
           "-I$workspace/backend/utils/include",
-          "-I$workspace/src",
-          "-I$vcpkgRoot/include",
-          "-I$vcpkgRoot/include/sqlcipher"
+          "-I$workspace/src"
         )
         
         $hasErrors = $false
@@ -219,12 +278,3 @@ jobs:
           Write-Host "✅ Static analysis passed!" -ForegroundColor Green
         }
         Write-Host "========================================" -ForegroundColor Yellow
-      
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: criptogualet-windows-x64
-        path: |
-          ${{github.workspace}}/build/Release/*.exe
-          ${{github.workspace}}/build/Release/*.dll
-        retention-days: 7
