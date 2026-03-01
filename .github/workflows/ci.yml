@@ -126,7 +126,13 @@ jobs:
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config Release --parallel
+      run: |
+        cmake --build ${{github.workspace}}/build --config Release --parallel
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "❌ Build failed with exit code $LASTEXITCODE" -ForegroundColor Red
+          exit $LASTEXITCODE
+        }
+        Write-Host "✅ Build completed successfully" -ForegroundColor Green
 
     - name: List build outputs
       run: |
