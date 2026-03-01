@@ -59,10 +59,10 @@ jobs:
         
         Write-Host "✅ All files are properly formatted!" -ForegroundColor Green
 
-  # Job 2: Security Scan (runs in parallel with build)
+  # Job 2: Security Scan (Trivy only works on Linux)
   security-scan:
     name: Security Scan
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
