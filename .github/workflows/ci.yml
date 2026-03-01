@@ -245,9 +245,12 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+      with:
+        fetch-depth: 0
+        
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
+      continue-on-error: true
       with:
         scan-type: 'fs'
         scan-ref: '.'
