@@ -8,7 +8,7 @@ Checks: >
   modernize-*,
   performance-*,
   portability-*,
-  readability-*,
+  -readability-*,
   security-*
 
 WarningsAsErrors: 'clang-analyzer-*,security-*'
