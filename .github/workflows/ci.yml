@@ -144,6 +144,22 @@ jobs:
           Write-Host "❌ compile_commands.json not found"
         }
 
+    - name: Verify files exist before upload
+      run: |
+        $exeFiles = Get-ChildItem -Path ${{github.workspace}}/build/Release/*.exe -ErrorAction SilentlyContinue
+        $dllFiles = Get-ChildItem -Path ${{github.workspace}}/build/Release/*.dll -ErrorAction SilentlyContinue
+        $jsonFile = Test-Path ${{github.workspace}}/build/compile_commands.json
+        
+        Write-Host "Files to upload:" -ForegroundColor Cyan
+        Write-Host "  .exe files: $($exeFiles.Count)"
+        Write-Host "  .dll files: $($dllFiles.Count)"
+        Write-Host "  compile_commands.json: $jsonFile"
+        
+        if ($exeFiles.Count -eq 0 -and $dllFiles.Count -eq 0 -and -not $jsonFile) {
+          Write-Host "❌ WARNING: No files found to upload!" -ForegroundColor Red
+          exit 1
+        }
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       if: always()
