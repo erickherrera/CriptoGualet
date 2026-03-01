@@ -171,7 +171,14 @@ jobs:
         # Only run static analysis on backend code
         # Qt frontend has complex header dependencies that clang-tidy cannot resolve properly
         $files = Get-ChildItem -Path backend,src -Include *.cpp -Recurse -File | 
-                Where-Object { $_.FullName -notmatch 'Tests' -and $_.FullName -notmatch 'build' }
+                Where-Object { 
+                    $_.FullName -notmatch 'Tests' -and 
+                    $_.FullName -notmatch 'build' -and 
+                    $_.FullName -notmatch 'frontend' 
+                } | Where-Object {
+                    $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+                    $content -notmatch '#include.*Qt' -and $content -notmatch 'frontend'
+                }
         
         # Build include paths
         $includes = @(
