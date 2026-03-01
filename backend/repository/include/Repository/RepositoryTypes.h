@@ -53,7 +53,7 @@ struct Result {
 /**
  * @brief Log levels for repository operations
  */
-enum class LogLevel { DEBUG = 0, INFO = 1, WARNING = 2, ERROR = 3, CRITICAL = 4 };
+enum class LogLevel { DEBUG = 0, INFO = 1, WARNING = 2, ERR = 3, CRITICAL = 4 };
 
 /**
  * @brief Log entry structure

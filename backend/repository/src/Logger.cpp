@@ -111,7 +111,7 @@ void Logger::warning(const std::string& component, const std::string& message,
 
 void Logger::error(const std::string& component, const std::string& message,
                    const std::string& details) {
-    log(LogLevel::ERROR, component, message, details);
+    log(LogLevel::ERR, component, message, details);
 }
 
 void Logger::critical(const std::string& component, const std::string& message,
@@ -156,7 +156,7 @@ void Logger::logWorker() {
 
             // Write to console if enabled
             if (m_enableConsole) {
-                if (entry.level >= LogLevel::ERROR) {
+                if (entry.level >= LogLevel::ERR) {
                     std::cerr << logLine << std::endl;
                 } else {
                     std::cout << logLine << std::endl;
@@ -211,7 +211,7 @@ std::string Logger::logLevelToString(LogLevel level) const {
             return "INFO";
         case LogLevel::WARNING:
             return "WARN";
-        case LogLevel::ERROR:
+        case LogLevel::ERR:
             return "ERROR";
         case LogLevel::CRITICAL:
             return "CRIT";
