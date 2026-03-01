@@ -130,6 +130,7 @@ jobs:
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: criptogualet-build
         path: |
@@ -137,6 +138,7 @@ jobs:
           ${{github.workspace}}/build/Release/*.dll
           ${{github.workspace}}/build/compile_commands.json
         retention-days: 7
+        if-no-files-found: warn
 
   # Job 4: Run Tests (uses CTest)
   test:
@@ -209,6 +211,11 @@ jobs:
       with:
         name: criptogualet-build
         path: ${{github.workspace}}/build
+        
+    - name: List downloaded artifacts
+      run: |
+        Write-Host "Downloaded artifacts:" -ForegroundColor Cyan
+        Get-ChildItem -Path ${{github.workspace}}/build -Recurse | ForEach-Object { Write-Host $_.FullName }
         
     - name: Install LLVM
       run: |
