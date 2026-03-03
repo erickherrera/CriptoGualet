@@ -150,27 +150,31 @@ jobs:
     - name: List build outputs
       run: |
         Write-Host "Build directory contents:" -ForegroundColor Cyan
-        if (Test-Path ${{github.workspace}}/build/Release) {
-          Get-ChildItem -Path ${{github.workspace}}/build/Release -Recurse | ForEach-Object { Write-Host $_.FullName }
+        $buildPath = Join-Path $env:GITHUB_WORKSPACE "build"
+        $releasePath = Join-Path $buildPath "Release"
+        if (Test-Path $releasePath) {
+          Get-ChildItem -Path $releasePath -Recurse | ForEach-Object { Write-Host $_.FullName }
         } else {
-          Write-Host "Release directory not found!" -ForegroundColor Red
-          Get-ChildItem -Path ${{github.workspace}}/build -Recurse | ForEach-Object { Write-Host $_.FullName }
+          Write-Host "Release directory not found at: $releasePath" -ForegroundColor Red
+          Get-ChildItem -Path $buildPath -Recurse | ForEach-Object { Write-Host $_.FullName }
         }
         Write-Host "`nCompile commands:" -ForegroundColor Cyan
-        if (Test-Path ${{github.workspace}}/build/compile_commands.json) {
+        $compileCommandsPath = Join-Path $buildPath "compile_commands.json"
+        if (Test-Path $compileCommandsPath) {
           Write-Host "✅ compile_commands.json exists"
         } else {
-          Write-Host "❌ compile_commands.json not found"
+          Write-Host "❌ compile_commands.json not found at: $compileCommandsPath"
         }
 
     - name: Verify files exist before upload
       run: |
         # Check both possible locations
-        $exeFilesRelease = Get-ChildItem -Path ${{github.workspace}}/build/Release/*.exe -ErrorAction SilentlyContinue
-        $dllFilesRelease = Get-ChildItem -Path ${{github.workspace}}/build/Release/*.dll -ErrorAction SilentlyContinue
-        $exeFilesBin = Get-ChildItem -Path ${{github.workspace}}/build/bin/Release/*.exe -ErrorAction SilentlyContinue
-        $dllFilesBin = Get-ChildItem -Path ${{github.workspace}}/build/bin/Release/*.dll -ErrorAction SilentlyContinue
-        $jsonFile = Test-Path ${{github.workspace}}/build/compile_commands.json
+        $buildPath = Join-Path $env:GITHUB_WORKSPACE "build"
+        $exeFilesRelease = Get-ChildItem -Path (Join-Path $buildPath "Release/*.exe") -ErrorAction SilentlyContinue
+        $dllFilesRelease = Get-ChildItem -Path (Join-Path $buildPath "Release/*.dll") -ErrorAction SilentlyContinue
+        $exeFilesBin = Get-ChildItem -Path (Join-Path $buildPath "bin/Release/*.exe") -ErrorAction SilentlyContinue
+        $dllFilesBin = Get-ChildItem -Path (Join-Path $buildPath "bin/Release/*.dll") -ErrorAction SilentlyContinue
+        $jsonFile = Test-Path (Join-Path $buildPath "compile_commands.json")
         
         Write-Host "Files found:" -ForegroundColor Cyan
         Write-Host "  build/Release/*.exe: $($exeFilesRelease.Count)"
@@ -261,12 +265,13 @@ jobs:
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
-        cmake -B ${{github.workspace}}/build `
-          -S ${{github.workspace}} `
+        $workspace = $env:GITHUB_WORKSPACE
+        cmake -B "$workspace/build" `
+          -S "$workspace" `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake `
+          -DCMAKE_TOOLCHAIN_FILE="$workspace/vcpkg/scripts/buildsystems/vcpkg.cmake" `
           -DVCPKG_TARGET_TRIPLET=x64-windows `
-          -DVCPKG_INSTALLED_DIR=${{github.workspace}}/vcpkg_installed `
+          -DVCPKG_INSTALLED_DIR="$workspace/vcpkg_installed" `
           -DBUILD_TESTS=ON
         if ($LASTEXITCODE -ne 0) {
           Write-Host "❌ CMake configuration failed!" -ForegroundColor Red
@@ -348,7 +353,7 @@ jobs:
       run: |
         Write-Host "`n🔍 Running static analysis with clang-tidy..." -ForegroundColor Cyan
         
-        $workspace = "${{github.workspace}}"
+        $workspace = $env:GITHUB_WORKSPACE
         
         # Only analyze backend code (Qt frontend has complex dependencies)
         $files = Get-ChildItem -Path backend,src -Include *.cpp -Recurse -File | 
