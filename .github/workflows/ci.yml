@@ -165,16 +165,24 @@ jobs:
 
     - name: Verify files exist before upload
       run: |
-        $exeFiles = Get-ChildItem -Path ${{github.workspace}}/build/Release/*.exe -ErrorAction SilentlyContinue
-        $dllFiles = Get-ChildItem -Path ${{github.workspace}}/build/Release/*.dll -ErrorAction SilentlyContinue
+        # Check both possible locations
+        $exeFilesRelease = Get-ChildItem -Path ${{github.workspace}}/build/Release/*.exe -ErrorAction SilentlyContinue
+        $dllFilesRelease = Get-ChildItem -Path ${{github.workspace}}/build/Release/*.dll -ErrorAction SilentlyContinue
+        $exeFilesBin = Get-ChildItem -Path ${{github.workspace}}/build/bin/Release/*.exe -ErrorAction SilentlyContinue
+        $dllFilesBin = Get-ChildItem -Path ${{github.workspace}}/build/bin/Release/*.dll -ErrorAction SilentlyContinue
         $jsonFile = Test-Path ${{github.workspace}}/build/compile_commands.json
         
-        Write-Host "Files to upload:" -ForegroundColor Cyan
-        Write-Host "  .exe files: $($exeFiles.Count)"
-        Write-Host "  .dll files: $($dllFiles.Count)"
+        Write-Host "Files found:" -ForegroundColor Cyan
+        Write-Host "  build/Release/*.exe: $($exeFilesRelease.Count)"
+        Write-Host "  build/Release/*.dll: $($dllFilesRelease.Count)"
+        Write-Host "  build/bin/Release/*.exe: $($exeFilesBin.Count)"
+        Write-Host "  build/bin/Release/*.dll: $($dllFilesBin.Count)"
         Write-Host "  compile_commands.json: $jsonFile"
         
-        if ($exeFiles.Count -eq 0 -and $dllFiles.Count -eq 0 -and -not $jsonFile) {
+        # Warn but don't fail if no exe/dll files found - they might be in bin/
+        if (($exeFilesRelease.Count -eq 0 -and $exeFilesBin.Count -eq 0) -and 
+            ($dllFilesRelease.Count -eq 0 -and $dllFilesBin.Count -eq 0) -and 
+            -not $jsonFile) {
           Write-Host "❌ WARNING: No files found to upload!" -ForegroundColor Red
           exit 1
         }
@@ -187,6 +195,8 @@ jobs:
         path: |
           ${{github.workspace}}/build/Release/*.exe
           ${{github.workspace}}/build/Release/*.dll
+          ${{github.workspace}}/build/bin/Release/*.exe
+          ${{github.workspace}}/build/bin/Release/*.dll
           ${{github.workspace}}/build/compile_commands.json
         retention-days: 7
         if-no-files-found: warn
@@ -252,8 +262,21 @@ jobs:
     - name: Run Tests with CTest
       working-directory: ${{github.workspace}}/build
       run: |
+        Write-Host "Looking for test executables..." -ForegroundColor Cyan
+        $testPaths = @("bin/Release", "Release", "Tests/Release", "bin/Debug", "Debug", "Tests/Debug")
+        foreach ($path in $testPaths) {
+          if (Test-Path $path) {
+            $tests = Get-ChildItem -Path $path -Filter "test_*.exe" -ErrorAction SilentlyContinue
+            if ($tests) {
+              Write-Host "Found $($tests.Count) test(s) in $path" -ForegroundColor Green
+              $tests | ForEach-Object { Write-Host "  - $($_.Name)" }
+            }
+          }
+        }
+        
+        Write-Host "`nTest discovery with CTest..." -ForegroundColor Cyan
         ctest -N
-        Write-Host "`nTest discovery complete" -ForegroundColor Cyan
+        Write-Host "`nRunning tests..." -ForegroundColor Cyan
         ctest --output-on-failure -C Release
 
   # Job 5: Static Analysis (separate job using compile_commands.json)
