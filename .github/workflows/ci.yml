@@ -228,14 +228,16 @@ jobs:
       run: |
         Write-Host "Downloaded artifacts location:" -ForegroundColor Cyan
         Write-Host "Current directory: $(Get-Location)"
+        Write-Host "GITHUB_WORKSPACE: $env:GITHUB_WORKSPACE"
         Write-Host "`nBuild directory structure:" -ForegroundColor Cyan
-        if (Test-Path ${{github.workspace}}/build) {
-          Get-ChildItem -Path ${{github.workspace}}/build -Recurse | ForEach-Object { 
-            $relativePath = $_.FullName.Replace(${{github.workspace}}, '.')
+        $buildPath = Join-Path $env:GITHUB_WORKSPACE "build"
+        if (Test-Path $buildPath) {
+          Get-ChildItem -Path $buildPath -Recurse | ForEach-Object { 
+            $relativePath = $_.FullName.Replace($env:GITHUB_WORKSPACE, '.')
             Write-Host $relativePath
           }
         } else {
-          Write-Host "Build directory not found!" -ForegroundColor Red
+          Write-Host "Build directory not found at: $buildPath" -ForegroundColor Red
           Write-Host "`nCurrent directory contents:" -ForegroundColor Yellow
           Get-ChildItem -Path . -Recurse | Where-Object { $_.FullName -notmatch '.git' } | ForEach-Object { Write-Host $_.FullName }
         }
@@ -311,21 +313,24 @@ jobs:
       run: |
         Write-Host "Downloaded artifacts location:" -ForegroundColor Cyan
         Write-Host "Current directory: $(Get-Location)"
+        Write-Host "GITHUB_WORKSPACE: $env:GITHUB_WORKSPACE"
         Write-Host "`nBuild directory structure:" -ForegroundColor Cyan
-        if (Test-Path ${{github.workspace}}/build) {
-          Get-ChildItem -Path ${{github.workspace}}/build -Recurse | ForEach-Object { 
-            $relativePath = $_.FullName.Replace(${{github.workspace}}, '.')
+        $buildPath = Join-Path $env:GITHUB_WORKSPACE "build"
+        if (Test-Path $buildPath) {
+          Get-ChildItem -Path $buildPath -Recurse | ForEach-Object { 
+            $relativePath = $_.FullName.Replace($env:GITHUB_WORKSPACE, '.')
             Write-Host $relativePath
           }
         } else {
-          Write-Host "Build directory not found!" -ForegroundColor Red
+          Write-Host "Build directory not found at: $buildPath" -ForegroundColor Red
         }
         
         # Check if compile_commands.json exists in the build directory
-        if (Test-Path ${{github.workspace}}/build/compile_commands.json) {
+        $compileCommandsPath = Join-Path $buildPath "compile_commands.json"
+        if (Test-Path $compileCommandsPath) {
           Write-Host "✅ compile_commands.json found in build directory" -ForegroundColor Green
         } else {
-          Write-Host "❌ compile_commands.json not found in build directory" -ForegroundColor Red
+          Write-Host "❌ compile_commands.json not found at: $compileCommandsPath" -ForegroundColor Red
         }
         
     - name: Install LLVM
