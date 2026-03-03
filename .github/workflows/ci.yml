@@ -222,11 +222,23 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: criptogualet-build
+        path: ${{github.workspace}}/build/bin/Release
         
     - name: List downloaded artifacts
       run: |
-        Write-Host "Downloaded artifacts:" -ForegroundColor Cyan
-        Get-ChildItem -Path . -Recurse | Where-Object { $_.FullName -notmatch '.git' } | ForEach-Object { Write-Host $_.FullName }
+        Write-Host "Downloaded artifacts location:" -ForegroundColor Cyan
+        Write-Host "Current directory: $(Get-Location)"
+        Write-Host "`nBuild directory structure:" -ForegroundColor Cyan
+        if (Test-Path ${{github.workspace}}/build) {
+          Get-ChildItem -Path ${{github.workspace}}/build -Recurse | ForEach-Object { 
+            $relativePath = $_.FullName.Replace(${{github.workspace}}, '.')
+            Write-Host $relativePath
+          }
+        } else {
+          Write-Host "Build directory not found!" -ForegroundColor Red
+          Write-Host "`nCurrent directory contents:" -ForegroundColor Yellow
+          Get-ChildItem -Path . -Recurse | Where-Object { $_.FullName -notmatch '.git' } | ForEach-Object { Write-Host $_.FullName }
+        }
         
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
@@ -293,25 +305,27 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: criptogualet-build
+        path: ${{github.workspace}}/build
         
     - name: List downloaded artifacts
       run: |
-        Write-Host "Downloaded artifacts:" -ForegroundColor Cyan
+        Write-Host "Downloaded artifacts location:" -ForegroundColor Cyan
         Write-Host "Current directory: $(Get-Location)"
-        Get-ChildItem -Path . -Recurse | Where-Object { $_.FullName -notmatch '.git' } | ForEach-Object { 
-          $relativePath = $_.FullName.Replace($(Get-Location).Path, '.')
-          Write-Host $relativePath
+        Write-Host "`nBuild directory structure:" -ForegroundColor Cyan
+        if (Test-Path ${{github.workspace}}/build) {
+          Get-ChildItem -Path ${{github.workspace}}/build -Recurse | ForEach-Object { 
+            $relativePath = $_.FullName.Replace(${{github.workspace}}, '.')
+            Write-Host $relativePath
+          }
+        } else {
+          Write-Host "Build directory not found!" -ForegroundColor Red
         }
         
-        # Check if compile_commands.json exists and copy to build directory
-        if (Test-Path ./compile_commands.json) {
-          New-Item -ItemType Directory -Force -Path ${{github.workspace}}/build
-          Copy-Item ./compile_commands.json ${{github.workspace}}/build/compile_commands.json
-          Write-Host "✅ Copied compile_commands.json to build directory"
-        } elseif (Test-Path ${{github.workspace}}/build/compile_commands.json) {
-          Write-Host "✅ compile_commands.json already in build directory"
+        # Check if compile_commands.json exists in the build directory
+        if (Test-Path ${{github.workspace}}/build/compile_commands.json) {
+          Write-Host "✅ compile_commands.json found in build directory" -ForegroundColor Green
         } else {
-          Write-Host "❌ compile_commands.json not found in artifact"
+          Write-Host "❌ compile_commands.json not found in build directory" -ForegroundColor Red
         }
         
     - name: Install LLVM
