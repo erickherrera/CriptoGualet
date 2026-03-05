@@ -361,6 +361,21 @@ jobs:
         } else {
           Write-Host "❌ compile_commands.json not found at: $compileCommandsPath" -ForegroundColor Red
         }
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '4bb07a326d9b9bce3703272a509e5bc25dd9cfd5'
+        
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{github.workspace}}/vcpkg_installed
+          ${{github.workspace}}/vcpkg
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-
         
     - name: Install LLVM
       run: |
@@ -398,7 +413,8 @@ jobs:
           "-I$workspace/backend/database/include",
           "-I$workspace/backend/repository/include",
           "-I$workspace/backend/utils/include",
-          "-I$workspace/src"
+          "-I$workspace/src",
+          "-I$workspace/vcpkg_installed/x64-windows/include"
         )
         
         $hasErrors = $false
