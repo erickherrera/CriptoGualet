@@ -146,6 +146,17 @@ jobs:
           exit $buildExitCode
         }
         Write-Host "`n✅ Build completed successfully" -ForegroundColor Green
+        
+        # Build test executables explicitly
+        Write-Host "`nBuilding test executables..." -ForegroundColor Cyan
+        cmake --build ${{github.workspace}}/build --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness --parallel 2>&1 | Tee-Object -FilePath ${{github.workspace}}/test_build.log
+        $testBuildExitCode = $LASTEXITCODE
+        if ($testBuildExitCode -ne 0) {
+          Write-Host "`n❌ TEST BUILD FAILED with exit code $testBuildExitCode" -ForegroundColor Red
+          Get-Content ${{github.workspace}}/test_build.log -Tail 50
+          exit $testBuildExitCode
+        }
+        Write-Host "`n✅ Test executables built successfully" -ForegroundColor Green
 
     - name: List build outputs
       run: |
@@ -278,6 +289,19 @@ jobs:
           exit 1
         }
        
+    - name: Build Tests
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        $workspace = $env:GITHUB_WORKSPACE
+        Write-Host "Building test executables..." -ForegroundColor Cyan
+        cmake --build "$workspace/build" --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness --parallel 2>&1
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "❌ Test build failed!" -ForegroundColor Red
+          exit 1
+        }
+        Write-Host "✅ Test executables built successfully" -ForegroundColor Green
+        
     - name: Run Tests with CTest
       working-directory: ${{github.workspace}}/build
       run: |
