@@ -18,12 +18,12 @@ struct Result {
     T data;
     int errorCode;
 
-    Result() : success(false), errorCode(0) {
+    Result() : success(false), errorMessage(), errorCode(0), data() {
     }
     Result(const T& value) : success(true), data(value), errorCode(0) {
     }
     Result(const std::string& error, int errCode = 0)
-        : success(false), errorMessage(error), errorCode(errCode) {
+        : success(false), errorMessage(error), errorCode(errCode), data() {
     }
 
     operator bool() const {
