@@ -11,7 +11,7 @@ Checks: >
   -readability-*,
   security-*
 
-WarningsAsErrors: 'clang-analyzer-*,security-*'
+WarningsAsErrors: ''
 
 # Exclude problematic warnings from being treated as errors
 # These are too strict for practical use

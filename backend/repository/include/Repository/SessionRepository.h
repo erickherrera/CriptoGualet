@@ -34,5 +34,6 @@ class SessionRepository {
 
   private:
     Database::DatabaseManager& m_dbManager;
-    bool ensureTableExists();
+    mutable bool m_tableInitialized = false;
+    bool ensureTableExists() const;
 };

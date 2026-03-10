@@ -14,7 +14,10 @@ SessionRepository::SessionRepository(Database::DatabaseManager& dbManager)
     // Queries removed from constructor to prevent issues with uninitialized DatabaseManager
 }
 
-bool SessionRepository::ensureTableExists() {
+bool SessionRepository::ensureTableExists() const {
+    if (m_tableInitialized) {
+        return true;
+    }
     std::string createTableQuery = R"(
         CREATE TABLE IF NOT EXISTS sessions (
             sessionId TEXT PRIMARY KEY,
@@ -29,7 +32,11 @@ bool SessionRepository::ensureTableExists() {
             isActive INTEGER
         );
     )";
-    return m_dbManager.executeQuery(createTableQuery).success;
+    bool result = m_dbManager.executeQuery(createTableQuery).success;
+    if (result) {
+        m_tableInitialized = true;
+    }
+    return result;
 }
 
 bool SessionRepository::storeSession(const SessionRecord& session) {
@@ -56,7 +63,7 @@ bool SessionRepository::storeSession(const SessionRecord& session) {
 }
 
 std::optional<SessionRecord> SessionRepository::getSession(const std::string& sessionId) const {
-    const_cast<SessionRepository*>(this)->ensureTableExists();
+    ensureTableExists();
     std::string selectQuery = "SELECT * FROM sessions WHERE sessionId = ?;";
     std::optional<SessionRecord> sessionRecord;
 
@@ -113,7 +120,7 @@ bool SessionRepository::invalidateSession(const std::string& sessionId) {
 }
 
 std::vector<SessionRecord> SessionRepository::getActiveSessions(int userId) const {
-    const_cast<SessionRepository*>(this)->ensureTableExists();
+    ensureTableExists();
     std::string selectQuery = "SELECT * FROM sessions WHERE userId = ? AND isActive = 1;";
     std::vector<SessionRecord> activeSessions;
 
