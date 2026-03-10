@@ -124,7 +124,7 @@ std::vector<std::string> SimpleWallet::GetTransactionHistory(const std::string& 
 SendTransactionResult SimpleWallet::SendFunds(
     const std::vector<std::string>& from_addresses, const std::string& to_address,
     uint64_t amount_satoshis, const std::map<std::string, std::vector<uint8_t>>& private_keys,
-    uint64_t fee_satoshis) {
+    uint64_t fee_satoshis, bool enable_rbf) {
     SendTransactionResult result;
     result.success = false;
     result.total_fees = 0;
@@ -198,6 +198,13 @@ SendTransactionResult SimpleWallet::SendFunds(
     if (!create_result->errors.empty()) {
         result.error_message = "Transaction creation error: " + create_result->errors;
         return result;
+    }
+
+    // BIP125 RBF Opt-in: Set sequence number of inputs
+    if (enable_rbf) {
+        for (auto& input : create_result->tx.inputs) {
+            input.sequence = Crypto::TransactionInput::SEQUENCE_RBF_ENABLED;
+        }
     }
 
     // Sign the transaction
@@ -278,6 +285,144 @@ SendTransactionResult SimpleWallet::SendFunds(
     result.error_message = "Transaction signed and broadcast successfully";
 
     return result;
+}
+
+SendTransactionResult SimpleWallet::BumpTransactionFee(
+    const std::string& txid, uint64_t new_fee_rate,
+    const std::map<std::string, std::vector<uint8_t>>& private_keys) {
+    SendTransactionResult result;
+    result.success = false;
+
+    if (!client) {
+        result.error_message = "BlockCypher client not initialized";
+        return result;
+    }
+
+    // 1. Get original transaction details
+    auto tx_info = client->GetTransaction(txid);
+    if (!tx_info) {
+        result.error_message = "Could not find original transaction: " + txid;
+        return result;
+    }
+
+    if (tx_info->confirmations > 0) {
+        result.error_message = "Transaction already confirmed, cannot bump fee.";
+        return result;
+    }
+
+    // 2. Identify inputs and outputs for replacement
+    // BIP125 requirement: Replacement must spend at least one of the same inputs
+    std::vector<std::string> input_addresses;
+    
+    // Extract addresses from inputs
+    for (const auto& input : tx_info->inputs) {
+        if (!input.addresses.empty()) {
+            // Check if we have a private key for any of the input addresses
+            for (const auto& addr : input.addresses) {
+                if (private_keys.find(addr) != private_keys.end()) {
+                    input_addresses.push_back(addr);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (input_addresses.empty()) {
+        // Fallback: just use all addresses associated with inputs if we can't find a direct key match
+        for (const auto& input : tx_info->inputs) {
+            if (!input.addresses.empty()) {
+                input_addresses.push_back(input.addresses[0]);
+            }
+        }
+    }
+
+    if (input_addresses.empty()) {
+        result.error_message = "Could not identify any input addresses in the original transaction.";
+        return result;
+    }
+
+    // 3. Create replacement transaction
+    // Estimate new fee based on size and rate
+    uint64_t estimated_size = tx_info->size > 0 ? tx_info->size : 250;
+    uint64_t new_fee = (estimated_size * new_fee_rate);
+
+    if (new_fee <= tx_info->fees) {
+        new_fee = tx_info->fees + 1000;  // Force an increase
+    }
+
+    // Identify original recipient (first address in outputs that is NOT one of our input addresses)
+    std::string recipient;
+    for (const auto& output : tx_info->outputs) {
+        for (const auto& addr : output.addresses) {
+            bool is_our_input = false;
+            for (const auto& in_addr : input_addresses) {
+                if (addr == in_addr) {
+                    is_our_input = true;
+                    break;
+                }
+            }
+            if (!is_our_input) {
+                recipient = addr;
+                break;
+            }
+        }
+        if (!recipient.empty()) break;
+    }
+
+    if (recipient.empty()) {
+        // If we can't find a recipient (e.g., self-transfer), send back to source
+        recipient = input_addresses[0];
+    }
+
+    // Target original amount (total output minus the new fee)
+    // Note: total output in tx_info includes both recipient and change
+    uint64_t amount_to_send = tx_info->total - new_fee;
+
+    // Call SendFunds with RBF enabled (true by default)
+    return SendFunds(input_addresses, recipient, amount_to_send, private_keys, new_fee, true);
+}
+
+SendTransactionResult SimpleWallet::CreateCPFPTransaction(
+    const std::string& parent_txid, uint64_t fee_rate,
+    const std::map<std::string, std::vector<uint8_t>>& private_keys) {
+    SendTransactionResult result;
+    result.success = false;
+
+    if (!client) {
+        result.error_message = "BlockCypher client not initialized";
+        return result;
+    }
+
+    // CPFP (Child-Pays-For-Parent) logic:
+    // 1. Spend an unconfirmed output from the parent TX that we control
+    auto tx_info = client->GetTransaction(parent_txid);
+    if (!tx_info) {
+        result.error_message = "Could not find parent transaction: " + parent_txid;
+        return result;
+    }
+
+    // Find an address in the TX outputs that we have a private key for
+    std::string our_address;
+    for (const auto& output : tx_info->outputs) {
+        for (const auto& addr : output.addresses) {
+            if (private_keys.find(addr) != private_keys.end()) {
+                our_address = addr;
+                break;
+            }
+        }
+        if (!our_address.empty()) break;
+    }
+
+    if (our_address.empty()) {
+        result.error_message = "We don't control any outputs in the parent transaction.";
+        return result;
+    }
+
+    // 2. Create a "sweep" transaction from our_address back to our_address with high fee
+    uint64_t cpfp_fee = 250 * fee_rate;
+    uint64_t amount_to_send = 10000;  // 0.0001 BTC minimal sweep
+
+    return SendFunds({our_address}, our_address, amount_to_send, private_keys, cpfp_fee, true);
 }
 
 bool SimpleWallet::ValidateAddress(const std::string& address) {

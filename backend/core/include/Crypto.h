@@ -188,6 +188,10 @@ struct TransactionInput {
     uint32_t vout;           // Previous output index
     std::string script_sig;  // Signature script (hex)
     uint32_t sequence;       // Sequence number (0xFFFFFFFF for final)
+
+    // BIP125 RBF (Replace-By-Fee) Constants
+    static constexpr uint32_t SEQUENCE_FINAL = 0xFFFFFFFF;
+    static constexpr uint32_t SEQUENCE_RBF_ENABLED = 0xFFFFFFFD;  // Standard RBF sequence
 };
 
 // Transaction output structure
