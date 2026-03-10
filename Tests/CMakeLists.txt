@@ -55,6 +55,7 @@ endfunction()
 add_criptogualet_test(test_session_consolidated "test_session_consolidated.cpp")
 add_criptogualet_tool(test_segwit "test_segwit.cpp")
 add_criptogualet_tool(test_rbf_cpfp "test_rbf_cpfp.cpp")
+add_criptogualet_tool(test_ethereum_robustness "test_ethereum_robustness.cpp")
 
 # Consolidated repository tests
 add_criptogualet_test(test_repository_consolidated "test_repository_consolidated.cpp")
