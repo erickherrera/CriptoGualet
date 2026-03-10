@@ -53,6 +53,7 @@ endfunction()
 
 # Session Test Executables
 add_criptogualet_test(test_session_consolidated "test_session_consolidated.cpp")
+add_criptogualet_tool(test_segwit "test_segwit.cpp")
 
 # Consolidated repository tests
 add_criptogualet_test(test_repository_consolidated "test_repository_consolidated.cpp")

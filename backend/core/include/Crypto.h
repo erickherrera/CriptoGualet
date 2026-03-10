@@ -323,6 +323,8 @@ bool BIP44_GenerateEthereumAddresses(const BIP32ExtendedKey& master, uint32_t ac
 enum class ChainType {
     BITCOIN,
     BITCOIN_TESTNET,
+    BITCOIN_SEGWIT,
+    BITCOIN_SEGWIT_TESTNET,
     LITECOIN,
     LITECOIN_TESTNET,
     ETHEREUM,
@@ -373,6 +375,43 @@ bool GenerateTOTPSecret(std::vector<uint8_t>& secret, size_t length = 20);
 // Base32 encoding/decoding for TOTP secrets
 std::string Base32Encode(const std::vector<uint8_t>& data);
 std::vector<uint8_t> Base32Decode(const std::string& encoded);
+
+// === Bech32 (BIP173/BIP350) for SegWit Addresses ===
+
+// Encode a witness program as a Bech32/Bech32m address
+// hrp: Human-readable part ("bc" for Bitcoin, "tb" for testnet)
+// witness_version: 0 for SegWit v0 (P2WPKH, P2WSH), 1 for SegWit v1 (Taproot)
+// witness_program: the actual hash or public key
+std::string Bech32_Encode(const std::string& hrp, int witness_version,
+                          const std::vector<uint8_t>& witness_program);
+
+// Decode a Bech32/Bech32m address
+// Returns true if decoding was successful
+bool Bech32_Decode(const std::string& address, std::string& hrp, int& witness_version,
+                   std::vector<uint8_t>& witness_program);
+
+// === BIP84 (SegWit HD Wallets) ===
+// BIP84 defines the path: m / 84' / 0' / 0' / 0 / 0
+
+// Derive a BIP84 address key from master key
+bool BIP84_DeriveAddressKey(const BIP32ExtendedKey& master, uint32_t account, bool change,
+                            uint32_t address_index, BIP32ExtendedKey& address_key,
+                            bool testnet = false);
+
+// Generate SegWit (Bech32) Bitcoin address from extended public key (P2WPKH)
+bool BIP32_GetSegWitAddress(const BIP32ExtendedKey& extKey, std::string& address,
+                            bool testnet = false);
+
+// Derive SegWit address from BIP84 path
+bool BIP84_GetAddress(const BIP32ExtendedKey& master, uint32_t account, bool change,
+                      uint32_t address_index, std::string& address, bool testnet = false);
+
+// === BIP143 SegWit Signature Hashing ===
+
+// Create a SegWit transaction hash for signing (BIP143)
+bool CreateSegWitSigHash(const BitcoinTransaction& tx, size_t input_index,
+                         const std::string& prev_script_pubkey, uint64_t amount,
+                         std::array<uint8_t, 32>& sighash);
 
 // Generate TOTP code for the current time (or specified timestamp)
 // Returns 6-digit code as string (with leading zeros if needed)

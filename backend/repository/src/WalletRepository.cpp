@@ -625,8 +625,10 @@ Result<bool> WalletRepository::validateWalletName(const std::string& walletName)
 }
 
 Result<bool> WalletRepository::validateWalletType(const std::string& walletType) {
-    static const std::set<std::string> validTypes = {"bitcoin", "bitcoin_testnet", "litecoin",
-                                                     "ethereum"};
+    static const std::set<std::string> validTypes = {
+        "bitcoin", "bitcoin_testnet", "bitcoin_segwit", "bitcoin_segwit_testnet",
+        "litecoin", "ethereum"
+    };
 
     if (validTypes.find(walletType) == validTypes.end()) {
         return Result<bool>("Invalid wallet type", 400);
@@ -665,7 +667,7 @@ Result<int> WalletRepository::getNextAddressIndex(int walletId, bool isChange) {
 std::string WalletRepository::generateAddressString(const std::string& walletType, int walletId,
                                                     int addressIndex, bool isChange) {
     // Simplified address generation for testing purposes
-    // In production, this would use proper BIP44 derivation via the Crypto module
+    // In production, this would use proper BIP44/BIP84 derivation via the Crypto module
     std::ostringstream oss;
 
     if (walletType == "litecoin") {
@@ -687,13 +689,24 @@ std::string WalletRepository::generateAddressString(const std::string& walletTyp
             res.append(42 - res.length(), '0');
         }
         return res;
-    } else {
-        // Default to Bitcoin (bc1q...)
-        oss << "bc1q" << std::hex << walletId << std::setfill('0') << std::setw(4) << addressIndex
+    } else if (walletType == "bitcoin_segwit" || walletType == "bitcoin_segwit_testnet") {
+        // Native SegWit (Bech32)
+        std::string hrp = (walletType == "bitcoin_segwit") ? "bc1q" : "tb1q";
+        oss << hrp << std::hex << walletId << std::setfill('0') << std::setw(4) << addressIndex
             << (isChange ? "c" : "r");
         std::string res = oss.str();
         if (res.length() < 42) {
             res.append(42 - res.length(), 'z');
+        }
+        return res;
+    } else {
+        // Default to Bitcoin Legacy (starts with 1 or m/n)
+        char prefix = (walletType == "bitcoin_testnet") ? 'm' : '1';
+        oss << prefix << std::hex << walletId << std::setfill('0') << std::setw(4) << addressIndex
+            << (isChange ? "c" : "r");
+        std::string res = oss.str();
+        if (res.length() < 30) {
+            res.append(30 - res.length(), 'y');
         }
         return res;
     }

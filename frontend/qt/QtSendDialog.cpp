@@ -685,85 +685,30 @@ QString QtSendDialog::formatUSD(double usd) const {
 }
 
 bool QtSendDialog::validateBitcoinAddress(const QString& address) const {
-    // Basic Bitcoin address validation
-    // P2PKH addresses start with 1 and are 26-35 characters
-    // P2SH addresses start with 3 and are 26-35 characters
-    // Bech32 addresses start with bc1 and can be longer
-    // Testnet addresses start with m, n, or 2
-    if (address.length() < 26 || address.length() > 90) {
-        return false;
+    // Robust Bitcoin address validation using our Crypto module
+    // This supports Legacy (P2PKH, P2SH) and Native SegWit (Bech32/Bech32m)
+    std::string addr = address.toStdString();
+
+    // Check mainnet format first
+    if (Crypto::IsValidAddressFormat(addr, Crypto::ChainType::BITCOIN_SEGWIT)) {
+        return true;
     }
 
-    // Check if starts with valid prefix (mainnet or testnet)
-    bool isLegacy = address.startsWith('1') || address.startsWith('3') || address.startsWith('m') ||
-                    address.startsWith('n') || address.startsWith('2');
-    bool isBech32 = address.startsWith("bc1") || address.startsWith("tb1");
-
-    if (!isLegacy && !isBech32) {
-        return false;
+    // Check testnet format (since the app currently uses testnet by default)
+    if (Crypto::IsValidAddressFormat(addr, Crypto::ChainType::BITCOIN_SEGWIT_TESTNET)) {
+        return true;
     }
 
-    // Check for valid characters (Base58 for legacy, bech32 for segwit)
-    if (isBech32) {
-        // Bech32 validation (simplified)
-        QRegularExpression bech32Regex("^(bc1|tb1)[a-z0-9]{39,87}$",
-                                       QRegularExpression::CaseInsensitiveOption);
-        return bech32Regex.match(address).hasMatch();
-    } else {
-        // Base58Check validation: character set + checksum
-        static const QString base58Chars =
-            "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-        for (QChar c : address) {
-            if (!base58Chars.contains(c)) {
-                return false;
-            }
-        }
-
-        // SECURITY: Decode Base58 and verify checksum (double SHA256)
-        // Decode from Base58 to bytes
-        std::vector<uint8_t> decoded;
-        decoded.reserve(25);
-        std::vector<uint8_t> temp;
-        for (QChar qc : address) {
-            int carry = base58Chars.indexOf(qc);
-            if (carry < 0)
-                return false;
-            for (size_t j = 0; j < temp.size(); j++) {
-                carry += 58 * temp[j];
-                temp[j] = static_cast<uint8_t>(carry & 0xFF);
-                carry >>= 8;
-            }
-            while (carry > 0) {
-                temp.push_back(static_cast<uint8_t>(carry & 0xFF));
-                carry >>= 8;
-            }
-        }
-        // Add leading zeros
-        for (QChar qc : address) {
-            if (qc != '1')
-                break;
-            temp.push_back(0);
-        }
-        // Reverse to get big-endian
-        decoded.assign(temp.rbegin(), temp.rend());
-
-        // A valid Base58Check address decodes to exactly 25 bytes (1 version + 20 hash + 4
-        // checksum)
-        if (decoded.size() != 25) {
-            return false;
-        }
-
-        // Verify checksum: last 4 bytes must equal first 4 bytes of double SHA256 of first 21 bytes
-        std::vector<uint8_t> payload(decoded.begin(), decoded.begin() + 21);
-        std::array<uint8_t, 32> hash1{}, hash2{};
-        if (!Crypto::SHA256(payload.data(), payload.size(), hash1))
-            return false;
-        if (!Crypto::SHA256(hash1.data(), hash1.size(), hash2))
-            return false;
-
-        return decoded[21] == hash2[0] && decoded[22] == hash2[1] && decoded[23] == hash2[2] &&
-               decoded[24] == hash2[3];
+    // Fallback to legacy validation if needed (already covered by IsValidAddressFormat above for some cases)
+    if (Crypto::IsValidAddressFormat(addr, Crypto::ChainType::BITCOIN)) {
+        return true;
     }
+
+    if (Crypto::IsValidAddressFormat(addr, Crypto::ChainType::BITCOIN_TESTNET)) {
+        return true;
+    }
+
+    return false;
 }
 
 bool QtSendDialog::validateLitecoinAddress(const QString& address) const {

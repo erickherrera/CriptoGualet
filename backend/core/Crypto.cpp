@@ -2738,8 +2738,10 @@ bool BIP44_GenerateEthereumAddresses(const BIP32ExtendedKey& master, uint32_t ac
 uint32_t GetCoinType(ChainType chain) {
     switch (chain) {
         case ChainType::BITCOIN:
+        case ChainType::BITCOIN_SEGWIT:
             return 0;
         case ChainType::BITCOIN_TESTNET:
+        case ChainType::BITCOIN_SEGWIT_TESTNET:
             return 1;
         case ChainType::LITECOIN:
             return 2;  // BIP44 coin type for Litecoin
@@ -2766,9 +2768,13 @@ uint32_t GetCoinType(ChainType chain) {
 std::string GetChainName(ChainType chain) {
     switch (chain) {
         case ChainType::BITCOIN:
-            return "Bitcoin";
+            return "Bitcoin (Legacy)";
         case ChainType::BITCOIN_TESTNET:
-            return "Bitcoin Testnet";
+            return "Bitcoin Testnet (Legacy)";
+        case ChainType::BITCOIN_SEGWIT:
+            return "Bitcoin (SegWit)";
+        case ChainType::BITCOIN_SEGWIT_TESTNET:
+            return "Bitcoin Testnet (SegWit)";
         case ChainType::LITECOIN:
             return "Litecoin";
         case ChainType::LITECOIN_TESTNET:
@@ -2803,6 +2809,12 @@ bool DeriveChainAddress(const BIP32ExtendedKey& master, ChainType chain, uint32_
 
         case ChainType::BITCOIN_TESTNET:
             return BIP44_GetAddress(master, account, change, address_index, address, true);
+
+        case ChainType::BITCOIN_SEGWIT:
+            return BIP84_GetAddress(master, account, change, address_index, address, false);
+
+        case ChainType::BITCOIN_SEGWIT_TESTNET:
+            return BIP84_GetAddress(master, account, change, address_index, address, true);
 
         case ChainType::LITECOIN: {
             BIP32ExtendedKey address_key;
@@ -2862,6 +2874,8 @@ bool IsBitcoinChain(ChainType chain) {
     switch (chain) {
         case ChainType::BITCOIN:
         case ChainType::BITCOIN_TESTNET:
+        case ChainType::BITCOIN_SEGWIT:
+        case ChainType::BITCOIN_SEGWIT_TESTNET:
         case ChainType::LITECOIN:
         case ChainType::LITECOIN_TESTNET:
             return true;
@@ -2914,11 +2928,11 @@ bool IsValidAddressFormat(const std::string& address, ChainType chain) {
 
         // Bitcoin addresses typically start with 1, 3, or bc1 (mainnet) or m, n, 2, tb1 (testnet)
         char first = address[0];
-        if (chain == ChainType::BITCOIN) {
+        if (chain == ChainType::BITCOIN || chain == ChainType::BITCOIN_SEGWIT) {
             if (first != '1' && first != '3' && address.substr(0, 3) != "bc1") {
                 return false;
             }
-        } else if (chain == ChainType::BITCOIN_TESTNET) {
+        } else if (chain == ChainType::BITCOIN_TESTNET || chain == ChainType::BITCOIN_SEGWIT_TESTNET) {
             if (first != 'm' && first != 'n' && first != '2' && address.substr(0, 3) != "tb1") {
                 return false;
             }
@@ -3109,6 +3123,336 @@ std::vector<uint8_t> Base32Decode(const std::string& encoded) {
     }
 
     return result;
+}
+
+// === Bech32 (BIP173/BIP350) implementation ===
+
+namespace Bech32 {
+const char* CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+
+uint32_t PolyMod(const std::vector<uint8_t>& values) {
+    uint32_t chk = 1;
+    for (uint8_t v : values) {
+        uint8_t b = (chk >> 25);
+        chk = (chk & 0x1ffffff) << 5 ^ v;
+        if ((b >> 0) & 1)
+            chk ^= 0x3b6a57b2;
+        if ((b >> 1) & 1)
+            chk ^= 0x26508e6d;
+        if ((b >> 2) & 1)
+            chk ^= 0x1ea119fa;
+        if ((b >> 3) & 1)
+            chk ^= 0x3d4233dd;
+        if ((b >> 4) & 1)
+            chk ^= 0x2a1462b3;
+    }
+    return chk;
+}
+
+std::vector<uint8_t> HrpExpand(const std::string& hrp) {
+    std::vector<uint8_t> ret;
+    ret.reserve(hrp.size() * 2 + 1);
+    for (char c : hrp)
+        ret.push_back(c >> 5);
+    ret.push_back(0);
+    for (char c : hrp)
+        ret.push_back(c & 31);
+    return ret;
+}
+
+bool ConvertBits(const std::vector<uint8_t>& data, int frombits, int tobits, bool pad,
+                 std::vector<uint8_t>& out) {
+    uint32_t acc = 0;
+    int bits = 0;
+    uint32_t maxv = (1 << tobits) - 1;
+    for (uint8_t value : data) {
+        acc = (acc << frombits) | value;
+        bits += frombits;
+        while (bits >= tobits) {
+            bits -= tobits;
+            out.push_back((acc >> bits) & maxv);
+        }
+    }
+    if (pad) {
+        if (bits > 0) {
+            out.push_back((acc << (tobits - bits)) & maxv);
+        }
+    } else if (bits >= frombits || ((acc << (tobits - bits)) & maxv)) {
+        return false;
+    }
+    return true;
+}
+
+const uint32_t BECH32_CONST = 1;
+const uint32_t BECH32M_CONST = 0x2bc830a3;
+
+}  // namespace Bech32
+
+std::string Bech32_Encode(const std::string& hrp, int witness_version,
+                          const std::vector<uint8_t>& witness_program) {
+    std::vector<uint8_t> data;
+    data.push_back(witness_version);
+    if (!Bech32::ConvertBits(witness_program, 8, 5, true, data)) {
+        return "";
+    }
+
+    std::vector<uint8_t> combined = Bech32::HrpExpand(hrp);
+    combined.insert(combined.end(), data.begin(), data.end());
+    combined.resize(combined.size() + 6, 0);
+
+    uint32_t spec_const = (witness_version == 0) ? Bech32::BECH32_CONST : Bech32::BECH32M_CONST;
+    uint32_t mod = Bech32::PolyMod(combined) ^ spec_const;
+
+    std::string ret = hrp + "1";
+    for (uint8_t p : data) {
+        ret += Bech32::CHARSET[p];
+    }
+    for (int i = 0; i < 6; ++i) {
+        ret += Bech32::CHARSET[(mod >> (5 * (5 - i))) & 31];
+    }
+    return ret;
+}
+
+bool Bech32_Decode(const std::string& address, std::string& hrp, int& witness_version,
+                   std::vector<uint8_t>& witness_program) {
+    size_t pos = address.rfind('1');
+    if (pos == std::string::npos || pos == 0 || pos + 7 > address.size()) {
+        return false;
+    }
+
+    hrp = address.substr(0, pos);
+    for (char c : hrp) {
+        if (c < 33 || c > 126 || (c >= 'A' && c <= 'Z'))
+            return false;
+    }
+
+    std::vector<uint8_t> data;
+    for (size_t i = pos + 1; i < address.size(); ++i) {
+        const char* p = strchr(Bech32::CHARSET, address[i]);
+        if (!p)
+            return false;
+        data.push_back(p - Bech32::CHARSET);
+    }
+
+    std::vector<uint8_t> combined = Bech32::HrpExpand(hrp);
+    combined.insert(combined.end(), data.begin(), data.end());
+
+    uint32_t mod = Bech32::PolyMod(combined);
+    uint32_t spec_const = 0;
+    if (mod == Bech32::BECH32_CONST)
+        spec_const = Bech32::BECH32_CONST;
+    else if (mod == Bech32::BECH32M_CONST)
+        spec_const = Bech32::BECH32M_CONST;
+    else
+        return false;
+
+    if (data.empty())
+        return false;
+    witness_version = data[0];
+    if (witness_version > 16)
+        return false;
+
+    // Check Bech32/Bech32m consistency
+    if (witness_version == 0 && spec_const != Bech32::BECH32_CONST)
+        return false;
+    if (witness_version > 0 && spec_const != Bech32::BECH32M_CONST)
+        return false;
+
+    std::vector<uint8_t> program_5bit(data.begin() + 1, data.end() - 6);
+    if (!Bech32::ConvertBits(program_5bit, 5, 8, false, witness_program)) {
+        return false;
+    }
+
+    if (witness_program.size() < 2 || witness_program.size() > 40)
+        return false;
+    if (witness_version == 0 && witness_program.size() != 20 && witness_program.size() != 32)
+        return false;
+
+    return true;
+}
+
+// === BIP84 implementation ===
+
+bool BIP84_DeriveAddressKey(const BIP32ExtendedKey& master, uint32_t account, bool change,
+                            uint32_t address_index, BIP32ExtendedKey& address_key, bool testnet) {
+    // BIP84 path: m / 84' / coin_type' / account' / change / address_index
+    std::ostringstream path_builder;
+    path_builder << "m/84'/";
+    path_builder << (testnet ? "1'" : "0'") << "/";
+    path_builder << account << "'/";
+    path_builder << (change ? "1" : "0") << "/";
+    path_builder << address_index;
+
+    return BIP32_DerivePath(master, path_builder.str(), address_key);
+}
+
+bool BIP32_GetSegWitAddress(const BIP32ExtendedKey& extKey, std::string& address, bool testnet) {
+    std::vector<uint8_t> pubkey;
+
+    if (extKey.isPrivate) {
+        if (!DerivePublicKey(extKey.key, pubkey)) {
+            return false;
+        }
+    } else {
+        pubkey = extKey.key;
+    }
+
+    // Hash160 of public key
+    std::array<uint8_t, 32> sha_hash;
+    if (!SHA256(pubkey.data(), pubkey.size(), sha_hash)) {
+        return false;
+    }
+
+    std::array<uint8_t, 20> pubkey_hash;
+    if (!RIPEMD160(sha_hash.data(), sha_hash.size(), pubkey_hash)) {
+        return false;
+    }
+
+    std::vector<uint8_t> witness_program(pubkey_hash.begin(), pubkey_hash.end());
+    address = Bech32_Encode(testnet ? "tb" : "bc", 0, witness_program);
+
+    return !address.empty();
+}
+
+bool BIP84_GetAddress(const BIP32ExtendedKey& master, uint32_t account, bool change,
+                      uint32_t address_index, std::string& address, bool testnet) {
+    BIP32ExtendedKey address_key;
+    if (!BIP84_DeriveAddressKey(master, account, change, address_index, address_key, testnet)) {
+        return false;
+    }
+    return BIP32_GetSegWitAddress(address_key, address, testnet);
+}
+
+// === BIP143 SegWit Signature Hashing ===
+
+bool CreateSegWitSigHash(const BitcoinTransaction& tx, size_t input_index,
+                         const std::string& prev_script_pubkey, uint64_t amount,
+                         std::array<uint8_t, 32>& sighash) {
+    // BIP143 SigHash algorithm for SegWit v0
+    // Format:
+    // 1. nVersion (4-byte)
+    // 2. hashPrevouts (32-byte)
+    // 3. hashSequence (32-byte)
+    // 4. outpoint (32-byte hash + 4-byte index)
+    // 5. scriptCode of the input (serialized as a len-prefixed string)
+    // 6. value of the output spent by this input (8-byte)
+    // 7. nSequence of the input (4-byte)
+    // 8. hashOutputs (32-byte)
+    // 9. nLocktime (4-byte)
+    // 10. sighash type (4-byte)
+
+    std::vector<uint8_t> data;
+
+    // 1. nVersion
+    data.push_back(tx.version & 0xFF);
+    data.push_back((tx.version >> 8) & 0xFF);
+    data.push_back((tx.version >> 16) & 0xFF);
+    data.push_back((tx.version >> 24) & 0xFF);
+
+    // 2. hashPrevouts
+    std::vector<uint8_t> prevouts_raw;
+    for (const auto& input : tx.inputs) {
+        std::vector<uint8_t> txid_bytes = HexToBytes(input.txid);
+        std::reverse(txid_bytes.begin(), txid_bytes.end());
+        prevouts_raw.insert(prevouts_raw.end(), txid_bytes.begin(), txid_bytes.end());
+        prevouts_raw.push_back(input.vout & 0xFF);
+        prevouts_raw.push_back((input.vout >> 8) & 0xFF);
+        prevouts_raw.push_back((input.vout >> 16) & 0xFF);
+        prevouts_raw.push_back((input.vout >> 24) & 0xFF);
+    }
+    std::array<uint8_t, 32> hashPrevouts;
+    std::array<uint8_t, 32> mid_hash;
+    SHA256(prevouts_raw.data(), prevouts_raw.size(), mid_hash);
+    SHA256(mid_hash.data(), mid_hash.size(), hashPrevouts);
+    data.insert(data.end(), hashPrevouts.begin(), hashPrevouts.end());
+
+    // 3. hashSequence
+    std::vector<uint8_t> sequences_raw;
+    for (const auto& input : tx.inputs) {
+        sequences_raw.push_back(input.sequence & 0xFF);
+        sequences_raw.push_back((input.sequence >> 8) & 0xFF);
+        sequences_raw.push_back((input.sequence >> 16) & 0xFF);
+        sequences_raw.push_back((input.sequence >> 24) & 0xFF);
+    }
+    std::array<uint8_t, 32> hashSequence;
+    SHA256(sequences_raw.data(), sequences_raw.size(), mid_hash);
+    SHA256(mid_hash.data(), mid_hash.size(), hashSequence);
+    data.insert(data.end(), hashSequence.begin(), hashSequence.end());
+
+    // 4. outpoint
+    const auto& current_input = tx.inputs[input_index];
+    std::vector<uint8_t> txid_bytes = HexToBytes(current_input.txid);
+    std::reverse(txid_bytes.begin(), txid_bytes.end());
+    data.insert(data.end(), txid_bytes.begin(), txid_bytes.end());
+    data.push_back(current_input.vout & 0xFF);
+    data.push_back((current_input.vout >> 8) & 0xFF);
+    data.push_back((current_input.vout >> 16) & 0xFF);
+    data.push_back((current_input.vout >> 24) & 0xFF);
+
+    // 5. scriptCode
+    // For P2WPKH, scriptCode is 0x1976a914<hash160>88ac
+    std::vector<uint8_t> script_pubkey_bytes = HexToBytes(prev_script_pubkey);
+    if (script_pubkey_bytes.size() == 22 && script_pubkey_bytes[0] == 0x00 &&
+        script_pubkey_bytes[1] == 0x14) {
+        // It's a P2WPKH output
+        data.push_back(0x19);
+        data.push_back(0x76);
+        data.push_back(0xa9);
+        data.push_back(0x14);
+        data.insert(data.end(), script_pubkey_bytes.begin() + 2, script_pubkey_bytes.end());
+        data.push_back(0x88);
+        data.push_back(0xac);
+    } else {
+        // Fallback or generic handling
+        data.push_back(static_cast<uint8_t>(script_pubkey_bytes.size()));
+        data.insert(data.end(), script_pubkey_bytes.begin(), script_pubkey_bytes.end());
+    }
+
+    // 6. amount
+    for (int i = 0; i < 8; ++i) {
+        data.push_back((amount >> (8 * i)) & 0xFF);
+    }
+
+    // 7. nSequence
+    data.push_back(current_input.sequence & 0xFF);
+    data.push_back((current_input.sequence >> 8) & 0xFF);
+    data.push_back((current_input.sequence >> 16) & 0xFF);
+    data.push_back((current_input.sequence >> 24) & 0xFF);
+
+    // 8. hashOutputs
+    std::vector<uint8_t> outputs_raw;
+    for (const auto& output : tx.outputs) {
+        // amount (8-byte)
+        for (int i = 0; i < 8; ++i) {
+            outputs_raw.push_back((output.amount >> (8 * i)) & 0xFF);
+        }
+        // scriptPubKey
+        std::vector<uint8_t> spk = HexToBytes(output.script_pubkey);
+        outputs_raw.push_back(static_cast<uint8_t>(spk.size()));
+        outputs_raw.insert(outputs_raw.end(), spk.begin(), spk.end());
+    }
+    std::array<uint8_t, 32> hashOutputs;
+    SHA256(outputs_raw.data(), outputs_raw.size(), mid_hash);
+    SHA256(mid_hash.data(), mid_hash.size(), hashOutputs);
+    data.insert(data.end(), hashOutputs.begin(), hashOutputs.end());
+
+    // 9. nLocktime
+    data.push_back(tx.locktime & 0xFF);
+    data.push_back((tx.locktime >> 8) & 0xFF);
+    data.push_back((tx.locktime >> 16) & 0xFF);
+    data.push_back((tx.locktime >> 24) & 0xFF);
+
+    // 10. SIGHASH_ALL (0x01000000)
+    data.push_back(0x01);
+    data.push_back(0x00);
+    data.push_back(0x00);
+    data.push_back(0x00);
+
+    // Final double SHA256
+    SHA256(data.data(), data.size(), mid_hash);
+    SHA256(mid_hash.data(), mid_hash.size(), sighash);
+
+    return true;
 }
 
 std::string GenerateTOTP(const std::vector<uint8_t>& secret, uint64_t timestamp, uint32_t timestep,
