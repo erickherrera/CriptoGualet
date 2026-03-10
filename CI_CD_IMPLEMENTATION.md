@@ -6,47 +6,48 @@ I've successfully set up a comprehensive CI/CD pipeline for CriptoGualet with th
 
 ### 1. GitHub Actions Workflow (`.github/workflows/ci.yml`)
 
-**4 Jobs that run on every PR and push to master:**
+**5 Jobs that run on every PR and push to master/main:**
 
 #### Job 1: Code Formatting (`format-check`)
-- **Tool**: clang-format (LLVM 17.0.6)
-- **Config**: `.clang-format` (Google style, C++20, 4-space indent)
+- **Tool**: clang-format (LLVM)
+- **Platform**: Windows
 - **Checks**: All `.cpp`, `.h`, `.hpp` files in backend, frontend, src, Tests
 - **Action**: Fails if any file needs formatting
 
-#### Job 2: Static Analysis (`static-analysis`)
-- **Tool**: clang-tidy (LLVM 17.0.6)
-- **Config**: `.clang-tidy`
-- **Checks**:
-  - `bugprone-*` - Bug-prone patterns
-  - `clang-analyzer-*` - Static analyzer
-  - `cert-*` - CERT coding standards
-  - `cppcoreguidelines-*` - C++ Core Guidelines
-  - `hicpp-*` - High Integrity C++
-  - `misc-*` - Miscellaneous
-  - `modernize-*` - Modernization
-  - `performance-*` - Performance
-  - `portability-*` - Portability
-  - `readability-*` - Readability
-  - `security-*` - Security vulnerabilities
-- **Warnings as Errors**: bugprone-*, clang-analyzer-*, cert-*, security-*
-
-#### Job 3: Build & Test (`build-and-test`)
-- **Platform**: Windows (x64)
-- **Compiler**: MSVC (Visual Studio 2022)
-- **Build Types**: Release and Debug (matrix strategy)
-- **Steps**:
-  1. Configure with CMake + vcpkg
-  2. Build all targets with parallel compilation
-  3. Run all test executables from Tests/
-- **Artifacts**: Release binaries uploaded (7-day retention)
-- **Caching**: vcpkg dependencies cached for faster builds
-
-#### Job 4: Security Scan (`security-scan`)
+#### Job 2: Security Scan (`security-scan`)
 - **Tool**: Trivy vulnerability scanner
+- **Platform**: Ubuntu
 - **Scans**: Filesystem for known CVEs
 - **Severity**: CRITICAL and HIGH only
 - **Reporting**: SARIF format to GitHub Security tab
+
+#### Job 3: Build (`build`)
+- **Platform**: Windows (x64)
+- **Compiler**: MSVC (Visual Studio)
+- **Build Type**: Release
+- **Steps**:
+  1. Configure with CMake + vcpkg
+  2. Build all targets with parallel compilation
+  3. Build specific test executables
+- **Artifacts**: Release binaries uploaded (7-day retention)
+- **Caching**: vcpkg dependencies cached for faster builds
+
+#### Job 4: Run Tests (`test`)
+- **Platform**: Windows (x64)
+- **Needs**: build job
+- **Test Targets**:
+  - test_session_consolidated
+  - test_repository_consolidated
+  - test_signing_robustness
+- **Runner**: CTest with Release configuration
+
+#### Job 5: Static Analysis (`static-analysis`)
+- **Tool**: clang-tidy (LLVM)
+- **Platform**: Windows
+- **Needs**: build job (requires compile_commands.json)
+- **Scope**: backend/ and src/ code only (excludes Qt frontend)
+- **Checks**: Uses `.clang-tidy` configuration
+- **Action**: Fails on any clang-tidy errors
 
 ### 2. Local Development Tools
 
@@ -63,48 +64,19 @@ Windows batch script that developers can run locally before pushing:
 scripts\pre-commit-check.bat
 ```
 
-#### Branch Protection Setup (`scripts/setup-branch-protection.sh`)
-Bash script to configure GitHub branch protection rules (requires GitHub CLI):
-- Requires all CI checks to pass
-- Requires 1 approving review
-- Prevents force pushes
-- Prevents branch deletion
+### 3. Configuration Files
 
-**Usage**:
-```bash
-# Install GitHub CLI first: https://cli.github.com/
-gh auth login
-bash scripts/setup-branch-protection.sh
-```
+#### Code Style (`.clang-format`)
+- Google style
+- C++20
+- 4-space indent
 
-### 3. Documentation
-
-#### CI/CD Documentation (`docs/CI_CD.md`)
-Comprehensive guide covering:
-- Pipeline overview and job descriptions
-- How to run checks locally
-- Troubleshooting common issues
-- Future enhancement plans
-
-#### Contributing Guide (`CONTRIBUTING.md`)
-Developer onboarding document:
-- Development setup instructions
-- Code standards and style guide
-- Pull request process
-- CI/CD requirements
-- Troubleshooting section
-
-#### README Updates
-Added:
-- CI status badges (build, license, C++20, Qt6)
-- CI/CD Pipeline section with requirements table
-- Links to CI_CD.md and CONTRIBUTING.md
+#### Static Analysis (`.clang-tidy`)
+- Multiple check categories enabled for bug detection and code quality
 
 ## 🔒 Branch Protection Setup
 
 To protect your `master` branch, you need to:
-
-### Option 1: Manual Setup (Recommended for now)
 
 1. Go to your repository on GitHub
 2. Click **Settings** → **Branches**
@@ -113,53 +85,16 @@ To protect your `master` branch, you need to:
 5. Enable these settings:
    - ✅ **Require a pull request before merging**
      - Required approving reviews: 1
-     - ✅ Dismiss stale PR approvals when new commits are pushed
    - ✅ **Require status checks to pass before merging**
      - Search for and select these checks:
        - `Code Formatting`
+       - `Security Scan`
+       - `Build (Windows)`
+       - `Run Tests`
        - `Static Analysis`
-       - `Build & Test (Windows) (Release)`
-       - `Build & Test (Windows) (Debug)`
-     - ✅ Require branches to be up to date before merging
-   - ✅ **Require conversation resolution before merging**
-   - ✅ **Do not allow bypassing the above settings**
-   - ✅ **Restrict who can push to matching branches**
-     - (Optional but recommended)
-
-### Option 2: Automated Setup (Requires GitHub CLI)
-
-```bash
-# Install GitHub CLI: https://cli.github.com/
-gh auth login
-bash scripts/setup-branch-protection.sh
-```
+   - ✅ Require branches to be up to date before merging
 
 ## 🚀 Next Steps
-
-### Immediate Actions:
-
-1. **Push the CI workflow to master**:
-   ```bash
-   git add .github/workflows/ci.yml
-   git add scripts/
-   git add docs/
-   git add CONTRIBUTING.md
-   git commit -m "ci: add GitHub Actions CI/CD pipeline"
-   git push origin master
-   ```
-
-2. **Verify the workflow runs**:
-   - Go to **Actions** tab in GitHub
-   - You should see the CI workflow running
-   - Check that all jobs pass
-
-3. **Set up branch protection** (see above)
-
-4. **Test with a PR**:
-   - Create a test branch
-   - Make a small change
-   - Create a PR to master
-   - Verify all checks run and block merging until they pass
 
 ### For Developers:
 
@@ -175,47 +110,47 @@ bash scripts/setup-branch-protection.sh
    scripts\pre-commit-check.bat
    ```
 
-3. **Read the contribution guide**:
-   - See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines
-
 ## 📊 CI/CD Pipeline Flow
 
 ```
-Push/PR to master
-       │
-       ▼
+Push/PR to master/main
+        │
+        ▼
 ┌─────────────────┐
 │ 1. Format Check │◄── clang-format
-│    (Parallel)    │
+│    (Parallel)   │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ 2. Static       │◄── clang-tidy
-│    Analysis     │
+│ 2. Security     │◄── Trivy scanner
+│    Scan         │    (Ubuntu)
+│    (Parallel)   │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ 3. Build & Test │◄── MSVC (Release + Debug)
-│    (Matrix)     │    + Run all tests
+│ 3. Build        │◄── MSVC Release
+│    (Parallel)   │
 └────────┬────────┘
          │
-         ▼
-┌─────────────────┐
-│ 4. Security     │◄── Trivy scanner
-│    Scan         │
-└─────────────────┘
-         │
-         ▼
-   All checks pass?
-    /           \
-   Yes          No
-   /             \
-  ▼               ▼
+    ┌────┴────┐
+    ▼         ▼
+┌───────┐ ┌──────────────┐
+│ 4.Run │ │ 5.Static     │
+│ Tests │ │ Analysis     │
+└───┬───┘ └──────┬───────┘
+    │            │
+    └─────┬──────┘
+          ▼
+    All checks pass?
+     /           \
+    Yes          No
+    /             \
+   ▼               ▼
 ✅ Merge     ❌ Block PR
 allowed         with
-                details
+                 details
 ```
 
 ## 🛡️ Security Features
@@ -224,7 +159,7 @@ The CI/CD pipeline includes:
 
 1. **Code Quality Gates**:
    - Consistent formatting prevents style debates
-   - Static analysis catches bugs early
+   - Static analysis catches bugs in backend code
    - All tests must pass
 
 2. **Security Scanning**:
@@ -233,26 +168,8 @@ The CI/CD pipeline includes:
    - Only CRITICAL and HIGH severity reported
 
 3. **Build Verification**:
-   - Both Release and Debug builds tested
-   - Windows x64 platform verified
+   - Release build tested on Windows x64
    - Artifacts preserved for debugging
-
-4. **Branch Protection**:
-   - No direct pushes without review
-   - All checks must pass
-   - Up-to-date branch requirement
-
-## 📈 Expected Benefits
-
-After implementing this CI/CD pipeline:
-
-- ✅ **No broken code in master**: All code is tested before merge
-- ✅ **Consistent code style**: Automated formatting checks
-- ✅ **Early bug detection**: Static analysis catches issues
-- ✅ **Security awareness**: Vulnerability scanning
-- ✅ **Faster reviews**: Automated checks reduce manual review time
-- ✅ **Developer confidence**: Pre-commit script catches issues locally
-- ✅ **Documentation**: Clear contribution guidelines
 
 ## 🆘 Troubleshooting
 
@@ -266,22 +183,9 @@ After implementing this CI/CD pipeline:
 
 1. **Formatting**: Run `clang-format -i <file>` on failing files
 2. **Build**: Check CMake and vcpkg are properly configured
-3. **Tests**: Run tests locally with `ctest --preset w-cl-test`
+3. **Tests**: Verify test executables build correctly
 4. **Static Analysis**: Review clang-tidy warnings carefully
-
-### Branch Protection Not Working?
-
-1. Verify you're an admin on the repository
-2. Check that status check names match exactly (case-sensitive)
-3. Ensure workflow has run at least once so checks appear
-
-## 📞 Support
-
-For CI/CD issues:
-1. Check [docs/CI_CD.md](docs/CI_CD.md)
-2. Review workflow logs in GitHub Actions tab
-3. Open an issue with the `ci-cd` label
 
 ---
 
-**Your CI/CD pipeline is ready to protect your master branch! 🎉**
+**Your CI/CD pipeline is ready to protect your master branch!**

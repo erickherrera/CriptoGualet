@@ -101,10 +101,10 @@ CriptoGualet uses **GitHub Actions** for continuous integration. Every pull requ
 | Check | Status | Description |
 |-------|--------|-------------|
 | **Code Formatting** | ✅ Required | `clang-format` with Google style |
-| **Static Analysis** | ✅ Required | `clang-tidy` security & bug checks |
+| **Security Scan** | ✅ Required | Trivy vulnerability scanner |
 | **Build (Release)** | ✅ Required | MSVC Release configuration |
-| **Build (Debug)** | ✅ Required | MSVC Debug configuration |
-| **Tests** | ✅ Required | All test suites must pass |
+| **Run Tests** | ✅ Required | CTest with Release configuration |
+| **Static Analysis** | ✅ Required | `clang-tidy` on backend/src code |
 
 ### Running Checks Locally
 
