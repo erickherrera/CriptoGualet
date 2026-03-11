@@ -276,8 +276,8 @@ void testEndToEndWorkflow(Repository::UserRepository& userRepo,
 int main() {
     TestUtils::printTestHeader("Repository Core Tests");
 
-    // Setup
-    Database::DatabaseManager dbManager;
+    // Setup - Get singleton instance
+    Database::DatabaseManager& dbManager = Database::DatabaseManager::getInstance();
     TestUtils::initializeTestDatabase(dbManager, TEST_DB_PATH,
                                       TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
