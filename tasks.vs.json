@@ -1,0 +1,61 @@
+{
+  "version": "0.2.1",
+  "tasks": [
+    {
+      "taskLabel": "Run CTest (Debug)",
+      "appliesTo": "CMakeLists.txt",
+      "type": "launch",
+      "contextType": "build",
+      "command": "ctest",
+      "args": [
+        "--preset", "win-vs2022-msvc-debug",
+        "--output-on-failure",
+        "--stop-on-failure"
+      ],
+      "workingDirectory": "${workspaceRoot}",
+      "problemMatcher": "$gcc"
+    },
+    {
+      "taskLabel": "Run CTest (Release)",
+      "appliesTo": "CMakeLists.txt",
+      "type": "launch",
+      "contextType": "build",
+      "command": "ctest",
+      "args": [
+        "--preset", "win-vs2022-msvc-release",
+        "--output-on-failure",
+        "--stop-on-failure"
+      ],
+      "workingDirectory": "${workspaceRoot}",
+      "problemMatcher": "$gcc"
+    },
+    {
+      "taskLabel": "Run CTest (Clang-CL Debug)",
+      "appliesTo": "CMakeLists.txt",
+      "type": "launch",
+      "contextType": "build",
+      "command": "ctest",
+      "args": [
+        "--preset", "win-vs2022-clangcl-debug",
+        "--output-on-failure",
+        "--stop-on-failure"
+      ],
+      "workingDirectory": "${workspaceRoot}",
+      "problemMatcher": "$gcc"
+    },
+    {
+      "taskLabel": "Run CTest (Clang-CL Release)",
+      "appliesTo": "CMakeLists.txt",
+      "type": "launch",
+      "contextType": "build",
+      "command": "ctest",
+      "args": [
+        "--preset", "win-vs2022-clangcl-release",
+        "--output-on-failure",
+        "--stop-on-failure"
+      ],
+      "workingDirectory": "${workspaceRoot}",
+      "problemMatcher": "$gcc"
+    }
+  ]
+}

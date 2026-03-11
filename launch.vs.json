@@ -19,7 +19,8 @@
         }
       ],
       "externalConsole": false,
-      "MIMode": "vsdbg"
+      "MIMode": "vsdbg",
+      "preLaunchTask": "Run CTest (Debug)"
     },
     {
       "type": "cppdbg",
@@ -39,7 +40,8 @@
         }
       ],
       "externalConsole": false,
-      "MIMode": "vsdbg"
+      "MIMode": "vsdbg",
+      "preLaunchTask": "Run CTest (Release)"
     },
     {
       "type": "cppdbg",
@@ -59,7 +61,8 @@
         }
       ],
       "externalConsole": false,
-      "MIMode": "vsdbg"
+      "MIMode": "vsdbg",
+      "preLaunchTask": "Run CTest (Clang-CL Debug)"
     },
     {
       "type": "cppdbg",
@@ -79,7 +82,8 @@
         }
       ],
       "externalConsole": false,
-      "MIMode": "vsdbg"
+      "MIMode": "vsdbg",
+      "preLaunchTask": "Run CTest (Clang-CL Release)"
     },
     {
       "type": "cppdbg",
