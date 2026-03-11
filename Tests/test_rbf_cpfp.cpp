@@ -226,9 +226,11 @@ void testRBFSequenceNumberEdgeCases() {
     TEST_ASSERT(sequence_timelock < sequence_final, "Timelock sequence must be < FINAL");
     TEST_ASSERT(sequence_rbf_with_height < sequence_final, "Height lock sequence must be < FINAL");
 
-    // Verify RBF is signaled when high bit is NOT set
-    bool rbf_signaled = (sequence_rbf & 0x80000000) == 0;
-    TEST_ASSERT(rbf_signaled, "RBF signaled when high bit is clear");
+    // Verify RBF is signaled when sequence < 0xFFFFFFFF (BIP125)
+    // Note: The high bit check is not the correct way to detect RBF
+    // RBF is signaled by any sequence < 0xFFFFFFFF
+    bool rbf_signaled = sequence_rbf < sequence_final;
+    TEST_ASSERT(rbf_signaled, "RBF signaled when sequence < FINAL");
 
     // Verify no RBF when high bit is set (disable flag)
     uint32_t sequence_no_rbf = 0xFFFFFFFF;
