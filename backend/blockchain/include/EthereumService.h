@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -71,137 +72,107 @@ struct TokenInfo {
  * Provides Ethereum blockchain interaction using Etherscan API
  * Free tier: 5 calls/second, up to 100,000 calls/day
  */
+/**
+ * @brief Interface for Ethereum blockchain providers
+ */
+class IEthereumProvider {
+  public:
+    virtual ~IEthereumProvider() = default;
+    virtual std::optional<AddressBalance> GetAddressBalance(const std::string& address) = 0;
+    virtual std::optional<std::vector<Transaction>> GetTransactionHistory(const std::string& address,
+                                                                          uint32_t limit) = 0;
+    virtual std::optional<GasPrice> GetGasPrice() = 0;
+    virtual std::optional<uint64_t> GetTransactionCount(const std::string& address) = 0;
+    virtual std::optional<TokenInfo> GetTokenInfo(const std::string& contractAddress) = 0;
+    virtual std::optional<std::string> GetTokenBalance(const std::string& contractAddress,
+                                                       const std::string& userAddress) = 0;
+    virtual std::optional<std::string> BroadcastTransaction(const std::string& signed_tx_hex) = 0;
+    virtual std::pair<bool, std::string> TestConnection() = 0;
+    virtual std::string Name() const = 0;
+};
+
+/**
+ * @brief Ethereum blockchain service client
+ *
+ * Coordinates multiple providers and handles fallbacks
+ */
 class EthereumClient {
   public:
-    /**
-     * @brief Constructor
-     * @param network Network to connect to ("mainnet", "sepolia", "goerli")
-     */
     explicit EthereumClient(const std::string& network = "mainnet");
 
-    /**
-     * @brief Set API token for authenticated requests
-     * @param token Etherscan API token
-     */
     void SetApiToken(const std::string& token);
-
-    /**
-     * @brief Set network
-     * @param network Network name ("mainnet", "sepolia", "goerli")
-     */
     void SetNetwork(const std::string& network);
 
-    /**
-     * @brief Get balance for an Ethereum address
-     * @param address Ethereum address (0x...)
-     * @return Optional AddressBalance if successful
-     */
-    std::optional<AddressBalance> GetAddressBalance(const std::string& address);
+    // Provider management
+    void AddProvider(std::unique_ptr<IEthereumProvider> provider);
+    void ClearProviders();
 
-    /**
-     * @brief Get transaction history for an address
-     * @param address Ethereum address
-     * @param limit Maximum number of transactions to retrieve
-     * @return Optional vector of transactions
-     */
+    // Standard blockchain methods (with fallback logic)
+    std::optional<AddressBalance> GetAddressBalance(const std::string& address);
     std::optional<std::vector<Transaction>> GetTransactionHistory(const std::string& address,
                                                                   uint32_t limit = 10);
-
-    /**
-     * @brief Get current gas price estimates
-     * @return Optional GasPrice information
-     */
     std::optional<GasPrice> GetGasPrice();
-
-    /**
-     * @brief Get transaction count (nonce) for an address
-     * @param address Ethereum address
-     * @return Optional transaction count
-     */
     std::optional<uint64_t> GetTransactionCount(const std::string& address);
-
-    /**
-     * @brief Get ERC20 token information
-     * @param contractAddress The address of the token contract
-     * @return Optional TokenInfo if successful
-     */
     std::optional<TokenInfo> GetTokenInfo(const std::string& contractAddress);
-
-    /**
-     * @brief Get ERC20 token balance for an address
-     * @param contractAddress The address of the token contract
-     * @param userAddress The address of the user
-     * @return Optional balance as a string (in smallest unit)
-     */
     std::optional<std::string> GetTokenBalance(const std::string& contractAddress,
                                                const std::string& userAddress);
-
-    /**
-     * @brief Send raw signed transaction to the network
-     * @param signed_tx_hex Signed transaction in hex format (0x...)
-     * @return Optional transaction hash if successful
-     */
     std::optional<std::string> BroadcastTransaction(const std::string& signed_tx_hex);
 
-    /**
-     * @brief Create and sign an Ethereum transaction
-     * @param from_address Sender address
-     * @param to_address Recipient address
-     * @param value_wei Amount in Wei
-     * @param gas_price_wei Gas price in Wei
-     * @param gas_limit Gas limit (21000 for simple transfer)
-     * @param private_key_hex Private key in hex format
-     * @param chain_id Chain ID (1=mainnet, 11155111=sepolia)
-     * @return Optional signed transaction hex if successful
-     */
+    // Transaction creation
     std::optional<std::string> CreateSignedTransaction(
         const std::string& from_address, const std::string& to_address,
         const std::string& value_wei, const std::string& gas_price_wei, uint64_t gas_limit,
         const std::string& private_key_hex, uint64_t chain_id);
 
-    /**
-     * @brief Validate Ethereum address format
-     * @param address Address to validate
-     * @return true if valid Ethereum address format
-     */
+    std::optional<std::string> CreateEIP1559Transaction(
+        const std::string& from_address, const std::string& to_address,
+        const std::string& value_wei, const std::string& max_fee_per_gas_wei,
+        const std::string& max_priority_fee_per_gas_wei, uint64_t gas_limit,
+        const std::string& private_key_hex, uint64_t chain_id);
+
     bool IsValidAddress(const std::string& address);
 
-    /**
-     * @brief Convert Wei to ETH
-     * @param wei_str Wei amount as string
-     * @return ETH amount as double
-     */
+    // Static utilities
     static double WeiToEth(const std::string& wei_str);
-
-    /**
-     * @brief Convert ETH to Wei
-     * @param eth ETH amount
-     * @return Wei amount as string
-     */
     static std::string EthToWei(double eth);
-
-    /**
-     * @brief Convert Gwei to Wei
-     * @param gwei Gwei amount
-     * @return Wei amount as string
-     */
     static std::string GweiToWei(double gwei);
 
   private:
     std::string m_network;
     std::string m_apiToken;
+    std::vector<std::unique_ptr<IEthereumProvider>> m_providers;
+
+    // Helper to try an operation across providers until one succeeds
+    template <typename Func>
+    auto tryProviderOp(Func func) -> decltype(func(m_providers[0].get()));
+};
+
+/**
+ * @brief Etherscan implementation of IEthereumProvider
+ */
+class EtherscanProvider : public IEthereumProvider {
+  public:
+    EtherscanProvider(const std::string& network, const std::string& apiToken = "");
+
+    std::optional<AddressBalance> GetAddressBalance(const std::string& address) override;
+    std::optional<std::vector<Transaction>> GetTransactionHistory(const std::string& address,
+                                                                  uint32_t limit) override;
+    std::optional<GasPrice> GetGasPrice() override;
+    std::optional<uint64_t> GetTransactionCount(const std::string& address) override;
+    std::optional<TokenInfo> GetTokenInfo(const std::string& contractAddress) override;
+    std::optional<std::string> GetTokenBalance(const std::string& contractAddress,
+                                               const std::string& userAddress) override;
+    std::optional<std::string> BroadcastTransaction(const std::string& signed_tx_hex) override;
+    std::pair<bool, std::string> TestConnection() override;
+    std::string Name() const override {
+        return "Etherscan";
+    }
+
+  private:
+    std::string m_network;
+    std::string m_apiToken;
     std::string m_baseUrl;
-
-    /**
-     * @brief Update base URL based on network
-     */
     void updateBaseUrl();
-
-    /**
-     * @brief Make HTTP GET request to Etherscan API
-     * @param endpoint API endpoint with parameters
-     * @return Response body as string
-     */
     std::string makeRequest(const std::string& endpoint);
 };
 

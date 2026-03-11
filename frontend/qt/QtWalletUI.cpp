@@ -2478,10 +2478,18 @@ std::vector<uint8_t> QtWalletUI::derivePrivateKeyForAddress(const QString& addre
             throw std::runtime_error("Failed to derive Litecoin address key");
         }
     } else {
-        // Bitcoin BIP44 path: m/44'/0'/0'/0/0 (mainnet) or m/44'/1'/0'/0/0
-        // (testnet)
-        if (!Crypto::BIP44_DeriveAddressKey(masterKey, 0, false, 0, addressKey, true)) {
-            throw std::runtime_error("Failed to derive Bitcoin address key");
+        // Bitcoin
+        bool isSegWit = address.startsWith("bc1") || address.startsWith("tb1");
+        if (isSegWit) {
+            // Bitcoin BIP84 path: m/84'/0'/0'/0/0 (mainnet) or m/84'/1'/0'/0/0 (testnet)
+            if (!Crypto::BIP84_DeriveAddressKey(masterKey, 0, false, 0, addressKey, true)) {
+                throw std::runtime_error("Failed to derive Bitcoin SegWit address key");
+            }
+        } else {
+            // Bitcoin BIP44 path: m/44'/0'/0'/0/0 (mainnet) or m/44'/1'/0'/0/0 (testnet)
+            if (!Crypto::BIP44_DeriveAddressKey(masterKey, 0, false, 0, addressKey, true)) {
+                throw std::runtime_error("Failed to derive Bitcoin address key");
+            }
         }
     }
 

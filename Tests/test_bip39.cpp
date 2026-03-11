@@ -25,6 +25,8 @@
 #include <string>
 #include <vector>
 
+#include "TestUtils.h"
+
 // Include your auth header
 #include "../backend/core/include/Auth.h"
 #include "../backend/core/include/Crypto.h"
@@ -1066,7 +1068,7 @@ int main() {
 
     // Set up test database path and key for testing
     // Use a consistent test key so tests work across platforms
-    std::string testDbPath = "/tmp/CriptoGualetTests/test_bip39_wallet.db";
+    std::string testDbPath = TestUtils::getWritableTestPath("test_bip39_wallet.db");
     const char* testKey = "TestKey12345678901234567890123456789012";  // 34 chars
 #ifdef _WIN32
     _putenv_s("WALLET_DB_PATH", testDbPath.c_str());

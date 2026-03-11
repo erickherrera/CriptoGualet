@@ -732,7 +732,7 @@ void QtSettingsUI::setupUI() {
         QPushButton* detectBtn = new QPushButton("Detect Devices", card);
 
         QLineEdit* pathEdit = new QLineEdit(card);
-        pathEdit->setText("m/44'/0'/0'");
+        pathEdit->setText("m/84'/0'/0'");
         pathEdit->setPlaceholderText("Derivation Path (e.g. m/84'/0'/0')");
 
         QCheckBox* testnetCheck = new QCheckBox("Use Testnet (btc/test3)", card);

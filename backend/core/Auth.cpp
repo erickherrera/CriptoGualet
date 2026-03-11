@@ -1153,23 +1153,23 @@ static bool DeriveWalletCredentialsFromSeed(const std::array<uint8_t, 64>& seed,
         return false;
     }
 
-    // 2. Derive first account address using BIP44 path: m/44'/0'/0'/0/0
-    //    44' = BIP44, 0' = Bitcoin, 0' = Account #0, 0 = external chain, 0 =
+    // 2. Derive first account address using BIP84 path: m/84'/0'/0'/0/0
+    //    84' = BIP84 (SegWit), 0' = Bitcoin, 0' = Account #0, 0 = external chain, 0 =
     //    first address
     Crypto::BIP32ExtendedKey derivedKey;
-    if (!Crypto::BIP32_DerivePath(masterKey, "m/44'/0'/0'/0/0", derivedKey)) {
+    if (!Crypto::BIP32_DerivePath(masterKey, "m/84'/0'/0'/0/0", derivedKey)) {
         if (logFile && logFile->is_open()) {
-            *logFile << "BIP32: Failed to derive key from path m/44'/0'/0'/0/0\n";
+            *logFile << "BIP32: Failed to derive key from path m/84'/0'/0'/0/0\n";
             logFile->flush();
         }
         return false;
     }
 
-    // 3. Get Bitcoin address from derived key
-    // IMPORTANT: Using testnet=true to generate testnet addresses (m/n/2) instead of mainnet (1/3)
-    if (!Crypto::BIP32_GetBitcoinAddress(derivedKey, outWalletAddress, true)) {
+    // 3. Get SegWit Bitcoin address from derived key
+    // IMPORTANT: Using testnet=true to generate testnet addresses (tb1) instead of mainnet (bc1)
+    if (!Crypto::BIP32_GetSegWitAddress(derivedKey, outWalletAddress, true)) {
         if (logFile && logFile->is_open()) {
-            *logFile << "BIP32: Failed to generate Bitcoin address\n";
+            *logFile << "BIP32: Failed to generate SegWit address\n";
             logFile->flush();
         }
         return false;
@@ -1392,8 +1392,8 @@ AuthResponse RegisterUser(const std::string& username, const std::string& passwo
 
         // Create default wallet for user
         auto walletResult = g_walletRepo->createWallet(
-            userId, username + "'s Bitcoin Wallet", "bitcoin",
-            std::optional<std::string>("m/44'/0'/0'"),  // BIP44 Bitcoin derivation path
+            userId, username + "'s Bitcoin Wallet", "bitcoin_segwit",
+            std::optional<std::string>("m/84'/0'/0'"),  // BIP84 Bitcoin derivation path
             std::nullopt                                // Extended public key can be added later
         );
 
@@ -1554,8 +1554,8 @@ AuthResponse RegisterUserWithMnemonic(const std::string& username, const std::st
 
         // Create default Bitcoin wallet for user
         auto walletResult = g_walletRepo->createWallet(
-            userId, username + "'s Bitcoin Wallet", "bitcoin",
-            std::optional<std::string>("m/44'/0'/0'"),  // BIP44 Bitcoin derivation path
+            userId, username + "'s Bitcoin Wallet", "bitcoin_segwit",
+            std::optional<std::string>("m/84'/0'/0'"),  // BIP84 Bitcoin derivation path
             std::nullopt                                // Extended public key can be added later
         );
 
