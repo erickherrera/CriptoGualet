@@ -147,15 +147,13 @@ void testTransactionManagement(Repository::TransactionRepository& txRepo,
     params.limit = 10;
     params.offset = 0;
     auto txList = txRepo.getTransactionsByWallet(walletId, params);
-    TEST_ASSERT(txList.hasValue() && txList->items.size() == 2,
-                "Should retrieve 2 transactions");
+    TEST_ASSERT(txList.hasValue() && txList->items.size() == 2, "Should retrieve 2 transactions");
 
     // Calculate balance
     auto balanceResult = txRepo.calculateWalletBalance(walletId);
     TEST_ASSERT(balanceResult.hasValue(), "Balance calculation should succeed");
     // 1 BTC - (0.3 BTC + 0.0001 BTC fee) = 0.6999 BTC = 69990000 satoshis
-    TEST_ASSERT(balanceResult->confirmedBalance == 69990000,
-                "Confirmed balance should be correct");
+    TEST_ASSERT(balanceResult->confirmedBalance == 69990000, "Confirmed balance should be correct");
 
     // Get stats
     auto statsResult = txRepo.getTransactionStats(walletId);
@@ -163,7 +161,8 @@ void testTransactionManagement(Repository::TransactionRepository& txRepo,
                 "Should have 2 total transactions");
 
     // Update confirmation
-    auto updateResult = txRepo.updateTransactionConfirmation("incoming_tx_001", 700000, "blockhash", 10);
+    auto updateResult =
+        txRepo.updateTransactionConfirmation("incoming_tx_001", 700000, "blockhash", 10);
     TEST_ASSERT(updateResult.hasValue(), "Confirmation update should succeed");
 
     // Duplicate TXID should fail
@@ -223,8 +222,8 @@ void testEndToEndWorkflow(Repository::UserRepository& userRepo,
     int userId = userResult->id;
 
     // 2. Store seed
-    std::vector<std::string> mnemonic = {"test", "seed", "phrase", "words", "here", "for",
-                                         "wallet", "creation", "process", "testing", "end", "to"};
+    std::vector<std::string> mnemonic = {"test",   "seed",     "phrase",  "words",   "here", "for",
+                                         "wallet", "creation", "process", "testing", "end",  "to"};
     auto seedResult = walletRepo.storeEncryptedSeed(userId, "SecurePass123!", mnemonic);
     TEST_ASSERT(seedResult.hasValue(), "Seed storage should succeed");
 
@@ -280,7 +279,7 @@ int main() {
     // Setup
     Database::DatabaseManager dbManager;
     TestUtils::initializeTestDatabase(dbManager, TEST_DB_PATH,
-                                        TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
+                                      TestUtils::STANDARD_TEST_ENCRYPTION_KEY);
 
     Repository::UserRepository userRepo(dbManager);
     Repository::WalletRepository walletRepo(dbManager);

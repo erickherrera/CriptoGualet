@@ -699,7 +699,8 @@ bool QtSendDialog::validateBitcoinAddress(const QString& address) const {
         return true;
     }
 
-    // Fallback to legacy validation if needed (already covered by IsValidAddressFormat above for some cases)
+    // Fallback to legacy validation if needed (already covered by IsValidAddressFormat above for
+    // some cases)
     if (Crypto::IsValidAddressFormat(addr, Crypto::ChainType::BITCOIN)) {
         return true;
     }

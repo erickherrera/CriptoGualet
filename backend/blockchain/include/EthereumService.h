@@ -79,8 +79,8 @@ class IEthereumProvider {
   public:
     virtual ~IEthereumProvider() = default;
     virtual std::optional<AddressBalance> GetAddressBalance(const std::string& address) = 0;
-    virtual std::optional<std::vector<Transaction>> GetTransactionHistory(const std::string& address,
-                                                                          uint32_t limit) = 0;
+    virtual std::optional<std::vector<Transaction>> GetTransactionHistory(
+        const std::string& address, uint32_t limit) = 0;
     virtual std::optional<GasPrice> GetGasPrice() = 0;
     virtual std::optional<uint64_t> GetTransactionCount(const std::string& address) = 0;
     virtual std::optional<TokenInfo> GetTokenInfo(const std::string& contractAddress) = 0;
