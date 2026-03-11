@@ -83,6 +83,19 @@ add_custom_target(run_all_session_tests
 )
 
 # -----------------------------------------------------------------------------
+# Fuzzing Support
+# -----------------------------------------------------------------------------
+# Add fuzzing subdirectory only when explicitly enabled
+option(ENABLE_FUZZING "Enable fuzzing targets (requires Clang with libFuzzer)" OFF)
+
+if(ENABLE_FUZZING)
+  message(STATUS "Fuzzing support enabled")
+  add_subdirectory(fuzzing)
+else()
+  message(STATUS "Fuzzing support disabled (use -DENABLE_FUZZING=ON to enable)")
+endif()
+
+# -----------------------------------------------------------------------------
 # Installation - Bundle test executables for QtTestConsole diagnostics
 # -----------------------------------------------------------------------------
 # These executables are needed by the "System Diagnostics & Security Verification"
