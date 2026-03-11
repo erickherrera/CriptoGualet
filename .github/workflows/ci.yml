@@ -149,7 +149,7 @@ jobs:
         
         # Build test executables explicitly
         Write-Host "`nBuilding test executables..." -ForegroundColor Cyan
-        cmake --build ${{github.workspace}}/build --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness --parallel 2>&1 | Tee-Object -FilePath ${{github.workspace}}/test_build.log
+        cmake --build ${{github.workspace}}/build --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness test_segwit test_rbf_cpfp test_ethereum_robustness --parallel 2>&1 | Tee-Object -FilePath ${{github.workspace}}/test_build.log
         $testBuildExitCode = $LASTEXITCODE
         if ($testBuildExitCode -ne 0) {
           Write-Host "`n❌ TEST BUILD FAILED with exit code $testBuildExitCode" -ForegroundColor Red
@@ -295,7 +295,7 @@ jobs:
         $ErrorActionPreference = "Stop"
         $workspace = $env:GITHUB_WORKSPACE
         Write-Host "Building test executables..." -ForegroundColor Cyan
-        cmake --build "$workspace/build" --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness --parallel 2>&1
+        cmake --build "$workspace/build" --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness test_segwit test_rbf_cpfp test_ethereum_robustness --parallel 2>&1
         if ($LASTEXITCODE -ne 0) {
           Write-Host "❌ Test build failed!" -ForegroundColor Red
           exit 1
