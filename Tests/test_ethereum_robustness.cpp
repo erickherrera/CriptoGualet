@@ -340,7 +340,8 @@ void testAddressValidation() {
     // Edge cases
     // Note: Zero address (0x0000...0000) is technically valid but rejected for security
     bool zeroAddrValid = client.IsValidAddress("0x0000000000000000000000000000000000000000");
-    std::cout << "    [INFO] Zero address validation: " << (zeroAddrValid ? "accepted" : "rejected") << std::endl;
+    std::cout << "    [INFO] Zero address validation: " << (zeroAddrValid ? "accepted" : "rejected")
+              << std::endl;
     // TEST_ASSERT(zeroAddrValid, "Should accept zero address (technically valid)");
 
     TEST_PASS();

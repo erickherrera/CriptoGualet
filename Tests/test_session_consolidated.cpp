@@ -67,7 +67,7 @@ class SessionHelpers {
 
     static std::string generateId() {
         static int counter = 0;
-        return "sess_" + std::to_string(++counter) + std::string(25, 'x');
+        return "sess_" + std::to_string(++counter) + std::string(27, 'x');
     }
 };
 
