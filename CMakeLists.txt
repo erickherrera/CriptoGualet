@@ -348,15 +348,8 @@ set(CRYPTOGUWALET_VS_STARTUP_TARGET "" CACHE STRING "Default Visual Studio start
 # Find Qt6 if GUI is enabled
 if(BUILD_GUI_QT)
   if(WIN32)
-    # Add common Qt roots; exact ABI will be resolved by find_package
-    list(APPEND CMAKE_PREFIX_PATH
-      "C:/Program Files/Qt"
-      "C:/Qt"
-      "C:/Program Files (x86)/Qt"
-    )
-    if(DEFINED QT_DIR AND EXISTS "${QT_DIR}")
-      list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}")
-      message(STATUS "Using QT_DIR: ${QT_DIR}")
+    if(DEFINED VCPKG_INSTALLED_DIR)
+      list(APPEND CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
     endif()
     # Enhanced Qt path resolution for different compilers
     file(GLOB QT_VERSIONS "C:/Program Files/Qt/6.*")
@@ -556,7 +549,7 @@ add_subdirectory(frontend/qt)
 enable_testing()
 add_subdirectory(Tests)
 
-# Set Visual Studio startup target if requested (must be after add_subdirectory)
+# Set Visual Studio startup target (must be after add_subdirectory)
 if(CRYPTOGUWALET_VS_STARTUP_TARGET)
   if(TARGET ${CRYPTOGUWALET_VS_STARTUP_TARGET})
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${CRYPTOGUWALET_VS_STARTUP_TARGET})
@@ -564,6 +557,9 @@ if(CRYPTOGUWALET_VS_STARTUP_TARGET)
   else()
     message(WARNING "Requested VS startup target '${CRYPTOGUWALET_VS_STARTUP_TARGET}' does not exist")
   endif()
+elseif(TARGET CriptoGualetQt)
+  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CriptoGualetQt)
+  message(STATUS "Visual Studio startup target automatically set to: CriptoGualetQt")
 endif()
 
 # Test executables are now defined in Tests/CMakeLists.txt
