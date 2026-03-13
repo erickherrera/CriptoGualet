@@ -492,8 +492,9 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y clang llvm cmake ninja-build
+        sudo apt-get install -y clang llvm cmake ninja-build libsqlcipher-dev
         clang --version
+        echo "SQLCipher installed for database support"
         
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
