@@ -117,100 +117,41 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
 
   # Deploy Qt6 DLLs automatically
   if(WIN32)
-    find_program(QT_DEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
-    if(QT_DEPLOYQT_EXECUTABLE)
+    # Vcpkg handles DLL copying automatically via applocal.ps1 during build.
+    # However, vcpkg does not copy Qt plugins (like platforms/qwindowsd.dll).
+    # Since vcpkg's windeployqt is broken for debug builds (hardcoded to release paths),
+    # we manually copy the necessary plugin folders for the IDE development environment.
+    
+    set(VCPKG_QT_PLUGINS_DIR "${VCPKG_INSTALLED_DIR}/x64-windows/$<$<CONFIG:Debug>:debug/>Qt6/plugins")
+    
+    # List of essential Qt plugin directories needed to run the app
+    set(QT_ESSENTIAL_PLUGINS "platforms" "styles" "imageformats" "tls")
+    
+    foreach(PLUGIN_DIR ${QT_ESSENTIAL_PLUGINS})
       add_custom_command(TARGET CriptoGualetQt POST_BUILD
-        COMMAND ${QT_DEPLOYQT_EXECUTABLE} $<TARGET_FILE:CriptoGualetQt>
-        COMMENT "Deploying Qt libraries")
-    endif()
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${VCPKG_QT_PLUGINS_DIR}/${PLUGIN_DIR}"
+                "$<TARGET_FILE_DIR:CriptoGualetQt>/${PLUGIN_DIR}"
+        COMMENT "Copying Qt plugin directory: ${PLUGIN_DIR}"
+      )
+    endforeach()
 
-    # Copy qrencode DLL if available (use debug versions for debug builds but keep runtime name consistent)
-    if(LIBQRENCODE_FOUND)
-      add_custom_command(TARGET CriptoGualetQt POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/qrencoded.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/qrencode.dll>"
-        "$<TARGET_FILE_DIR:CriptoGualetQt>/qrencode.dll"
-        COMMENT "Copying qrencode DLL to output directory")
+      # Copy qrencode DLL if available (use debug versions for debug builds but keep runtime name consistent)
+      if(LIBQRENCODE_FOUND)
+         add_custom_command(TARGET CriptoGualetQt POST_BUILD
+           COMMAND ${CMAKE_COMMAND} -E copy_if_different
+             "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/qrencoded.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/qrencode.dll>"
+           "$<TARGET_FILE_DIR:CriptoGualetQt>/qrencode.dll"
+           COMMENT "Copying qrencode DLL to output directory")
+      endif()
 
-      # Also copy dependencies that qrencode.dll needs
-      add_custom_command(TARGET CriptoGualetQt POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/libpng16d.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/libpng16.dll>"
-        "$<TARGET_FILE_DIR:CriptoGualetQt>/libpng16.dll"
-        COMMENT "Copying libpng16 DLL to output directory")
-
-      add_custom_command(TARGET CriptoGualetQt POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/zlibd1.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/zlib1.dll>"
-        "$<TARGET_FILE_DIR:CriptoGualetQt>/zlib1.dll"
-        COMMENT "Copying zlib DLL to output directory")
-    endif()
-
-    # Copy SQLCipher DLL (renamed to sqlite3.dll for compatibility if needed, or kept as sqlcipher.dll)
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/sqlcipher.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/sqlcipher.dll>"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>/sqlcipher.dll"
-      COMMENT "Copying SQLCipher DLL to output directory")
-
-    # Also copy as sqlite3.dll for components that might explicitly look for it
+    # Also copy SQLCipher as sqlite3.dll for components that might explicitly look for it
     add_custom_command(TARGET CriptoGualetQt POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/sqlcipher.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/sqlcipher.dll>"
       "$<TARGET_FILE_DIR:CriptoGualetQt>/sqlite3.dll"
       COMMENT "Copying SQLCipher as sqlite3.dll for compatibility")
 
-    # Copy OpenSSL DLLs (required by SQLCipher)
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${VCPKG_INSTALLED_DIR}/x64-windows/bin/libcrypto-3-x64.dll"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>/libcrypto-3-x64.dll"
-      COMMENT "Copying libcrypto DLL to output directory")
-
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${VCPKG_INSTALLED_DIR}/x64-windows/bin/libssl-3-x64.dll"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>/libssl-3-x64.dll"
-      COMMENT "Copying libssl DLL to output directory")
-
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${VCPKG_INSTALLED_DIR}/x64-windows/bin/legacy.dll"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>/legacy.dll"
-      COMMENT "Copying OpenSSL legacy DLL to output directory")
-
-    # Copy cpr and libcurl DLLs
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/cpr.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/cpr.dll>"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>/cpr.dll"
-      COMMENT "Copying cpr DLL to output directory")
-
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/libcurl-d.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/libcurl.dll>"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>/libcurl.dll"
-      COMMENT "Copying libcurl DLL to output directory")
-
-    # Copy libsodium DLL
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/libsodium.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/libsodium.dll>"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>/libsodium.dll"
-      COMMENT "Copying libsodium DLL to output directory")
-
-    # Copy character encoding DLLs
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/iconv-2.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/iconv-2.dll>"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>/iconv-2.dll"
-      COMMENT "Copying iconv DLL to output directory")
-
-    add_custom_command(TARGET CriptoGualetQt POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/x64-windows/debug/bin/charset-1.dll>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/x64-windows/bin/charset-1.dll>"
-      "$<TARGET_FILE_DIR:CriptoGualetQt>/charset-1.dll"
-      COMMENT "Copying charset DLL to output directory")
   elseif(UNIX AND NOT APPLE)
     # Linux: Libraries are linked statically or found via RPATH
   endif()
@@ -302,7 +243,6 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     
     # Step 1: Run windeployqt for Qt-specific deployment
     # windeployqt handles Qt plugins (platforms, imageformats, styles, etc.) and Qt DLLs
-    find_program(QT_DEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
     if(QT_DEPLOYQT_EXECUTABLE)
       install(CODE "
         set(DEPLOYQT_EXE \"${QT_DEPLOYQT_EXECUTABLE}\")
@@ -639,8 +579,8 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       )
       
       # Add vcpkg-installed libraries if present
-      if(EXISTS "${VCPKG_INSTALLED_DIR}/x64-linux")
-        list(APPEND SEARCH_DIRS "${VCPKG_INSTALLED_DIR}/x64-linux/lib")
+      if(EXISTS \"${VCPKG_INSTALLED_DIR}/x64-linux\")
+        list(APPEND SEARCH_DIRS \"${VCPKG_INSTALLED_DIR}/x64-linux/lib\")
       endif()
       
       if(EXISTS \"\${TARGET_EXE}\")
@@ -679,7 +619,7 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
         file(MAKE_DIRECTORY \"\${INSTALL_BIN_DIR}/plugins\")
         
         # Install common Qt6 plugins
-        set(QT_PLUGIN_TYPES "platforms;imageformats;styles")
+        set(QT_PLUGIN_TYPES \"platforms;imageformats;styles\")
         
         foreach(PLUGIN_TYPE \${QT_PLUGIN_TYPES})
           if(EXISTS \"\${QT_PLUGINS_DIR}/\${PLUGIN_TYPE}\")
