@@ -67,13 +67,10 @@ struct TokenInfo {
 };
 
 /**
- * @brief Ethereum blockchain service client
+ * @brief Interface for Ethereum blockchain providers
  *
  * Provides Ethereum blockchain interaction using Etherscan API
  * Free tier: 5 calls/second, up to 100,000 calls/day
- */
-/**
- * @brief Interface for Ethereum blockchain providers
  */
 class IEthereumProvider {
   public:

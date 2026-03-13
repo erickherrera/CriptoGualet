@@ -25,7 +25,7 @@ class QtTokenImportDialog : public QDialog {
     };
 
     explicit QtTokenImportDialog(QWidget* parent = nullptr);
-    ~QtTokenImportDialog();
+    ~QtTokenImportDialog() override;
 
     std::optional<ImportData> getImportData() const;
     void setEthereumWallet(WalletAPI::EthereumWallet* ethereumWallet);

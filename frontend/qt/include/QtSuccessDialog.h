@@ -18,7 +18,7 @@ class QtSuccessDialog : public QDialog {
 
   public:
     explicit QtSuccessDialog(const QString& username, QWidget* parent = nullptr);
-    ~QtSuccessDialog();
+    ~QtSuccessDialog() override;
 
   private slots:
     void onOkClicked();

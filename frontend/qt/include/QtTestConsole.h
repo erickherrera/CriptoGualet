@@ -15,7 +15,7 @@ class QtTestConsole : public QDialog {
 
   public:
     explicit QtTestConsole(QWidget* parent = nullptr);
-    ~QtTestConsole();
+    ~QtTestConsole() override;
 
     // Run a specific test suite
     void runTest(const QString& testName, const QString& executableName);
