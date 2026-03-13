@@ -1,0 +1,1 @@
+INSERT INTO transactions (txid, amount, fee, timestamp) VALUES ('abc123', 100000000, 1000, 1234567890)

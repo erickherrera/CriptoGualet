@@ -83,6 +83,16 @@ add_custom_target(run_all_session_tests
 )
 
 # -----------------------------------------------------------------------------
+# Fuzzing Support
+# -----------------------------------------------------------------------------
+# Add fuzzing subdirectory only when explicitly enabled
+# Note: ENABLE_FUZZING option and sanitizer flags are configured in main CMakeLists.txt
+if(ENABLE_FUZZING)
+  message(STATUS "Adding fuzzing subdirectory")
+  add_subdirectory(fuzzing)
+endif()
+
+# -----------------------------------------------------------------------------
 # Installation - Bundle test executables for QtTestConsole diagnostics
 # -----------------------------------------------------------------------------
 # These executables are needed by the "System Diagnostics & Security Verification"
