@@ -3191,8 +3191,13 @@ const uint32_t BECH32M_CONST = 0x2bc830a3;
 
 std::string Bech32_Encode(const std::string& hrp, int witness_version,
                           const std::vector<uint8_t>& witness_program) {
+    // Validate witness version (BIP141 allows 0-16)
+    if (witness_version < 0 || witness_version > 16) {
+        return "";
+    }
+
     std::vector<uint8_t> data;
-    data.push_back(witness_version);
+    data.push_back(static_cast<uint8_t>(witness_version));
     if (!Bech32::ConvertBits(witness_program, 8, 5, true, data)) {
         return "";
     }
@@ -3206,6 +3211,10 @@ std::string Bech32_Encode(const std::string& hrp, int witness_version,
 
     std::string ret = hrp + "1";
     for (uint8_t p : data) {
+        // SECURITY FIX: Validate index is within CHARSET bounds (0-31)
+        if (p >= 32) {
+            return "";  // Invalid Bech32 data
+        }
         ret += Bech32::CHARSET[p];
     }
     for (int i = 0; i < 6; ++i) {
@@ -3329,6 +3338,11 @@ bool BIP84_GetAddress(const BIP32ExtendedKey& master, uint32_t account, bool cha
 bool CreateSegWitSigHash(const BitcoinTransaction& tx, size_t input_index,
                          const std::string& prev_script_pubkey, uint64_t amount,
                          std::array<uint8_t, 32>& sighash) {
+    // SECURITY FIX: Validate input_index is within bounds
+    if (input_index >= tx.inputs.size()) {
+        return false;
+    }
+
     // BIP143 SigHash algorithm for SegWit v0
     // Format:
     // 1. nVersion (4-byte)
