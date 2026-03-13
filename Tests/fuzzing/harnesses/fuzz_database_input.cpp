@@ -1,8 +1,8 @@
 // fuzz_database_input.cpp - Fuzzer for database input handling
 // Tests: SQL parsing, encrypted data handling, schema validation
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -22,13 +22,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     {
         // Common SQL injection patterns that should be detected/rejected
         const char* sqlPatterns[] = {
-            "' OR '1'='1", "' OR 1=1--", "' OR '1'='1' /*", 
-            "1; DROP TABLE", "' UNION SELECT", "admin'--",
-            "' OR 'x'='x", "' AND 1=1--", "'; DELETE FROM",
-            "1' AND 1=1--", "1' AND 1=2--", "1' OR '1'='1",
-            "' OR 1=1#", "' OR 1=1/*", "') OR ('1'='1"
-        };
-        
+            "' OR '1'='1",  "' OR 1=1--",   "' OR '1'='1' /*", "1; DROP TABLE",  "' UNION SELECT",
+            "admin'--",     "' OR 'x'='x",  "' AND 1=1--",     "'; DELETE FROM", "1' AND 1=1--",
+            "1' AND 1=2--", "1' OR '1'='1", "' OR 1=1#",       "' OR 1=1/*",     "') OR ('1'='1"};
+
         for (const char* pattern : sqlPatterns) {
             // Check if input contains SQL injection patterns
             bool containsPattern = (input.find(pattern) != std::string::npos);
@@ -59,7 +56,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
             size_t actualLen = withNull.length();  // Will be truncated at null
             (void)actualLen;
         }
-        
+
         // Test with Unicode characters
         if (size >= 4) {
             // Insert some UTF-8 sequences
@@ -81,7 +78,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
             }
         }
         (void)isValidHex;
-        
+
         // Test hex string length (should be even for proper bytes)
         bool isEvenLength = (input.length() % 2 == 0);
         (void)isEvenLength;
@@ -106,15 +103,19 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
         bool hasObjectEnd = (input.find('}') != std::string::npos);
         bool hasArrayStart = (input.find('[') != std::string::npos);
         bool hasArrayEnd = (input.find(']') != std::string::npos);
-        
+
         // Check for balanced braces (basic validation)
         int braceCount = 0;
         int bracketCount = 0;
         for (char c : input) {
-            if (c == '{') braceCount++;
-            if (c == '}') braceCount--;
-            if (c == '[') bracketCount++;
-            if (c == ']') bracketCount--;
+            if (c == '{')
+                braceCount++;
+            if (c == '}')
+                braceCount--;
+            if (c == '[')
+                bracketCount++;
+            if (c == ']')
+                bracketCount--;
         }
         bool balanced = (braceCount == 0 && bracketCount == 0);
         (void)balanced;
@@ -134,7 +135,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
                 break;
             }
         }
-        
+
         if (isAllDigits && input.length() >= 10) {
             // Could be a Unix timestamp
             try {
@@ -155,7 +156,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
                 isPossibleBtcAddress = true;
             }
         }
-        
+
         // Ethereum address format
         bool isPossibleEthAddress = false;
         if (input.length() == 42 && input.substr(0, 2) == "0x") {
@@ -168,7 +169,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
                 }
             }
         }
-        
+
         (void)isPossibleBtcAddress;
         (void)isPossibleEthAddress;
     }
@@ -193,21 +194,29 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     {
         size_t length = input.length();
         bool hasUpper = false, hasLower = false, hasDigit = false, hasSpecial = false;
-        
+
         for (char c : input) {
-            if (isupper(c)) hasUpper = true;
-            if (islower(c)) hasLower = true;
-            if (isdigit(c)) hasDigit = true;
-            if (!isalnum(c)) hasSpecial = true;
+            if (isupper(c))
+                hasUpper = true;
+            if (islower(c))
+                hasLower = true;
+            if (isdigit(c))
+                hasDigit = true;
+            if (!isalnum(c))
+                hasSpecial = true;
         }
-        
+
         // Calculate entropy (simplified)
         int charsetSize = 0;
-        if (hasLower) charsetSize += 26;
-        if (hasUpper) charsetSize += 26;
-        if (hasDigit) charsetSize += 10;
-        if (hasSpecial) charsetSize += 32;
-        
+        if (hasLower)
+            charsetSize += 26;
+        if (hasUpper)
+            charsetSize += 26;
+        if (hasDigit)
+            charsetSize += 10;
+        if (hasSpecial)
+            charsetSize += 32;
+
         (void)length;
         (void)charsetSize;
     }

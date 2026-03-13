@@ -1,12 +1,12 @@
 // fuzz_json_parsing.cpp - Fuzzer for JSON/API response parsing
 // Tests: JSON validation, API response handling, malformed data rejection
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <sstream>
 
 // libFuzzer entry point
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
@@ -19,20 +19,20 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     // Test 1: Basic JSON structure validation
     {
         // Check for JSON object/array markers
-        bool hasObject = (input.find('{') != std::string::npos && 
-                         input.find('}') != std::string::npos);
-        bool hasArray = (input.find('[') != std::string::npos && 
-                        input.find(']') != std::string::npos);
+        bool hasObject =
+            (input.find('{') != std::string::npos && input.find('}') != std::string::npos);
+        bool hasArray =
+            (input.find('[') != std::string::npos && input.find(']') != std::string::npos);
         bool hasString = (input.find('"') != std::string::npos);
         bool hasNumber = false;
-        
+
         for (char c : input) {
             if (isdigit(c) || c == '-' || c == '.' || c == 'e' || c == 'E') {
                 hasNumber = true;
                 break;
             }
         }
-        
+
         (void)hasObject;
         (void)hasArray;
         (void)hasString;
@@ -56,7 +56,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
                     break;
                 }
             }
-            
+
             if (isNumber && dotCount <= 1) {
                 try {
                     double value = std::stod(token);
@@ -78,7 +78,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
             while (end < input.length() && isxdigit(input[end])) {
                 end++;
             }
-            
+
             if (end > pos + 2) {
                 std::string hexStr = input.substr(pos + 2, end - pos - 2);
                 // Validate hex string length (should be even for bytes)
@@ -93,16 +93,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     {
         // Common error patterns in API responses
         const char* errorPatterns[] = {
-            "error", "Error", "ERROR",
-            "failed", "Failed", "FAILED",
-            "invalid", "Invalid", "INVALID",
-            "not found", "Not Found", "NOT_FOUND",
-            "unauthorized", "Unauthorized", "UNAUTHORIZED",
-            "forbidden", "Forbidden", "FORBIDDEN",
-            "timeout", "Timeout", "TIMEOUT",
-            "rate limit", "Rate Limit", "RATE_LIMIT"
-        };
-        
+            "error",     "Error",      "ERROR",        "failed",       "Failed",
+            "FAILED",    "invalid",    "Invalid",      "INVALID",      "not found",
+            "Not Found", "NOT_FOUND",  "unauthorized", "Unauthorized", "UNAUTHORIZED",
+            "forbidden", "Forbidden",  "FORBIDDEN",    "timeout",      "Timeout",
+            "TIMEOUT",   "rate limit", "Rate Limit",   "RATE_LIMIT"};
+
         for (const char* pattern : errorPatterns) {
             bool hasError = (input.find(pattern) != std::string::npos);
             (void)hasError;
@@ -112,16 +108,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     // Test 5: Transaction object validation
     {
         // Look for transaction-related fields
-        bool hasTxid = (input.find("txid") != std::string::npos || 
-                       input.find("tx_hash") != std::string::npos ||
-                       input.find("hash") != std::string::npos);
+        bool hasTxid =
+            (input.find("txid") != std::string::npos ||
+             input.find("tx_hash") != std::string::npos || input.find("hash") != std::string::npos);
         bool hasConfirmations = (input.find("confirmations") != std::string::npos ||
-                                input.find("confirmed") != std::string::npos);
-        bool hasInputs = (input.find("inputs") != std::string::npos ||
-                         input.find("vin") != std::string::npos);
-        bool hasOutputs = (input.find("outputs") != std::string::npos ||
-                          input.find("vout") != std::string::npos);
-        
+                                 input.find("confirmed") != std::string::npos);
+        bool hasInputs =
+            (input.find("inputs") != std::string::npos || input.find("vin") != std::string::npos);
+        bool hasOutputs =
+            (input.find("outputs") != std::string::npos || input.find("vout") != std::string::npos);
+
         (void)hasTxid;
         (void)hasConfirmations;
         (void)hasInputs;
@@ -135,16 +131,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
             // Potential Bech32 address
             size_t pos = input.find("bc1");
             size_t end = pos + 3;
-            while (end < input.length() && 
+            while (end < input.length() &&
                    (isalnum(input[end]) || input[end] == '_' || input[end] == '-')) {
                 end++;
             }
             std::string potentialAddress = input.substr(pos, end - pos);
-            bool validLength = (potentialAddress.length() >= 14 && 
-                              potentialAddress.length() <= 74);
+            bool validLength = (potentialAddress.length() >= 14 && potentialAddress.length() <= 74);
             (void)validLength;
         }
-        
+
         // Ethereum address patterns
         if (input.find("0x") != std::string::npos) {
             size_t pos = input.find("0x");
@@ -170,13 +165,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
         bool hasEscapes = (input.find("\\") != std::string::npos);
         if (hasEscapes) {
             // Common JSON escapes
-            const char* escapes[] = {"\\\"", "\\\\", "\\/", "\\b", "\\f", "\\n", "\\r", "\\t", "\\u"};
+            const char* escapes[] = {"\\\"", "\\\\", "\\/", "\\b", "\\f",
+                                     "\\n",  "\\r",  "\\t", "\\u"};
             for (const char* esc : escapes) {
                 bool hasEscape = (input.find(esc) != std::string::npos);
                 (void)hasEscape;
             }
         }
-        
+
         // Check for UTF-8 sequences
         bool hasUTF8 = false;
         for (size_t i = 0; i < input.length(); i++) {
@@ -199,9 +195,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
             // Remove quotes and commas
             std::string clean;
             for (char c : token) {
-                if (isdigit(c)) clean += c;
+                if (isdigit(c))
+                    clean += c;
             }
-            
+
             if (clean.length() > 10) {
                 // Could be a large crypto amount
                 try {
@@ -220,18 +217,23 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
         int braceOpen = 0, braceClose = 0;
         int bracketOpen = 0, bracketClose = 0;
         int quoteCount = 0;
-        
+
         for (char c : input) {
-            if (c == '{') braceOpen++;
-            if (c == '}') braceClose++;
-            if (c == '[') bracketOpen++;
-            if (c == ']') bracketClose++;
-            if (c == '"') quoteCount++;
+            if (c == '{')
+                braceOpen++;
+            if (c == '}')
+                braceClose++;
+            if (c == '[')
+                bracketOpen++;
+            if (c == ']')
+                bracketClose++;
+            if (c == '"')
+                quoteCount++;
         }
-        
+
         bool balanced = (braceOpen == braceClose && bracketOpen == bracketClose);
         bool evenQuotes = (quoteCount % 2 == 0);
-        
+
         (void)balanced;
         (void)evenQuotes;
     }
@@ -239,22 +241,19 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     // Test 10: API-specific field extraction
     {
         // BlockCypher API fields
-        const char* bcFields[] = {
-            "address", "balance", "unconfirmed_balance", "final_balance",
-            "n_tx", "txs", "block_height", "block_hash", "fees"
-        };
-        
+        const char* bcFields[] = {"address",       "balance",    "unconfirmed_balance",
+                                  "final_balance", "n_tx",       "txs",
+                                  "block_height",  "block_hash", "fees"};
+
         for (const char* field : bcFields) {
             bool hasField = (input.find(field) != std::string::npos);
             (void)hasField;
         }
-        
+
         // Etherscan API fields
-        const char* ethFields[] = {
-            "result", "status", "message", "gas", "gasPrice", "nonce",
-            "from", "to", "value", "input"
-        };
-        
+        const char* ethFields[] = {"result", "status", "message", "gas",   "gasPrice",
+                                   "nonce",  "from",   "to",      "value", "input"};
+
         for (const char* field : ethFields) {
             bool hasField = (input.find(field) != std::string::npos);
             (void)hasField;
