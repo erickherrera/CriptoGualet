@@ -625,10 +625,9 @@ Result<bool> WalletRepository::validateWalletName(const std::string& walletName)
 }
 
 Result<bool> WalletRepository::validateWalletType(const std::string& walletType) {
-    static const std::set<std::string> validTypes = {
-        "bitcoin", "bitcoin_testnet", "bitcoin_segwit", "bitcoin_segwit_testnet",
-        "litecoin", "ethereum"
-    };
+    static const std::set<std::string> validTypes = {"bitcoin",        "bitcoin_testnet",
+                                                     "bitcoin_segwit", "bitcoin_segwit_testnet",
+                                                     "litecoin",       "ethereum"};
 
     if (validTypes.find(walletType) == validTypes.end()) {
         return Result<bool>("Invalid wallet type", 400);

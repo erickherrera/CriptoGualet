@@ -4,6 +4,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
+#include "include/TestUtils.h"
 #include <chrono>
 #include <iostream>
 #include <map>
@@ -11,7 +12,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "include/TestUtils.h"
 
 // Test configuration
 struct SessionConfig {
@@ -36,8 +36,12 @@ struct UserSession {
         double btcBalance;
     } walletData;
 
-    bool isExpired() const { return MockTime::now() > expiresAt; }
-    bool isFullyAuthenticated() const { return totpAuthenticated && isActive; }
+    bool isExpired() const {
+        return MockTime::now() > expiresAt;
+    }
+    bool isFullyAuthenticated() const {
+        return totpAuthenticated && isActive;
+    }
     void clearSensitiveData() {
         walletData.btcAddress.clear();
         walletData.btcBalance = 0.0;
@@ -63,7 +67,7 @@ class SessionHelpers {
 
     static std::string generateId() {
         static int counter = 0;
-        return "sess_" + std::to_string(++counter) + std::string(20, 'x');
+        return "sess_" + std::to_string(++counter) + std::string(27, 'x');
     }
 };
 
@@ -99,8 +103,12 @@ class SessionManager {
         return it != sessions_.end() ? &it->second : nullptr;
     }
 
-    size_t count() const { return sessions_.size(); }
-    void clear() { sessions_.clear(); }
+    size_t count() const {
+        return sessions_.size();
+    }
+    void clear() {
+        sessions_.clear();
+    }
 };
 
 // Core Tests
@@ -111,7 +119,8 @@ void testSessionLifecycle() {
     std::string id = mgr.create(1, "user1");
 
     // Creation
-    TEST_ASSERT(!id.empty() && id.length() >= SessionConfig::ID_LENGTH, "Session ID should be valid");
+    TEST_ASSERT(!id.empty() && id.length() >= SessionConfig::ID_LENGTH,
+                "Session ID should be valid");
     TEST_ASSERT(mgr.validate(id), "New session should be valid");
 
     // Invalidation
@@ -143,7 +152,8 @@ void testTOTPRequirement() {
     TEST_ASSERT(session.isFullyAuthenticated(), "Session with TOTP should be fully authenticated");
 
     session.totpAuthenticated = false;
-    TEST_ASSERT(!session.isFullyAuthenticated(), "Session without TOTP should not be fully authenticated");
+    TEST_ASSERT(!session.isFullyAuthenticated(),
+                "Session without TOTP should not be fully authenticated");
 
     TEST_PASS();
 }

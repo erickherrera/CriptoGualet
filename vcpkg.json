@@ -16,6 +16,10 @@
     {
       "name": "qtbase",
       "platform": "windows"
+    },
+    {
+      "name": "qtsvg",
+      "platform": "windows"
     }
   ]
 }

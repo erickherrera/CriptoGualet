@@ -11,9 +11,15 @@ target_include_directories(QRGenerator PUBLIC
 
 # Link libqrencode if available
 if(LIBQRENCODE_FOUND)
-  target_include_directories(QRGenerator PRIVATE ${QRENCODE_INCLUDE_DIR})
-  target_link_libraries(QRGenerator PRIVATE ${QRENCODE_LIBRARIES})
-  target_compile_definitions(QRGenerator PRIVATE QRENCODE_AVAILABLE)
+  if(TARGET libqrencode::qrencode)
+    target_link_libraries(QRGenerator PUBLIC libqrencode::qrencode)
+  elseif(TARGET qrencode)
+    target_link_libraries(QRGenerator PUBLIC qrencode)
+  else()
+    target_include_directories(QRGenerator PUBLIC ${QRENCODE_INCLUDE_DIR})
+    target_link_libraries(QRGenerator PUBLIC ${QRENCODE_LIBRARIES})
+  endif()
+  target_compile_definitions(QRGenerator PUBLIC QRENCODE_AVAILABLE)
   message(STATUS "QRGenerator will be built with libqrencode support")
 else()
   message(STATUS "QRGenerator will be built with fallback pattern only")

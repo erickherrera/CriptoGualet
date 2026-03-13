@@ -313,7 +313,7 @@ SendTransactionResult SimpleWallet::BumpTransactionFee(
     // 2. Identify inputs and outputs for replacement
     // BIP125 requirement: Replacement must spend at least one of the same inputs
     std::vector<std::string> input_addresses;
-    
+
     // Extract addresses from inputs
     for (const auto& input : tx_info->inputs) {
         if (!input.addresses.empty()) {
@@ -328,7 +328,8 @@ SendTransactionResult SimpleWallet::BumpTransactionFee(
     }
 
     if (input_addresses.empty()) {
-        // Fallback: just use all addresses associated with inputs if we can't find a direct key match
+        // Fallback: just use all addresses associated with inputs if we can't find a direct key
+        // match
         for (const auto& input : tx_info->inputs) {
             if (!input.addresses.empty()) {
                 input_addresses.push_back(input.addresses[0]);
@@ -337,7 +338,8 @@ SendTransactionResult SimpleWallet::BumpTransactionFee(
     }
 
     if (input_addresses.empty()) {
-        result.error_message = "Could not identify any input addresses in the original transaction.";
+        result.error_message =
+            "Could not identify any input addresses in the original transaction.";
         return result;
     }
 
@@ -366,7 +368,8 @@ SendTransactionResult SimpleWallet::BumpTransactionFee(
                 break;
             }
         }
-        if (!recipient.empty()) break;
+        if (!recipient.empty())
+            break;
     }
 
     if (recipient.empty()) {
@@ -410,7 +413,8 @@ SendTransactionResult SimpleWallet::CreateCPFPTransaction(
                 break;
             }
         }
-        if (!our_address.empty()) break;
+        if (!our_address.empty())
+            break;
     }
 
     if (our_address.empty()) {

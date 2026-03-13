@@ -37,16 +37,20 @@ std::string EtherscanProvider::makeRequest(const std::string& endpoint) {
 
     cpr::Header headers{{"User-Agent", "CriptoGualet/1.0"}};
     try {
-        cpr::Response response = cpr::Get(cpr::Url{url}, cpr::Timeout{10000}, headers, cpr::VerifySsl{true});
-        if (response.status_code == 200) return response.text;
-    } catch (...) {}
+        cpr::Response response =
+            cpr::Get(cpr::Url{url}, cpr::Timeout{10000}, headers, cpr::VerifySsl{true});
+        if (response.status_code == 200)
+            return response.text;
+    } catch (...) {
+    }
     return "";
 }
 
 std::optional<AddressBalance> EtherscanProvider::GetAddressBalance(const std::string& address) {
     std::string endpoint = "?module=account&action=balance&address=" + address + "&tag=latest";
     std::string response = makeRequest(endpoint);
-    if (response.empty()) return std::nullopt;
+    if (response.empty())
+        return std::nullopt;
 
     try {
         json data = json::parse(response);
@@ -57,15 +61,19 @@ std::optional<AddressBalance> EtherscanProvider::GetAddressBalance(const std::st
             balance.balance_eth = EthereumClient::WeiToEth(balance.balance_wei);
             return balance;
         }
-    } catch (...) {}
+    } catch (...) {
+    }
     return std::nullopt;
 }
 
-std::optional<std::vector<Transaction>> EtherscanProvider::GetTransactionHistory(const std::string& address, uint32_t limit) {
-    std::string endpoint = "?module=account&action=txlist&address=" + address +
-                           "&startblock=0&endblock=99999999&page=1&offset=" + std::to_string(limit) + "&sort=desc";
+std::optional<std::vector<Transaction>> EtherscanProvider::GetTransactionHistory(
+    const std::string& address, uint32_t limit) {
+    std::string endpoint =
+        "?module=account&action=txlist&address=" + address +
+        "&startblock=0&endblock=99999999&page=1&offset=" + std::to_string(limit) + "&sort=desc";
     std::string response = makeRequest(endpoint);
-    if (response.empty()) return std::nullopt;
+    if (response.empty())
+        return std::nullopt;
 
     try {
         json data = json::parse(response);
@@ -88,14 +96,16 @@ std::optional<std::vector<Transaction>> EtherscanProvider::GetTransactionHistory
             }
             return transactions;
         }
-    } catch (...) {}
+    } catch (...) {
+    }
     return std::nullopt;
 }
 
 std::optional<GasPrice> EtherscanProvider::GetGasPrice() {
     std::string endpoint = "?module=gastracker&action=gasoracle";
     std::string response = makeRequest(endpoint);
-    if (response.empty()) return std::nullopt;
+    if (response.empty())
+        return std::nullopt;
 
     try {
         json data = json::parse(response);
@@ -107,34 +117,41 @@ std::optional<GasPrice> EtherscanProvider::GetGasPrice() {
             gasPrice.fast_gas_price = result.value("FastGasPrice", "0");
             return gasPrice;
         }
-    } catch (...) {}
+    } catch (...) {
+    }
     return std::nullopt;
 }
 
 std::optional<uint64_t> EtherscanProvider::GetTransactionCount(const std::string& address) {
-    std::string endpoint = "?module=proxy&action=eth_getTransactionCount&address=" + address + "&tag=latest";
+    std::string endpoint =
+        "?module=proxy&action=eth_getTransactionCount&address=" + address + "&tag=latest";
     std::string response = makeRequest(endpoint);
-    if (response.empty()) return std::nullopt;
+    if (response.empty())
+        return std::nullopt;
 
     try {
         json data = json::parse(response);
         if (data.contains("result")) {
             std::string result = data["result"].get<std::string>();
-            if (result.substr(0, 2) == "0x") result = result.substr(2);
+            if (result.substr(0, 2) == "0x")
+                result = result.substr(2);
             return std::stoull(result, nullptr, 16);
         }
-    } catch (...) {}
+    } catch (...) {
+    }
     return std::nullopt;
 }
 
 std::optional<TokenInfo> EtherscanProvider::GetTokenInfo(const std::string& contractAddress) {
     std::string endpoint = "?module=token&action=tokeninfo&contractaddress=" + contractAddress;
     std::string response = makeRequest(endpoint);
-    if (response.empty()) return std::nullopt;
+    if (response.empty())
+        return std::nullopt;
 
     try {
         json data = json::parse(response);
-        if (data["status"] == "1" && data.contains("result") && data["result"].is_array() && !data["result"].empty()) {
+        if (data["status"] == "1" && data.contains("result") && data["result"].is_array() &&
+            !data["result"].empty()) {
             auto token_data = data["result"][0];
             TokenInfo info;
             info.contract_address = token_data.value("contractAddress", "");
@@ -143,39 +160,51 @@ std::optional<TokenInfo> EtherscanProvider::GetTokenInfo(const std::string& cont
             info.decimals = std::stoi(token_data.value("divisor", "0"));
             return info;
         }
-    } catch (...) {}
+    } catch (...) {
+    }
     return std::nullopt;
 }
 
-std::optional<std::string> EtherscanProvider::GetTokenBalance(const std::string& contractAddress, const std::string& userAddress) {
-    std::string endpoint = "?module=account&action=tokenbalance&contractaddress=" + contractAddress +
-                           "&address=" + userAddress + "&tag=latest";
+std::optional<std::string> EtherscanProvider::GetTokenBalance(const std::string& contractAddress,
+                                                              const std::string& userAddress) {
+    std::string endpoint =
+        "?module=account&action=tokenbalance&contractaddress=" + contractAddress +
+        "&address=" + userAddress + "&tag=latest";
     std::string response = makeRequest(endpoint);
-    if (response.empty()) return std::nullopt;
+    if (response.empty())
+        return std::nullopt;
 
     try {
         json data = json::parse(response);
-        if (data["status"] == "1" && data.contains("result")) return data["result"].get<std::string>();
-    } catch (...) {}
+        if (data["status"] == "1" && data.contains("result"))
+            return data["result"].get<std::string>();
+    } catch (...) {
+    }
     return std::nullopt;
 }
 
-std::optional<std::string> EtherscanProvider::BroadcastTransaction(const std::string& signed_tx_hex) {
-    std::string hex_data = (signed_tx_hex.substr(0, 2) == "0x") ? signed_tx_hex : "0x" + signed_tx_hex;
+std::optional<std::string> EtherscanProvider::BroadcastTransaction(
+    const std::string& signed_tx_hex) {
+    std::string hex_data =
+        (signed_tx_hex.substr(0, 2) == "0x") ? signed_tx_hex : "0x" + signed_tx_hex;
     std::string endpoint = "?module=proxy&action=eth_sendRawTransaction&hex=" + hex_data;
     std::string response = makeRequest(endpoint);
-    if (response.empty()) return std::nullopt;
+    if (response.empty())
+        return std::nullopt;
 
     try {
         json data = json::parse(response);
-        if (data.contains("result") && !data["result"].is_null()) return data["result"].get<std::string>();
-    } catch (...) {}
+        if (data.contains("result") && !data["result"].is_null())
+            return data["result"].get<std::string>();
+    } catch (...) {
+    }
     return std::nullopt;
 }
 
 std::pair<bool, std::string> EtherscanProvider::TestConnection() {
     auto gp = GetGasPrice();
-    if (gp) return {true, "Successfully connected to Etherscan"};
+    if (gp)
+        return {true, "Successfully connected to Etherscan"};
     return {false, "Failed to connect to Etherscan"};
 }
 
@@ -187,7 +216,7 @@ EthereumClient::EthereumClient(const std::string& network) : m_network(network) 
 
 void EthereumClient::SetApiToken(const std::string& token) {
     m_apiToken = token;
-    SetNetwork(m_network); // Re-initialize with new token
+    SetNetwork(m_network);  // Re-initialize with new token
 }
 
 void EthereumClient::SetNetwork(const std::string& network) {
@@ -207,15 +236,18 @@ void EthereumClient::ClearProviders() {
 std::optional<AddressBalance> EthereumClient::GetAddressBalance(const std::string& address) {
     for (auto& provider : m_providers) {
         auto result = provider->GetAddressBalance(address);
-        if (result) return result;
+        if (result)
+            return result;
     }
     return std::nullopt;
 }
 
-std::optional<std::vector<Transaction>> EthereumClient::GetTransactionHistory(const std::string& address, uint32_t limit) {
+std::optional<std::vector<Transaction>> EthereumClient::GetTransactionHistory(
+    const std::string& address, uint32_t limit) {
     for (auto& provider : m_providers) {
         auto result = provider->GetTransactionHistory(address, limit);
-        if (result) return result;
+        if (result)
+            return result;
     }
     return std::nullopt;
 }
@@ -223,7 +255,8 @@ std::optional<std::vector<Transaction>> EthereumClient::GetTransactionHistory(co
 std::optional<GasPrice> EthereumClient::GetGasPrice() {
     for (auto& provider : m_providers) {
         auto result = provider->GetGasPrice();
-        if (result) return result;
+        if (result)
+            return result;
     }
     return std::nullopt;
 }
@@ -231,7 +264,8 @@ std::optional<GasPrice> EthereumClient::GetGasPrice() {
 std::optional<uint64_t> EthereumClient::GetTransactionCount(const std::string& address) {
     for (auto& provider : m_providers) {
         auto result = provider->GetTransactionCount(address);
-        if (result) return result;
+        if (result)
+            return result;
     }
     return std::nullopt;
 }
@@ -239,15 +273,18 @@ std::optional<uint64_t> EthereumClient::GetTransactionCount(const std::string& a
 std::optional<TokenInfo> EthereumClient::GetTokenInfo(const std::string& contractAddress) {
     for (auto& provider : m_providers) {
         auto result = provider->GetTokenInfo(contractAddress);
-        if (result) return result;
+        if (result)
+            return result;
     }
     return std::nullopt;
 }
 
-std::optional<std::string> EthereumClient::GetTokenBalance(const std::string& contractAddress, const std::string& userAddress) {
+std::optional<std::string> EthereumClient::GetTokenBalance(const std::string& contractAddress,
+                                                           const std::string& userAddress) {
     for (auto& provider : m_providers) {
         auto result = provider->GetTokenBalance(contractAddress, userAddress);
-        if (result) return result;
+        if (result)
+            return result;
     }
     return std::nullopt;
 }
@@ -255,7 +292,8 @@ std::optional<std::string> EthereumClient::GetTokenBalance(const std::string& co
 std::optional<std::string> EthereumClient::BroadcastTransaction(const std::string& signed_tx_hex) {
     for (auto& provider : m_providers) {
         auto result = provider->BroadcastTransaction(signed_tx_hex);
-        if (result) return result;
+        if (result)
+            return result;
     }
     return std::nullopt;
 }
@@ -264,13 +302,14 @@ std::optional<std::string> EthereumClient::CreateSignedTransaction(
     const std::string& from_address, const std::string& recipientAddress,
     const std::string& value_wei, const std::string& gas_price_wei, uint64_t gas_limit,
     const std::string& private_key_hex, uint64_t chain_id) {
-    
     auto nonce_opt = GetTransactionCount(from_address);
-    if (!nonce_opt) return std::nullopt;
+    if (!nonce_opt)
+        return std::nullopt;
     uint64_t nonce = *nonce_opt;
 
     std::vector<uint8_t> private_key_bytes = RLP::Encoder::HexToBytes(private_key_hex);
-    if (private_key_bytes.size() != 32) return std::nullopt;
+    if (private_key_bytes.size() != 32)
+        return std::nullopt;
 
     std::vector<std::vector<uint8_t>> tx_fields;
     tx_fields.push_back(RLP::Encoder::EncodeUInt(nonce));
@@ -285,10 +324,12 @@ std::optional<std::string> EthereumClient::CreateSignedTransaction(
 
     std::vector<uint8_t> rlp_encoded = RLP::Encoder::EncodeList(tx_fields);
     std::array<uint8_t, 32> tx_hash;
-    if (!Crypto::Keccak256(rlp_encoded.data(), rlp_encoded.size(), tx_hash)) return std::nullopt;
+    if (!Crypto::Keccak256(rlp_encoded.data(), rlp_encoded.size(), tx_hash))
+        return std::nullopt;
 
     Crypto::RecoverableSignature signature;
-    if (!Crypto::SignHashRecoverable(private_key_bytes, tx_hash, signature)) return std::nullopt;
+    if (!Crypto::SignHashRecoverable(private_key_bytes, tx_hash, signature))
+        return std::nullopt;
 
     uint64_t v = chain_id * 2 + 35 + signature.recovery_id;
     std::vector<std::vector<uint8_t>> signed_fields;
@@ -311,13 +352,14 @@ std::optional<std::string> EthereumClient::CreateEIP1559Transaction(
     const std::string& value_wei, const std::string& max_fee_per_gas_wei,
     const std::string& max_priority_fee_per_gas_wei, uint64_t gas_limit,
     const std::string& private_key_hex, uint64_t chain_id) {
-    
     auto nonce_opt = GetTransactionCount(from_address);
-    if (!nonce_opt) return std::nullopt;
+    if (!nonce_opt)
+        return std::nullopt;
     uint64_t nonce = *nonce_opt;
 
     std::vector<uint8_t> private_key_bytes = RLP::Encoder::HexToBytes(private_key_hex);
-    if (private_key_bytes.size() != 32) return std::nullopt;
+    if (private_key_bytes.size() != 32)
+        return std::nullopt;
 
     std::vector<std::vector<uint8_t>> tx_fields;
     tx_fields.push_back(RLP::Encoder::EncodeUInt(chain_id));
@@ -336,10 +378,12 @@ std::optional<std::string> EthereumClient::CreateEIP1559Transaction(
     hash_input.insert(hash_input.end(), rlp_fields.begin(), rlp_fields.end());
 
     std::array<uint8_t, 32> tx_hash;
-    if (!Crypto::Keccak256(hash_input.data(), hash_input.size(), tx_hash)) return std::nullopt;
+    if (!Crypto::Keccak256(hash_input.data(), hash_input.size(), tx_hash))
+        return std::nullopt;
 
     Crypto::RecoverableSignature signature;
-    if (!Crypto::SignHashRecoverable(private_key_bytes, tx_hash, signature)) return std::nullopt;
+    if (!Crypto::SignHashRecoverable(private_key_bytes, tx_hash, signature))
+        return std::nullopt;
 
     std::vector<std::vector<uint8_t>> signed_fields = tx_fields;
     signed_fields.push_back(RLP::Encoder::EncodeUInt(signature.recovery_id));
@@ -360,7 +404,8 @@ bool EthereumClient::IsValidAddress(const std::string& address) {
 }
 
 double EthereumClient::WeiToEth(const std::string& wei_str) {
-    if (wei_str.empty() || wei_str == "0") return 0.0;
+    if (wei_str.empty() || wei_str == "0")
+        return 0.0;
     try {
         if (wei_str.length() > 18) {
             std::string integer_part = wei_str.substr(0, wei_str.length() - 18);
@@ -370,30 +415,36 @@ double EthereumClient::WeiToEth(const std::string& wei_str) {
             std::string decimal_str = std::string(18 - wei_str.length(), '0') + wei_str;
             return std::stod("0." + decimal_str);
         }
-    } catch (...) { return 0.0; }
+    } catch (...) {
+        return 0.0;
+    }
 }
 
 std::string EthereumClient::EthToWei(double eth) {
-    if (eth <= 0.0) return "0";
+    if (eth <= 0.0)
+        return "0";
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(18) << eth;
     std::string s = oss.str();
     size_t dot = s.find('.');
     std::string integer = (dot == std::string::npos) ? s : s.substr(0, dot);
     std::string decimal = (dot == std::string::npos) ? "" : s.substr(dot + 1);
-    if (decimal.length() < 18) decimal += std::string(18 - decimal.length(), '0');
-    else decimal = decimal.substr(0, 18);
+    if (decimal.length() < 18)
+        decimal += std::string(18 - decimal.length(), '0');
+    else
+        decimal = decimal.substr(0, 18);
     std::string res = integer + decimal;
     size_t first = res.find_first_not_of('0');
     return (first == std::string::npos) ? "0" : res.substr(first);
 }
 
 std::string EthereumClient::GweiToWei(double gwei) {
-    if (gwei <= 0.0) return "0";
+    if (gwei <= 0.0)
+        return "0";
     long double wei = static_cast<long double>(gwei) * 1e9L;
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(0) << wei;
     return oss.str();
 }
 
-} // namespace EthereumService
+}  // namespace EthereumService

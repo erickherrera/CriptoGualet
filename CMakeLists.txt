@@ -126,6 +126,19 @@ if(WIN32)
   endif()
 endif()
 
+# Enable vcpkg integration (must be before project() call)
+# Presets may already set CMAKE_TOOLCHAIN_FILE, so only set if not already defined
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  if(DEFINED ENV{VCPKG_ROOT})
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Path to vcpkg toolchain file")
+  elseif(UNIX AND EXISTS "$ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake")
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Path to vcpkg toolchain file")
+    message(STATUS "VCPKG_ROOT not found, using fallback: $ENV{HOME}/vcpkg")
+  endif()
+endif()
+
 # Declare the project EARLY so VS presets/toolsets apply cleanly
 project(CriptoGualet LANGUAGES CXX)
 
@@ -198,6 +211,9 @@ endfunction()
 # Put built EXEs/DLLs in a predictable place: <build>/bin
 # (launch.vs.json uses this)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Disable vcpkg auto-deployment to avoid conflicts with manual/windeployqt deployment
+set(VCPKG_APPLOCAL_DEPS OFF CACHE BOOL "Disable vcpkg auto-deployment")
 
 # -------------------------------
 # Compiler information
@@ -348,17 +364,8 @@ set(CRYPTOGUWALET_VS_STARTUP_TARGET "" CACHE STRING "Default Visual Studio start
 # Find Qt6 if GUI is enabled
 if(BUILD_GUI_QT)
   if(WIN32)
-    # Add common Qt roots; exact ABI will be resolved by find_package
-    list(APPEND CMAKE_PREFIX_PATH
-      "C:/Program Files/Qt"
-      "C:/Qt"
-      "C:/Program Files (x86)/Qt"
-    )
-    if(DEFINED QT_DIR AND EXISTS "${QT_DIR}")
-      list(APPEND CMAKE_PREFIX_PATH "${QT_DIR}")
-      message(STATUS "Using QT_DIR: ${QT_DIR}")
-    endif()
     # Enhanced Qt path resolution for different compilers
+    # Priority: System Qt first (has both debug/release), then vcpkg
     file(GLOB QT_VERSIONS "C:/Program Files/Qt/6.*")
     foreach(QT_VERSION ${QT_VERSIONS})
       if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
@@ -367,17 +374,15 @@ if(BUILD_GUI_QT)
           "${QT_VERSION}/msvc2019_64")
       elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         if(CLANG_MODE STREQUAL "CLANGCL")
-          # ClangCL should use MSVC-built Qt for ABI compatibility
           list(APPEND CMAKE_PREFIX_PATH
             "${QT_VERSION}/msvc2022_64"
             "${QT_VERSION}/msvc2019_64"
             "${QT_VERSION}/clang_64")
         else()
-          # Pure Clang can use native Qt builds
           list(APPEND CMAKE_PREFIX_PATH
             "${QT_VERSION}/clang_64"
             "${QT_VERSION}/llvm-mingw_64"
-            "${QT_VERSION}/msvc2022_64")  # Fallback
+            "${QT_VERSION}/msvc2022_64")
         endif()
       else()
         list(APPEND CMAKE_PREFIX_PATH
@@ -386,6 +391,10 @@ if(BUILD_GUI_QT)
           "${QT_VERSION}/clang_64")
       endif()
     endforeach()
+    # Add vcpkg Qt as fallback (only has release builds)
+    if(DEFINED VCPKG_INSTALLED_DIR)
+      list(APPEND CMAKE_PREFIX_PATH "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+    endif()
   elseif(UNIX AND NOT APPLE)
     # Linux Qt6 detection
     list(APPEND CMAKE_PREFIX_PATH
@@ -410,8 +419,30 @@ if(BUILD_GUI_QT)
     endif()
   endif()
 
+  # Find Qt6 - use system Qt first, then vcpkg as fallback
+  # Priority: System Qt (has debug+release), then vcpkg (release only)
+  set(QT6_SYSTEM_PATHS "C:/Program Files/Qt/6.8.3/msvc2022_64" "C:/Program Files/Qt/6.9.1/msvc2022_64")
+  
+  # Add system Qt to CMAKE_PREFIX_PATH FIRST (highest priority)
+  foreach(QT_PATH ${QT6_SYSTEM_PATHS})
+    if(EXISTS "${QT_PATH}")
+      list(INSERT CMAKE_PREFIX_PATH 0 "${QT_PATH}")
+      list(INSERT CMAKE_PREFIX_PATH 0 "${QT_PATH}/lib/cmake")
+    endif()
+  endforeach()
+  
   find_package(Qt6 QUIET COMPONENTS Core Widgets Gui Svg Network Concurrent)
+  
+  # Force Qt6_DIR to system Qt if found (override vcpkg Qt)
   if(Qt6_FOUND)
+    foreach(QT_PATH ${QT6_SYSTEM_PATHS})
+      if(EXISTS "${QT_PATH}/lib/cmake/Qt6")
+        set(Qt6_DIR "${QT_PATH}/lib/cmake/Qt6" CACHE PATH "Qt6 directory" FORCE)
+        message(STATUS "Using system Qt6: ${Qt6_DIR}")
+        break()
+      endif()
+    endforeach()
+    
     qt6_standard_project_setup()
     message(STATUS "Qt6 found at ${Qt6_DIR}")
     message(STATUS "Qt GUI will be built with ${CMAKE_CXX_COMPILER_ID}")
@@ -438,17 +469,15 @@ endif()
 # Add cmake modules directory
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# Find QR code library - try vcpkg first, then custom finder
-find_package(PkgConfig QUIET)
-if(PKG_CONFIG_FOUND)
-    pkg_check_modules(LIBQRENCODE QUIET libqrencode)
-    if(LIBQRENCODE_FOUND)
-        set(QRENCODE_INCLUDE_DIR ${LIBQRENCODE_INCLUDE_DIRS} CACHE PATH "libqrencode include dir" FORCE)
-        set(QRENCODE_LIBRARIES ${LIBQRENCODE_LINK_LIBRARIES} CACHE STRING "libqrencode libraries" FORCE)
-    endif()
-endif()
-
-if(NOT LIBQRENCODE_FOUND)
+# Find libqrencode (use vcpkg first)
+find_package(libqrencode CONFIG QUIET)
+if(libqrencode_FOUND)
+    set(LIBQRENCODE_FOUND TRUE CACHE BOOL "libqrencode found" FORCE)
+    set(QRENCODE_LIBRARIES qrencode CACHE STRING "libqrencode libraries" FORCE)
+    # include directory is handled by the imported target
+    message(STATUS "libqrencode found via vcpkg CONFIG")
+else()
+    # Fallback to manual search as before...
     find_package(LibQREncode QUIET)
     if(LibQREncode_FOUND)
         set(LIBQRENCODE_FOUND TRUE CACHE BOOL "libqrencode found" FORCE)
@@ -457,56 +486,39 @@ if(NOT LIBQRENCODE_FOUND)
     endif()
 endif()
 
-# Fallback to manual search
+# Fallback to manual search if still not found
 if(NOT LIBQRENCODE_FOUND)
-    # Check vcpkg installed directory first
+    # Check vcpkg installed directory first (useful if CONFIG is missing)
     find_path(QRENCODE_INCLUDE_DIR NAMES qrencode.h
         PATHS
-            ${VCPKG_INSTALLED_DIR}/x64-windows/include
-            ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include
+            "${VCPKG_INSTALLED_DIR}/x64-windows/include"
+            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include"
         NO_DEFAULT_PATH
     )
 
     find_library(QRENCODE_LIBRARY_RELEASE NAMES qrencode
         PATHS
-            ${VCPKG_INSTALLED_DIR}/x64-windows/lib
-            ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
+            "${VCPKG_INSTALLED_DIR}/x64-windows/lib"
+            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
         NO_DEFAULT_PATH
     )
 
     find_library(QRENCODE_LIBRARY_DEBUG NAMES qrencoded
         PATHS
-            ${VCPKG_INSTALLED_DIR}/x64-windows/debug/lib
-            ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
+            "${VCPKG_INSTALLED_DIR}/x64-windows/debug/lib"
+            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib"
         NO_DEFAULT_PATH
     )
 
-    # If not found in vcpkg, try system paths
-    if(NOT QRENCODE_INCLUDE_DIR)
-        find_path(QRENCODE_INCLUDE_DIR NAMES qrencode.h)
-    endif()
-
-    if(NOT QRENCODE_LIBRARY_RELEASE)
-        find_library(QRENCODE_LIBRARY_RELEASE qrencode)
-    endif()
-
-    if(NOT QRENCODE_LIBRARY_DEBUG)
-        find_library(QRENCODE_LIBRARY_DEBUG qrencoded)
-    endif()
-
-    if(QRENCODE_LIBRARY_DEBUG)
-        set(QRENCODE_LIBRARIES optimized ${QRENCODE_LIBRARY_RELEASE} debug ${QRENCODE_LIBRARY_DEBUG})
-    else()
-        set(QRENCODE_LIBRARIES ${QRENCODE_LIBRARY_RELEASE})
-    endif()
-
-    if(QRENCODE_INCLUDE_DIR AND QRENCODE_LIBRARIES)
+    if(QRENCODE_INCLUDE_DIR AND QRENCODE_LIBRARY_RELEASE)
         set(LIBQRENCODE_FOUND TRUE CACHE BOOL "libqrencode found" FORCE)
+        if(QRENCODE_LIBRARY_DEBUG)
+            set(QRENCODE_LIBRARIES optimized ${QRENCODE_LIBRARY_RELEASE} debug ${QRENCODE_LIBRARY_DEBUG} CACHE STRING "libqrencode libraries" FORCE)
+        else()
+            set(QRENCODE_LIBRARIES ${QRENCODE_LIBRARY_RELEASE} CACHE STRING "libqrencode libraries" FORCE)
+        endif()
         set(QRENCODE_INCLUDE_DIR ${QRENCODE_INCLUDE_DIR} CACHE PATH "libqrencode include dir" FORCE)
-        set(QRENCODE_LIBRARIES ${QRENCODE_LIBRARIES} CACHE STRING "libqrencode libraries" FORCE)
-        message(STATUS "libqrencode found (manual detection)")
-        message(STATUS "  Include: ${QRENCODE_INCLUDE_DIR}")
-        message(STATUS "  Library: ${QRENCODE_LIBRARIES}")
+        message(STATUS "libqrencode found via manual vcpkg search")
     endif()
 endif()
 
@@ -556,7 +568,7 @@ add_subdirectory(frontend/qt)
 enable_testing()
 add_subdirectory(Tests)
 
-# Set Visual Studio startup target if requested (must be after add_subdirectory)
+# Set Visual Studio startup target (must be after add_subdirectory)
 if(CRYPTOGUWALET_VS_STARTUP_TARGET)
   if(TARGET ${CRYPTOGUWALET_VS_STARTUP_TARGET})
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${CRYPTOGUWALET_VS_STARTUP_TARGET})
@@ -564,6 +576,9 @@ if(CRYPTOGUWALET_VS_STARTUP_TARGET)
   else()
     message(WARNING "Requested VS startup target '${CRYPTOGUWALET_VS_STARTUP_TARGET}' does not exist")
   endif()
+elseif(TARGET CriptoGualetQt)
+  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT CriptoGualetQt)
+  message(STATUS "Visual Studio startup target automatically set to: CriptoGualetQt")
 endif()
 
 # Test executables are now defined in Tests/CMakeLists.txt

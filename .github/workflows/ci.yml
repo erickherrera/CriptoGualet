@@ -141,19 +141,48 @@ jobs:
         $buildExitCode = $LASTEXITCODE
         if ($buildExitCode -ne 0) {
           Write-Host "`n❌ BUILD FAILED with exit code $buildExitCode" -ForegroundColor Red
-          Write-Host "`n=== Build Log (last 100 lines) ===" -ForegroundColor Yellow
-          Get-Content ${{github.workspace}}/build.log -Tail 100
+          Write-Host "`n=== SEARCHING FOR ERRORS (not warnings) ===" -ForegroundColor Yellow
+          # Filter for actual errors, not warnings
+          $errors = Get-Content ${{github.workspace}}/build.log | Where-Object { 
+            $_ -match "error [A-Z]*\d*:" -or 
+            $_ -match "fatal error" -or 
+            $_ -match "cannot find" -or 
+            $_ -match "undefined reference" -or
+            $_ -match "unresolved external" -or
+            $_ -match "LINK.*error" -or
+            $_ -match "Build FAILED"
+          }
+          if ($errors) {
+            Write-Host "`n=== ERRORS FOUND ===" -ForegroundColor Red
+            $errors | Select-Object -Last 30 | ForEach-Object { Write-Host $_ }
+          } else {
+            Write-Host "`n=== Build Log (last 100 lines) ===" -ForegroundColor Yellow
+            Get-Content ${{github.workspace}}/build.log -Tail 100
+          }
           exit $buildExitCode
         }
         Write-Host "`n✅ Build completed successfully" -ForegroundColor Green
         
         # Build test executables explicitly
         Write-Host "`nBuilding test executables..." -ForegroundColor Cyan
-        cmake --build ${{github.workspace}}/build --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness --parallel 2>&1 | Tee-Object -FilePath ${{github.workspace}}/test_build.log
+        cmake --build ${{github.workspace}}/build --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness test_segwit test_rbf_cpfp test_ethereum_robustness --parallel 2>&1 | Tee-Object -FilePath ${{github.workspace}}/test_build.log
         $testBuildExitCode = $LASTEXITCODE
         if ($testBuildExitCode -ne 0) {
           Write-Host "`n❌ TEST BUILD FAILED with exit code $testBuildExitCode" -ForegroundColor Red
-          Get-Content ${{github.workspace}}/test_build.log -Tail 50
+          Write-Host "`n=== SEARCHING FOR ERRORS ===" -ForegroundColor Yellow
+          $errors = Get-Content ${{github.workspace}}/test_build.log | Where-Object { 
+            $_ -match "error [A-Z]*\d*:" -or 
+            $_ -match "fatal error" -or 
+            $_ -match "cannot find" -or 
+            $_ -match "undefined reference" -or
+            $_ -match "unresolved external"
+          }
+          if ($errors) {
+            Write-Host "`n=== ERRORS FOUND ===" -ForegroundColor Red
+            $errors | Select-Object -Last 20 | ForEach-Object { Write-Host $_ }
+          } else {
+            Get-Content ${{github.workspace}}/test_build.log -Tail 50
+          }
           exit $testBuildExitCode
         }
         Write-Host "`n✅ Test executables built successfully" -ForegroundColor Green
@@ -295,7 +324,7 @@ jobs:
         $ErrorActionPreference = "Stop"
         $workspace = $env:GITHUB_WORKSPACE
         Write-Host "Building test executables..." -ForegroundColor Cyan
-        cmake --build "$workspace/build" --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness --parallel 2>&1
+        cmake --build "$workspace/build" --config Release --target test_session_consolidated test_repository_consolidated test_signing_robustness test_segwit test_rbf_cpfp test_ethereum_robustness --parallel 2>&1
         if ($LASTEXITCODE -ne 0) {
           Write-Host "❌ Test build failed!" -ForegroundColor Red
           exit 1

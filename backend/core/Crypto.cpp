@@ -2932,7 +2932,8 @@ bool IsValidAddressFormat(const std::string& address, ChainType chain) {
             if (first != '1' && first != '3' && address.substr(0, 3) != "bc1") {
                 return false;
             }
-        } else if (chain == ChainType::BITCOIN_TESTNET || chain == ChainType::BITCOIN_SEGWIT_TESTNET) {
+        } else if (chain == ChainType::BITCOIN_TESTNET ||
+                   chain == ChainType::BITCOIN_SEGWIT_TESTNET) {
             if (first != 'm' && first != 'n' && first != '2' && address.substr(0, 3) != "tb1") {
                 return false;
             }
