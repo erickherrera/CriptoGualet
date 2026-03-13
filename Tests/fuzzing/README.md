@@ -244,6 +244,27 @@ Create a dictionary for better coverage:
 
 ## Troubleshooting
 
+### Windows: "container-overflow" False Positives
+
+On Windows, you may encounter AddressSanitizer container-overflow errors that are false positives from the fuzzer's internal mutation tracking (in `__sanitizer_weak_hook_memmem`), not actual vulnerabilities in your code.
+
+**Solution:** Disable container overflow detection when running fuzzers on Windows:
+
+```bash
+# Windows (Command Prompt)
+set ASAN_OPTIONS=detect_container_overflow=0
+fuzz_address_parsing.exe -max_total_time=300
+
+# Windows (PowerShell)
+$env:ASAN_OPTIONS="detect_container_overflow=0"
+./fuzz_address_parsing.exe -max_total_time=300
+
+# Linux/macOS (not typically needed, but same option works)
+ASAN_OPTIONS=detect_container_overflow=0 ./fuzz_address_parsing -max_total_time=300
+```
+
+This is a known issue with ASan's strict container bounds checking interacting with libFuzzer's memory operations during input mutation. The crypto operations are still fully tested and protected by other ASan checks (heap overflow, use-after-free, etc.).
+
 ### "undefined reference to `LLVMFuzzerTestOneInput`"
 
 Ensure you're linking with `-fsanitize=fuzzer`:
