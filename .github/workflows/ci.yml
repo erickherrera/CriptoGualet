@@ -480,7 +480,7 @@ jobs:
   fuzzing:
     name: Fuzzing Tests
     runs-on: ubuntu-latest
-    needs: build
+    # Run independently - fuzzing builds its own targets with different flags
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[fuzz]')
     
     steps:
