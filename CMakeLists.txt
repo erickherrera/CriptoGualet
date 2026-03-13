@@ -554,6 +554,76 @@ else()
   message(STATUS "BlockCypher API dependencies not found - run 'vcpkg install' to install cpr and nlohmann-json")
 endif()
 
+# -----------------------------------------------------------------------------
+# Fuzzing Support - Must be configured BEFORE adding backend components
+# -----------------------------------------------------------------------------
+option(ENABLE_FUZZING "Enable fuzzing targets (requires Clang with libFuzzer)" OFF)
+
+if(ENABLE_FUZZING)
+  message(STATUS "Fuzzing support enabled - configuring sanitizer flags")
+  
+  # CRITICAL: Sanitizer flags must be applied globally BEFORE any targets are defined
+  # All linked libraries must be compiled with the same sanitizer instrumentation
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(FUZZER_FLAGS "-fsanitize=fuzzer,address,undefined")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FUZZER_FLAGS}" CACHE STRING "CXX flags for fuzzing" FORCE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${FUZZER_FLAGS}" CACHE STRING "C flags for fuzzing" FORCE)
+    
+    # On Windows with MSVC-style builds, we need to use static runtime (MT) instead
+    # of dynamic (MD) because the fuzzer libraries are built with MT_StaticRelease
+    if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio")
+      set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded" CACHE STRING "MSVC runtime for fuzzing" FORCE)
+      message(STATUS "Set MSVC runtime library to MultiThreaded (MT) for fuzzing compatibility")
+    endif()
+    
+    # On Windows with MSVC-style builds and Visual Studio generator, we need to
+    # explicitly link the sanitizer runtime libraries since lld-link doesn't
+    # automatically include them like the clang driver does
+    if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio")
+      # Find clang resource directory
+      get_filename_component(CLANG_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+      # Go up to find lib directory (from bin to lib)
+      set(CLANG_LIB_DIR "${CLANG_DIR}/../lib/clang")
+      # Find the version directory (e.g., 20)
+      file(GLOB CLANG_VERSION_DIRS "${CLANG_LIB_DIR}/*")
+      if(CLANG_VERSION_DIRS)
+        list(GET CLANG_VERSION_DIRS 0 CLANG_VERSION_DIR)
+        set(CLANG_RT_DIR "${CLANG_VERSION_DIR}/lib/windows")
+        
+        if(EXISTS "${CLANG_RT_DIR}")
+          # Store sanitizer library paths for later use by fuzzing targets
+          set(FUZZER_SANITIZER_LIBS
+            "${CLANG_RT_DIR}/clang_rt.fuzzer-x86_64.lib"
+            "${CLANG_RT_DIR}/clang_rt.asan_dynamic-x86_64.lib"
+            "${CLANG_RT_DIR}/clang_rt.asan_dynamic_runtime_thunk-x86_64.lib"
+            "${CLANG_RT_DIR}/clang_rt.ubsan_standalone-x86_64.lib"
+            "${CLANG_RT_DIR}/clang_rt.ubsan_standalone_cxx-x86_64.lib"
+            CACHE STRING "Fuzzer sanitizer libraries" FORCE
+          )
+          
+          message(STATUS "Found clang runtime libraries at: ${CLANG_RT_DIR}")
+          message(STATUS "Sanitizer libraries will be linked to fuzzing targets")
+        else()
+          message(WARNING "Could not find clang runtime directory: ${CLANG_RT_DIR}")
+        endif()
+      else()
+        message(WARNING "Could not find clang version directory in: ${CLANG_LIB_DIR}")
+      endif()
+    else()
+      # On non-Windows platforms, standard linker flags work
+      set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${FUZZER_FLAGS}" CACHE STRING "Linker flags for fuzzing" FORCE)
+    endif()
+    
+    message(STATUS "Applied sanitizer flags globally for fuzzing build: ${FUZZER_FLAGS}")
+  else()
+    message(FATAL_ERROR "Fuzzing requires Clang compiler with libFuzzer support. "
+                        "Current compiler: ${CMAKE_CXX_COMPILER_ID}. "
+                        "Please use Clang or disable fuzzing with -DENABLE_FUZZING=OFF")
+  endif()
+else()
+  message(STATUS "Fuzzing support disabled (use -DENABLE_FUZZING=ON to enable)")
+endif()
+
 # Add backend components
 add_subdirectory(backend/utils)
 add_subdirectory(backend/blockchain)

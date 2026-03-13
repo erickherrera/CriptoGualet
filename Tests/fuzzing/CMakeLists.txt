@@ -1,5 +1,6 @@
 # Comprehensive Fuzzing Suite for CriptoGualet
 # Requires libFuzzer (included with Clang) or standalone libFuzzer library
+# Cross-platform: Windows, Linux, macOS
 
 option(ENABLE_FUZZING "Enable fuzzing targets" OFF)
 option(FUZZING_BUILD "Build for fuzzing (disables some safety checks)" OFF)
@@ -8,22 +9,22 @@ if(ENABLE_FUZZING)
     # Check for libFuzzer support
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         message(STATUS "Fuzzing enabled with Clang/libFuzzer")
-        set(FUZZER_FLAGS "-fsanitize=fuzzer,address,undefined")
-        set(FUZZER_LINK_FLAGS "-fsanitize=fuzzer,address,undefined")
+        # Note: Sanitizer flags are already applied globally in Tests/CMakeLists.txt
     else()
         message(FATAL_ERROR "Fuzzing requires Clang compiler with libFuzzer support. "
                             "Please use Clang or disable fuzzing with -DENABLE_FUZZING=OFF")
     endif()
 
-    # Common fuzzing configuration
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FUZZER_FLAGS}")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${FUZZER_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${FUZZER_LINK_FLAGS}")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${FUZZER_LINK_FLAGS}")
-
-    # Disable certain optimizations that interfere with fuzzing
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O1 -g")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O1 -g")
+    # Platform-specific libraries
+    if(WIN32)
+        set(FUZZING_PLATFORM_LIBS ws2_32 wsock32 bcrypt crypt32)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(FUZZING_PLATFORM_LIBS pthread dl)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")  # macOS
+        set(FUZZING_PLATFORM_LIBS pthread)
+    else()
+        set(FUZZING_PLATFORM_LIBS "")
+    endif()
 
     # Fuzzing support libraries
     set(FUZZING_LIBS
@@ -51,10 +52,34 @@ if(ENABLE_FUZZING)
             "${CMAKE_SOURCE_DIR}/backend/repository/include"
         )
 
-        target_link_libraries(${target_name} PRIVATE ${FUZZING_LIBS})
+        # Target-specific compile options (sanitizer flags are already applied globally)
+        target_compile_options(${target_name} PRIVATE
+            -O1
+            -g
+        )
 
-        if(WIN32)
-            target_link_libraries(${target_name} PRIVATE ws2_32 wsock32 bcrypt crypt32)
+        # MSVC-specific: Set runtime library per-target
+        # Note: Fuzzer libraries are built with MT_StaticRelease, so we must match
+        if(MSVC)
+            set_property(TARGET ${target_name} PROPERTY
+                MSVC_RUNTIME_LIBRARY "MultiThreaded"
+            )
+            # Iterator debug level for compatibility
+            target_compile_definitions(${target_name} PRIVATE
+                _ITERATOR_DEBUG_LEVEL=0
+            )
+        endif()
+
+        target_link_libraries(${target_name} PRIVATE 
+            ${FUZZING_LIBS}
+            ${FUZZING_PLATFORM_LIBS}
+        )
+
+        # On Windows with Visual Studio, link sanitizer runtime libraries explicitly
+        if(WIN32 AND CMAKE_GENERATOR MATCHES "Visual Studio" AND DEFINED FUZZER_SANITIZER_LIBS)
+            target_link_libraries(${target_name} PRIVATE 
+                ${FUZZER_SANITIZER_LIBS}
+            )
         endif()
 
         # Set properties for fuzzing
@@ -156,5 +181,7 @@ if(ENABLE_FUZZING)
     message(STATUS "  - run_fuzzers_5min (run all fuzzers for 5 minutes)")
     message(STATUS "  - run_fuzzers_1hour (run all fuzzers for 1 hour)")
     message(STATUS "  - minimize_corpus (merge and minimize corpus)")
+    message(STATUS "  - Platform: ${CMAKE_SYSTEM_NAME}")
+    message(STATUS "  - Compiler: ${CMAKE_CXX_COMPILER_ID}")
 
 endif()

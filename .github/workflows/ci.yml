@@ -475,3 +475,108 @@ jobs:
           Write-Host "✅ Static analysis passed!" -ForegroundColor Green
         }
         Write-Host "========================================" -ForegroundColor Yellow
+
+  # Job 6: Fuzzing Tests (Linux with Clang for better libFuzzer support)
+  fuzzing:
+    name: Fuzzing Tests
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[fuzz]')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang llvm cmake ninja-build
+        clang --version
+        
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '4bb07a326d9b9bce3703272a509e5bc25dd9cfd5'
+        
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{github.workspace}}/vcpkg_installed
+          ${{github.workspace}}/vcpkg
+        key: vcpkg-fuzzing-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-fuzzing-${{ runner.os }}-
+          
+    - name: Configure CMake with Fuzzing
+      shell: bash
+      run: |
+        cmake -B build \
+          -S . \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_C_COMPILER=clang \
+          -DENABLE_FUZZING=ON \
+          -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake \
+          -DVCPKG_TARGET_TRIPLET=x64-linux
+        
+    - name: Build Fuzzers
+      shell: bash
+      run: |
+        echo "Building fuzzing targets..."
+        cmake --build build --target fuzz_address_parsing --parallel $(nproc)
+        cmake --build build --target fuzz_crypto_operations --parallel $(nproc)
+        
+        # Check if fuzzers were built
+        if [ -f "build/fuzzers/fuzz_address_parsing" ]; then
+          echo "✅ fuzz_address_parsing built successfully"
+        else
+          echo "❌ fuzz_address_parsing not found"
+          find build -name "fuzz_*" -type f
+          exit 1
+        fi
+        
+    - name: Run Fuzzers (Smoke Test - 2 minutes)
+      shell: bash
+      run: |
+        cd build/fuzzers
+        
+        echo "Running fuzz_address_parsing for 120 seconds..."
+        timeout 125 ./fuzz_address_parsing -max_total_time=120 -max_len=4096 -print_final_stats=1 2>&1 | tee fuzz_address_parsing.log || true
+        
+        echo "Running fuzz_crypto_operations for 120 seconds..."
+        timeout 125 ./fuzz_crypto_operations -max_total_time=120 -max_len=4096 -print_final_stats=1 2>&1 | tee fuzz_crypto_operations.log || true
+        
+        # Check for crashes
+        if ls crash-* 1> /dev/null 2>&1; then
+          echo "❌ CRASHES DETECTED!"
+          echo "Crashes found:"
+          ls -la crash-*
+          exit 1
+        else
+          echo "✅ No crashes detected"
+        fi
+        
+    - name: Upload Fuzzing Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: fuzzing-results
+        path: |
+          build/fuzzers/*.log
+          build/fuzzers/crash-*
+          build/fuzzers/corpus/
+        retention-days: 7
+        if-no-files-found: ignore
+        
+    - name: Upload Corpus (for regression testing)
+      uses: actions/upload-artifact@v4
+      if: success()
+      with:
+        name: fuzzing-corpus
+        path: build/fuzzers/corpus/
+        retention-days: 30
+        if-no-files-found: ignore
+

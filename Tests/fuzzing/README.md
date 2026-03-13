@@ -18,22 +18,49 @@ This fuzzing suite targets critical components of the wallet:
 - **CMake** 3.16 or higher
 - **AddressSanitizer** and **UndefinedBehaviorSanitizer** (included with Clang)
 
-### Windows Setup
+### Platform-Specific Setup
 
+#### Windows
 1. Install LLVM/Clang from https://releases.llvm.org/
 2. Ensure `clang-cl.exe` is in your PATH
 3. Use the provided Clang-CL CMake presets
+
+#### Linux (Ubuntu/Debian)
+```bash
+sudo apt-get update
+sudo apt-get install -y clang llvm cmake
+```
+
+#### macOS
+```bash
+brew install llvm
+# Add to PATH: export PATH="/usr/local/opt/llvm/bin:$PATH"
+```
 
 ## Building Fuzzers
 
 ### Using CMake Presets (Recommended)
 
+#### Windows (Clang-CL)
 ```bash
-# Configure with Clang-CL Debug and fuzzing enabled
-cmake --preset win-vs2022-clangcl-debug -DENABLE_FUZZING=ON
+# Configure with Clang-CL and fuzzing enabled
+cmake --preset win-vs2022-clangcl-release -DENABLE_FUZZING=ON
 
 # Build all fuzzers
-cmake --build out/build/win-vs2022-clangcl-debug --target fuzz_address_parsing
+cmake --build out/build/win-vs2022-clangcl-release --target fuzz_address_parsing
+```
+
+#### Linux/macOS
+```bash
+# Configure with Clang
+cmake -B build -S . \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_COMPILER=clang++ \
+    -DCMAKE_C_COMPILER=clang \
+    -DENABLE_FUZZING=ON
+
+# Build fuzzers
+cmake --build build --target fuzz_address_parsing --parallel
 ```
 
 ### Manual CMake Configuration
@@ -143,32 +170,31 @@ bt  # Get backtrace when it crashes
 
 ## Continuous Integration
 
-### GitHub Actions Example
+### GitHub Actions (Implemented)
+
+The project now includes automated fuzzing in CI/CD. Fuzzing runs on every PR and push to master:
 
 ```yaml
-name: Fuzzing
-on: [push, pull_request]
+# See .github/workflows/ci.yml for the actual implementation
+```
 
-jobs:
-  fuzz:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Install Clang
-        run: sudo apt-get install -y clang llvm
-      
-      - name: Configure
-        run: cmake -B build -DENABLE_FUZZING=ON -DCMAKE_CXX_COMPILER=clang++
-      
-      - name: Build Fuzzers
-        run: cmake --build build --target run_fuzzers_5min
-      
-      - name: Upload Corpus
-        uses: actions/upload-artifact@v3
-        with:
-          name: fuzzing-corpus
-          path: build/fuzzers/corpus/
+**CI Configuration:**
+- **Platform**: Ubuntu Latest (Linux)
+- **Compiler**: Clang with libFuzzer
+- **Duration**: 2 minutes per fuzzer (smoke test)
+- **Artifacts**: Corpus and crash files uploaded automatically
+- **Trigger**: PRs, master branch pushes, or commits with `[fuzz]` tag
+
+### Local CI Simulation
+
+Test fuzzing locally before pushing:
+
+```bash
+# Linux/macOS
+./fuzz_address_parsing -max_total_time=120 -max_len=4096
+
+# Windows
+fuzz_address_parsing.exe -max_total_time=120 -max_len=4096
 ```
 
 ## Performance Tuning
