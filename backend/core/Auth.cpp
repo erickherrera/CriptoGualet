@@ -848,7 +848,8 @@ AuthResponse RestoreFromSeed(const std::string& username, const std::string& mne
         return {AuthResult::INVALID_CREDENTIALS, "Mnemonic checksum is invalid."};
     }
 
-    auto encryptedSeedResult = GetWalletRepo()->storeEncryptedSeed(userId, passwordForReauth, words);
+    auto encryptedSeedResult =
+        GetWalletRepo()->storeEncryptedSeed(userId, passwordForReauth, words);
     if (!encryptedSeedResult.success) {
         return {AuthResult::SYSTEM_ERROR, "Failed to store seed in the encrypted database."};
     }
@@ -1394,7 +1395,8 @@ AuthResponse RegisterUser(const std::string& username, const std::string& passwo
 
         // Store encrypted seed in database if generation was successful
         if (seedOk && !generatedMnemonic.empty()) {
-            auto seedResult = GetWalletRepo()->storeEncryptedSeed(userId, password, generatedMnemonic);
+            auto seedResult =
+                GetWalletRepo()->storeEncryptedSeed(userId, password, generatedMnemonic);
             if (seedResult.success) {
                 AUTH_DEBUG_LOG_WRITE(logFile, "Database: Encrypted seed stored successfully\n");
             } else {
@@ -1556,7 +1558,8 @@ AuthResponse RegisterUserWithMnemonic(const std::string& username, const std::st
 
         // Store encrypted seed in database if generation was successful
         if (seedOk && !generatedMnemonic.empty()) {
-            auto seedResult = GetWalletRepo()->storeEncryptedSeed(userId, password, generatedMnemonic);
+            auto seedResult =
+                GetWalletRepo()->storeEncryptedSeed(userId, password, generatedMnemonic);
             if (seedResult.success) {
                 AUTH_DEBUG_LOG_WRITE(logFile, "Database: Encrypted seed stored successfully\n");
             } else {

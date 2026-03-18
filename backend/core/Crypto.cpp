@@ -143,9 +143,8 @@ bool SHA256(const uint8_t* data, size_t len, std::array<uint8_t, 32>& out) {
     if (!BCRYPT_SUCCESS(st))
         return false;
 
-    st = BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH,
-                                  reinterpret_cast<PUCHAR>(&objLen),
-                                  sizeof(objLen), &hashLen, 0);
+    st = BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>(&objLen),
+                           sizeof(objLen), &hashLen, 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
@@ -159,10 +158,9 @@ bool SHA256(const uint8_t* data, size_t len, std::array<uint8_t, 32>& out) {
     }
 
     std::vector<uint8_t> mutable_data = ToMutableBuffer(data, len);
-    st = BCryptHashData(hHash,
-                        mutable_data.empty() ? nullptr
-                                            : reinterpret_cast<PUCHAR>(mutable_data.data()),
-                        static_cast<ULONG>(len), 0);
+    st = BCryptHashData(
+        hHash, mutable_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(mutable_data.data()),
+        static_cast<ULONG>(len), 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
@@ -439,13 +437,13 @@ bool HMAC_SHA256(const std::vector<uint8_t>& key, const uint8_t* data, size_t da
 
     std::vector<uint8_t> mutable_key = key;
     st = BCryptCreateHash(hAlg, &hHash, nullptr, 0, reinterpret_cast<PUCHAR>(mutable_key.data()),
-                           static_cast<ULONG>(mutable_key.size()), 0);
+                          static_cast<ULONG>(mutable_key.size()), 0);
 
     std::vector<uint8_t> mutable_data = ToMutableBuffer(data, data_len);
 
-    st = BCryptHashData(hHash,
-                        mutable_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(mutable_data.data()),
-                        static_cast<ULONG>(data_len), 0);
+    st = BCryptHashData(
+        hHash, mutable_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(mutable_data.data()),
+        static_cast<ULONG>(data_len), 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
@@ -545,8 +543,9 @@ bool HMAC_SHA512(const std::vector<uint8_t>& key, const uint8_t* data, size_t da
         }
 
         BCryptHashData(hHash, ipad.data(), static_cast<ULONG>(ipad.size()), 0);
-        BCryptHashData(hHash, mutable_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(mutable_data.data()),
-                      static_cast<ULONG>(data_len), 0);
+        BCryptHashData(
+            hHash, mutable_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(mutable_data.data()),
+            static_cast<ULONG>(data_len), 0);
 
         innerHash.resize(64);
         BCryptFinishHash(hHash, innerHash.data(), static_cast<ULONG>(innerHash.size()), 0);
@@ -733,7 +732,7 @@ bool LoadBIP39Wordlist(std::vector<std::string>& wordlist) {
     // On Windows and Linux, try executable-relative paths first
 #ifdef _WIN32
     char exePath[MAX_PATH] = {0};
-        DWORD pathLen = GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+    DWORD pathLen = GetModuleFileNameA(nullptr, exePath, MAX_PATH);
 
     if (pathLen > 0 && pathLen < MAX_PATH) {
         std::filesystem::path binPath(exePath);
@@ -1077,11 +1076,10 @@ bool AES_GCM_Encrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
     ULONG result_len = 0;
     ciphertext.resize(plaintext.size());
 
-    st = BCryptEncrypt(hKey,
-                       plaintext_data.empty() ? nullptr
-                                              : reinterpret_cast<PUCHAR>(plaintext_data.data()),
-                       static_cast<ULONG>(plaintext_data.size()), &authInfo, nullptr, 0,
-                       ciphertext.data(), static_cast<ULONG>(ciphertext.size()), &result_len, 0);
+    st = BCryptEncrypt(
+        hKey, plaintext_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(plaintext_data.data()),
+        static_cast<ULONG>(plaintext_data.size()), &authInfo, nullptr, 0, ciphertext.data(),
+        static_cast<ULONG>(ciphertext.size()), &result_len, 0);
 
     BCryptDestroyKey(hKey);
     BCryptCloseAlgorithmProvider(hAlg, 0);
@@ -1102,7 +1100,8 @@ bool AES_GCM_Encrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
         return false;
     }
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) != 1) {
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) !=
+        1) {
         EVP_CIPHER_CTX_free(ctx);
         return false;
     }
@@ -1192,11 +1191,10 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
     ULONG result_len = 0;
     plaintext.resize(ciphertext.size());
 
-    st = BCryptDecrypt(hKey,
-                       ciphertext_data.empty() ? nullptr
-                                               : reinterpret_cast<PUCHAR>(ciphertext_data.data()),
-                       static_cast<ULONG>(ciphertext_data.size()), &authInfo, nullptr, 0,
-                       plaintext.data(), static_cast<ULONG>(plaintext.size()), &result_len, 0);
+    st = BCryptDecrypt(
+        hKey, ciphertext_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(ciphertext_data.data()),
+        static_cast<ULONG>(ciphertext_data.size()), &authInfo, nullptr, 0, plaintext.data(),
+        static_cast<ULONG>(plaintext.size()), &result_len, 0);
 
     BCryptDestroyKey(hKey);
     BCryptCloseAlgorithmProvider(hAlg, 0);
@@ -1217,7 +1215,8 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
         return false;
     }
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) != 1) {
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) !=
+        1) {
         EVP_CIPHER_CTX_free(ctx);
         return false;
     }
@@ -3089,19 +3088,18 @@ bool HMAC_SHA1(const std::vector<uint8_t>& key, const uint8_t* data, size_t data
     out.resize(20);
     BCRYPT_HASH_HANDLE hHash = nullptr;
     std::vector<uint8_t> mutable_key = key;
-    status = BCryptCreateHash(hAlg, &hHash, nullptr, 0,
-                             reinterpret_cast<PUCHAR>(mutable_key.data()),
-                             static_cast<ULONG>(mutable_key.size()), 0);
+    status =
+        BCryptCreateHash(hAlg, &hHash, nullptr, 0, reinterpret_cast<PUCHAR>(mutable_key.data()),
+                         static_cast<ULONG>(mutable_key.size()), 0);
     if (!BCRYPT_SUCCESS(status)) {
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
     std::vector<uint8_t> mutable_data = ToMutableBuffer(data, data_len);
-    status = BCryptHashData(hHash,
-                           mutable_data.empty() ? nullptr
-                                               : reinterpret_cast<PUCHAR>(mutable_data.data()),
-                           static_cast<ULONG>(data_len), 0);
+    status = BCryptHashData(
+        hHash, mutable_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(mutable_data.data()),
+        static_cast<ULONG>(data_len), 0);
     if (!BCRYPT_SUCCESS(status)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
@@ -3116,8 +3114,8 @@ bool HMAC_SHA1(const std::vector<uint8_t>& key, const uint8_t* data, size_t data
     out.resize(20);
     unsigned int outLen = 0;
     const int dataLength = static_cast<int>(data_len);
-    if (!HMAC(EVP_sha1(), key.data(), static_cast<int>(key.size()), data, dataLength,
-              out.data(), &outLen)) {
+    if (!HMAC(EVP_sha1(), key.data(), static_cast<int>(key.size()), data, dataLength, out.data(),
+              &outLen)) {
         return false;
     }
     return true;
@@ -3206,7 +3204,6 @@ namespace Bech32 {
 static const char* CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
 static uint32_t PolyMod(const std::vector<uint8_t>& values) {
-
     uint32_t chk = 1;
     for (uint8_t v : values) {
         uint8_t b = (chk >> 25);
@@ -3226,7 +3223,6 @@ static uint32_t PolyMod(const std::vector<uint8_t>& values) {
 }
 
 static std::vector<uint8_t> HrpExpand(const std::string& hrp) {
-
     std::vector<uint8_t> ret;
     ret.reserve(hrp.size() * 2 + 1);
     for (char c : hrp)
@@ -3238,9 +3234,7 @@ static std::vector<uint8_t> HrpExpand(const std::string& hrp) {
 }
 
 static bool ConvertBits(const std::vector<uint8_t>& data, int frombits, int tobits, bool pad,
-                 std::vector<uint8_t>& out) {
-
-
+                        std::vector<uint8_t>& out) {
     uint32_t acc = 0;
     int bits = 0;
     uint32_t maxv = (1 << tobits) - 1;
@@ -3594,9 +3588,8 @@ bool VerifyTOTP(const std::vector<uint8_t>& secret, const std::string& code, uin
     // Check codes within the time window
     for (int i = -static_cast<int>(window); i <= static_cast<int>(window); ++i) {
         const int64_t timeOffset = static_cast<int64_t>(i) * static_cast<int64_t>(timestep);
-        const uint64_t checkTime = timeOffset < 0
-                                       ? currentTime - static_cast<uint64_t>(-timeOffset)
-                                       : currentTime + static_cast<uint64_t>(timeOffset);
+        const uint64_t checkTime = timeOffset < 0 ? currentTime - static_cast<uint64_t>(-timeOffset)
+                                                  : currentTime + static_cast<uint64_t>(timeOffset);
         std::string expectedCode = GenerateTOTP(secret, checkTime, timestep, digits);
 
         // Constant-time comparison to prevent timing attacks
