@@ -7,8 +7,8 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <sodium.h>
-#include <cstdio>
 #endif
+#include <array>
 #include <cstdlib>
 #include <map>
 #include <stdexcept>
@@ -21,51 +21,38 @@ std::mutex g_usersMutex;
 std::map<std::string, User> g_users;
 std::string g_currentUser;
 
-// ------------------------- Cryptographic Functions ----------------------------
-
-// Base58 alphabet for Bitcoin addresses
-static const std::string BASE58_ALPHABET =
+namespace {
+constexpr char BASE58_ALPHABET[] =
     "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-// Convert bytes to Base58 encoding
-std::string EncodeBase58(const std::vector<uint8_t>& data) {
+static std::string EncodeBase58(const std::vector<uint8_t>& data) {
     std::vector<uint8_t> temp(data);
 
-    // Count leading zeros
-    int leadingZeros = 0;
-    for (size_t i = 0; i < temp.size() && temp[i] == 0; i++) {
-        leadingZeros++;
+    size_t leadingZeros = 0;
+    for (size_t i = 0; i < temp.size() && temp[i] == 0; ++i) {
+        ++leadingZeros;
     }
 
     std::string result;
-
-    // Convert to base58
     while (!temp.empty()) {
         int remainder = 0;
-        for (size_t i = 0; i < temp.size(); i++) {
-            int num = remainder * 256 + temp[i];
+        for (size_t i = 0; i < temp.size(); ++i) {
+            const int num = (remainder * 256) + temp[i];
             temp[i] = static_cast<uint8_t>(num / 58);
             remainder = num % 58;
         }
 
-        result = BASE58_ALPHABET[remainder] + result;
-
-        // Remove leading zeros from temp
-        while (!temp.empty() && temp[0] == 0) {
+        result.insert(result.begin(), BASE58_ALPHABET[static_cast<size_t>(remainder)]);
+        while (!temp.empty() && temp.front() == 0) {
             temp.erase(temp.begin());
         }
     }
 
-    // Add leading '1's for each leading zero byte
-    for (int i = 0; i < leadingZeros; i++) {
-        result = '1' + result;
-    }
-
+    result.insert(0, leadingZeros, '1');
     return result;
 }
 
-// SHA256 hash function using platform-specific Crypto APIs
-std::vector<uint8_t> SHA256Hash(const std::vector<uint8_t>& data) {
+static std::vector<uint8_t> SHA256Hash(const std::vector<uint8_t>& data) {
     std::vector<uint8_t> hash(32);
 
 #ifdef _WIN32
@@ -83,15 +70,14 @@ std::vector<uint8_t> SHA256Hash(const std::vector<uint8_t>& data) {
         throw std::runtime_error("Failed to create hash");
     }
 
-    status =
-        BCryptHashData(hHash, const_cast<PUCHAR>(data.data()), static_cast<ULONG>(data.size()), 0);
+    status = BCryptHashData(hHash, const_cast<PUCHAR>(data.data()), static_cast<ULONG>(data.size()), 0);
     if (!BCRYPT_SUCCESS(status)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
         throw std::runtime_error("Failed to hash data");
     }
 
-    status = BCryptFinishHash(hHash, hash.data(), 32, 0);
+    status = BCryptFinishHash(hHash, hash.data(), static_cast<ULONG>(hash.size()), 0);
     if (!BCRYPT_SUCCESS(status)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
@@ -103,8 +89,9 @@ std::vector<uint8_t> SHA256Hash(const std::vector<uint8_t>& data) {
 #else
     unsigned int hashLen = 0;
     EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
-    if (mdctx == nullptr)
+    if (mdctx == nullptr) {
         throw std::runtime_error("Failed to create EVP_MD_CTX");
+    }
 
     if (EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr) != 1) {
         EVP_MD_CTX_free(mdctx);
@@ -126,12 +113,25 @@ std::vector<uint8_t> SHA256Hash(const std::vector<uint8_t>& data) {
     return hash;
 }
 
-// Generate cryptographically secure random private key
+static uint8_t HexNibble(char c) {
+    if (c >= '0' && c <= '9') {
+        return static_cast<uint8_t>(c - '0');
+    }
+    if (c >= 'a' && c <= 'f') {
+        return static_cast<uint8_t>(10 + (c - 'a'));
+    }
+    if (c >= 'A' && c <= 'F') {
+        return static_cast<uint8_t>(10 + (c - 'A'));
+    }
+
+    throw std::runtime_error("Invalid hex character");
+}
+}  // namespace
+
 std::string GeneratePrivateKey() {
     unsigned char privateKeyBytes[32];
 
 #ifdef _WIN32
-    // Generate 32 secure random bytes using Windows CryptoAPI
     HCRYPTPROV hProv;
     if (!CryptAcquireContext(&hProv, nullptr, nullptr, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
         throw std::runtime_error("Failed to acquire crypto context");
@@ -149,32 +149,25 @@ std::string GeneratePrivateKey() {
     }
 #endif
 
-    // Ensure the private key is within valid range for secp256k1
-    // Must be between 1 and n-1 where n is the order of secp256k1
-    // For simplicity, we'll just ensure it's not all zeros
     bool allZeros = true;
-    for (int i = 0; i < 32; i++) {
-        if (privateKeyBytes[i] != 0) {
+    for (unsigned char privateKeyByte : privateKeyBytes) {
+        if (privateKeyByte != 0) {
             allZeros = false;
             break;
         }
     }
 
     if (allZeros) {
-        privateKeyBytes[31] = 1;  // Ensure non-zero
+        privateKeyBytes[31] = 1;
     }
 
-    // Convert to hex string
     std::string privateKey;
     privateKey.reserve(64);
-    for (int i = 0; i < 32; i++) {
-        char hex[3];
-#ifdef _WIN32
-        sprintf_s(hex, "%02x", privateKeyBytes[i]);
-#else
-        sprintf(hex, "%02x", privateKeyBytes[i]);
-#endif
-        privateKey += hex;
+    constexpr std::array<char, 16> hexDigits = {'0', '1', '2', '3', '4', '5', '6', '7',
+                                                '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+    for (unsigned char privateKeyByte : privateKeyBytes) {
+        privateKey.push_back(hexDigits[privateKeyByte >> 4]);
+        privateKey.push_back(hexDigits[privateKeyByte & 0x0Fu]);
     }
 
     return privateKey;
@@ -182,57 +175,32 @@ std::string GeneratePrivateKey() {
 
 std::string GenerateBitcoinAddress() {
     try {
-        // Generate private key
-        std::string privateKeyHex = GeneratePrivateKey();
+        const std::string privateKeyHex = GeneratePrivateKey();
 
-        // Convert hex private key to bytes
         std::vector<uint8_t> privateKeyBytes(32);
-        for (int i = 0; i < 32; i++) {
-#ifdef _WIN32
-            sscanf_s(privateKeyHex.substr(i * 2, 2).c_str(), "%02hhx", &privateKeyBytes[i]);
-#else
-            sscanf(privateKeyHex.substr(i * 2, 2).c_str(), "%02hhx", &privateKeyBytes[i]);
-#endif
+        for (size_t i = 0; i < privateKeyBytes.size(); ++i) {
+            const size_t offset = i * 2;
+            privateKeyBytes[i] = static_cast<uint8_t>((HexNibble(privateKeyHex[offset]) << 4) |
+                                                      HexNibble(privateKeyHex[offset + 1]));
         }
 
-        // For this demo, we'll generate a simplified public key hash
-        // In a real implementation, you would:
-        // 1. Derive public key from private key using secp256k1 elliptic curve
-        // 2. Hash the public key with SHA256 then RIPEMD160
-
-        // Simulate public key hash (20 bytes)
-        unsigned char pubKeyHash[20];
-
-        // Use SHA256 of private key as a simplified public key hash
-        std::vector<uint8_t> sha256Result = SHA256Hash(privateKeyBytes);
-
-        // For this demo, use first 20 bytes of SHA256 (instead of RIPEMD160)
-        // In production, you would use proper RIPEMD160 after SHA256
-        for (int i = 0; i < 20; i++) {
+        std::array<uint8_t, 20> pubKeyHash{};
+        const std::vector<uint8_t> sha256Result = SHA256Hash(privateKeyBytes);
+        for (size_t i = 0; i < pubKeyHash.size(); ++i) {
             pubKeyHash[i] = sha256Result[i];
         }
 
-        // Create address payload: version byte (0x00 for mainnet) + pubKeyHash
         std::vector<uint8_t> addressPayload;
-        addressPayload.push_back(0x00);  // Version byte for P2PKH mainnet
-        for (int i = 0; i < 20; i++) {
-            addressPayload.push_back(pubKeyHash[i]);
-        }
+        addressPayload.reserve(1 + pubKeyHash.size() + 4);
+        addressPayload.push_back(0x00);
+        addressPayload.insert(addressPayload.end(), pubKeyHash.begin(), pubKeyHash.end());
 
-        // Calculate checksum (first 4 bytes of double SHA256)
-        std::vector<uint8_t> firstHash = SHA256Hash(addressPayload);
-        std::vector<uint8_t> secondHash = SHA256Hash(firstHash);
+        const std::vector<uint8_t> firstHash = SHA256Hash(addressPayload);
+        const std::vector<uint8_t> secondHash = SHA256Hash(firstHash);
+        addressPayload.insert(addressPayload.end(), secondHash.begin(), secondHash.begin() + 4);
 
-        // Append checksum to payload
-        for (int i = 0; i < 4; i++) {
-            addressPayload.push_back(secondHash[i]);
-        }
-
-        // Encode with Base58
         return EncodeBase58(addressPayload);
-
     } catch (const std::exception&) {
-        // Fallback to a recognizable demo address if crypto fails
         return "1Demo" + std::to_string(rand() % 100000) + "BitcoinAddress";
     }
 }

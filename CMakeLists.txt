@@ -140,6 +140,7 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 endif()
 
 # Declare the project EARLY so VS presets/toolsets apply cleanly
+include(CheckCXXCompilerFlag)
 project(CriptoGualet LANGUAGES CXX)
 
 # Reset persistent database on reconfigure (useful for debugging from scratch)
@@ -289,11 +290,14 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wold-style-cast")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wcast-align")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual")
+  # Suppress bugprone warning for third-party libs (e.g., cpr)
+  check_cxx_compiler_flag("-Wno-bugprone-easily-swappable-parameters"
+    CLANG_SUPPORTS_BUGPRONE_EASILY_SWAPPABLE_PARAMS)
+  if(CLANG_SUPPORTS_BUGPRONE_EASILY_SWAPPABLE_PARAMS)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-bugprone-easily-swappable-parameters")
+  endif()
   # Disable C++98 compatibility warnings that cause linking issues
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic")
-
-  # Suppress bugprone-easily-swappable-parameters for third-party libraries (cpr)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-bugprone-easily-swappable-parameters")
 
   # ClangCL-specific optimizations
   if(CLANG_MODE STREQUAL "CLANGCL")

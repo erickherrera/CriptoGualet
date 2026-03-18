@@ -7,8 +7,8 @@
 namespace Repository {
 
 Logger& Logger::getInstance() {
-    static Logger instance;
-    return instance;
+    static auto* instance = new Logger();
+    return *instance;
 }
 
 Logger::~Logger() {
@@ -130,7 +130,8 @@ std::vector<LogEntry> Logger::getRecentEntries(size_t maxEntries) const {
         return m_recentEntries;
     }
 
-    return std::vector<LogEntry>(m_recentEntries.end() - maxEntries, m_recentEntries.end());
+    return std::vector<LogEntry>(m_recentEntries.end() - static_cast<std::ptrdiff_t>(maxEntries),
+                                 m_recentEntries.end());
 }
 
 void Logger::logWorker() {

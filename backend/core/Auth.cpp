@@ -55,8 +55,6 @@ typedef uint32_t DWORD;
 
 // === Configuration ===
 static constexpr size_t BIP39_ENTROPY_BITS = 128;  // 12 words
-static constexpr uint32_t BIP39_PBKDF2_ITERS = 2048;
-static const char* DEFAULT_WORDLIST_PATH = "assets/bip39/english.txt";
 // SEED_VAULT_DIR is now dynamically determined - see GetSeedVaultDir()
 static const char* DPAPI_ENTROPY_PREFIX = "CriptoGualet seed v1::";
 
@@ -109,8 +107,18 @@ static const char* DPAPI_ENTROPY_PREFIX = "CriptoGualet seed v1::";
 // DeriveSecureEncryptionKey is now a public function in Auth namespace
 
 // ===== Database and Repository Integration =====
-static std::unique_ptr<Repository::UserRepository> g_userRepo = nullptr;
-static std::unique_ptr<Repository::WalletRepository> g_walletRepo = nullptr;
+namespace {
+std::unique_ptr<Repository::UserRepository>& GetUserRepo() {
+    static auto* userRepo = new std::unique_ptr<Repository::UserRepository>();
+    return *userRepo;
+}
+
+std::unique_ptr<Repository::WalletRepository>& GetWalletRepo() {
+    static auto* walletRepo = new std::unique_ptr<Repository::WalletRepository>();
+    return *walletRepo;
+}
+}  // namespace
+
 static bool g_databaseInitialized = false;
 
 // Helper: Initialize database and repositories
@@ -133,7 +141,7 @@ static bool InitializeDatabase() {
             // Ensure directory exists
             DWORD dwAttrib = GetFileAttributesA(appDir.c_str());
             if (dwAttrib == INVALID_FILE_ATTRIBUTES || !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY)) {
-                CreateDirectoryA(appDir.c_str(), NULL);
+                CreateDirectoryA(appDir.c_str(), nullptr);
             }
 
             dbPath = appDir + "\\criptogualet.db";
@@ -321,8 +329,8 @@ static bool InitializeDatabase() {
         }
 
         // Create repository instances
-        g_userRepo = std::make_unique<Repository::UserRepository>(dbManager);
-        g_walletRepo = std::make_unique<Repository::WalletRepository>(dbManager);
+        GetUserRepo() = std::make_unique<Repository::UserRepository>(dbManager);
+        GetWalletRepo() = std::make_unique<Repository::WalletRepository>(dbManager);
 
         g_databaseInitialized = true;
         return true;
@@ -338,7 +346,12 @@ struct RateLimitEntry {
     std::chrono::steady_clock::time_point lockoutUntil;
 };
 
-static std::map<std::string, RateLimitEntry> g_rateLimits;
+namespace {
+std::map<std::string, RateLimitEntry>& GetRateLimits() {
+    static auto* rateLimits = new std::map<std::string, RateLimitEntry>();
+    return *rateLimits;
+}
+}  // namespace
 
 namespace fs = std::filesystem;
 
@@ -368,7 +381,7 @@ static fs::path GetSeedVaultDir() {
 
     // Fallback: try executable-relative path
     char exePath[MAX_PATH] = {0};
-    if (GetModuleFileNameA(NULL, exePath, MAX_PATH) > 0) {
+    if (GetModuleFileNameA(nullptr, exePath, MAX_PATH) > 0) {
         fs::path exeDir = fs::path(exePath).parent_path();
         return exeDir / "seed_vault";
     }
@@ -481,7 +494,7 @@ bool Auth::DeriveSecureEncryptionKey(std::string& outKey) {
     // Convert to hex string for SQLCipher
     std::ostringstream hexKey;
     for (uint8_t byte : derivedKey) {
-        hexKey << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
+        hexKey << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
     }
 
     outKey = hexKey.str();
@@ -495,7 +508,7 @@ bool Auth::DeriveSecureEncryptionKey(std::string& outKey) {
 
 // ===== BIP-39 helpers =====
 namespace {
-static inline std::string trim(const std::string& s) {
+[[maybe_unused]] static inline std::string trim(const std::string& s) {
     size_t b = s.find_first_not_of(" \t\r\n");
     if (b == std::string::npos)
         return {};
@@ -513,7 +526,7 @@ static std::vector<std::string> SplitWordsNormalized(const std::string& text) {
     std::string cur;
     cur.reserve(16);
     for (char ch : text) {
-        if (std::isspace((unsigned char)ch)) {
+        if (std::isspace(static_cast<unsigned char>(ch))) {
             if (!cur.empty()) {
                 std::transform(cur.begin(), cur.end(), cur.begin(), [](unsigned char c) {
                     return static_cast<char>(std::tolower(c));
@@ -522,7 +535,7 @@ static std::vector<std::string> SplitWordsNormalized(const std::string& text) {
                 cur.clear();
             }
         } else {
-            cur.push_back((char)std::tolower((unsigned char)ch));
+            cur.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
         }
     }
     if (!cur.empty()) {
@@ -538,6 +551,7 @@ static fs::path VaultPathForUser(const std::string& username) {
     return GetSeedVaultDir() / (username + ".bin");
 }
 
+#ifndef _WIN32
 // Helper: Convert bytes to hex string
 static std::string BytesToHex(const std::vector<uint8_t>& bytes) {
     const char hexChars[] = "0123456789abcdef";
@@ -561,6 +575,7 @@ static std::vector<uint8_t> HexToBytes(const std::string& hex) {
     }
     return result;
 }
+#endif
 
 static bool StoreUserSeedDPAPI(const std::string& username, const std::array<uint8_t, 64>& seed) {
 #ifdef _WIN32
@@ -631,7 +646,7 @@ static bool RetrieveUserSeedDPAPI(const std::string& username, std::array<uint8_
         return false;
     if (plaintext.size() != 64)
         return false;
-    std::memcpy(outSeed.data(), plaintext.data(), 64);
+    std::copy_n(plaintext.begin(), 64, outSeed.begin());
     std::fill(plaintext.begin(), plaintext.end(), uint8_t(0));
     return true;
 #else
@@ -665,7 +680,7 @@ static bool RetrieveUserSeedDPAPI(const std::string& username, std::array<uint8_
         if (seedVec.size() != 64) {
             return false;
         }
-        std::memcpy(outSeed.data(), seedVec.data(), 64);
+        std::copy_n(seedVec.begin(), 64, outSeed.begin());
 
         // Delete the seed from temporary storage only during explicit RevealSeed call
         // (not during registration when seed is retrieved for wallet derivation)
@@ -709,14 +724,14 @@ AuthResponse RevealSeed(const std::string& username, const std::string& password
     }
 
     // Initialize database
-    if (!InitializeDatabase() || !g_userRepo) {
+    if (!InitializeDatabase() || !GetUserRepo()) {
         return {AuthResult::SYSTEM_ERROR,
                 "Database not initialized. Please restart the application."};
     }
 
     // Authenticate user via repository (single source of truth)
     try {
-        auto authResult = g_userRepo->authenticateUser(username, password);
+        auto authResult = GetUserRepo()->authenticateUser(username, password);
         if (!authResult.success) {
             RecordFailedAttempt(username);
             return {AuthResult::INVALID_CREDENTIALS, "Invalid username or password."};
@@ -738,7 +753,7 @@ AuthResponse RevealSeed(const std::string& username, const std::string& password
     // Hex encode
     std::ostringstream oss;
     for (uint8_t b : seed)
-        oss << std::hex << std::setw(2) << std::setfill('0') << (int)b;
+        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
     outSeedHex = oss.str();
 
 #ifndef _WIN32
@@ -781,7 +796,7 @@ AuthResponse RestoreFromSeed(const std::string& username, const std::string& mne
     }
 
     // Initialize database
-    if (!InitializeDatabase() || !g_userRepo || !g_walletRepo) {
+    if (!InitializeDatabase() || !GetUserRepo() || !GetWalletRepo()) {
         return {AuthResult::SYSTEM_ERROR,
                 "Database not initialized. Please restart the application."};
     }
@@ -789,7 +804,7 @@ AuthResponse RestoreFromSeed(const std::string& username, const std::string& mne
     // Authenticate user via repository before overwriting vault (single source of
     // truth)
     try {
-        auto authResult = g_userRepo->authenticateUser(username, passwordForReauth);
+        auto authResult = GetUserRepo()->authenticateUser(username, passwordForReauth);
         if (!authResult.success) {
             RecordFailedAttempt(username);
             return {AuthResult::INVALID_CREDENTIALS, "Invalid username or password."};
@@ -801,7 +816,7 @@ AuthResponse RestoreFromSeed(const std::string& username, const std::string& mne
 
     int userId = 0;
     try {
-        auto userResult = g_userRepo->getUserByUsername(username);
+        auto userResult = GetUserRepo()->getUserByUsername(username);
         if (!userResult.success) {
             return {AuthResult::SYSTEM_ERROR, "User account not found in the database."};
         }
@@ -833,7 +848,7 @@ AuthResponse RestoreFromSeed(const std::string& username, const std::string& mne
         return {AuthResult::INVALID_CREDENTIALS, "Mnemonic checksum is invalid."};
     }
 
-    auto encryptedSeedResult = g_walletRepo->storeEncryptedSeed(userId, passwordForReauth, words);
+    auto encryptedSeedResult = GetWalletRepo()->storeEncryptedSeed(userId, passwordForReauth, words);
     if (!encryptedSeedResult.success) {
         return {AuthResult::SYSTEM_ERROR, "Failed to store seed in the encrypted database."};
     }
@@ -937,7 +952,7 @@ bool IsValidUsername(const std::string& username) {
         return false;
 
     for (char c : username) {
-        if (!std::isalnum((unsigned char)c) && c != '_' && c != '-')
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-')
             return false;
     }
     return true;
@@ -1079,14 +1094,14 @@ static bool LoadRateLimitFromDB(const std::string& identifier, RateLimitEntry& e
 
 bool IsRateLimited(const std::string& identifier) {
     auto now = std::chrono::steady_clock::now();
-    auto it = g_rateLimits.find(identifier);
+    auto it = GetRateLimits().find(identifier);
 
     // If not in memory, try loading from database (persisted across restarts)
-    if (it == g_rateLimits.end()) {
+    if (it == GetRateLimits().end()) {
         RateLimitEntry dbEntry;
         if (LoadRateLimitFromDB(identifier, dbEntry)) {
-            g_rateLimits[identifier] = dbEntry;
-            it = g_rateLimits.find(identifier);
+            GetRateLimits()[identifier] = dbEntry;
+            it = GetRateLimits().find(identifier);
         } else {
             return false;
         }
@@ -1107,7 +1122,7 @@ bool IsRateLimited(const std::string& identifier) {
 }
 
 void ClearRateLimit(const std::string& identifier) {
-    g_rateLimits.erase(identifier);
+    GetRateLimits().erase(identifier);
     // Also clear from database
     if (g_databaseInitialized) {
         try {
@@ -1120,7 +1135,7 @@ void ClearRateLimit(const std::string& identifier) {
 
 static void RecordFailedAttempt(const std::string& identifier) {
     auto now = std::chrono::steady_clock::now();
-    auto& entry = g_rateLimits[identifier];
+    auto& entry = GetRateLimits()[identifier];
 
     // Reset counter if rate limit window expired
     if (now - entry.lastAttempt > RATE_LIMIT_WINDOW) {
@@ -1322,14 +1337,14 @@ AuthResponse RegisterUser(const std::string& username, const std::string& passwo
     }
 
     // Initialize database and repository layer (single source of truth)
-    if (!InitializeDatabase() || !g_userRepo || !g_walletRepo) {
+    if (!InitializeDatabase() || !GetUserRepo() || !GetWalletRepo()) {
         AUTH_DEBUG_LOG_WRITE(logFile, "Result: Database initialization failed\n");
         return {AuthResult::SYSTEM_ERROR, "Failed to initialize database. Please try again."};
     }
 
     // Check if user already exists in database (single source of truth)
     try {
-        auto existingUser = g_userRepo->getUserByUsername(username);
+        auto existingUser = GetUserRepo()->getUserByUsername(username);
         if (existingUser.success) {
             AUTH_DEBUG_LOG_WRITE(logFile, "Result: Username already exists in database\n");
             return {AuthResult::USER_ALREADY_EXISTS,
@@ -1363,7 +1378,7 @@ AuthResponse RegisterUser(const std::string& username, const std::string& passwo
     // Create user in database (single source of truth)
     int userId = 0;
     try {
-        auto createResult = g_userRepo->createUser(username, password);
+        auto createResult = GetUserRepo()->createUser(username, password);
 
         if (!createResult.success) {
             AUTH_DEBUG_LOG_STREAM(logFile)
@@ -1379,7 +1394,7 @@ AuthResponse RegisterUser(const std::string& username, const std::string& passwo
 
         // Store encrypted seed in database if generation was successful
         if (seedOk && !generatedMnemonic.empty()) {
-            auto seedResult = g_walletRepo->storeEncryptedSeed(userId, password, generatedMnemonic);
+            auto seedResult = GetWalletRepo()->storeEncryptedSeed(userId, password, generatedMnemonic);
             if (seedResult.success) {
                 AUTH_DEBUG_LOG_WRITE(logFile, "Database: Encrypted seed stored successfully\n");
             } else {
@@ -1391,7 +1406,7 @@ AuthResponse RegisterUser(const std::string& username, const std::string& passwo
         }
 
         // Create default wallet for user
-        auto walletResult = g_walletRepo->createWallet(
+        auto walletResult = GetWalletRepo()->createWallet(
             userId, username + "'s Bitcoin Wallet", "bitcoin_segwit",
             std::optional<std::string>("m/84'/0'/0'"),  // BIP84 Bitcoin derivation path
             std::nullopt                                // Extended public key can be added later
@@ -1474,14 +1489,14 @@ AuthResponse RegisterUserWithMnemonic(const std::string& username, const std::st
     }
 
     // Initialize database and repository layer (single source of truth)
-    if (!InitializeDatabase() || !g_userRepo || !g_walletRepo) {
+    if (!InitializeDatabase() || !GetUserRepo() || !GetWalletRepo()) {
         AUTH_DEBUG_LOG_WRITE(logFile, "Result: Database initialization failed\n");
         return {AuthResult::SYSTEM_ERROR, "Failed to initialize database. Please try again."};
     }
 
     // Check if user already exists in database (single source of truth)
     try {
-        auto existingUser = g_userRepo->getUserByUsername(username);
+        auto existingUser = GetUserRepo()->getUserByUsername(username);
         if (existingUser.success) {
             AUTH_DEBUG_LOG_WRITE(logFile, "Result: Username already exists in database\n");
             return {AuthResult::USER_ALREADY_EXISTS,
@@ -1525,7 +1540,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string& username, const std::st
     // Create user in database (single source of truth)
     int userId = 0;
     try {
-        auto createResult = g_userRepo->createUser(username, password);
+        auto createResult = GetUserRepo()->createUser(username, password);
 
         if (!createResult.success) {
             AUTH_DEBUG_LOG_STREAM(logFile)
@@ -1541,7 +1556,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string& username, const std::st
 
         // Store encrypted seed in database if generation was successful
         if (seedOk && !generatedMnemonic.empty()) {
-            auto seedResult = g_walletRepo->storeEncryptedSeed(userId, password, generatedMnemonic);
+            auto seedResult = GetWalletRepo()->storeEncryptedSeed(userId, password, generatedMnemonic);
             if (seedResult.success) {
                 AUTH_DEBUG_LOG_WRITE(logFile, "Database: Encrypted seed stored successfully\n");
             } else {
@@ -1553,7 +1568,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string& username, const std::st
         }
 
         // Create default Bitcoin wallet for user
-        auto walletResult = g_walletRepo->createWallet(
+        auto walletResult = GetWalletRepo()->createWallet(
             userId, username + "'s Bitcoin Wallet", "bitcoin_segwit",
             std::optional<std::string>("m/84'/0'/0'"),  // BIP84 Bitcoin derivation path
             std::nullopt                                // Extended public key can be added later
@@ -1569,7 +1584,7 @@ AuthResponse RegisterUserWithMnemonic(const std::string& username, const std::st
         }
 
         // Create Ethereum wallet for user (PHASE 1 FIX: Multi-chain support)
-        auto ethWalletResult = g_walletRepo->createWallet(
+        auto ethWalletResult = GetWalletRepo()->createWallet(
             userId, username + "'s Ethereum Wallet", "ethereum",
             std::optional<std::string>("m/44'/60'/0'"),  // BIP44 Ethereum derivation path
             std::nullopt                                 // Extended public key can be added later
@@ -1637,10 +1652,10 @@ AuthResponse LoginUser(const std::string& username, const std::string& password)
     }
 
     // ===== REPOSITORY: Database authentication (single source of truth) =====
-    if (InitializeDatabase() && g_userRepo) {
+    if (InitializeDatabase() && GetUserRepo()) {
         try {
             // Try to authenticate via Repository (uses strong password hashing)
-            auto authResult = g_userRepo->authenticateUser(username, password);
+            auto authResult = GetUserRepo()->authenticateUser(username, password);
 
             if (authResult.success) {
                 // Check if TOTP 2FA is enabled
@@ -1680,14 +1695,14 @@ AuthResponse LoginUser(const std::string& username, const std::string& password)
                 }
 
                 // Update last login timestamp
-                g_userRepo->updateLastLogin(authResult.data.id);
+                GetUserRepo()->updateLastLogin(authResult.data.id);
 
                 ClearRateLimit(username);
                 return {AuthResult::SUCCESS, "Login successful. Welcome to CriptoGualet!"};
             } else {
                 // Authentication failed via database
                 RecordFailedAttempt(username);
-                auto& entry = g_rateLimits[username];
+                auto& entry = GetRateLimits()[username];
                 int remainingAttempts = MAX_LOGIN_ATTEMPTS - entry.attemptCount;
                 if (remainingAttempts > 0) {
                     return {AuthResult::INVALID_CREDENTIALS, "Invalid credentials. " +
@@ -1726,8 +1741,8 @@ bool ShutdownAuthDatabase() {
         auto& dbManager = Database::DatabaseManager::getInstance();
         dbManager.close();
         g_databaseInitialized = false;
-        g_userRepo.reset();
-        g_walletRepo.reset();
+        GetUserRepo().reset();
+        GetWalletRepo().reset();
         return true;
     } catch (...) {
         return false;
@@ -1741,7 +1756,7 @@ static constexpr int TOTP_ENABLED = 1;
 static constexpr int TOTP_DISABLED = 0;
 
 bool IsTwoFactorEnabled(const std::string& username) {
-    if (!InitializeDatabase() || !g_userRepo) {
+    if (!InitializeDatabase() || !GetUserRepo()) {
         return false;
     }
 
@@ -1776,14 +1791,14 @@ TwoFactorSetupData InitiateTwoFactorSetup(const std::string& username,
     TwoFactorSetupData result;
     result.success = false;
 
-    if (!InitializeDatabase() || !g_userRepo) {
+    if (!InitializeDatabase() || !GetUserRepo()) {
         result.errorMessage = "Database not initialized.";
         return result;
     }
 
     try {
         // Verify password first
-        auto authResult = g_userRepo->authenticateUser(username, password);
+        auto authResult = GetUserRepo()->authenticateUser(username, password);
         if (!authResult.success) {
             result.errorMessage = "Invalid password.";
             return result;
@@ -1837,7 +1852,7 @@ AuthResponse ConfirmTwoFactorSetup(const std::string& username, const std::strin
                 "Too many verification attempts. Please wait 10 minutes before trying again."};
     }
 
-    if (!InitializeDatabase() || !g_userRepo) {
+    if (!InitializeDatabase() || !GetUserRepo()) {
         return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
     }
 
@@ -1896,7 +1911,7 @@ AuthResponse ConfirmTwoFactorSetup(const std::string& username, const std::strin
             }
             std::ostringstream oss;
             for (auto b : randomBytes) {
-                oss << std::hex << std::setw(2) << std::setfill('0') << (int)b;
+                oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
             }
             backupCodes.push_back(oss.str());
         }
@@ -1946,7 +1961,7 @@ AuthResponse VerifyTwoFactorCode(const std::string& username, const std::string&
                 "Too many verification attempts. Please wait 10 minutes before trying again."};
     }
 
-    if (!InitializeDatabase() || !g_userRepo) {
+    if (!InitializeDatabase() || !GetUserRepo()) {
         return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
     }
 
@@ -2006,13 +2021,13 @@ AuthResponse VerifyTwoFactorCode(const std::string& username, const std::string&
 
 AuthResponse DisableTwoFactor(const std::string& username, const std::string& password,
                               const std::string& totpCode) {
-    if (!InitializeDatabase() || !g_userRepo) {
+    if (!InitializeDatabase() || !GetUserRepo()) {
         return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
     }
 
     try {
         // Verify password
-        auto authResult = g_userRepo->authenticateUser(username, password);
+        auto authResult = GetUserRepo()->authenticateUser(username, password);
         if (!authResult.success) {
             return {AuthResult::INVALID_CREDENTIALS, "Invalid password."};
         }
@@ -2041,7 +2056,7 @@ AuthResponse DisableTwoFactor(const std::string& username, const std::string& pa
 
         return {AuthResult::SUCCESS, "Two-factor authentication has been disabled."};
 
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         // SECURITY: Do not expose internal error details to UI
         return {AuthResult::SYSTEM_ERROR, "An unexpected error occurred while disabling 2FA."};
     }
@@ -2051,14 +2066,14 @@ BackupCodesResult GetBackupCodes(const std::string& username, const std::string&
     BackupCodesResult result;
     result.success = false;
 
-    if (!InitializeDatabase() || !g_userRepo) {
+    if (!InitializeDatabase() || !GetUserRepo()) {
         result.errorMessage = "Database not initialized.";
         return result;
     }
 
     try {
         // Verify password
-        auto authResult = g_userRepo->authenticateUser(username, password);
+        auto authResult = GetUserRepo()->authenticateUser(username, password);
         if (!authResult.success) {
             result.errorMessage = "Invalid password.";
             return result;
@@ -2105,7 +2120,7 @@ BackupCodesResult GetBackupCodes(const std::string& username, const std::string&
         result.success = true;
         return result;
 
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         // SECURITY: Do not expose internal error details to UI
         result.errorMessage = "An unexpected error occurred while retrieving backup codes.";
         return result;
@@ -2119,7 +2134,7 @@ AuthResponse UseBackupCode(const std::string& username, const std::string& backu
                 "Too many backup code attempts. Please wait 10 minutes before trying again."};
     }
 
-    if (!InitializeDatabase() || !g_userRepo) {
+    if (!InitializeDatabase() || !GetUserRepo()) {
         return {AuthResult::SYSTEM_ERROR, "Database not initialized."};
     }
 

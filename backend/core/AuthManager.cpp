@@ -6,8 +6,8 @@
 namespace Auth {
 
 AuthManager& AuthManager::getInstance() {
-    static AuthManager instance;
-    return instance;
+    static auto* instance = new AuthManager();
+    return *instance;
 }
 
 AuthManager::AuthManager() : sessionManager_(Database::DatabaseManager::getInstance()) {

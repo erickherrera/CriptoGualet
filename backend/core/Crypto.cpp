@@ -43,6 +43,14 @@
 
 namespace Crypto {
 
+namespace {
+inline std::vector<uint8_t> ToMutableBuffer(const uint8_t* data, size_t length) {
+    if (!data || length == 0)
+        return {};
+    return std::vector<uint8_t>(data, data + length);
+}
+}  // namespace
+
 // Global secp256k1 context (initialized once)
 static secp256k1_context* GetSecp256k1Context() {
     static secp256k1_context* ctx =
@@ -78,9 +86,10 @@ std::string B64Encode(const std::vector<uint8_t>& data) {
         out.pop_back();
     return out;
 #else
-    int outLen = 4 * ((data.size() + 2) / 3);
+    int outLen = 4 * (static_cast<int>((data.size() + 2) / 3));
     std::string out(outLen, '\0');
-    int ret = EVP_EncodeBlock(reinterpret_cast<unsigned char*>(&out[0]), data.data(), data.size());
+    const int rawLen = static_cast<int>(data.size());
+    int ret = EVP_EncodeBlock(reinterpret_cast<unsigned char*>(&out[0]), data.data(), rawLen);
     if (ret < 0)
         return {};
     // EVP_EncodeBlock returns length including null terminator if it added one,
@@ -104,10 +113,11 @@ std::vector<uint8_t> B64Decode(const std::string& s) {
         return {};
     return out;
 #else
-    int outLen = 3 * (s.size() / 4);
+    int outLen = 3 * (static_cast<int>(s.size() / 4));
     std::vector<uint8_t> out(outLen);
+    const int rawLen = static_cast<int>(s.size());
     int ret =
-        EVP_DecodeBlock(out.data(), reinterpret_cast<const unsigned char*>(s.c_str()), s.size());
+        EVP_DecodeBlock(out.data(), reinterpret_cast<const unsigned char*>(s.c_str()), rawLen);
     if (ret < 0)
         return {};
 
@@ -133,28 +143,33 @@ bool SHA256(const uint8_t* data, size_t len, std::array<uint8_t, 32>& out) {
     if (!BCRYPT_SUCCESS(st))
         return false;
 
-    st =
-        BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH, (PUCHAR)&objLen, sizeof(objLen), &hashLen, 0);
+    st = BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH,
+                                  reinterpret_cast<PUCHAR>(&objLen),
+                                  sizeof(objLen), &hashLen, 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
     std::vector<uint8_t> obj(objLen);
-    st = BCryptCreateHash(hAlg, &hHash, obj.data(), objLen, nullptr, 0, 0);
+    st = BCryptCreateHash(hAlg, &hHash, obj.data(), static_cast<ULONG>(objLen), nullptr, 0, 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
-    st = BCryptHashData(hHash, (PUCHAR)data, (ULONG)len, 0);
+    std::vector<uint8_t> mutable_data = ToMutableBuffer(data, len);
+    st = BCryptHashData(hHash,
+                        mutable_data.empty() ? nullptr
+                                            : reinterpret_cast<PUCHAR>(mutable_data.data()),
+                        static_cast<ULONG>(len), 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
-    st = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
+    st = BCryptFinishHash(hHash, out.data(), static_cast<ULONG>(out.size()), 0);
     BCryptDestroyHash(hHash);
     BCryptCloseAlgorithmProvider(hAlg, 0);
     return BCRYPT_SUCCESS(st);
@@ -234,18 +249,19 @@ bool RIPEMD160(const uint8_t* data, size_t len, std::array<uint8_t, 20>& out) {
     padded[len] = 0x80;
 
     // Append length in little-endian
-    for (int i = 0; i < 8; i++) {
-        padded[new_len + i] = (bit_len >> (i * 8)) & 0xFF;
+    for (size_t i = 0; i < 8; ++i) {
+        padded[new_len + i] = static_cast<uint8_t>((bit_len >> (i * 8)) & 0xFFu);
     }
 
     // Process blocks
     for (size_t block = 0; block < padded.size(); block += 64) {
         uint32_t X[16];
-        for (int i = 0; i < 16; i++) {
-            X[i] = static_cast<uint32_t>(padded[block + i * 4]) |
-                   (static_cast<uint32_t>(padded[block + i * 4 + 1]) << 8) |
-                   (static_cast<uint32_t>(padded[block + i * 4 + 2]) << 16) |
-                   (static_cast<uint32_t>(padded[block + i * 4 + 3]) << 24);
+        for (size_t i = 0; i < 16; ++i) {
+            const size_t word_offset = block + (i * 4);
+            X[i] = static_cast<uint32_t>(padded[word_offset]) |
+                   (static_cast<uint32_t>(padded[word_offset + 1]) << 8) |
+                   (static_cast<uint32_t>(padded[word_offset + 2]) << 16) |
+                   (static_cast<uint32_t>(padded[word_offset + 3]) << 24);
         }
 
         // Left line
@@ -284,12 +300,12 @@ bool RIPEMD160(const uint8_t* data, size_t len, std::array<uint8_t, 20>& out) {
     }
 
     // Output hash in little-endian
-    for (int i = 0; i < 4; i++) {
-        out[i] = (h0 >> (i * 8)) & 0xFF;
-        out[i + 4] = (h1 >> (i * 8)) & 0xFF;
-        out[i + 8] = (h2 >> (i * 8)) & 0xFF;
-        out[i + 12] = (h3 >> (i * 8)) & 0xFF;
-        out[i + 16] = (h4 >> (i * 8)) & 0xFF;
+    for (size_t i = 0; i < 4; ++i) {
+        out[i] = static_cast<uint8_t>((h0 >> (i * 8)) & 0xFFu);
+        out[i + 4] = static_cast<uint8_t>((h1 >> (i * 8)) & 0xFFu);
+        out[i + 8] = static_cast<uint8_t>((h2 >> (i * 8)) & 0xFFu);
+        out[i + 12] = static_cast<uint8_t>((h3 >> (i * 8)) & 0xFFu);
+        out[i + 16] = static_cast<uint8_t>((h4 >> (i * 8)) & 0xFFu);
     }
 
     return true;
@@ -421,27 +437,30 @@ bool HMAC_SHA256(const std::vector<uint8_t>& key, const uint8_t* data, size_t da
     if (!BCRYPT_SUCCESS(st))
         return false;
 
-    st = BCryptCreateHash(hAlg, &hHash, nullptr, 0, (PUCHAR)key.data(), (ULONG)key.size(), 0);
-    if (!BCRYPT_SUCCESS(st)) {
-        BCryptCloseAlgorithmProvider(hAlg, 0);
-        return false;
-    }
+    std::vector<uint8_t> mutable_key = key;
+    st = BCryptCreateHash(hAlg, &hHash, nullptr, 0, reinterpret_cast<PUCHAR>(mutable_key.data()),
+                           static_cast<ULONG>(mutable_key.size()), 0);
 
-    st = BCryptHashData(hHash, (PUCHAR)data, (ULONG)data_len, 0);
+    std::vector<uint8_t> mutable_data = ToMutableBuffer(data, data_len);
+
+    st = BCryptHashData(hHash,
+                        mutable_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(mutable_data.data()),
+                        static_cast<ULONG>(data_len), 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
-    st = BCryptFinishHash(hHash, hmac_result.data(), (ULONG)hmac_result.size(), 0);
+    st = BCryptFinishHash(hHash, hmac_result.data(), static_cast<ULONG>(hmac_result.size()), 0);
     BCryptDestroyHash(hHash);
     BCryptCloseAlgorithmProvider(hAlg, 0);
     if (!BCRYPT_SUCCESS(st))
         return false;
 #else
     unsigned int outLen = 0;
-    if (!HMAC(EVP_sha256(), key.data(), static_cast<int>(key.size()), data, data_len,
+    const int dataLength = static_cast<int>(data_len);
+    if (!HMAC(EVP_sha256(), key.data(), static_cast<int>(key.size()), data, dataLength,
               hmac_result.data(), &outLen)) {
         return false;
     }
@@ -465,13 +484,16 @@ static bool SHA512_Raw(const uint8_t* data, size_t len, std::vector<uint8_t>& ou
         return false;
     }
 
-    if (!BCRYPT_SUCCESS(BCryptHashData(hHash, (PUCHAR)data, (ULONG)len, 0))) {
+    std::vector<uint8_t> mutable_data = ToMutableBuffer(data, len);
+    if (!BCRYPT_SUCCESS(BCryptHashData(
+            hHash, mutable_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(mutable_data.data()),
+            static_cast<ULONG>(len), 0))) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
-    NTSTATUS st = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
+    NTSTATUS st = BCryptFinishHash(hHash, out.data(), static_cast<ULONG>(out.size()), 0);
     BCryptDestroyHash(hHash);
     BCryptCloseAlgorithmProvider(hAlg, 0);
     return BCRYPT_SUCCESS(st);
@@ -509,6 +531,7 @@ bool HMAC_SHA512(const std::vector<uint8_t>& key, const uint8_t* data, size_t da
     }
 
     // Inner hash: SHA512(ipad || data)
+    std::vector<uint8_t> mutable_data = ToMutableBuffer(data, data_len);
     std::vector<uint8_t> innerHash;
     {
         BCRYPT_ALG_HANDLE hAlg = nullptr;
@@ -521,11 +544,12 @@ bool HMAC_SHA512(const std::vector<uint8_t>& key, const uint8_t* data, size_t da
             return false;
         }
 
-        BCryptHashData(hHash, ipad.data(), (ULONG)ipad.size(), 0);
-        BCryptHashData(hHash, (PUCHAR)data, (ULONG)data_len, 0);
+        BCryptHashData(hHash, ipad.data(), static_cast<ULONG>(ipad.size()), 0);
+        BCryptHashData(hHash, mutable_data.empty() ? nullptr : reinterpret_cast<PUCHAR>(mutable_data.data()),
+                      static_cast<ULONG>(data_len), 0);
 
         innerHash.resize(64);
-        BCryptFinishHash(hHash, innerHash.data(), 64, 0);
+        BCryptFinishHash(hHash, innerHash.data(), static_cast<ULONG>(innerHash.size()), 0);
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
     }
@@ -542,10 +566,10 @@ bool HMAC_SHA512(const std::vector<uint8_t>& key, const uint8_t* data, size_t da
             return false;
         }
 
-        BCryptHashData(hHash, opad.data(), (ULONG)opad.size(), 0);
-        BCryptHashData(hHash, innerHash.data(), (ULONG)innerHash.size(), 0);
+        BCryptHashData(hHash, opad.data(), static_cast<ULONG>(opad.size()), 0);
+        BCryptHashData(hHash, innerHash.data(), static_cast<ULONG>(innerHash.size()), 0);
 
-        BCryptFinishHash(hHash, hmac_result.data(), 64, 0);
+        BCryptFinishHash(hHash, hmac_result.data(), static_cast<ULONG>(hmac_result.size()), 0);
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
     }
@@ -556,7 +580,8 @@ bool HMAC_SHA512(const std::vector<uint8_t>& key, const uint8_t* data, size_t da
     SecureWipeVector(opad);
 #else
     unsigned int outLen = 0;
-    if (!HMAC(EVP_sha512(), key.data(), static_cast<int>(key.size()), data, data_len,
+    const int dataLength = static_cast<int>(data_len);
+    if (!HMAC(EVP_sha512(), key.data(), static_cast<int>(key.size()), data, dataLength,
               hmac_result.data(), &outLen)) {
         return false;
     }
@@ -648,10 +673,13 @@ bool DPAPI_Protect(const std::vector<uint8_t>& plaintext, const std::string& ent
                    std::vector<uint8_t>& ciphertext) {
 #ifdef _WIN32
     DATA_BLOB in{}, out{}, entropy{};
-    in.pbData = const_cast<BYTE*>(reinterpret_cast<const BYTE*>(plaintext.data()));
-    in.cbData = static_cast<DWORD>(plaintext.size());
-    entropy.pbData = (BYTE*)entropy_str.data();
-    entropy.cbData = (DWORD)entropy_str.size();
+    std::vector<BYTE> mutable_plaintext(plaintext.begin(), plaintext.end());
+    std::vector<BYTE> mutable_entropy(entropy_str.begin(), entropy_str.end());
+
+    in.pbData = mutable_plaintext.empty() ? nullptr : mutable_plaintext.data();
+    in.cbData = static_cast<DWORD>(mutable_plaintext.size());
+    entropy.pbData = mutable_entropy.empty() ? nullptr : mutable_entropy.data();
+    entropy.cbData = static_cast<DWORD>(mutable_entropy.size());
 
     if (!CryptProtectData(&in, L"seed", &entropy, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN,
                           &out))
@@ -672,10 +700,13 @@ bool DPAPI_Unprotect(const std::vector<uint8_t>& ciphertext, const std::string& 
                      std::vector<uint8_t>& plaintext) {
 #ifdef _WIN32
     DATA_BLOB in{}, out{}, entropy{};
-    in.pbData = const_cast<BYTE*>(reinterpret_cast<const BYTE*>(ciphertext.data()));
-    in.cbData = static_cast<DWORD>(ciphertext.size());
-    entropy.pbData = (BYTE*)entropy_str.data();
-    entropy.cbData = (DWORD)entropy_str.size();
+    std::vector<BYTE> mutable_ciphertext(ciphertext.begin(), ciphertext.end());
+    std::vector<BYTE> mutable_entropy(entropy_str.begin(), entropy_str.end());
+
+    in.pbData = mutable_ciphertext.empty() ? nullptr : mutable_ciphertext.data();
+    in.cbData = static_cast<DWORD>(mutable_ciphertext.size());
+    entropy.pbData = mutable_entropy.empty() ? nullptr : mutable_entropy.data();
+    entropy.cbData = static_cast<DWORD>(mutable_entropy.size());
 
     if (!CryptUnprotectData(&in, nullptr, &entropy, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN,
                             &out))
@@ -702,7 +733,8 @@ bool LoadBIP39Wordlist(std::vector<std::string>& wordlist) {
     // On Windows and Linux, try executable-relative paths first
 #ifdef _WIN32
     char exePath[MAX_PATH] = {0};
-    DWORD pathLen = GetModuleFileNameA(NULL, exePath, MAX_PATH);
+        DWORD pathLen = GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+
     if (pathLen > 0 && pathLen < MAX_PATH) {
         std::filesystem::path binPath(exePath);
         std::filesystem::path exeDir = binPath.parent_path();
@@ -842,7 +874,7 @@ bool MnemonicFromEntropy(const std::vector<uint8_t>& entropy,
     for (size_t i = 0; i < words; ++i) {
         uint32_t idx = 0;
         for (size_t j = 0; j < 11; ++j)
-            idx = (idx << 1) | bits[i * 11 + j];
+            idx = (idx << 1) | static_cast<uint32_t>(bits[i * 11 + j]);
         outMnemonic.push_back(wordlist[idx]);
     }
     return outMnemonic.size() == words;
@@ -877,9 +909,7 @@ bool ValidateMnemonic(const std::vector<std::string>& mnemonic,
     std::vector<uint8_t> entropy(ENT / 8, 0);
     for (size_t i = 0; i < ENT; ++i) {
         size_t byteIdx = i / 8;
-        entropy[byteIdx] = (uint8_t)((entropy[byteIdx] << 1) | bits[i]);
-        if (i % 8 == 7) { /*byte complete*/
-        }
+        entropy[byteIdx] = static_cast<uint8_t>((entropy[byteIdx] << 1) | bits[i]);
     }
     // Compute hash and compare checksum bits
     std::array<uint8_t, 32> hash{};
@@ -1004,6 +1034,13 @@ bool AES_GCM_Encrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
         return false;
 
 #ifdef _WIN32
+    std::vector<uint8_t> key_data(key.begin(), key.end());
+    std::vector<uint8_t> plaintext_data(plaintext.begin(), plaintext.end());
+    std::vector<uint8_t> aad_data(aad.begin(), aad.end());
+    std::vector<uint8_t> nonce(iv.begin(), iv.end());
+    std::vector<uint8_t> chainModeMode(sizeof(BCRYPT_CHAIN_MODE_GCM));
+    std::memcpy(chainModeMode.data(), BCRYPT_CHAIN_MODE_GCM, chainModeMode.size());
+
     BCRYPT_ALG_HANDLE hAlg = nullptr;
     BCRYPT_KEY_HANDLE hKey = nullptr;
 
@@ -1011,38 +1048,40 @@ bool AES_GCM_Encrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
     if (!BCRYPT_SUCCESS(st))
         return false;
 
-    // Set chaining mode to GCM
-    st = BCryptSetProperty(hAlg, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_GCM,
-                           sizeof(BCRYPT_CHAIN_MODE_GCM), 0);
+    st = BCryptSetProperty(hAlg, BCRYPT_CHAINING_MODE, chainModeMode.data(),
+                           static_cast<ULONG>(chainModeMode.size()), 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
-    st = BCryptGenerateSymmetricKey(hAlg, &hKey, nullptr, 0, (PUCHAR)key.data(), (ULONG)key.size(),
-                                    0);
+    st = BCryptGenerateSymmetricKey(hAlg, &hKey, nullptr, 0,
+                                    reinterpret_cast<PUCHAR>(key_data.data()),
+                                    static_cast<ULONG>(key_data.size()), 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
-    // Setup auth info for GCM
     BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo;
-    BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
-    authInfo.pbNonce = iv.data();
-    authInfo.cbNonce = (ULONG)iv.size();
-    authInfo.pbAuthData = const_cast<PUCHAR>(aad.data());
-    authInfo.cbAuthData = (ULONG)aad.size();
+    BCRYPT_INIT_AUTH_MODE_INFO(authInfo)
+    authInfo.pbNonce = nonce.empty() ? nullptr : nonce.data();
+    authInfo.cbNonce = static_cast<ULONG>(nonce.size());
+    authInfo.pbAuthData = aad_data.empty() ? nullptr : aad_data.data();
+    authInfo.cbAuthData = static_cast<ULONG>(aad_data.size());
 
-    tag.resize(16);  // 128-bit tag
+    tag.resize(16);
     authInfo.pbTag = tag.data();
-    authInfo.cbTag = (ULONG)tag.size();
+    authInfo.cbTag = static_cast<ULONG>(tag.size());
 
     ULONG result_len = 0;
     ciphertext.resize(plaintext.size());
 
-    st = BCryptEncrypt(hKey, (PUCHAR)plaintext.data(), (ULONG)plaintext.size(), &authInfo, nullptr,
-                       0, ciphertext.data(), (ULONG)ciphertext.size(), &result_len, 0);
+    st = BCryptEncrypt(hKey,
+                       plaintext_data.empty() ? nullptr
+                                              : reinterpret_cast<PUCHAR>(plaintext_data.data()),
+                       static_cast<ULONG>(plaintext_data.size()), &authInfo, nullptr, 0,
+                       ciphertext.data(), static_cast<ULONG>(ciphertext.size()), &result_len, 0);
 
     BCryptDestroyKey(hKey);
     BCryptCloseAlgorithmProvider(hAlg, 0);
@@ -1063,7 +1102,7 @@ bool AES_GCM_Encrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
         return false;
     }
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size(), nullptr) != 1) {
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) != 1) {
         EVP_CIPHER_CTX_free(ctx);
         return false;
     }
@@ -1075,14 +1114,15 @@ bool AES_GCM_Encrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
 
     int len;
     if (!aad.empty()) {
-        if (EVP_EncryptUpdate(ctx, nullptr, &len, aad.data(), aad.size()) != 1) {
+        if (EVP_EncryptUpdate(ctx, nullptr, &len, aad.data(), static_cast<int>(aad.size())) != 1) {
             EVP_CIPHER_CTX_free(ctx);
             return false;
         }
     }
 
     ciphertext.resize(plaintext.size());
-    if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(), plaintext.size()) != 1) {
+    if (EVP_EncryptUpdate(ctx, ciphertext.data(), &len, plaintext.data(),
+                          static_cast<int>(plaintext.size())) != 1) {
         EVP_CIPHER_CTX_free(ctx);
         return false;
     }
@@ -1110,6 +1150,14 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
         return false;
 
 #ifdef _WIN32
+    std::vector<uint8_t> key_data(key.begin(), key.end());
+    std::vector<uint8_t> nonce(iv.begin(), iv.end());
+    std::vector<uint8_t> aad_data(aad.begin(), aad.end());
+    std::vector<uint8_t> tag_data(tag.begin(), tag.end());
+    std::vector<uint8_t> ciphertext_data(ciphertext.begin(), ciphertext.end());
+    std::vector<uint8_t> chainModeMode(sizeof(BCRYPT_CHAIN_MODE_GCM));
+    std::memcpy(chainModeMode.data(), BCRYPT_CHAIN_MODE_GCM, chainModeMode.size());
+
     BCRYPT_ALG_HANDLE hAlg = nullptr;
     BCRYPT_KEY_HANDLE hKey = nullptr;
 
@@ -1117,34 +1165,38 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
     if (!BCRYPT_SUCCESS(st))
         return false;
 
-    st = BCryptSetProperty(hAlg, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_GCM,
-                           sizeof(BCRYPT_CHAIN_MODE_GCM), 0);
+    st = BCryptSetProperty(hAlg, BCRYPT_CHAINING_MODE, chainModeMode.data(),
+                           static_cast<ULONG>(chainModeMode.size()), 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
-    st = BCryptGenerateSymmetricKey(hAlg, &hKey, nullptr, 0, (PUCHAR)key.data(), (ULONG)key.size(),
-                                    0);
+    st = BCryptGenerateSymmetricKey(hAlg, &hKey, nullptr, 0,
+                                    reinterpret_cast<PUCHAR>(key_data.data()),
+                                    static_cast<ULONG>(key_data.size()), 0);
     if (!BCRYPT_SUCCESS(st)) {
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
     BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo;
-    BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
-    authInfo.pbNonce = const_cast<PUCHAR>(iv.data());
-    authInfo.cbNonce = (ULONG)iv.size();
-    authInfo.pbAuthData = const_cast<PUCHAR>(aad.data());
-    authInfo.cbAuthData = (ULONG)aad.size();
-    authInfo.pbTag = const_cast<PUCHAR>(tag.data());
-    authInfo.cbTag = (ULONG)tag.size();
+    BCRYPT_INIT_AUTH_MODE_INFO(authInfo)
+    authInfo.pbNonce = nonce.empty() ? nullptr : nonce.data();
+    authInfo.cbNonce = static_cast<ULONG>(nonce.size());
+    authInfo.pbAuthData = aad_data.empty() ? nullptr : aad_data.data();
+    authInfo.cbAuthData = static_cast<ULONG>(aad_data.size());
+    authInfo.pbTag = tag_data.empty() ? nullptr : tag_data.data();
+    authInfo.cbTag = static_cast<ULONG>(tag_data.size());
 
     ULONG result_len = 0;
     plaintext.resize(ciphertext.size());
 
-    st = BCryptDecrypt(hKey, (PUCHAR)ciphertext.data(), (ULONG)ciphertext.size(), &authInfo,
-                       nullptr, 0, plaintext.data(), (ULONG)plaintext.size(), &result_len, 0);
+    st = BCryptDecrypt(hKey,
+                       ciphertext_data.empty() ? nullptr
+                                               : reinterpret_cast<PUCHAR>(ciphertext_data.data()),
+                       static_cast<ULONG>(ciphertext_data.size()), &authInfo, nullptr, 0,
+                       plaintext.data(), static_cast<ULONG>(plaintext.size()), &result_len, 0);
 
     BCryptDestroyKey(hKey);
     BCryptCloseAlgorithmProvider(hAlg, 0);
@@ -1155,7 +1207,6 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
     }
 
     plaintext.resize(result_len);
-    return true;
 #else
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
@@ -1166,7 +1217,7 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
         return false;
     }
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size(), nullptr) != 1) {
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(iv.size()), nullptr) != 1) {
         EVP_CIPHER_CTX_free(ctx);
         return false;
     }
@@ -1176,21 +1227,24 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
         return false;
     }
 
+    std::vector<uint8_t> tag_data(tag.begin(), tag.end());
+
     int len;
     if (!aad.empty()) {
-        if (EVP_DecryptUpdate(ctx, nullptr, &len, aad.data(), aad.size()) != 1) {
+        if (EVP_DecryptUpdate(ctx, nullptr, &len, aad.data(), static_cast<int>(aad.size())) != 1) {
             EVP_CIPHER_CTX_free(ctx);
             return false;
         }
     }
 
     plaintext.resize(ciphertext.size());
-    if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(), ciphertext.size()) != 1) {
+    if (EVP_DecryptUpdate(ctx, plaintext.data(), &len, ciphertext.data(),
+                          static_cast<int>(ciphertext.size())) != 1) {
         EVP_CIPHER_CTX_free(ctx);
         return false;
     }
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, const_cast<uint8_t*>(tag.data())) != 1) {
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, tag_data.data()) != 1) {
         EVP_CIPHER_CTX_free(ctx);
         return false;
     }
@@ -1202,9 +1256,8 @@ bool AES_GCM_Decrypt(const std::vector<uint8_t>& key, const std::vector<uint8_t>
         SecureWipeVector(plaintext);
         return false;
     }
-
-    return true;
 #endif
+    return true;
 }
 
 // === Database Encryption Functions ===
@@ -1500,11 +1553,11 @@ std::string EncodeBase58(const std::vector<uint8_t>& data) {
         int carry = data[i];
         for (size_t j = 0; j < b58.size(); ++j) {
             carry += 256 * b58[j];
-            b58[j] = carry % 58;
+            b58[j] = static_cast<uint8_t>(carry % 58);
             carry /= 58;
         }
         while (carry > 0) {
-            b58.push_back(carry % 58);
+            b58.push_back(static_cast<uint8_t>(carry % 58));
             carry /= 58;
         }
     }
@@ -1568,7 +1621,7 @@ std::vector<uint8_t> DecodeBase58(const std::string& str) {
     // Process the characters
     while (i < str.length() && !isspace(str[i])) {
         // Decode base58 character
-        int carry = mapBase58[(uint8_t)str[i]];
+        int carry = mapBase58[static_cast<uint8_t>(str[i])];
         if (carry == -1)  // Invalid b58 character
             return std::vector<uint8_t>();
         int j = 0;
@@ -1583,7 +1636,7 @@ std::vector<uint8_t> DecodeBase58(const std::string& str) {
                 }
             }
             carry += 58 * (*it);
-            *it = carry % 256;
+            *it = static_cast<uint8_t>(carry % 256);
             carry /= 256;
         }
         i++;
@@ -1593,7 +1646,7 @@ std::vector<uint8_t> DecodeBase58(const std::string& str) {
     while (it != b256.end() && *it == 0)
         it++;
     // Copy result into output vector
-    result.reserve(zeroes + (b256.end() - it));
+    result.reserve(zeroes + static_cast<size_t>(b256.end() - it));
     result.assign(zeroes, 0x00);
     while (it != b256.end())
         result.push_back(*(it++));
@@ -1636,7 +1689,7 @@ bool DecodeBase58Check(const std::string& address, std::vector<uint8_t>& payload
         return false;
 
     // Compare checksums
-    for (int i = 0; i < 4; i++) {
+    for (size_t i = 0; i < 4; ++i) {
         if (checksum[i] != hash2[i])
             return false;
     }
@@ -1861,8 +1914,8 @@ bool BIP32_DerivePath(const BIP32ExtendedKey& master, const std::string& path,
         uint32_t index = 0;
         bool hardened = false;
 
-        while (pos < path.size() && std::isdigit(path[pos])) {
-            index = index * 10 + (path[pos] - '0');
+        while (pos < path.size() && std::isdigit(static_cast<unsigned char>(path[pos]))) {
+            index = (index * 10u) + static_cast<uint32_t>(path[pos] - '0');
             ++pos;
         }
 
@@ -2738,9 +2791,9 @@ bool BIP44_GenerateEthereumAddresses(const BIP32ExtendedKey& master, uint32_t ac
 uint32_t GetCoinType(ChainType chain) {
     switch (chain) {
         case ChainType::BITCOIN:
-        case ChainType::BITCOIN_SEGWIT:
             return 0;
         case ChainType::BITCOIN_TESTNET:
+        case ChainType::BITCOIN_SEGWIT:
         case ChainType::BITCOIN_SEGWIT_TESTNET:
             return 1;
         case ChainType::LITECOIN:
@@ -2760,9 +2813,9 @@ uint32_t GetCoinType(ChainType chain) {
         case ChainType::OPTIMISM:
         case ChainType::BASE:
             return 60;  // EVM-compatible chains use Ethereum coin type
-        default:
-            return 0;
     }
+
+    return 0;
 }
 
 std::string GetChainName(ChainType chain) {
@@ -2795,9 +2848,9 @@ std::string GetChainName(ChainType chain) {
             return "Optimism";
         case ChainType::BASE:
             return "Base";
-        default:
-            return "Unknown";
     }
+
+    return "Unknown";
 }
 
 bool DeriveChainAddress(const BIP32ExtendedKey& master, ChainType chain, uint32_t account,
@@ -2822,7 +2875,6 @@ bool DeriveChainAddress(const BIP32ExtendedKey& master, ChainType chain, uint32_
                                         false)) {
                 return false;
             }
-            // Litecoin mainnet P2PKH version byte is 0x30 (starts with 'L')
             return BIP32_GetAddressWithVersion(address_key, address, 0x30);
         }
 
@@ -2832,7 +2884,6 @@ bool DeriveChainAddress(const BIP32ExtendedKey& master, ChainType chain, uint32_
                                         true)) {
                 return false;
             }
-            // Litecoin testnet P2PKH version byte is 0x6F (starts with 'm' or 'n')
             return BIP32_GetAddressWithVersion(address_key, address, 0x6F);
         }
 
@@ -2844,12 +2895,10 @@ bool DeriveChainAddress(const BIP32ExtendedKey& master, ChainType chain, uint32_
         case ChainType::ARBITRUM:
         case ChainType::OPTIMISM:
         case ChainType::BASE:
-            // All EVM-compatible chains use Ethereum address format
             return BIP44_GetEthereumAddress(master, account, change, address_index, address);
-
-        default:
-            return false;
     }
+
+    return false;
 }
 
 // === Chain-Aware Address Validation ===
@@ -2865,9 +2914,16 @@ bool IsEVMChain(ChainType chain) {
         case ChainType::OPTIMISM:
         case ChainType::BASE:
             return true;
-        default:
+        case ChainType::BITCOIN:
+        case ChainType::BITCOIN_TESTNET:
+        case ChainType::BITCOIN_SEGWIT:
+        case ChainType::BITCOIN_SEGWIT_TESTNET:
+        case ChainType::LITECOIN:
+        case ChainType::LITECOIN_TESTNET:
             return false;
     }
+
+    return false;
 }
 
 bool IsBitcoinChain(ChainType chain) {
@@ -2879,9 +2935,18 @@ bool IsBitcoinChain(ChainType chain) {
         case ChainType::LITECOIN:
         case ChainType::LITECOIN_TESTNET:
             return true;
-        default:
+        case ChainType::ETHEREUM:
+        case ChainType::ETHEREUM_TESTNET:
+        case ChainType::BNB_CHAIN:
+        case ChainType::POLYGON:
+        case ChainType::AVALANCHE:
+        case ChainType::ARBITRUM:
+        case ChainType::OPTIMISM:
+        case ChainType::BASE:
             return false;
     }
+
+    return false;
 }
 
 bool IsValidAddressFormat(const std::string& address, ChainType chain) {
@@ -3023,27 +3088,36 @@ bool HMAC_SHA1(const std::vector<uint8_t>& key, const uint8_t* data, size_t data
     // SHA1 produces 20 bytes
     out.resize(20);
     BCRYPT_HASH_HANDLE hHash = nullptr;
-    status = BCryptCreateHash(hAlg, &hHash, nullptr, 0, (PUCHAR)key.data(), (ULONG)key.size(), 0);
+    std::vector<uint8_t> mutable_key = key;
+    status = BCryptCreateHash(hAlg, &hHash, nullptr, 0,
+                             reinterpret_cast<PUCHAR>(mutable_key.data()),
+                             static_cast<ULONG>(mutable_key.size()), 0);
     if (!BCRYPT_SUCCESS(status)) {
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
-    status = BCryptHashData(hHash, (PUCHAR)data, (ULONG)data_len, 0);
+    std::vector<uint8_t> mutable_data = ToMutableBuffer(data, data_len);
+    status = BCryptHashData(hHash,
+                           mutable_data.empty() ? nullptr
+                                               : reinterpret_cast<PUCHAR>(mutable_data.data()),
+                           static_cast<ULONG>(data_len), 0);
     if (!BCRYPT_SUCCESS(status)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);
         return false;
     }
 
-    status = BCryptFinishHash(hHash, out.data(), (ULONG)out.size(), 0);
+    status = BCryptFinishHash(hHash, out.data(), static_cast<ULONG>(out.size()), 0);
     BCryptDestroyHash(hHash);
     BCryptCloseAlgorithmProvider(hAlg, 0);
     return BCRYPT_SUCCESS(status);
 #else
     out.resize(20);
     unsigned int outLen = 0;
-    if (!HMAC(EVP_sha1(), key.data(), key.size(), data, data_len, out.data(), &outLen)) {
+    const int dataLength = static_cast<int>(data_len);
+    if (!HMAC(EVP_sha1(), key.data(), static_cast<int>(key.size()), data, dataLength,
+              out.data(), &outLen)) {
         return false;
     }
     return true;
@@ -3129,9 +3203,10 @@ std::vector<uint8_t> Base32Decode(const std::string& encoded) {
 // === Bech32 (BIP173/BIP350) implementation ===
 
 namespace Bech32 {
-const char* CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+static const char* CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
-uint32_t PolyMod(const std::vector<uint8_t>& values) {
+static uint32_t PolyMod(const std::vector<uint8_t>& values) {
+
     uint32_t chk = 1;
     for (uint8_t v : values) {
         uint8_t b = (chk >> 25);
@@ -3150,19 +3225,22 @@ uint32_t PolyMod(const std::vector<uint8_t>& values) {
     return chk;
 }
 
-std::vector<uint8_t> HrpExpand(const std::string& hrp) {
+static std::vector<uint8_t> HrpExpand(const std::string& hrp) {
+
     std::vector<uint8_t> ret;
     ret.reserve(hrp.size() * 2 + 1);
     for (char c : hrp)
-        ret.push_back(c >> 5);
+        ret.push_back(static_cast<uint8_t>(static_cast<unsigned char>(c) >> 5));
     ret.push_back(0);
     for (char c : hrp)
-        ret.push_back(c & 31);
+        ret.push_back(static_cast<uint8_t>(static_cast<unsigned char>(c) & 31u));
     return ret;
 }
 
-bool ConvertBits(const std::vector<uint8_t>& data, int frombits, int tobits, bool pad,
+static bool ConvertBits(const std::vector<uint8_t>& data, int frombits, int tobits, bool pad,
                  std::vector<uint8_t>& out) {
+
+
     uint32_t acc = 0;
     int bits = 0;
     uint32_t maxv = (1 << tobits) - 1;
@@ -3171,12 +3249,12 @@ bool ConvertBits(const std::vector<uint8_t>& data, int frombits, int tobits, boo
         bits += frombits;
         while (bits >= tobits) {
             bits -= tobits;
-            out.push_back((acc >> bits) & maxv);
+            out.push_back(static_cast<uint8_t>((acc >> bits) & maxv));
         }
     }
     if (pad) {
         if (bits > 0) {
-            out.push_back((acc << (tobits - bits)) & maxv);
+            out.push_back(static_cast<uint8_t>((acc << (tobits - bits)) & maxv));
         }
     } else if (bits >= frombits || ((acc << (tobits - bits)) & maxv)) {
         return false;
@@ -3241,7 +3319,7 @@ bool Bech32_Decode(const std::string& address, std::string& hrp, int& witness_ve
         const char* p = strchr(Bech32::CHARSET, address[i]);
         if (!p)
             return false;
-        data.push_back(p - Bech32::CHARSET);
+        data.push_back(static_cast<uint8_t>(p - Bech32::CHARSET));
     }
 
     std::vector<uint8_t> combined = Bech32::HrpExpand(hrp);
@@ -3494,10 +3572,11 @@ std::string GenerateTOTP(const std::vector<uint8_t>& secret, uint64_t timestamp,
     }
 
     // Dynamic truncation (RFC 4226)
-    int offset = hmacResult[19] & 0x0F;
-    uint32_t binary = ((hmacResult[offset] & 0x7F) << 24) |
-                      ((hmacResult[offset + 1] & 0xFF) << 16) |
-                      ((hmacResult[offset + 2] & 0xFF) << 8) | (hmacResult[offset + 3] & 0xFF);
+    const size_t offset = static_cast<size_t>(hmacResult[19] & 0x0Fu);
+    uint32_t binary = (static_cast<uint32_t>(hmacResult[offset] & 0x7Fu) << 24) |
+                      (static_cast<uint32_t>(hmacResult[offset + 1] & 0xFFu) << 16) |
+                      (static_cast<uint32_t>(hmacResult[offset + 2] & 0xFFu) << 8) |
+                      static_cast<uint32_t>(hmacResult[offset + 3] & 0xFFu);
 
     // Generate OTP of specified digits
     uint32_t otp = binary % static_cast<uint32_t>(std::pow(10, digits));
@@ -3513,8 +3592,11 @@ bool VerifyTOTP(const std::vector<uint8_t>& secret, const std::string& code, uin
     uint64_t currentTime = static_cast<uint64_t>(std::time(nullptr));
 
     // Check codes within the time window
-    for (int i = -static_cast<int>(window); i <= static_cast<int>(window); i++) {
-        uint64_t checkTime = currentTime + (i * timestep);
+    for (int i = -static_cast<int>(window); i <= static_cast<int>(window); ++i) {
+        const int64_t timeOffset = static_cast<int64_t>(i) * static_cast<int64_t>(timestep);
+        const uint64_t checkTime = timeOffset < 0
+                                       ? currentTime - static_cast<uint64_t>(-timeOffset)
+                                       : currentTime + static_cast<uint64_t>(timeOffset);
         std::string expectedCode = GenerateTOTP(secret, checkTime, timestep, digits);
 
         // Constant-time comparison to prevent timing attacks

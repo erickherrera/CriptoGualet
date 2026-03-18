@@ -25,9 +25,6 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
-#ifndef STATUS_SUCCESS
-#define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
-#endif
 #else
 #include <sodium.h>
 #endif
@@ -43,90 +40,12 @@ void secureZeroMemory(void* ptr, size_t size) {
     sodium_memzero(ptr, size);
 #endif
 }
-
-// Secure string class that wipes memory on destruction
-class SecureString {
-  private:
-    char* m_data;
-    size_t m_size;
-    size_t m_capacity;
-
-  public:
-    SecureString() : m_data(nullptr), m_size(0), m_capacity(0) {
-    }
-
-    explicit SecureString(const std::string& str) : m_data(nullptr), m_size(0), m_capacity(0) {
-        assign(str);
-    }
-
-    ~SecureString() {
-        clear();
-    }
-
-    void assign(const std::string& str) {
-        clear();
-        if (!str.empty()) {
-            m_capacity = str.size() + 1;
-            m_data = new char[m_capacity];
-            std::memcpy(m_data, str.c_str(), str.size());
-            m_data[str.size()] = '\0';
-            m_size = str.size();
-        }
-    }
-
-    void clear() {
-        if (m_data) {
-            secureZeroMemory(m_data, m_capacity);
-            delete[] m_data;
-            m_data = nullptr;
-        }
-        m_size = 0;
-        m_capacity = 0;
-    }
-
-    const char* c_str() const {
-        return m_data ? m_data : "";
-    }
-    size_t size() const {
-        return m_size;
-    }
-    bool empty() const {
-        return m_size == 0;
-    }
-
-    // Disable copy constructor and assignment
-    SecureString(const SecureString&) = delete;
-    SecureString& operator=(const SecureString&) = delete;
-
-    // Move constructor and assignment
-    SecureString(SecureString&& other) noexcept {
-        m_data = other.m_data;
-        m_size = other.m_size;
-        m_capacity = other.m_capacity;
-        other.m_data = nullptr;
-        other.m_size = 0;
-        other.m_capacity = 0;
-    }
-
-    SecureString& operator=(SecureString&& other) noexcept {
-        if (this != &other) {
-            clear();
-            m_data = other.m_data;
-            m_size = other.m_size;
-            m_capacity = other.m_capacity;
-            other.m_data = nullptr;
-            other.m_size = 0;
-            other.m_capacity = 0;
-        }
-        return *this;
-    }
-};
 }  // namespace
 
 // Static instance for singleton
 DatabaseManager& DatabaseManager::getInstance() {
-    static DatabaseManager instance;
-    return instance;
+    static auto* instance = new DatabaseManager();
+    return *instance;
 }
 
 DatabaseManager::~DatabaseManager() {
@@ -721,11 +640,42 @@ DatabaseResult DatabaseManager::verifyBackupIntegrity(sqlite3* backupDb) {
 
 void DatabaseManager::logDatabaseOperation(const std::string& operation, const std::string& details,
                                            const std::string& error) {
-    // Simplified logging
+    std::lock_guard<std::recursive_mutex> lock(m_auditMutex);
+
+    std::ostringstream entry;
+    const auto now = std::chrono::system_clock::now();
+    const std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+
+    std::tm timestamp{};
+#ifdef _WIN32
+    localtime_s(&timestamp, &nowTime);
+#else
+    localtime_r(&nowTime, &timestamp);
+#endif
+
+    entry << std::put_time(&timestamp, "%Y-%m-%d %H:%M:%S") << " | " << operation;
+    if (!details.empty()) {
+        entry << " | " << details;
+    }
+    if (!error.empty()) {
+        entry << " | ERROR: " << error;
+    }
+
+    constexpr size_t maxAuditEntries = 1000;
+    if (m_auditLog.size() >= maxAuditEntries) {
+        m_auditLog.erase(m_auditLog.begin());
+    }
+    m_auditLog.push_back(entry.str());
 }
 
 std::vector<std::string> DatabaseManager::getAuditLog(size_t maxEntries) const {
-    return m_auditLog;
+    std::lock_guard<std::recursive_mutex> lock(m_auditMutex);
+    if (maxEntries == 0 || maxEntries >= m_auditLog.size()) {
+        return m_auditLog;
+    }
+
+    return std::vector<std::string>(m_auditLog.end() - static_cast<std::ptrdiff_t>(maxEntries),
+                                    m_auditLog.end());
 }
 
 DatabaseResult DatabaseManager::changeEncryptionKey(const std::string& newKey) {

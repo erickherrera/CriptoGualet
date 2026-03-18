@@ -40,6 +40,15 @@ if(NOT WIN32)
   target_link_libraries(SharedSymbols PRIVATE unofficial-sodium::sodium OpenSSL::Crypto)
 endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(SharedSymbols PRIVATE
+    -Wno-global-constructors
+    -Wno-exit-time-destructors
+    -Wno-unsafe-buffer-usage
+    -Wno-unsafe-buffer-usage-in-libc-call
+  )
+endif()
+
 # ---- RLP Encoder library ----
 add_library(RLPEncoder STATIC
   "RLPEncoder.cpp"

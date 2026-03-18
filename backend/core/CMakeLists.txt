@@ -30,6 +30,15 @@ else()
   target_compile_options(Crypto PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIC)
 endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(Crypto PRIVATE
+    -Wno-switch-default
+    -Wno-covered-switch-default
+    -Wno-unsafe-buffer-usage
+    -Wno-unsafe-buffer-usage-in-libc-call
+  )
+endif()
+
 # ---- Auth library (portable, builds everywhere) ----
 add_library(Auth STATIC
   "Auth.cpp"
@@ -56,6 +65,13 @@ elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   target_compile_options(Auth PRIVATE /W4 /permissive- /utf-8 /EHsc /GS)
 else()
   target_compile_options(Auth PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIC)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(Auth PRIVATE
+    -Wno-unsafe-buffer-usage
+    -Wno-unsafe-buffer-usage-in-libc-call
+  )
 endif()
 
 # ---- Wallet API library (high-level wrapper) ----

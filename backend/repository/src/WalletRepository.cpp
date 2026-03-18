@@ -1,9 +1,10 @@
 #include "../include/Repository/WalletRepository.h"
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <iomanip>
-#include <set>
 #include <sstream>
+#include <string_view>
 
 extern "C" {
 #ifdef SQLCIPHER_AVAILABLE
@@ -625,11 +626,12 @@ Result<bool> WalletRepository::validateWalletName(const std::string& walletName)
 }
 
 Result<bool> WalletRepository::validateWalletType(const std::string& walletType) {
-    static const std::set<std::string> validTypes = {"bitcoin",        "bitcoin_testnet",
-                                                     "bitcoin_segwit", "bitcoin_segwit_testnet",
-                                                     "litecoin",       "ethereum"};
+    static constexpr std::array<std::string_view, 6> validTypes = {
+        "bitcoin", "bitcoin_testnet", "bitcoin_segwit", "bitcoin_segwit_testnet", "litecoin",
+        "ethereum"};
 
-    if (validTypes.find(walletType) == validTypes.end()) {
+    const auto it = std::find(validTypes.begin(), validTypes.end(), walletType);
+    if (it == validTypes.end()) {
         return Result<bool>("Invalid wallet type", 400);
     }
 

@@ -49,3 +49,12 @@ elseif(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 else()
   target_compile_options(Repository PRIVATE -Wall -Wextra -Wpedantic -fstack-protector-strong -fPIC)
 endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(Repository PRIVATE
+    -Wno-switch-default
+    -Wno-covered-switch-default
+    -Wno-unsafe-buffer-usage
+    -Wno-unsafe-buffer-usage-in-libc-call
+  )
+endif()
