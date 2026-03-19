@@ -18,6 +18,7 @@ set(TEST_SUPPORT_LIBS
   SharedSymbols
   SecureCredentialStore
   QRGenerator
+  RLPEncoder
 )
 if(TARGET WalletAPI)
   list(APPEND TEST_SUPPORT_LIBS WalletAPI)
@@ -28,6 +29,11 @@ function(configure_criptogualet_test target_name)
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
   )
   target_link_libraries(${target_name} PRIVATE TestUtils ${TEST_SUPPORT_LIBS})
+
+  # Explicitly link secp256k1 if the test needs raw access (like test_integration_sovereign)
+  if(TARGET unofficial::secp256k1)
+    target_link_libraries(${target_name} PRIVATE unofficial::secp256k1)
+  endif()
 
   if(WIN32)
     target_link_libraries(${target_name} PRIVATE ws2_32 wsock32 bcrypt crypt32)
