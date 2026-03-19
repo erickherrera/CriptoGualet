@@ -818,15 +818,53 @@ elseif(APPLE)
 elseif(UNIX)
   set(CPACK_GENERATOR "TGZ;DEB;RPM")
   
+  # Desktop integration for Linux
+  # Generate a standard .desktop file at build time
+  set(LINUX_DESKTOP_FILE "${CMAKE_CURRENT_BINARY_DIR}/criptogualet.desktop")
+  file(WRITE "${LINUX_DESKTOP_FILE}" 
+    "[Desktop Entry]\n"
+    "Version=1.0\n"
+    "Name=CriptoGualet\n"
+    "Comment=Secure Non-Custodial Cryptocurrency Wallet\n"
+    "Exec=CriptoGualetQt\n"
+    "Icon=criptogualet\n"
+    "Terminal=false\n"
+    "Type=Application\n"
+    "Categories=Office;Finance;Qt;\n"
+    "Keywords=crypto;wallet;bitcoin;ethereum;blockchain;\n"
+  )
+  
+  # Install Desktop File
+  install(FILES "${LINUX_DESKTOP_FILE}" 
+          DESTINATION share/applications 
+          COMPONENT Runtime)
+  
+  # Install App Icon (standard path)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resources/logo_criptogualet.png")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/logo_criptogualet.png" 
+            RENAME criptogualet.png
+            DESTINATION share/icons/hicolor/256x256/apps 
+            COMPONENT Runtime)
+  endif()
+
   # Debian package settings
-  set(CPACK_DEBIAN_PACKAGE_MAINTAINER "CriptoGualet Team")
+  set(CPACK_DEBIAN_PACKAGE_MAINTAINER "CriptoGualet Team <support@criptogualet.com>")
   set(CPACK_DEBIAN_PACKAGE_SECTION "finance")
+  set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+  set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+  # Fallback dependencies for older systems or custom builds
   set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6core6, libqt6gui6, libqt6widgets6, libqt6svg6, libqt6network6, libssl3")
+  set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/erickherrera/CriptoGualet")
   
   # RPM package settings
   set(CPACK_RPM_PACKAGE_LICENSE "MIT")
   set(CPACK_RPM_PACKAGE_GROUP "Applications/Finance")
+  set(CPACK_RPM_PACKAGE_AUTOREQ ON)
   set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase, qt6-qtsvg, openssl")
+  set(CPACK_RPM_PACKAGE_URL "https://github.com/erickherrera/CriptoGualet")
+  
+  # Packaging prefix for standard Linux distributions
+  set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 endif()
 
 include(CPack)
