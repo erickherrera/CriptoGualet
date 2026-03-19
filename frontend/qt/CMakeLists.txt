@@ -604,36 +604,36 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     install(CODE "
       set(INSTALL_BIN_DIR \"\${CMAKE_INSTALL_PREFIX}/bin\")
       set(QT_PLUGINS_DIR \"\")
-      
+
       # Try to find Qt6 plugins in common locations
       if(EXISTS \"${VCPKG_INSTALLED_DIR}/x64-linux/tools/Qt6/plugins\")
         set(QT_PLUGINS_DIR \"${VCPKG_INSTALLED_DIR}/x64-linux/tools/Qt6/plugins\")
       elseif(EXISTS \"/usr/lib/x86_64-linux-gnu/qt6/plugins\")
         set(QT_PLUGINS_DIR \"/usr/lib/x86_64-linux-gnu/qt6/plugins\")
       endif()
-      
+
       if(QT_PLUGINS_DIR)
         message(STATUS \"Installing Qt6 plugins from: \${QT_PLUGINS_DIR}\")
-        
+
         # Create plugins directory
         file(MAKE_DIRECTORY \"\${INSTALL_BIN_DIR}/plugins\")
-        
+
         # Install common Qt6 plugins
         set(QT_PLUGIN_TYPES \"platforms;imageformats;styles\")
-        
+
         foreach(PLUGIN_TYPE \${QT_PLUGIN_TYPES})
           if(EXISTS \"\${QT_PLUGINS_DIR}/\${PLUGIN_TYPE}\")
             file(GLOB PLUGINS \"\${QT_PLUGINS_DIR}/\${PLUGIN_TYPE}/*.so\")
             foreach(PLUGIN \${PLUGINS})
               get_filename_component(PLUGIN_NAME \${PLUGIN} NAME)
-              file(COPY \${PLUGIN} DESTINATION \"\${INSTALL_BIN_DIR}/plugins/\${PLUGIN_TYPE}\")
+              # Use file(INSTALL) instead of file(COPY) for better permission handling
+              file(INSTALL \"\${PLUGIN}\" DESTINATION \"\${INSTALL_BIN_DIR}/plugins/\${PLUGIN_TYPE}\")
               message(STATUS \"  Installed Qt6 \${PLUGIN_TYPE}: \${PLUGIN_NAME}\")
             endforeach()
           endif()
         endforeach()
       endif()
-    " COMPONENT Runtime)
-  endif()
+    " COMPONENT Runtime)  endif()
 elseif(BUILD_GUI_QT AND NOT Qt6_FOUND)
   message(STATUS "Qt6 not found - install Qt6 from https://qt.io to build the modern Qt GUI")
 endif()
