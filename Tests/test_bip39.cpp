@@ -878,9 +878,11 @@ bool test_BIP32_KnownTestVector() {
     // The address should be deterministic for this known test vector
     std::cout << "Known test vector address: " << address << "\n";
 
-    // Verify it's a valid Bitcoin address format
-    if (address.empty() || address[0] != '1') {
-        std::cout << "Known test vector produced invalid address\n";
+    // Expected address for the provided known seed and path m/44'/0'/0'/0/0
+    if (address != "1JxiY6kjfgRhmbNh4KbjgcoVa9bat5FJpD") {
+        std::cout << "Known test vector address mismatch (Expected "
+                     "1JxiY6kjfgRhmbNh4KbjgcoVa9bat5FJpD, got "
+                  << address << ")\n";
         return false;
     }
 

@@ -60,6 +60,7 @@ add_criptogualet_test(test_ethereum_robustness "test_ethereum_robustness.cpp")
 # Consolidated repository tests
 add_criptogualet_test(test_repository_consolidated "test_repository_consolidated.cpp")
 add_criptogualet_test(test_signing_robustness "test_signing_robustness.cpp")
+add_criptogualet_test(test_integration_sovereign "test_integration_sovereign.cpp")
 
 # Additional test executables (launch manually / set as startup)
 add_criptogualet_tool(test_password_verification "test_password_verification.cpp")
