@@ -101,11 +101,12 @@ jobs:
         Write-Host "Build completed successfully"
         
     - name: Run CPack for Windows
+      working-directory: ${{github.workspace}}/build/windows
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
         
-        cpack -G "NSIS;ZIP" -C Release -B ${{github.workspace}}/build/windows/release -S ${{github.workspace}}/build/windows
+        cpack -G "NSIS;ZIP" -C Release -B ${{github.workspace}}/build/windows/release
         
         if ($LASTEXITCODE -ne 0) {
           Write-Host "CPack failed!"
@@ -191,11 +192,12 @@ jobs:
         cmake --build ${{github.workspace}}/build/linux --parallel $(nproc)
         
     - name: Run CPack for Linux
+      working-directory: ${{github.workspace}}/build/linux
       shell: bash
       run: |
         set -e
         
-        cpack -G "TGZ;DEB;RPM" -C Release -B ${{github.workspace}}/build/linux/release -S ${{github.workspace}}/build/linux
+        cpack -G "TGZ;DEB;RPM" -C Release -B ${{github.workspace}}/build/linux/release
         
         echo "Created packages:"
         find ${{github.workspace}}/build/linux/release -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" 2>/dev/null | while read f; do
