@@ -1,0 +1,318 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: 'false'
+        type: boolean
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+env:
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+jobs:
+  # Windows Release Build
+  build-windows:
+    name: Build Windows (${{ matrix.config.generator }})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        config:
+          - generator: "Visual Studio 17 2022"
+            toolset: "v143"
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install NSIS
+      run: |
+        choco install nsis -y --no-progress
+        
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+        
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '4bb07a326d9b9bce3703272a509e5bc25dd9cfd5'
+        
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{github.workspace}}/vcpkg_installed
+          ${{github.workspace}}/vcpkg
+        key: vcpkg-release-win-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-release-win-
+          
+    - name: Configure CMake for Windows Release
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        
+        cmake -B ${{github.workspace}}/build/windows `
+          -S ${{github.workspace}} `
+          -G "${{ matrix.config.generator }}"`
+          -T ${{ matrix.config.toolset }} `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/build/windows/install `
+          -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake `
+          -DVCPKG_TARGET_TRIPLET=x64-windows `
+          -DVCPKG_INSTALLED_DIR=${{github.workspace}}/vcpkg_installed `
+          -DBUILD_TESTS=OFF `
+          -DBUILD_GUI_QT=ON
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "CMake configuration failed!"
+          exit 1
+        }
+        Write-Host "CMake configuration successful"
+        
+    - name: Build Windows Release
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        
+        cmake --build ${{github.workspace}}/build/windows --config Release --parallel 2>&1 | Tee-Object -FilePath ${{github.workspace}}/build_windows.log
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "Build failed!"
+          Get-Content ${{github.workspace}}/build_windows.log | Select-Object -Last 50
+          exit 1
+        }
+        Write-Host "Build completed successfully"
+        
+    - name: Run CPack for Windows
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        
+        cpack -G "NSIS;ZIP" -B ${{github.workspace}}/build/windows/release -S ${{github.workspace}}/build/windows --config Release
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "CPack failed!"
+          exit 1
+        }
+        
+        Write-Host "Packaging completed"
+        Get-ChildItem -Path ${{github.workspace}}/build/windows/release -Filter "*.exe" -Recurse | ForEach-Object { Write-Host "Created: $($_.Name)" }
+        Get-ChildItem -Path ${{github.workspace}}/build/windows/release -Filter "*.zip" -Recurse | ForEach-Object { Write-Host "Created: $($_.Name)" }
+        
+    - name: Upload Windows Release Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-release-packages
+        path: |
+          ${{github.workspace}}/build/windows/release/*.exe
+          ${{github.workspace}}/build/windows/release/*.zip
+        retention-days: 5
+
+  # Linux Release Build
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-24.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          pkg-config \
+          libssl-dev \
+          libsqlcipher-dev \
+          qt6-base-dev \
+          qt6-svg-dev \
+          libqt6svg6-dev \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          ninja-build \
+          g++ \
+          nsis
+        
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '4bb07a326d9b9bce3703272a509e5bc25dd9cfd5'
+        
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{github.workspace}}/vcpkg_installed
+          ${{github.workspace}}/vcpkg
+        key: vcpkg-release-linux-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-release-linux-
+          
+    - name: Configure CMake for Linux Release
+      shell: bash
+      run: |
+        set -e
+        
+        cmake -B ${{github.workspace}}/build/linux \
+          -S ${{github.workspace}} \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/build/linux/install \
+          -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake \
+          -DVCPKG_TARGET_TRIPLET=x64-linux \
+          -DVCPKG_INSTALLED_DIR=${{github.workspace}}/vcpkg_installed \
+          -DBUILD_TESTS=OFF \
+          -DBUILD_GUI_QT=ON
+        
+    - name: Build Linux Release
+      shell: bash
+      run: |
+        cmake --build ${{github.workspace}}/build/linux --parallel $(nproc)
+        
+    - name: Run CPack for Linux
+      shell: bash
+      run: |
+        set -e
+        
+        cpack -G "TGZ;DEB;RPM" -B ${{github.workspace}}/build/linux/release -S ${{github.workspace}}/build/linux --config Release
+        
+        echo "Created packages:"
+        find ${{github.workspace}}/build/linux/release -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" 2>/dev/null | while read f; do
+          echo "  - $(basename $f)"
+          ls -lh "$f"
+        done
+        
+    - name: Upload Linux Release Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-release-packages
+        path: |
+          ${{github.workspace}}/build/linux/release/*.tar.gz
+          ${{github.workspace}}/build/linux/release/*.deb
+          ${{github.workspace}}/build/linux/release/*.rpm
+        retention-days: 5
+
+  # Create GitHub Release
+  create-release:
+    name: Create GitHub Release
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Download Windows packages
+      uses: actions/download-artifact@v4
+      with:
+        name: windows-release-packages
+        path: ${{github.workspace}}/artifacts/windows
+        
+    - name: Download Linux packages
+      uses: actions/download-artifact@v4
+      with:
+        name: linux-release-packages
+        path: ${{github.workspace}}/artifacts/linux
+        
+    - name: List all artifacts
+      run: |
+        echo "=== Windows Packages ==="
+        ls -lh ${{github.workspace}}/artifacts/windows/
+        echo ""
+        echo "=== Linux Packages ==="
+        ls -lh ${{github.workspace}}/artifacts/linux/
+        
+    - name: Generate Checksums
+      run: |
+        echo "### SHA256 Checksums" > checksums.txt
+        echo "" >> checksums.txt
+        echo "#### Windows" >> checksums.txt
+        cd ${{github.workspace}}/artifacts/windows
+        for f in *; do
+          echo "$f:" >> ${{github.workspace}}/checksums.txt
+          sha256sum "$f" >> ${{github.workspace}}/checksums.txt
+          echo "" >> ${{github.workspace}}/checksums.txt
+        done
+        
+        echo "#### Linux" >> checksums.txt
+        cd ${{github.workspace}}/artifacts/linux
+        for f in *; do
+          echo "$f:" >> ${{github.workspace}}/checksums.txt
+          sha256sum "$f" >> ${{github.workspace}}/checksums.txt
+          echo "" >> ${{github.workspace}}/checksums.txt
+        done
+        
+        cat ${{github.workspace}}/checksums.txt
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        draft: false
+        prerelease: ${{ github.event.inputs.prerelease || false }}
+        generate_release_notes: true
+        files: |
+          ${{github.workspace}}/artifacts/windows/*
+          ${{github.workspace}}/artifacts/linux/*
+          ${{github.workspace}}/checksums.txt
+        body: |
+          ## CriptoGualet Release ${{ github.event.inputs.version || github.ref_name }}
+          
+          Secure Non-Custodial Cryptocurrency Wallet
+          
+          ### Downloads
+          
+          #### Windows
+          - NSIS Installer (.exe) - Recommended for Windows users
+          - ZIP Archive (.zip) - Portable version
+          
+          #### Linux
+          - TAR.GZ Archive (.tar.gz) - Universal package
+          - DEB Package (.deb) - Debian/Ubuntu
+          - RPM Package (.rpm) - Fedora/RHEL
+          
+          ### Installation Instructions
+          
+          **Windows:**
+          1. Run the `.exe` installer
+          2. Follow the installation wizard
+          3. Launch CriptoGualet from the Start menu or Desktop shortcut
+          
+          **Linux:**
+          - **DEB:** `sudo dpkg -i CriptoGualet_*.deb`
+          - **RPM:** `sudo rpm -i CriptoGualet_*.rpm`
+          - **TAR.GZ:** Extract and run `./CriptoGualetQt`
+          
+          ### Checksums
+          See `checksums.txt` for SHA256 checksums of all files.
+          
+          ### Requirements
+          
+          - Windows 10/11 (64-bit)
+          - Linux (64-bit) with Qt 6.x
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
