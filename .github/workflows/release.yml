@@ -105,7 +105,7 @@ jobs:
       run: |
         $ErrorActionPreference = "Stop"
         
-        cpack -G "NSIS;ZIP" -B ${{github.workspace}}/build/windows/release -S ${{github.workspace}}/build/windows --config Release
+        cpack -G "NSIS;ZIP" -C Release -B ${{github.workspace}}/build/windows/release -S ${{github.workspace}}/build/windows
         
         if ($LASTEXITCODE -ne 0) {
           Write-Host "CPack failed!"
@@ -195,7 +195,7 @@ jobs:
       run: |
         set -e
         
-        cpack -G "TGZ;DEB;RPM" -B ${{github.workspace}}/build/linux/release -S ${{github.workspace}}/build/linux --config Release
+        cpack -G "TGZ;DEB;RPM" -C Release -B ${{github.workspace}}/build/linux/release -S ${{github.workspace}}/build/linux
         
         echo "Created packages:"
         find ${{github.workspace}}/build/linux/release -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" 2>/dev/null | while read f; do
