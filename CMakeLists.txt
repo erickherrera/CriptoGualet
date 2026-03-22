@@ -826,7 +826,7 @@ elseif(UNIX)
     "Version=1.0\n"
     "Name=CriptoGualet\n"
     "Comment=Secure Non-Custodial Cryptocurrency Wallet\n"
-    "Exec=CriptoGualetQt\n"
+    "Exec=env QT_PLUGIN_PATH=/usr/lib/criptogualet/plugins CriptoGualetQt\n"
     "Icon=criptogualet\n"
     "Terminal=false\n"
     "Type=Application\n"
@@ -847,6 +847,20 @@ elseif(UNIX)
             COMPONENT Runtime)
   endif()
 
+  # Create and install a wrapper script for Qt plugin path
+  # This ensures Qt plugins are found regardless of how the app is launched
+  set(LINUX_WRAPPER_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/criptogualet-wrapper.sh")
+  file(WRITE "${LINUX_WRAPPER_SCRIPT}" 
+    "#!/bin/bash\n"
+    "# Wrapper script for CriptoGualet to set Qt plugin path\n"
+    "export QT_PLUGIN_PATH=\"${CPACK_PACKAGING_INSTALL_PREFIX}/lib/criptogualet/plugins\"\n"
+    "exec \"${CPACK_PACKAGING_INSTALL_PREFIX}/bin/CriptoGualetQt\" \"$@\"\n"
+  )
+  install(PROGRAMS "${LINUX_WRAPPER_SCRIPT}" 
+          DESTINATION bin 
+          RENAME CriptoGualet
+          COMPONENT Runtime)
+
   # Debian package settings
   set(CPACK_DEBIAN_PACKAGE_MAINTAINER "CriptoGualet Team <support@criptogualet.com>")
   set(CPACK_DEBIAN_PACKAGE_SECTION "finance")
@@ -864,7 +878,10 @@ elseif(UNIX)
   set(CPACK_RPM_PACKAGE_URL "https://github.com/erickherrera/CriptoGualet")
   
   # Packaging prefix for standard Linux distributions
-  set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+  # This affects the install() destination paths (e.g., /usr/bin, /usr/lib)
+  # and the package metadata for DEB/RPM packages.
+  # The CI workflow overrides this via -DCMAKE_INSTALL_PREFIX for staging.
+  set(CPACK_PACKAGING_INSTALL_PREFIX "/usr" CACHE PATH "Installation prefix for Linux packages")
 endif()
 
 include(CPack)

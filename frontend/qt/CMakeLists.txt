@@ -564,12 +564,15 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     # Linux Handling
     # -----------------------------------------------------------------------------
     # On Linux, RPATH settings (configured in root CMakeLists.txt) handle most cases.
-    # We use fixup_bundle to verify and copy any missing vcpkg libraries.
+    # We use fixup_bundle to verify and copy any missing vcpkg libraries and install Qt6 plugins
+    # to the application's lib directory for relocatable packaging without requiring root permissions.
     
     install(CODE "
       include(BundleUtilities)
       
-      set(TARGET_EXE \"\${CMAKE_INSTALL_PREFIX}/bin/CriptoGualetQt\")
+      # Use CMAKE_INSTALL_FULL_BINDIR to get the absolute path to the bin directory
+      # This correctly resolves to the staging directory during CPack packaging
+      set(TARGET_EXE \"\${CMAKE_INSTALL_FULL_BINDIR}/CriptoGualetQt\")
       
       # Search paths for Linux dependencies
       set(SEARCH_DIRS 
@@ -600,38 +603,46 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
       endif()
     " COMPONENT Runtime)
     
-    # Install Qt6 plugins for Linux (if not using system Qt)
+    # Install Qt6 plugins for Linux to the application's lib directory (not system paths)
+    # This avoids requiring root permissions and makes the package relocatable
     install(CODE "
-      set(INSTALL_BIN_DIR \"\${CMAKE_INSTALL_PREFIX}/bin\")
+      # Use CMAKE_INSTALL_FULL_LIBDIR for proper absolute paths during CPack staging
+      # This ensures plugins are installed to the staging directory, not system /usr paths
+      set(INSTALL_LIB_DIR \"\${CMAKE_INSTALL_FULL_LIBDIR}/criptogualet\")
       set(QT_PLUGINS_DIR \"\")
 
-      # Try to find Qt6 plugins in common locations
+      # Try to find Qt6 plugins in common locations (vcpkg installed first, then system Qt6)
       if(EXISTS \"${VCPKG_INSTALLED_DIR}/x64-linux/tools/Qt6/plugins\")
         set(QT_PLUGINS_DIR \"${VCPKG_INSTALLED_DIR}/x64-linux/tools/Qt6/plugins\")
       elseif(EXISTS \"/usr/lib/x86_64-linux-gnu/qt6/plugins\")
         set(QT_PLUGINS_DIR \"/usr/lib/x86_64-linux-gnu/qt6/plugins\")
+      elseif(EXISTS \"/usr/lib/qt6/plugins\")
+        set(QT_PLUGINS_DIR \"/usr/lib/qt6/plugins\")
       endif()
 
-      if(QT_PLUGINS_DIR)
+      if(QT_PLUGINS_DIR AND EXISTS \"\${QT_PLUGINS_DIR}\")
         message(STATUS \"Installing Qt6 plugins from: \${QT_PLUGINS_DIR}\")
+        message(STATUS \"Installing Qt6 plugins to: \${INSTALL_LIB_DIR}/plugins\")
 
-        # Create plugins directory
-        file(MAKE_DIRECTORY \"\${INSTALL_BIN_DIR}/plugins\")
-
-        # Install common Qt6 plugins
+        # Install common Qt6 plugins to the application's lib directory
         set(QT_PLUGIN_TYPES \"platforms;imageformats;styles\")
 
         foreach(PLUGIN_TYPE \${QT_PLUGIN_TYPES})
           if(EXISTS \"\${QT_PLUGINS_DIR}/\${PLUGIN_TYPE}\")
-            file(GLOB PLUGINS \"\${QT_PLUGINS_DIR}/\${PLUGIN_TYPE}/*.so\")
+            file(GLOB PLUGINS \"\${QT_PLUGINS_DIR}/\${PLUGIN_TYPE}/*.so*\")
             foreach(PLUGIN \${PLUGINS})
               get_filename_component(PLUGIN_NAME \${PLUGIN} NAME)
-              # Use file(INSTALL) instead of file(COPY) for better permission handling
-              file(INSTALL \"\${PLUGIN}\" DESTINATION \"\${INSTALL_BIN_DIR}/plugins/\${PLUGIN_TYPE}\")
+              # Use file(INSTALL) with TYPE FILE for proper permission handling during CPack staging
+              file(INSTALL \"\${PLUGIN}\" DESTINATION \"\${INSTALL_LIB_DIR}/plugins/\${PLUGIN_TYPE}\" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
               message(STATUS \"  Installed Qt6 \${PLUGIN_TYPE}: \${PLUGIN_NAME}\")
             endforeach()
           endif()
         endforeach()
+        
+        message(STATUS \"Qt6 plugins installed to \${INSTALL_LIB_DIR}/plugins\")
+        message(STATUS \"Set QT_PLUGIN_PATH environment variable to this path for standalone use\")
+      else()
+        message(STATUS \"Qt6 plugins directory not found - plugins may be loaded from system Qt6\")
       endif()
     " COMPONENT Runtime)
   endif()
