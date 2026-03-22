@@ -570,9 +570,9 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     install(CODE "
       include(BundleUtilities)
       
-      # Use CMAKE_INSTALL_FULL_BINDIR to get the absolute path to the bin directory
+      # Use CMAKE_INSTALL_PREFIX to get the absolute path to the bin directory
       # This correctly resolves to the staging directory during CPack packaging
-      set(TARGET_EXE \"\${CMAKE_INSTALL_FULL_BINDIR}/CriptoGualetQt\")
+      set(TARGET_EXE \"\${CMAKE_INSTALL_PREFIX}/bin/CriptoGualetQt\")
       
       # Search paths for Linux dependencies
       set(SEARCH_DIRS 
@@ -606,9 +606,9 @@ if(BUILD_GUI_QT AND Qt6_FOUND)
     # Install Qt6 plugins for Linux to the application's lib directory (not system paths)
     # This avoids requiring root permissions and makes the package relocatable
     install(CODE "
-      # Use CMAKE_INSTALL_FULL_LIBDIR for proper absolute paths during CPack staging
-      # This ensures plugins are installed to the staging directory, not system /usr paths
-      set(INSTALL_LIB_DIR \"\${CMAKE_INSTALL_FULL_LIBDIR}/criptogualet\")
+      # Use CMAKE_INSTALL_PREFIX to construct the lib directory path
+      # This ensures plugins are installed to the staging directory during CPack
+      set(INSTALL_LIB_DIR \"\${CMAKE_INSTALL_PREFIX}/lib/criptogualet\")
       set(QT_PLUGINS_DIR \"\")
 
       # Try to find Qt6 plugins in common locations (vcpkg installed first, then system Qt6)
