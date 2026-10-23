@@ -6,7 +6,7 @@
     // clangd will automatically search parent directories, so this should work
     "--compile-commands-dir=${workspaceFolder}",
     // Specify the build directory for better path resolution
-    "--path-mappings=${workspaceFolder}/out/build/w-msvc-dbg=${workspaceFolder}",
+    "--path-mappings=${workspaceFolder}/out/build/windows-msvc=${workspaceFolder}",
     // Enable background indexing
     "--background-index",
     // Use clang-tidy for additional diagnostics

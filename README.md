@@ -48,19 +48,43 @@ cd CriptoGualet
 Ensure `VCPKG_ROOT` is set in your environment, then the build system will automatically handle dependencies defined in `vcpkg.json`.
 
 ### 3. Configure and Build
-We recommend using the **ClangCL** presets on Windows for optimal performance and safety:
+The default local Windows build uses **MSVC**. A **ClangCL** preset is also available:
 
-**Debug Build (with Address Sanitizer):**
+**MSVC (default):**
 ```powershell
-cmake --preset w-cl-dbg
-cmake --build --preset w-cl-build
+cmake --preset windows-msvc
+cmake --build --preset windows-msvc
 ```
 
-**Release Build (Optimized):**
+**ClangCL:**
 ```powershell
-cmake --preset w-cl-rel
-cmake --build --preset w-cl-build-release
+cmake --preset windows-clang
+cmake --build --preset windows-clang
 ```
+
+**Release:**
+```powershell
+cmake --build --preset windows-msvc --config Release
+```
+
+### 4. Helper Scripts
+PowerShell wrappers are available for the common flows:
+
+```powershell
+# MSVC Debug (configure + build)
+.\scripts\build.ps1
+
+# ClangCL Debug
+.\scripts\build.ps1 -Preset windows-clang
+
+# Release
+.\scripts\build.ps1 -Configuration Release
+
+# Build and run tests
+.\scripts\test.ps1 -Build
+```
+
+Use `-Clean`, `-Target <name>`, `-SkipConfigure`, `-ConfigureOnly`, or `-Filter <regex>` as needed.
 
 ---
 
@@ -69,7 +93,7 @@ cmake --build --preset w-cl-build-release
 To generate a professional Windows Installer (`.exe`) or a portable archive (`.zip`), run CPack from the release build directory:
 
 ```powershell
-cd out/build/w-cl-rel
+cd out/build/windows-msvc
 cpack -G NSIS -C Release
 ```
 
@@ -89,7 +113,7 @@ cpack -G NSIS -C Release
 CriptoGualet includes an extensive test suite for its cryptographic and repository layers:
 
 ```powershell
-ctest --preset w-cl-test
+ctest --preset windows-msvc
 ```
 
 ---
@@ -108,10 +132,11 @@ CriptoGualet uses **GitHub Actions** for continuous integration. Every pull requ
 
 ### Running Checks Locally
 
-Before pushing, run the pre-commit check script:
+Before pushing, run the local build and test wrappers:
 
-```batch
-scripts\pre-commit-check.bat
+```powershell
+.\scripts\build.ps1
+.\scripts\test.ps1
 ```
 
 For detailed CI/CD documentation, see [docs/CI_CD.md](docs/CI_CD.md).

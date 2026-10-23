@@ -15,13 +15,13 @@ Your app uses: `btc/test3` (testnet) - you're safe!
 
 ```bash
 # Configure CMake
-cmake --preset=default
+cmake --preset windows-msvc
 
 # Build debug version
-cmake --build out/build/win-clang-x64-debug
+cmake --build --preset windows-msvc
 
 # Run the application
-./out/build/win-clang-x64-debug/frontend/qt/CriptoGualetQt.exe
+./out/build/windows-msvc/bin/Debug/CriptoGualetQt.exe
 ```
 
 ### Step 2: Create a Test Account
@@ -124,10 +124,10 @@ Your project includes comprehensive tests that use testnet:
 
 ```bash
 # Build tests
-cmake --build out/build/win-clang-x64-debug
+cmake --build --preset windows-msvc
 
 # Run BlockCypher API tests (uses testnet)
-./out/build/win-clang-x64-debug/Tests/test_blockcypher_api.exe
+./out/build/windows-msvc/bin/Debug/test_blockcypher_api.exe
 ```
 
 This test will:
@@ -140,7 +140,7 @@ This test will:
 ### Run BIP39 Seed Tests
 
 ```bash
-./out/build/win-clang-x64-debug/Tests/test_bip39.exe
+./out/build/windows-msvc/bin/Debug/test_bip39.exe
 ```
 
 This tests the seed phrase generation (offline, no network needed).

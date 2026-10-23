@@ -49,9 +49,6 @@ Makefile
 out/**/compile_commands.json
 build*/**/compile_commands.json
 
-# Allow CMakeSettings.json for Visual Studio users
-# CMakeSettings.json - Allow if needed
-
 # Executables and scripts
 *.exe
 *.dll

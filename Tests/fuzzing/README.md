@@ -44,10 +44,10 @@ brew install llvm
 #### Windows (Clang-CL)
 ```bash
 # Configure with Clang-CL and fuzzing enabled
-cmake --preset win-vs2022-clangcl-release -DENABLE_FUZZING=ON
+cmake --preset windows-clang -DENABLE_FUZZING=ON
 
 # Build all fuzzers
-cmake --build out/build/win-vs2022-clangcl-release --target fuzz_address_parsing
+cmake --build --preset windows-clang --config Release --target fuzz_address_parsing
 ```
 
 #### Linux/macOS
@@ -82,7 +82,7 @@ cmake --build . --target run_fuzzers_5min
 
 ```bash
 # Run address parsing fuzzer for 5 minutes
-./out/build/win-vs2022-clangcl-debug/fuzzers/fuzz_address_parsing \
+./out/build/windows-clang/bin/Release/fuzz_address_parsing \
     -max_total_time=300 \
     -max_len=4096 \
     corpus/addresses
@@ -95,10 +95,10 @@ cmake --build . --target run_fuzzers_5min
 
 ```bash
 # Run all fuzzers for 5 minutes each
-cmake --build out/build/win-vs2022-clangcl-debug --target run_fuzzers_5min
+cmake --build --preset windows-clang --config Release --target run_fuzzers_5min
 
 # Run all fuzzers for 1 hour each
-cmake --build out/build/win-vs2022-clangcl-debug --target run_fuzzers_1hour
+cmake --build --preset windows-clang --config Release --target run_fuzzers_1hour
 ```
 
 ### Minimize Corpus
@@ -106,7 +106,7 @@ cmake --build out/build/win-vs2022-clangcl-debug --target run_fuzzers_1hour
 After finding crashes, minimize the corpus to remove redundant inputs:
 
 ```bash
-cmake --build out/build/win-vs2022-clangcl-debug --target minimize_corpus
+cmake --build --preset windows-clang --config Release --target minimize_corpus
 ```
 
 ## Fuzzer Targets
@@ -130,16 +130,6 @@ Place sample inputs in the `corpus/` subdirectories:
 - `corpus/crypto/` - Key material, signatures
 - `corpus/database/` - SQL queries, user input
 - `corpus/json/` - API responses
-
-### Generating Corpus from Real Data
-
-```bash
-# Extract addresses from blockchain
-./scripts/extract_corpus_from_chain.py --type=addresses --output=corpus/addresses/
-
-# Generate synthetic test vectors
-./scripts/generate_test_vectors.py --count=1000 --output=corpus/
-```
 
 ## Interpreting Results
 

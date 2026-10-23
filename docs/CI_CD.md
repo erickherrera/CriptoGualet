@@ -51,8 +51,9 @@ The CI pipeline consists of 4 jobs that run on every pull request and push to `m
 ## Running Checks Locally
 
 ### Quick Check (Windows)
-```batch
-scripts\pre-commit-check.bat
+```powershell
+.\scripts\build.ps1 -Configuration Release
+.\scripts\test.ps1 -Configuration Release
 ```
 
 ### Manual Checks
@@ -111,7 +112,8 @@ The `master` branch is protected with the following rules:
 - `.github/workflows/ci.yml` - Main CI workflow
 - `.clang-format` - Code formatting rules
 - `.clang-tidy` - Static analysis configuration
-- `scripts/pre-commit-check.bat` - Local pre-commit check script
+- `scripts/build.ps1` - Local build helper
+- `scripts/test.ps1` - Local test helper
 
 ## Troubleshooting
 
@@ -135,7 +137,6 @@ vcpkg install --triplet x64-windows
 **Solution**: 
 1. Install LLVM: `choco install llvm`
 2. Run: `clang-format -i <file>` for each failing file
-3. Or use the pre-commit script: `scripts\pre-commit-check.bat`
 
 ### Test Failures
 

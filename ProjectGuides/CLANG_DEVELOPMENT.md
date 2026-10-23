@@ -2,31 +2,36 @@
 
 ## Quick Start
 
+The checked-in presets are `windows-msvc` (default) and `windows-clang`. The
+commands below reuse `out/build/windows-clang`; run
+`.\scripts\build.ps1 -Preset windows-clang -Clean` before switching between
+ASan and LTO configurations.
+
 ### Debug Development with AddressSanitizer (Recommended)
 
-```bash
+```powershell
 # Configure with AddressSanitizer
-cmake --preset win-vs2022-clangcl-debug-asan
+cmake --preset windows-clang -DENABLE_ASAN=ON
 
 # Build
-cmake --build --preset win-vs2022-clangcl-build-asan
+cmake --build --preset windows-clang
 
 # Run (with ASan environment)
-set ASAN_OPTIONS=detect_leaks=1:detect_stack_use_after_return=1
-./out/build/win-vs2022-clangcl-debug-asan/bin/Debug/CriptoGualetQt.exe
+$env:ASAN_OPTIONS = "detect_leaks=1:detect_stack_use_after_return=1"
+.\out\build\windows-clang\bin\Debug\CriptoGualetQt.exe
 ```
 
 ### Release Development with LTO
 
-```bash
+```powershell
 # Configure with Link-Time Optimization
-cmake --preset win-vs2022-clangcl-release-lto
+cmake --preset windows-clang -DENABLE_LTO=ON
 
 # Build
-cmake --build --preset win-vs2022-clangcl-build-lto
+cmake --build --preset windows-clang --config Release
 
 # Run
-./out/build/win-vs2022-clangcl-release-lto/bin/Release/CriptoGualetQt.exe
+.\out\build\windows-clang\bin\Release\CriptoGualetQt.exe
 ```
 
 ## Advanced Clang Features
@@ -58,50 +63,50 @@ cmake --build --preset win-vs2022-clangcl-build-lto
 
 ### MSVC (Faster Debug Builds)
 
-```bash
+```powershell
 # Configure for MSVC Debug
-cmake --preset win-vs2022-x64-debug
+cmake --preset windows-msvc
 
 # Build
-cmake --build --preset win-vs2022-build
+cmake --build --preset windows-msvc
 ```
 
 ### ClangCL (Better Release Performance)
 
-```bash
+```powershell
 # Configure for ClangCL Release with LTO
-cmake --preset win-vs2022-clangcl-release-lto
+cmake --preset windows-clang -DENABLE_LTO=ON
 
 # Build
-cmake --build --preset win-vs2022-clangcl-build-lto
+cmake --build --preset windows-clang --config Release
 ```
 
 ## Security Testing Workflow
 
 ### 1. Development Phase
 
-```bash
+```powershell
 # Use ClangCL + ASan for catching security issues
-cmake --preset win-vs2022-clangcl-debug-asan
-cmake --build --preset win-vs2022-clangcl-build-asan
+cmake --preset windows-clang -DENABLE_ASAN=ON
+cmake --build --preset windows-clang
 ```
 
 ### 2. Testing Phase
 
-```bash
+```powershell
 # Run tests with ASan
-ctest --preset win-vs2022-clangcl-test
+ctest --preset windows-clang --output-on-failure
 
 # Check for ASan reports
-grep -i "runtime error" output.log
+Select-String -Path output.log -Pattern "runtime error"
 ```
 
 ### 3. Release Phase
 
-```bash
+```powershell
 # Optimize for performance
-cmake --preset win-vs2022-clangcl-release-lto
-cmake --build --preset win-vs2022-clangcl-build-lto
+cmake --preset windows-clang -DENABLE_LTO=ON
+cmake --build --preset windows-clang --config Release
 ```
 
 ## Configuration Options
@@ -188,18 +193,18 @@ ls "C:/Program Files/Qt/6.9.1/msvc2022_64/include"
 
 ### 1. Development Workflow
 
-```bash
+```powershell
 # Daily development: MSVC for speed
-cmake --preset win-vs2022-x64-debug
-cmake --build --preset win-vs2022-build
+cmake --preset windows-msvc
+cmake --build --preset windows-msvc
 
 # Security testing: ClangCL + ASan
-cmake --preset win-vs2022-clangcl-debug-asan
-cmake --build --preset win-vs2022-clangcl-build-asan
+cmake --preset windows-clang -DENABLE_ASAN=ON
+cmake --build --preset windows-clang
 
 # Release builds: ClangCL + LTO
-cmake --preset win-vs2022-clangcl-release-lto
-cmake --build --preset win-vs2022-clangcl-build-lto
+cmake --preset windows-clang -DENABLE_LTO=ON
+cmake --build --preset windows-clang --config Release
 ```
 
 ### 2. Testing Strategy
@@ -214,13 +219,13 @@ cmake --build --preset win-vs2022-clangcl-build-lto
 ```yaml
 # GitHub Actions example
 - name: Configure ClangCL
-  run: cmake --preset win-vs2022-clangcl-debug-asan
+  run: cmake --preset windows-clang -DENABLE_ASAN=ON
 
 - name: Build ClangCL
-  run: cmake --build --preset win-vs2022-clangcl-build-asan
+  run: cmake --build --preset windows-clang
 
 - name: Test ClangCL
-  run: ctest --preset win-vs2022-clangcl-test
+  run: ctest --preset windows-clang --output-on-failure
 ```
 
 ## Advanced Usage
@@ -260,43 +265,42 @@ clang-static-analyzer --analyze -Xanalyzer -std=c++20 src/**/*.cpp
 ```text
 CriptoGualet/
 ├── out/build/
-│   ├── win-vs2022-clangcl-debug-asan/        # ClangCL + ASan debug
-│   ├── win-vs2022-clangcl-release-lto/        # ClangCL + LTO release
-│   ├── win-vs2022-msvc-debug/               # MSVC debug
-│   └── win-vs2022-msvc-release/             # MSVC release
-├── compile_commands.json                      # Generated compile commands
-├── CMakePresets.json                       # All available presets
-├── CMakeSettings.json                      # Visual Studio settings
-├── .clangd                                # clangd configuration
-└── .vscode/                              # VS Code configuration
+│   ├── windows-msvc/                        # MSVC builds
+│   ├── windows-clang/                       # ClangCL builds
+│   ├── linux-dbg/                           # Linux debug builds
+│   └── linux-rel/                           # Linux release builds
+├── compile_commands.json                    # Generated compile commands
+├── CMakePresets.json                        # All available presets
+├── .clangd                                  # clangd configuration
+└── .vscode/                                 # VS Code configuration
 ```
 
 ## Getting Help
 
 ### Useful Commands
 
-```bash
+```powershell
 # List all available presets
 cmake --list-presets
 
 # Show preset details
-cmake --preset win-vs2022-clangcl-debug-asan --trace
+cmake --preset windows-clang --trace
 
 # Run specific tests
-ctest --preset win-vs2022-clangcl-test --output-on-failure
+ctest --preset windows-clang --output-on-failure
 
 # Clean build directory
-rm -rf out/build/win-vs2022-clangcl-*
+.\scripts\build.ps1 -Preset windows-clang -Clean -ConfigureOnly
 ```
 
 ### Debugging ASan Issues
 
-```bash
+```powershell
 # Generate ASan report with stack traces
-export ASAN_OPTIONS="symbolize=1:print_stats=1"
+$env:ASAN_OPTIONS = "symbolize=1:print_stats=1"
 
-# Run under debugger with ASan
-gdb ./out/build/win-vs2022-clangcl-debug-asan/bin/Debug/CriptoGualetQt.exe
+# Run under the Visual Studio debugger
+devenv /debugexe .\out\build\windows-clang\bin\Debug\CriptoGualetQt.exe
 ```
 
 ## Summary

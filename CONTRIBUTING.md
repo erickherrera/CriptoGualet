@@ -43,9 +43,12 @@ git submodule update --init --recursive
 # Install dependencies
 vcpkg install --triplet x64-windows
 
-# Build the project
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
-cmake --build build --config Release --parallel
+# Build and test (MSVC Debug by default)
+.\scripts\build.ps1
+.\scripts\test.ps1 -Build
+
+# Release build
+.\scripts\build.ps1 -Configuration Release
 ```
 
 ## Code Standards
@@ -120,17 +123,16 @@ git checkout -b fix/bug-description
 
 ### 3. Run Local Checks
 
-**Before pushing**, run the pre-commit check script:
+**Before pushing**, run the local build and test wrappers:
 
-```batch
-scripts\pre-commit-check.bat
+```powershell
+.\scripts\build.ps1
+.\scripts\test.ps1
 ```
 
-This will verify:
-- ✅ Code formatting
-- ✅ Project builds successfully
-- ✅ All tests pass
-- ✅ Static analysis (optional)
+Also verify:
+- ✅ Code formatting with `clang-format`
+- ✅ Static analysis with `clang-tidy` (optional)
 
 ### 4. Push and Create PR
 
@@ -240,7 +242,7 @@ Review the specific warning:
 set VCPKG_ROOT=C:\path\to\vcpkg
 
 # Or use CMake preset
-cmake --preset win-vs2022
+cmake --preset windows-msvc
 ```
 
 #### Tests Pass Locally But Fail in CI

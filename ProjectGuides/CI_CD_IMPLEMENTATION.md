@@ -51,17 +51,16 @@ I've successfully set up a comprehensive CI/CD pipeline for CriptoGualet with th
 
 ### 2. Local Development Tools
 
-#### Pre-Commit Check Script (`scripts/pre-commit-check.bat`)
-Windows batch script that developers can run locally before pushing:
-- ✅ Checks code formatting
-- ✅ Builds the project
-- ✅ Runs all tests
-- ⚠️ Runs static analysis (if clang-tidy available)
-- Provides clear PASS/FAIL output
+#### Build and Test Wrappers (`scripts/build.ps1`, `scripts/test.ps1`)
+PowerShell scripts that developers can run locally before pushing:
+- `build.ps1` configures and builds the selected preset
+- `test.ps1` runs the CTest suite, with optional build and filter arguments
+- Both support `windows-msvc` (default) and `windows-clang`
 
 **Usage**:
-```batch
-scripts\pre-commit-check.bat
+```powershell
+.\scripts\build.ps1
+.\scripts\test.ps1 -Build
 ```
 
 ### 3. Configuration Files
@@ -105,9 +104,10 @@ To protect your `master` branch, you need to:
    choco install cmake         # If not already installed
    ```
 
-2. **Run pre-commit checks before pushing**:
-   ```batch
-   scripts\pre-commit-check.bat
+2. **Build and test before pushing**:
+   ```powershell
+   .\scripts\build.ps1
+   .\scripts\test.ps1
    ```
 
 ## 📊 CI/CD Pipeline Flow

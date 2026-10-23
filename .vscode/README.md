@@ -15,15 +15,15 @@ Quick reference guide for developing CriptoGualet in both Cursor IDE and Visual 
 ### 2. First Build
 ```powershell
 # Configure (works in both IDEs)
-cmake --preset win-vs2022-x64-debug
+cmake --preset windows-msvc
 
 # Build
-cmake --build out/build/win-vs2022-x64-debug --config Debug
+cmake --build --preset windows-msvc
 ```
 
 ### 3. Start Debugging
 - Press `F5`
-- Select: **Debug CriptoGualet Qt (Visual Studio Build)**
+- Select: **Debug CriptoGualet Qt (MSVC)**
 
 ---
 
@@ -40,22 +40,17 @@ cmake --build out/build/win-vs2022-x64-debug --config Debug
 | `Shift+F5` | Stop |
 
 ### Debug Configurations
-1. **Debug CriptoGualet Qt (Visual Studio Build)** ⭐ Recommended
+1. **Debug CriptoGualet Qt (MSVC)** ⭐ Recommended
    - Auto-builds before debugging
-   - Executable: `out/build/win-vs2022-x64-debug/bin/Debug/CriptoGualetQt.exe`
+   - Executable: `out/build/windows-msvc/bin/Debug/CriptoGualetQt.exe`
 
-2. **Debug CriptoGualet Qt (Ninja Build)**
-   - Advanced: Requires Ninja setup
-   - Executable: `out/build/win-ninja-x64-debug/bin/CriptoGualetQt.exe`
-
-3. **Debug CriptoGualet Qt (No Build)**
-   - Skips build step for quick re-runs
+2. **Debug CriptoGualet Qt (Clang-CL)**
+   - Auto-builds with the ClangCL toolset
+   - Executable: `out/build/windows-clang/bin/Debug/CriptoGualetQt.exe`
 
 ### Test Debugging
-- **Debug BIP39 Tests**
-- **Debug Repository Integration Tests**
-- **Debug Auth Database Tests**
-- **Debug Current Test File** - Auto-detects test from open file
+- **Debug Current Test File (MSVC)** - Auto-detects test from open file
+- **Debug Current Test File (Clang-CL)** - Auto-detects test from open file
 
 ---
 
@@ -63,24 +58,21 @@ cmake --build out/build/win-vs2022-x64-debug --config Debug
 
 ### CMake Presets
 
-**Recommended (Both IDEs):**
-- `win-vs2022-x64-debug` - Debug build
-- `win-vs2022-x64-release` - Release build
-
-**Advanced (Ninja):**
-- `win-ninja-x64-debug` - Requires Developer Command Prompt
-- `win-ninja-x64-release` - Advanced users only
+**Local Windows builds:**
+- `windows-msvc` - Default MSVC build
+- `windows-clang` - ClangCL build
 
 ### Build Tasks
 Access via `Ctrl+Shift+P` → "Tasks: Run Task":
-- **CMake: build** - Build with Visual Studio generator
-- **CMake: build (Ninja)** - Advanced Ninja build
-- **CMake: configure (Visual Studio)** - Configure VS generator
-- **CMake: configure (Ninja)** - Advanced configuration
+- **CMake: build (MSVC)** - Build the MSVC preset
+- **CMake: build (Clang-CL)** - Build the ClangCL preset
+- **CMake: configure (MSVC)** - Configure the MSVC preset
+- **CMake: configure (Clang-CL)** - Configure the ClangCL preset
+- **Run Tests (MSVC)** / **Run Tests (Clang-CL)** - Run CTest
 
 ### Output Locations
 ```
-out/build/win-vs2022-x64-debug/
+out/build/windows-msvc/
 ├── bin/Debug/
 │   ├── CriptoGualetQt.exe          # Main app
 │   ├── test_*.exe                  # Tests
@@ -122,11 +114,11 @@ out/build/win-vs2022-x64-debug/
 
 ### Visual Studio 2022
 1. Open folder in VS 2022
-2. Select `win-vs2022-x64-debug` from preset dropdown
+2. Select `windows-msvc` (or `windows-clang`) from the preset dropdown
 3. Press `F5` to build and debug
 4. Full native integration
 
-**Both IDEs share the same build directory: `out/build/win-vs2022-x64-debug/`**
+**Both IDEs share the same build directory: `out/build/windows-msvc/`**
 
 ---
 
@@ -144,10 +136,10 @@ out/build/win-vs2022-x64-debug/
 ### Running Tests
 ```powershell
 # All tests
-Ctrl+Shift+P → Tasks: Run Task → Run All Tests
+Ctrl+Shift+P → Tasks: Run Task → Run Tests (MSVC)
 
 # Individual test
-./out/build/win-vs2022-x64-debug/bin/Debug/test_bip39.exe
+./out/build/windows-msvc/bin/Debug/test_bip39.exe
 
 # Debug test
 F5 → Select test configuration
@@ -156,7 +148,7 @@ F5 → Select test configuration
 ### Adding New Files
 ```
 1. Add to CMakeLists.txt
-2. Run: CMake: configure (Visual Studio)
+2. Run: CMake: configure (MSVC)
 3. Build: Ctrl+Shift+B
 4. Restart clangd if needed
 ```
@@ -215,8 +207,8 @@ F5 → Select test configuration
 
 | Component | Path |
 |-----------|------|
-| Executable | `out/build/win-vs2022-x64-debug/bin/Debug/CriptoGualetQt.exe` |
-| Tests | `out/build/win-vs2022-x64-debug/bin/Debug/test_*.exe` |
+| Executable | `out/build/windows-msvc/bin/Debug/CriptoGualetQt.exe` |
+| Tests | `out/build/windows-msvc/bin/Debug/test_*.exe` |
 | CMake | `C:\Program Files\Microsoft Visual Studio\2022\Community\...\cmake.exe` |
 | Qt DLLs | `C:\Program Files\Qt\6.9.1\msvc2022_64\bin` |
 
@@ -236,6 +228,6 @@ F5 → Select test configuration
 ---
 
 ## Additional Resources
-- Project docs: `.claude/CLAUDE.md`
+- Project docs: [`../ProjectGuides/INDEX.md`](../ProjectGuides/INDEX.md)
 - CMake presets: `../CMakePresets.json`
 - Formatting: `../.clang-format`

@@ -51,38 +51,34 @@ echo $env:VCPKG_ROOT
 
 ### 3. Configure the Project
 
-Use the Visual Studio generator:
-
-#### Visual Studio Generator (Recommended - Most Stable)
+The Visual Studio generator is multi-config, so one preset supports both Debug and Release:
 
 ```bash
-# Configure for Debug
-cmake --preset=win-vs2022-x64-debug
+# Default MSVC configuration
+cmake --preset windows-msvc
 
-# Or configure for Release
-cmake --preset=win-vs2022-x64-release
+# ClangCL configuration
+cmake --preset windows-clang
 ```
 
 ### 4. Build the Project
 
-#### If using Visual Studio generator:
-
 ```bash
-# Build Debug
-cmake --build out/build/win-vs2022-x64-debug --config Debug
+# Build Debug (default)
+cmake --build --preset windows-msvc
 
 # Build Release
-cmake --build out/build/win-vs2022-x64-release --config Release
+cmake --build --preset windows-msvc --config Release
 ```
 
 ### 5. Run the Application
 
 ```bash
 # Qt GUI Application (recommended)
-./out/build/win-vs2022-x64-debug/bin/Debug/CriptoGualetQt.exe
+./out/build/windows-msvc/bin/Debug/CriptoGualetQt.exe
 
 # Or Win32 GUI Application (if BUILD_GUI_WIN32 is enabled)
-./out/build/win-vs2022-x64-debug/bin/Debug/CriptoGualet.exe
+./out/build/windows-msvc/bin/Debug/CriptoGualet.exe
 ```
 
 ## Building in Visual Studio IDE
@@ -107,7 +103,7 @@ If CMake cannot find Qt:
 
 2. Or manually set Qt path:
    ```bash
-   cmake --preset=win-vs2022-x64-debug -DCMAKE_PREFIX_PATH="C:/Path/To/Qt/6.9.1/msvc2022_64"
+   cmake --preset windows-msvc -DCMAKE_PREFIX_PATH="C:/Path/To/Qt/6.9.1/msvc2022_64"
    ```
 
 ### vcpkg Dependencies Not Installing
@@ -138,30 +134,30 @@ If CMake cannot find the compiler:
 
 ```bash
 # Run all tests
-cmake --build out/build/win-vs2022-x64-debug --config Debug --target RUN_TESTS
+ctest --preset windows-msvc --output-on-failure
 
 # Or run individual test executables
-./out/build/win-vs2022-x64-debug/bin/Debug/test_database.exe
-./out/build/win-vs2022-x64-debug/bin/Debug/test_auth_database_integration.exe
+./out/build/windows-msvc/bin/Debug/test_database.exe
+./out/build/windows-msvc/bin/Debug/test_auth_database_integration.exe
 ```
 
 ### Clean Build
 
 ```bash
 # Remove build directory
-Remove-Item -Recurse -Force out/build/win-vs2022-x64-debug
+Remove-Item -Recurse -Force out/build/windows-msvc
 
 # Reconfigure
-cmake --preset=win-vs2022-x64-debug
+cmake --preset windows-msvc
 
 # Rebuild
-cmake --build out/build/win-vs2022-x64-debug --config Debug
+cmake --build --preset windows-msvc
 ```
 
 ### Available Build Presets
 
-- `win-vs2022-x64-debug` - Visual Studio 2022, x64, Debug (recommended for IDE)
-- `win-vs2022-x64-release` - Visual Studio 2022, x64, Release
+- `windows-msvc` - Local Windows, x64, MSVC (default)
+- `windows-clang` - Local Windows, x64, ClangCL
 
 ## Project Structure
 
@@ -209,6 +205,5 @@ The project automatically installs these via vcpkg:
 - `out/` - Build output directory
 - `vcpkg_installed/` - Installed dependencies
 - `.vs/` - Visual Studio cache
-- `CMakeSettings.json` - Local VS CMake settings (if it exists)
 
 The project is now fully portable! Just install the prerequisites and run cmake configure.

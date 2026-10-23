@@ -2,178 +2,52 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug CriptoGualet Qt (Visual Studio Build)",
+            "name": "Debug CriptoGualet Qt (MSVC)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/windows-msvc/bin/Debug/CriptoGualetQt.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
+            "cwd": "${workspaceFolder}/out/build/windows-msvc/bin/Debug",
             "env": {
-                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}"
+                "PATH": "${workspaceFolder}\\out\\v\\x64-windows\\debug\\bin;${env:QT_ROOT_DIR}\\bin;${env:PATH}"
             },
-            "preLaunchTask": "CMake: build"
+            "preLaunchTask": "CMake: build (MSVC)"
         },
         {
-            "name": "Debug CriptoGualet Qt (ClangCL + ASan)",
+            "name": "Debug CriptoGualet Qt (Clang-CL)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/w-cl-dbg-asan/bin/Debug/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/windows-clang/bin/Debug/CriptoGualetQt.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/w-cl-dbg-asan/bin/Debug",
+            "cwd": "${workspaceFolder}/out/build/windows-clang/bin/Debug",
             "env": {
-                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}",
-                "ASAN_OPTIONS": "detect_leaks=1:detect_stack_use_after_return=1"
+                "PATH": "${workspaceFolder}\\out\\v\\x64-windows\\debug\\bin;${env:QT_ROOT_DIR}\\bin;${env:PATH}"
             },
-            "preLaunchTask": "CMake: build (ClangCL ASan)"
+            "preLaunchTask": "CMake: build (Clang-CL)"
         },
         {
-            "name": "Debug CriptoGualet Qt (ClangCL + LTO)",
+            "name": "Debug Current Test File (MSVC)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/w-cl-rel-lto/bin/Release/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/windows-msvc/bin/Debug/${fileBasenameNoExtension}.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/w-cl-rel-lto/bin/Release",
+            "cwd": "${workspaceFolder}/out/build/windows-msvc/bin/Debug",
             "env": {
-                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}"
+                "PATH": "${workspaceFolder}\\out\\v\\x64-windows\\debug\\bin;${env:QT_ROOT_DIR}\\bin;${env:PATH}"
             },
-            "preLaunchTask": "CMake: build (ClangCL LTO)"
+            "preLaunchTask": "CMake: build (MSVC)"
         },
         {
-            "name": "Debug CriptoGualet Qt (Ninja Build)",
+            "name": "Debug Current Test File (Clang-CL)",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/CriptoGualetQt.exe",
+            "program": "${workspaceFolder}/out/build/windows-clang/bin/Debug/${fileBasenameNoExtension}.exe",
             "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
+            "cwd": "${workspaceFolder}/out/build/windows-clang/bin/Debug",
             "env": {
-                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}"
+                "PATH": "${workspaceFolder}\\out\\v\\x64-windows\\debug\\bin;${env:QT_ROOT_DIR}\\bin;${env:PATH}"
             },
-            "preLaunchTask": "CMake: build (Ninja)"
-        },
-        {
-            "name": "Debug CriptoGualet Qt (No Build)",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/CriptoGualetQt.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
-            "env": {
-                "PATH": "${env:QT_ROOT_DIR}\\bin;${env:PATH}"
-            }
-        },
-        {
-            "name": "Debug BIP39 Tests",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_bip39.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
-            "preLaunchTask": "CMake: build (Ninja)"
-        },
-        {
-            "name": "Debug Repository Integration Tests",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_repository_integration.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
-            "preLaunchTask": "CMake: build (Ninja)"
-        },
-        {
-            "name": "Debug Auth Database Tests",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_auth_database_integration.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
-            "preLaunchTask": "CMake: build (Ninja)"
-        },
-        {
-            "name": "Debug 2FA Tests",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_2fa.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
-            "preLaunchTask": "CMake: build (Ninja)"
-        },
-        {
-            "name": "Debug 2FA Tests (Visual Studio Build)",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/test_2fa.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
-            "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
-            },
-            "preLaunchTask": "CMake: build"
-        },
-        {
-            "name": "Debug Current Test File",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/${fileBasenameNoExtension}.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
-            "preLaunchTask": "CMake: build (Ninja)"
-        },
-        {
-            "name": "Debug Current Test File (Visual Studio Build)",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/${fileBasenameNoExtension}.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
-            "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
-            },
-            "preLaunchTask": "CMake: build"
-        },
-        {
-            "name": "Debug Multi-Chain Wallets Test",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_multichain_wallets.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin",
-            "preLaunchTask": "CMake: build (Ninja)"
-        },
-        {
-            "name": "Debug BIP39 Tests (Visual Studio Build)",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/test_bip39.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
-            "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
-            },
-            "preLaunchTask": "CMake: build"
-        },
-        {
-            "name": "Debug Repository Integration Tests (Visual Studio Build)",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/test_repository_integration.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
-            "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
-            },
-            "preLaunchTask": "CMake: build"
-        },
-        {
-            "name": "Debug Auth Database Tests (Visual Studio Build)",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug/test_auth_database_integration.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/out/build/w-msvc-dbg/bin/Debug",
-            "env": {
-                "PATH": "${workspaceFolder}\\out\\build\\w-msvc-dbg\\bin\\Debug;${workspaceFolder}\\out\\build\\w-msvc-dbg\\vcpkg_installed\\x64-windows\\debug\\bin;${env:PATH}"
-            },
-            "preLaunchTask": "CMake: build"
+            "preLaunchTask": "CMake: build (Clang-CL)"
         }
     ]
 }

@@ -11,7 +11,6 @@ This comprehensive documentation suite provides complete architectural, technica
 ### Getting Started
 - [Setup Guide](SETUP.md) - Complete Windows setup instructions
 - [Qt Installation](INSTALL_QT_GUIDE.md) - Qt6 installation for all platforms
-- [QR Code Setup](QR_SETUP.md) - libqrencode installation and configuration
 - [Testnet Testing](TESTNET_TESTING_GUIDE.md) - Safe testing with fake Bitcoin
 
 ### Architecture Documentation
@@ -23,8 +22,6 @@ This comprehensive documentation suite provides complete architectural, technica
 
 ### Feature Guides
 - [Expandable Wallet Card Usage](EXPANDABLE_WALLET_USAGE.md) - Reusable Qt wallet component
-- [Qt Implementation](QT_IMPLEMENTATION.md) - Qt framework integration
-- [Multi-Chain Quick Reference](MULTI_CHAIN_QUICK_REFERENCE.md) - Fast lookup for multi-chain features
 
 ---
 
@@ -37,7 +34,6 @@ graph TB
     subgraph "Getting Started"
         Setup[SETUP.md<br/>Windows Setup]
         QtInstall[INSTALL_QT_GUIDE.md<br/>Qt6 Installation]
-        QRSetup[QR_SETUP.md<br/>QR Library Setup]
         Testnet[TESTNET_TESTING_GUIDE.md<br/>Safe Testing]
     end
 
@@ -51,13 +47,10 @@ graph TB
 
     subgraph "Feature Guides"
         WalletCard[EXPANDABLE_WALLET_USAGE.md<br/>Wallet Card Component]
-        QtImpl[QT_IMPLEMENTATION.md<br/>Qt Integration]
-        QuickRef[MULTI_CHAIN_QUICK_REFERENCE.md<br/>Quick Reference]
     end
 
     Index --> Setup
     Index --> QtInstall
-    Index --> QRSetup
     Index --> Testnet
 
     Index --> SystemArch
@@ -67,8 +60,6 @@ graph TB
     Index --> Workflows
 
     Index --> WalletCard
-    Index --> QtImpl
-    Index --> QuickRef
 
     style Index fill:#4A90E2,stroke:#2E5C8A,stroke-width:3px,color:#fff
 ```
@@ -97,8 +88,7 @@ graph TB
 **UI Development:**
 1. [QT_UI_ARCHITECTURE.md](QT_UI_ARCHITECTURE.md) - Complete Qt widget hierarchy
 2. [EXPANDABLE_WALLET_USAGE.md](EXPANDABLE_WALLET_USAGE.md) - Reusable wallet card component
-3. [QT_IMPLEMENTATION.md](QT_IMPLEMENTATION.md) - Qt integration patterns
-4. [INSTALL_QT_GUIDE.md](INSTALL_QT_GUIDE.md) - Qt6 setup
+3. [INSTALL_QT_GUIDE.md](INSTALL_QT_GUIDE.md) - Qt6 setup
 
 **Theme & UX:**
 - [QT_UI_ARCHITECTURE.md § Theme System](QT_UI_ARCHITECTURE.md#theme-system)
@@ -116,7 +106,6 @@ graph TB
 
 **Blockchain Integration:**
 - [MULTI_CHAIN_ARCHITECTURE.md § Blockchain Service Layer](MULTI_CHAIN_ARCHITECTURE.md#2-blockchain-service-layer)
-- [MULTI_CHAIN_QUICK_REFERENCE.md](MULTI_CHAIN_QUICK_REFERENCE.md) - API endpoints and functions
 
 ---
 
@@ -142,8 +131,7 @@ graph TB
 **Build & Deployment:**
 1. [SETUP.md](SETUP.md) - Build system configuration
 2. [INSTALL_QT_GUIDE.md](INSTALL_QT_GUIDE.md) - Qt dependency management
-3. [QR_SETUP.md](QR_SETUP.md) - Optional library setup
-4. [SYSTEM_ARCHITECTURE.md § Deployment Architecture](SYSTEM_ARCHITECTURE.md#deployment-architecture)
+3. [SYSTEM_ARCHITECTURE.md § Deployment Architecture](SYSTEM_ARCHITECTURE.md#deployment-architecture)
 
 **Testing:**
 - [TESTNET_TESTING_GUIDE.md](TESTNET_TESTING_GUIDE.md) - Safe testing procedures
@@ -174,7 +162,6 @@ graph TB
 | **Ethereum** | [MULTI_CHAIN_ARCHITECTURE.md](MULTI_CHAIN_ARCHITECTURE.md) | § EthereumService Client |
 | **Multi-Chain Design** | [MULTI_CHAIN_ARCHITECTURE.md](MULTI_CHAIN_ARCHITECTURE.md) | § Multi-Chain Design Principles |
 | **Future Chains** | [MULTI_CHAIN_ARCHITECTURE.md](MULTI_CHAIN_ARCHITECTURE.md) | § Future Chain Support |
-| **API Endpoints** | [MULTI_CHAIN_QUICK_REFERENCE.md](MULTI_CHAIN_QUICK_REFERENCE.md) | § API Endpoints |
 
 ---
 
@@ -274,8 +261,6 @@ Polygon:          m/44'/966'/0'/0/0
 Avalanche:        m/44'/9000'/0'/0/0
 ```
 
-Full details: [MULTI_CHAIN_QUICK_REFERENCE.md § BIP44 Derivation Paths](MULTI_CHAIN_QUICK_REFERENCE.md#bip44-derivation-paths)
-
 ---
 
 ### Common Tasks
@@ -297,8 +282,6 @@ double btc = wallet.ConvertSatoshisToBTC(satoshis);
 ```cpp
 wallet.SendFunds(from_addresses, to_address, amount_satoshis, private_keys, fee_satoshis);
 ```
-
-Full reference: [MULTI_CHAIN_QUICK_REFERENCE.md § Common Operations](MULTI_CHAIN_QUICK_REFERENCE.md#common-operations)
 
 ---
 
@@ -374,11 +357,8 @@ When updating documentation:
 | [QT_UI_ARCHITECTURE.md](QT_UI_ARCHITECTURE.md) | 1.0 | 2025-11-16 | ✅ Current |
 | [EXPANDABLE_WALLET_USAGE.md](EXPANDABLE_WALLET_USAGE.md) | 1.1 | 2025-11-16 | ✅ Updated |
 | [INSTALL_QT_GUIDE.md](INSTALL_QT_GUIDE.md) | 1.1 | 2025-11-16 | ✅ Updated |
-| [QR_SETUP.md](QR_SETUP.md) | 1.1 | 2025-11-16 | ✅ Updated |
-| [QT_IMPLEMENTATION.md](QT_IMPLEMENTATION.md) | 1.0 | 2025-10-19 | ✅ Current |
 | [SETUP.md](SETUP.md) | 1.0 | 2025-10-19 | ✅ Current |
 | [TESTNET_TESTING_GUIDE.md](TESTNET_TESTING_GUIDE.md) | 1.0 | 2025-11-01 | ✅ Current |
-| [MULTI_CHAIN_QUICK_REFERENCE.md](MULTI_CHAIN_QUICK_REFERENCE.md) | 1.0 | 2025-11-10 | ✅ Current |
 
 ---
 

@@ -4,7 +4,7 @@ This guide details the steps to build, package, and release CriptoGualet for Win
 
 ## Prerequisites
 
-Ensure you have the development environment set up as per `GEMINI.md` and `SETUP.md`:
+Ensure you have the development environment set up as per `SETUP.md`:
 *   Visual Studio 2022 with C++ Desktop Development workload.
 *   Clang-CL (installed via VS Installer).
 *   CMake (3.20+).
@@ -16,26 +16,24 @@ Ensure you have the development environment set up as per `GEMINI.md` and `SETUP
 For a production release, it is CRITICAL to start with a clean build directory. Mismatches in the MSVC runtime library (e.g., `_ITERATOR_DEBUG_LEVEL` errors) are often caused by stale CMake cache from previous Debug builds.
 
 ```powershell
-# Delete the existing build directory for the release preset
-Remove-Item -Recurse -Force "out/build/win-vs2022-clangcl-release" -ErrorAction SilentlyContinue
+# Delete the existing build directory for the Clang preset
+Remove-Item -Recurse -Force "out/build/windows-clang" -ErrorAction SilentlyContinue
 ```
 
 ## 2. Configure the Project
 
-Run CMake with the release preset. This configures the project for optimization (`-O3`, `NDEBUG`) and prepares the build system.
+Configure the ClangCL preset. The Visual Studio generator is multi-config, so Release is selected at build time.
 
 ```powershell
-cmake --preset win-vs2022-clangcl-release
+cmake --preset windows-clang
 ```
-
-*Optional: For maximum performance (Link-Time Optimization), use `win-vs2022-clangcl-release-lto` instead.*
 
 ## 3. Build the Project
 
-Build the project using the release configuration.
+Build the project using the Release configuration.
 
 ```powershell
-cmake --build --preset win-vs2022-clangcl-build-release
+cmake --build --preset windows-clang --config Release
 ```
 
 ## 4. Packaging (Create Installer & Zip)
@@ -47,7 +45,7 @@ The project is configured with CPack to generate:
 Run CPack from the build directory:
 
 ```powershell
-cd out/build/win-vs2022-clangcl-release
+cd out/build/windows-clang
 cpack -C Release
 ```
 
@@ -62,7 +60,7 @@ cpack -C Release
 
 After `cpack` completes, your release files will be located in:
 
-`out/build/win-vs2022-clangcl-release/`
+`out/build/windows-clang/`
 
 Look for files named like:
 *   `CriptoGualet-1.0.0-win64.exe` (Installer)

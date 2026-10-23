@@ -2,14 +2,59 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "CMake: build",
+            "label": "CMake: configure (MSVC)",
             "type": "shell",
-            "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "command": "cmake",
+            "args": [
+                "--preset",
+                "windows-msvc"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": [],
+            "windows": {
+                "options": {
+                    "shell": {
+                        "executable": "powershell.exe",
+                        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+                    }
+                }
+            }
+        },
+        {
+            "label": "CMake: configure (Clang-CL)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--preset",
+                "windows-clang"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": [],
+            "windows": {
+                "options": {
+                    "shell": {
+                        "executable": "powershell.exe",
+                        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+                    }
+                }
+            }
+        },
+        {
+            "label": "CMake: build (MSVC)",
+            "type": "shell",
+            "command": "cmake",
             "args": [
                 "--build",
-                "${workspaceFolder}/out/build/w-msvc-dbg",
-                "--config",
-                "Debug"
+                "--preset",
+                "windows-msvc"
             ],
             "group": {
                 "kind": "build",
@@ -32,12 +77,13 @@
             }
         },
         {
-            "label": "CMake: build (Ninja)",
+            "label": "CMake: build (Clang-CL)",
             "type": "shell",
-            "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "command": "cmake",
             "args": [
                 "--build",
-                "${workspaceFolder}/out/build/win-ninja-x64-debug"
+                "--preset",
+                "windows-clang"
             ],
             "group": "build",
             "presentation": {
@@ -57,36 +103,15 @@
             }
         },
         {
-            "label": "CMake: configure (Visual Studio)",
+            "label": "Run Tests (MSVC)",
             "type": "shell",
-            "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
+            "command": "ctest",
             "args": [
                 "--preset",
-                "w-msvc-dbg"
+                "windows-msvc",
+                "--output-on-failure"
             ],
-            "group": "build",
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated"
-            },
-            "windows": {
-                "options": {
-                    "shell": {
-                        "executable": "powershell.exe",
-                        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
-                    }
-                }
-            }
-        },
-        {
-            "label": "CMake: configure (Ninja)",
-            "type": "shell",
-            "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
-            "args": [
-                "--preset",
-                "win-ninja-x64-debug"
-            ],
-            "group": "build",
+            "group": "test",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated"
@@ -102,59 +127,28 @@
             }
         },
         {
-            "label": "Run All Tests",
+            "label": "Run Tests (Clang-CL)",
             "type": "shell",
-            "command": "powershell.exe",
+            "command": "ctest",
             "args": [
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                "Get-ChildItem",
-                "-Path",
-                "${workspaceFolder}/out/build/*/bin",
-                "-Filter",
-                "test_*.exe",
-                "-Recurse",
-                "|",
-                "ForEach-Object",
-                "{",
-                "Write-Host",
-                "\"Running $($_.Name)...\";",
-                "&",
-                "$_.FullName;",
-                "Write-Host",
-                "\"\" ",
-                "}"
+                "--preset",
+                "windows-clang",
+                "--output-on-failure"
             ],
             "group": "test",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated"
             },
-            "problemMatcher": []
-        },
-        {
-            "label": "Run BIP39 Tests",
-            "type": "shell",
-            "command": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_bip39.exe",
-            "group": "test",
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated"
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Run Repository Integration Tests",
-            "type": "shell",
-            "command": "${workspaceFolder}/out/build/win-ninja-x64-debug/bin/test_repository_integration.exe",
-            "group": "test",
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated"
-            },
-            "problemMatcher": []
+            "problemMatcher": [],
+            "windows": {
+                "options": {
+                    "shell": {
+                        "executable": "powershell.exe",
+                        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
+                    }
+                }
+            }
         },
         {
             "label": "Clean Build Directory",
@@ -183,7 +177,7 @@
         {
             "label": "vcpkg: Install Dependencies",
             "type": "shell",
-            "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\vcpkg\\vcpkg.exe",
+            "command": "${env:VCPKG_ROOT}/vcpkg.exe",
             "args": [
                 "install",
                 "--triplet",
@@ -198,53 +192,7 @@
                 "panel": "dedicated",
                 "focus": true
             },
-            "problemMatcher": []
-        },
-        {
-            "label": "CMake: build (ClangCL ASan)",
-            "type": "shell",
-            "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
-            "args": [
-                "--build",
-                "${workspaceFolder}/out/build/w-cl-dbg-asan",
-                "--config",
-                "Debug"
-            ],
-            "group": "build",
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated"
-            },
-            "problemMatcher": [
-                "$msCompile"
-            ],
-            "windows": {
-                "options": {
-                    "shell": {
-                        "executable": "powershell.exe",
-                        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]
-                    }
-                }
-            }
-        },
-        {
-            "label": "CMake: build (ClangCL LTO)",
-            "type": "shell",
-            "command": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe",
-            "args": [
-                "--build",
-                "${workspaceFolder}/out/build/w-cl-rel-lto",
-                "--config",
-                "Release"
-            ],
-            "group": "build",
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated"
-            },
-            "problemMatcher": [
-                "$msCompile"
-            ],
+            "problemMatcher": [],
             "windows": {
                 "options": {
                     "shell": {
