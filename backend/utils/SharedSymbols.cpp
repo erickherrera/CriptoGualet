@@ -22,8 +22,7 @@ std::map<std::string, User> g_users;
 std::string g_currentUser;
 
 namespace {
-constexpr char BASE58_ALPHABET[] =
-    "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+constexpr char BASE58_ALPHABET[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 static std::string EncodeBase58(const std::vector<uint8_t>& data) {
     std::vector<uint8_t> temp(data);
@@ -70,7 +69,8 @@ static std::vector<uint8_t> SHA256Hash(const std::vector<uint8_t>& data) {
         throw std::runtime_error("Failed to create hash");
     }
 
-    status = BCryptHashData(hHash, const_cast<PUCHAR>(data.data()), static_cast<ULONG>(data.size()), 0);
+    status =
+        BCryptHashData(hHash, const_cast<PUCHAR>(data.data()), static_cast<ULONG>(data.size()), 0);
     if (!BCRYPT_SUCCESS(status)) {
         BCryptDestroyHash(hHash);
         BCryptCloseAlgorithmProvider(hAlg, 0);

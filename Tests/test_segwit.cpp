@@ -81,7 +81,9 @@ void testBIP84Derivation() {
                 "BIP84 derivation failed");
 
     std::cout << "    BIP84 Address (m/84'/0'/0'/0/0): " << address << std::endl;
-    TEST_ASSERT(address.substr(0, 3) == "bc1", "Address should start with bc1");
+    // Expected address for "abandon..." mnemonic (11x abandon + 1x about), m/84'/0'/0'/0/0
+    TEST_ASSERT(address == "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",
+                "BIP84 address mismatch for test vector");
 
     // Test Testnet BIP84: m/84'/1'/0'/0/0
     std::string testnet_address;

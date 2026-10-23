@@ -25,17 +25,14 @@ void testRLPDecimalEncoding() {
         std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b;
     std::cout << std::dec << std::endl;
 
-    uint8_t expected[] = {0x88, 0x0d, 0xe0, 0xb6, 0x3a, 0x76, 0x40, 0x00, 0x00};
-    // Wait, let me double check the hex conversion of 10^18
-    // 10^18 = 0x0DE0B6B3A7640000
-    // So 9 bytes total with the 0x88 prefix.
+    uint8_t expected[] = {0x88, 0x0d, 0xe0, 0xb6, 0xb3, 0xa7, 0x64, 0x00, 0x00};
+    // 10^18 = 0x0DE0B6B3A7640000 (8 bytes)
+    // RLP prefix = 0x80 + 8 = 0x88
 
     TEST_ASSERT(encoded.size() == 9, "RLP encoded size should be 9 bytes");
-    TEST_ASSERT(encoded[0] == 0x88, "RLP prefix should be 0x88");
-
-    // Check first few bytes of payload
-    TEST_ASSERT(encoded[1] == 0x0d, "Payload byte 1 mismatch");
-    TEST_ASSERT(encoded[2] == 0xe0, "Payload byte 2 mismatch");
+    for (size_t i = 0; i < 9; ++i) {
+        TEST_ASSERT(encoded[i] == expected[i], "RLP byte mismatch at index " + std::to_string(i));
+    }
 
     // Test zero
     std::vector<uint8_t> encodedZero = RLP::Encoder::EncodeDecimal("0");
